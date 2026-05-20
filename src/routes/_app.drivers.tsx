@@ -385,50 +385,121 @@ function PendingRegistrations() {
 
 
 function ComplianceCell({ c }: { c: Compliance | undefined }) {
+  const [open, setOpen] = useState(false);
   if (!c) {
     return <span className="text-[11px] text-muted-foreground/50">—</span>;
   }
   const dot =
+    c.status === "breach" ? "bg-destructive" : c.status === "warn" ? "bg-warning" : "bg-success";
+  const ring =
     c.status === "breach"
-      ? "bg-destructive"
+      ? "border-destructive/40 text-destructive hover:bg-destructive/5"
       : c.status === "warn"
-        ? "bg-warning"
-        : "bg-success";
-  const ringColor =
-    c.status === "breach"
-      ? "border-destructive/40 text-destructive"
-      : c.status === "warn"
-        ? "border-warning/40 text-warning"
-        : "border-success/30 text-success";
+        ? "border-warning/40 text-warning hover:bg-warning/5"
+        : "border-success/30 text-success hover:bg-success/5";
+
+  const tightest = Math.min(c.dailyHeadroom, c.weeklyHeadroom);
+  const label =
+    c.status === "breach" ? "Breach" : c.status === "warn" ? "Warning" : `${tightest.toFixed(1)}h left`;
+
   return (
-    <div className="flex flex-col gap-1">
-      <div className={`inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-widest w-fit ${ringColor}`}>
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium ${ring}`}
+      >
         <span className={`size-1.5 rounded-full ${dot}`} />
-        {c.status}
-        {c.onShift && <span className="opacity-60">· on shift</span>}
-      </div>
-      <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
-        <span title="Driving in last 24h">D {c.daily.toFixed(1)}/10</span>
-        <span title="Driving in last 7 days">W {c.weekly.toFixed(1)}/56</span>
-        <span title="Driving in last 14 days">2W {c.twoWeek.toFixed(1)}/90</span>
-        {c.onShift && (
-          <span title="Continuous drive in current 4.5h cycle">
-            Cycle {c.continuousDrive.toFixed(1)}/4.5
+        <span className="uppercase tracking-wider text-[10px] font-mono">{c.status}</span>
+        <span className="opacity-70">· {label}</span>
+        {c.issues.length > 0 && (
+          <span className="ml-0.5 rounded-full bg-foreground/10 px-1 text-[9px] font-mono">
+            {c.issues.length}
           </span>
         )}
-      </div>
-      {c.issues.length > 0 && (
-        <div className="flex flex-col gap-0.5">
-          {c.issues.slice(0, 2).map((i, idx) => (
-            <div
-              key={idx}
-              className={`text-[10px] ${i.level === "breach" ? "text-destructive" : "text-warning"}`}
-            >
-              {i.msg}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute z-50 mt-1 w-80 rounded-md border border-border bg-surface shadow-lg p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                UK HGV hours
+              </div>
+              <div className={`inline-flex items-center gap-1.5 rounded border px-1.5 py-0.5 text-[10px] font-mono uppercase ${ring}`}>
+                <span className={`size-1.5 rounded-full ${dot}`} />
+                {c.status}
+                {c.onShift && <span className="opacity-60">· on shift</span>}
+              </div>
             </div>
-          ))}
-        </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <Metric label="Today (24h)" value={c.daily} cap={10} unit="h" hint="Max 9h, 10h up to 2×/wk" />
+              <Metric label="This week" value={c.weekly} cap={56} unit="h" hint="56h rolling 7 days" />
+              <Metric label="Fortnight" value={c.twoWeek} cap={90} unit="h" hint="90h rolling 14 days" />
+              {c.onShift ? (
+                <Metric label="Drive cycle" value={c.continuousDrive} cap={4.5} unit="h" hint="45min break after 4.5h" />
+              ) : (
+                <Metric label="Rest taken" value={Math.min(c.restHours, 24)} cap={11} unit="h" hint="11h normal, 9h reduced" />
+              )}
+            </div>
+
+            {c.issues.length > 0 ? (
+              <div className="space-y-1 border-t border-border pt-2">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                  Issues
+                </div>
+                {c.issues.map((i, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex items-start gap-1.5 text-xs ${i.level === "breach" ? "text-destructive" : "text-warning"}`}
+                  >
+                    <span className={`mt-1 size-1.5 rounded-full ${i.level === "breach" ? "bg-destructive" : "bg-warning"}`} />
+                    <span className="flex-1">{i.msg}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="border-t border-border pt-2 text-xs text-success">
+                All limits within legal range.
+              </div>
+            )}
+          </div>
+        </>
       )}
+    </div>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  cap,
+  unit,
+  hint,
+}: {
+  label: string;
+  value: number;
+  cap: number;
+  unit: string;
+  hint?: string;
+}) {
+  const pct = Math.min(100, (value / cap) * 100);
+  const color = pct >= 100 ? "bg-destructive" : pct >= 85 ? "bg-warning" : "bg-success";
+  return (
+    <div className="space-y-1" title={hint}>
+      <div className="flex items-baseline justify-between">
+        <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+          {label}
+        </span>
+        <span className="font-mono text-[11px]">
+          {value.toFixed(1)}
+          <span className="text-muted-foreground">/{cap}{unit}</span>
+        </span>
+      </div>
+      <div className="h-1 rounded-full bg-surface-2 overflow-hidden">
+        <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }
