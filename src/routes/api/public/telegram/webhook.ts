@@ -45,12 +45,13 @@ async function logEvent(driver_id: string, type: string, payload: Record<string,
 async function listAssignedJobs(driverId: string) {
   const { data } = await supabaseAdmin
     .from("jobs")
-    .select("id,reference,status,origin_warehouse_id,destination_warehouse_id,scheduled_at")
+    .select("id,reference,status,scheduled_at")
     .eq("assigned_driver_id", driverId)
     .in("status", ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"])
     .order("scheduled_at", { ascending: true, nullsFirst: false });
   return data ?? [];
 }
+
 
 
 async function pushAllAssignedJobs(driverId: string, chatId: number) {
