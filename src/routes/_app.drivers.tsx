@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useDrivers, useCompliance } from "@/lib/hooks";
 import type { Compliance } from "@/lib/compliance";
 import { StatusBadge } from "@/components/StatusBadge";
