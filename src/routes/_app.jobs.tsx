@@ -16,6 +16,25 @@ const ACTIVE_JOB_STATUSES = new Set(["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP"
 void AUTO_ASSIGN_RADIUS_KM;
 void ACTIVE_JOB_STATUSES;
 
+// Compute & persist scheduled_at on a job's stops, anchored at jobStart.
+// Only writes rows whose computed value differs from what's stored (skip nulls).
+async function fillStopTimes(
+  jobId: string,
+  jobStart: string | null,
+  stops: { id?: string; kind: "PICKUP" | "DROP"; warehouse_id: string; scheduled_at: string | null }[],
+  warehouses: { id: string; latitude: number; longitude: number }[],
+) {
+  if (!jobStart || stops.length === 0) return;
+  const times = computeStopSchedule(stops, jobStart, warehouses);
+  for (let i = 0; i < stops.length; i++) {
+    const s = stops[i];
+    const t = times[i];
+    if (!s.id || !t) continue;
+    if (s.scheduled_at === t) continue;
+    await supabase.from("job_stops").update({ scheduled_at: t }).eq("id", s.id);
+  }
+}
+
 
 export const Route = createFileRoute("/_app/jobs")({
   component: JobsPage,
