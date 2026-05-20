@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { timingSafeEqual } from "crypto";
 import { haversineKm, etaMinutes, isInsideGeofence } from "@/lib/geo";
+import { buildJobCard } from "@/lib/job-card.server";
 import {
   deriveTelegramWebhookSecret,
   sendMessage,
