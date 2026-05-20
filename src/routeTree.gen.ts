@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as OnboardCodeRouteImport } from './routes/onboard.$code'
 import { Route as AppWarehousesRouteImport } from './routes/_app.warehouses'
 import { Route as AppJobsRouteImport } from './routes/_app.jobs'
 import { Route as AppEventsRouteImport } from './routes/_app.events'
@@ -33,6 +34,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
+} as any)
+const OnboardCodeRoute = OnboardCodeRouteImport.update({
+  id: '/onboard/$code',
+  path: '/onboard/$code',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppWarehousesRoute = AppWarehousesRouteImport.update({
   id: '/warehouses',
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/events': typeof AppEventsRoute
   '/jobs': typeof AppJobsRoute
   '/warehouses': typeof AppWarehousesRoute
+  '/onboard/$code': typeof OnboardCodeRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/events': typeof AppEventsRoute
   '/jobs': typeof AppJobsRoute
   '/warehouses': typeof AppWarehousesRoute
+  '/onboard/$code': typeof OnboardCodeRoute
   '/': typeof AppIndexRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/_app/events': typeof AppEventsRoute
   '/_app/jobs': typeof AppJobsRoute
   '/_app/warehouses': typeof AppWarehousesRoute
+  '/onboard/$code': typeof OnboardCodeRoute
   '/_app/': typeof AppIndexRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/jobs'
     | '/warehouses'
+    | '/onboard/$code'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/jobs'
     | '/warehouses'
+    | '/onboard/$code'
     | '/'
     | '/api/public/telegram/webhook'
   id:
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/_app/events'
     | '/_app/jobs'
     | '/_app/warehouses'
+    | '/onboard/$code'
     | '/_app/'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
@@ -146,6 +158,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  OnboardCodeRoute: typeof OnboardCodeRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
 
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/onboard/$code': {
+      id: '/onboard/$code'
+      path: '/onboard/$code'
+      fullPath: '/onboard/$code'
+      preLoaderRoute: typeof OnboardCodeRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/warehouses': {
       id: '/_app/warehouses'
@@ -249,6 +269,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  OnboardCodeRoute: OnboardCodeRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
 export const routeTree = rootRouteImport
