@@ -261,3 +261,30 @@ function SetupTelegramButton() {
     </button>
   );
 }
+
+function PairButton({ driverId, hasTelegram }: { driverId: string; hasTelegram: boolean }) {
+  const gen = useServerFn(generatePairingCode);
+  const [busy, setBusy] = useState(false);
+  async function run() {
+    setBusy(true);
+    try {
+      const r = await gen({ data: { driverId } });
+      await navigator.clipboard?.writeText(r.code).catch(() => {});
+      toast.success(`Code ${r.code} — valid 15 min (copied)`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <button
+      onClick={run}
+      disabled={busy}
+      title={hasTelegram ? "Re-pair Telegram" : "Generate pairing code"}
+      className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary disabled:opacity-50"
+    >
+      <KeyRound className="size-3.5" />
+    </button>
+  );
+}
