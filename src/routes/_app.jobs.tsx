@@ -10,10 +10,30 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
 import { computePlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
+import { computeStopSchedule, legMinutes } from "@/lib/geo";
 
 const ACTIVE_JOB_STATUSES = new Set(["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"]);
 void AUTO_ASSIGN_RADIUS_KM;
 void ACTIVE_JOB_STATUSES;
+
+// Compute & persist scheduled_at on a job's stops, anchored at jobStart.
+// Only writes rows whose computed value differs from what's stored (skip nulls).
+async function fillStopTimes(
+  jobId: string,
+  jobStart: string | null,
+  stops: { id?: string; kind: "PICKUP" | "DROP"; warehouse_id: string; scheduled_at: string | null }[],
+  warehouses: { id: string; latitude: number; longitude: number }[],
+) {
+  if (!jobStart || stops.length === 0) return;
+  const times = computeStopSchedule(stops, jobStart, warehouses);
+  for (let i = 0; i < stops.length; i++) {
+    const s = stops[i];
+    const t = times[i];
+    if (!s.id || !t) continue;
+    if (s.scheduled_at === t) continue;
+    await supabase.from("job_stops").update({ scheduled_at: t }).eq("id", s.id);
+  }
+}
 
 
 export const Route = createFileRoute("/_app/jobs")({
@@ -146,6 +166,8 @@ function JobsPage() {
         if (!job || !driver) continue;
         await assignDriver(a.jobId, a.driverId);
         toast.message(`Auto-assigned ${driver.name} → ${job.reference} (${a.distKm.toFixed(1)} km)`);
+        // Auto-fill stop times starting from job.scheduled_at or now
+        await fillStopTimes(a.jobId, job.scheduled_at ?? new Date().toISOString(), stopsMap[a.jobId] ?? [], warehouses);
       }
 
       // Pass 2: planned diffs
@@ -182,6 +204,8 @@ function JobsPage() {
               planned_start_at: want.t,
             })
             .eq("id", job.id);
+          // Auto-fill stop times anchored at planned start
+          await fillStopTimes(job.id, want.t, stopsMap[job.id] ?? [], warehouses);
         }
       }
     })();
@@ -239,10 +263,6 @@ function JobsPage() {
               {/* Rows */}
               {jobs.map((j) => {
                 const stops = stopsMap[j.id] ?? [];
-                const whNames = stops.map((s) => {
-                  const wh = warehouses.find((w) => w.id === s.warehouse_id);
-                  return { code: wh?.code ?? "?", kind: s.kind };
-                });
                 return (
                   <div
                     key={j.id}
@@ -253,43 +273,57 @@ function JobsPage() {
                       <div className="font-mono text-xs text-foreground">{j.reference}</div>
                       <div className="text-[10px] font-mono text-muted-foreground">{stops.length} stops</div>
                     </div>
-                    <div className="col-span-4">
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {whNames.length === 0 ? (
-                          <span className="text-xs text-muted-foreground/50 italic">No stops</span>
-                        ) : (
-                          whNames.map(({ code, kind }, idx) => (
+                  <div className="col-span-4">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {stops.length === 0 ? (
+                        <span className="text-xs text-muted-foreground/50 italic">No stops</span>
+                      ) : (
+                        stops.map((s, idx) => {
+                          const wh = warehouses.find((w) => w.id === s.warehouse_id);
+                          const code = wh?.code ?? "?";
+                          const next = stops[idx + 1];
+                          const nextWh = next ? warehouses.find((w) => w.id === next.warehouse_id) : null;
+                          const leg = wh && nextWh ? legMinutes(s, wh, nextWh) : null;
+                          return (
                             <span key={idx} className="flex items-center gap-1">
                               <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium ${
-                                kind === "PICKUP"
+                                s.kind === "PICKUP"
                                   ? "bg-blue-500/10 text-blue-500"
                                   : "bg-emerald-500/10 text-emerald-600"
                               }`}>
                                 {code}
                               </span>
-                              {idx < whNames.length - 1 && (
-                                <ChevronRight className="size-3 text-muted-foreground/40 shrink-0" />
+                              {leg && (
+                                <span className="flex items-center gap-0.5 text-[10px] font-mono text-muted-foreground/70 px-1">
+                                  {leg.loadingMin > 0 && (
+                                    <span title="Loading at pickup" className="text-amber-500/80">+{leg.loadingMin}m load</span>
+                                  )}
+                                  <ChevronRight className="size-3 text-muted-foreground/40 shrink-0" />
+                                  <span title={`${leg.km.toFixed(1)} km`}>ETA {leg.transitMin}m</span>
+                                  <ChevronRight className="size-3 text-muted-foreground/40 shrink-0" />
+                                </span>
                               )}
                             </span>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                    <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
-                      <DriverPicker
-                        driverId={j.assigned_driver_id}
-                        drivers={drivers}
-                        compliance={compliance}
-                        onChange={(id) => assignDriver(j.id, id)}
-                      />
-                      {!j.assigned_driver_id && j.planned_driver_id && (
-                        <PlannedChip
-                          driverName={drivers.find((d) => d.id === j.planned_driver_id)?.name ?? "?"}
-                          sequence={j.planned_sequence ?? undefined}
-                          startAt={j.planned_start_at ?? undefined}
-                        />
+                          );
+                        })
                       )}
                     </div>
+                  </div>
+                  <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
+                    <DriverPicker
+                      driverId={j.assigned_driver_id}
+                      drivers={drivers}
+                      compliance={compliance}
+                      onChange={(id) => assignDriver(j.id, id)}
+                    />
+                    {!j.assigned_driver_id && j.planned_driver_id && (
+                      <PlannedChip
+                        driverName={drivers.find((d) => d.id === j.planned_driver_id)?.name ?? "?"}
+                        sequence={j.planned_sequence ?? undefined}
+                        startAt={j.planned_start_at ?? undefined}
+                      />
+                    )}
+                  </div>
 
                     <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
                       <StatusPill
@@ -499,8 +533,13 @@ function RouteDialog({
   onClose: () => void;
   warehouses: ReturnType<typeof useWarehouses>;
 }) {
+  // Default scheduled time to "now" on create so the planner can compute ETAs immediately
   const [scheduledAt, setScheduledAt] = useState(
-    initial?.scheduled_at ? toLocalInput(initial.scheduled_at) : "",
+    initial?.scheduled_at
+      ? toLocalInput(initial.scheduled_at)
+      : mode === "create"
+        ? toLocalInput(new Date().toISOString())
+        : "",
   );
   const [stops, setStops] = useState<Stop[]>(
     initial?.stops?.length
@@ -512,6 +551,10 @@ function RouteDialog({
   );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Auto-compute each stop's scheduled_at from jobStart + transit + loading
+  const startIso = scheduledAt ? new Date(scheduledAt).toISOString() : null;
+  const computedTimes = computeStopSchedule(stops, startIso, warehouses);
 
   function update(i: number, patch: Partial<Stop>) {
     setStops((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
@@ -538,9 +581,11 @@ function RouteDialog({
     if (stops.some((s) => !s.warehouse_id)) return toast.error("Every stop needs a warehouse");
     setSaving(true);
 
+    const jobStartIso = scheduledAt ? new Date(scheduledAt).toISOString() : new Date().toISOString();
+    const autoTimes = computeStopSchedule(stops, jobStartIso, warehouses);
+
     const jobPayload = {
-      scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
-      // Keep legacy fields populated with first/last for backward compatibility
+      scheduled_at: jobStartIso,
       origin_warehouse_id: stops[0].warehouse_id,
       destination_warehouse_id: stops[stops.length - 1].warehouse_id,
     };
@@ -549,25 +594,27 @@ function RouteDialog({
     if (mode === "create") {
       const { data, error } = await supabase
         .from("jobs").insert(jobPayload as never).select("id").single();
-      if (error) { setSaving(false); return toast.error(error.message); }
-      targetJobId = data.id as string;
+      if (error) { setSaving(false); console.error("[jobs.insert]", error); return toast.error(`Job create failed: ${error.message}`); }
+      targetJobId = (data as { id: string }).id;
     } else {
       const { error } = await supabase.from("jobs").update(jobPayload).eq("id", targetJobId!);
-      if (error) { setSaving(false); return toast.error(error.message); }
+      if (error) { setSaving(false); console.error("[jobs.update]", error); return toast.error(`Job update failed: ${error.message}`); }
     }
 
-    // Replace stops
-    await supabase.from("job_stops").delete().eq("job_id", targetJobId!);
+    // Replace stops — use computed times when user didn't enter one
+    const { error: delErr } = await supabase.from("job_stops").delete().eq("job_id", targetJobId!);
+    if (delErr) { setSaving(false); console.error("[stops.delete]", delErr); return toast.error(`Clear stops failed: ${delErr.message}`); }
+
     const rows = stops.map((s, i) => ({
       job_id: targetJobId!,
       seq: i,
       kind: s.kind as never,
       warehouse_id: s.warehouse_id,
-      scheduled_at: s.scheduled_at,
+      scheduled_at: s.scheduled_at ?? autoTimes[i] ?? null,
     }));
     const { error: stopErr } = await supabase.from("job_stops").insert(rows as never);
     setSaving(false);
-    if (stopErr) return toast.error(stopErr.message);
+    if (stopErr) { console.error("[stops.insert]", stopErr, rows); return toast.error(`Stops insert failed: ${stopErr.message}`); }
 
     toast.success(mode === "create" ? "Route created" : "Route updated");
     onClose();
@@ -614,38 +661,47 @@ function RouteDialog({
               </div>
             </div>
             <div className="space-y-2">
-              {stops.map((s, i) => (
-                <div key={i} className="flex items-center gap-2 rounded-md border border-border bg-background p-2">
-                  <span className="font-mono text-xs text-muted-foreground w-6 text-right">{i + 1}.</span>
-                  <select
-                    value={s.kind}
-                    onChange={(e) => update(i, { kind: e.target.value as "PICKUP" | "DROP" })}
-                    className="bg-surface border border-border rounded px-2 py-1 text-xs"
-                  >
-                    <option value="PICKUP">📦 Pickup</option>
-                    <option value="DROP">🏁 Drop</option>
-                  </select>
-                  <select
-                    required
-                    value={s.warehouse_id}
-                    onChange={(e) => update(i, { warehouse_id: e.target.value })}
-                    className="flex-1 bg-surface border border-border rounded px-2 py-1 text-xs"
-                  >
-                    <option value="">Select warehouse…</option>
-                    {warehouses.map((w) => <option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}
-                  </select>
-                  <input
-                    type="datetime-local"
-                    value={s.scheduled_at ? toLocalInput(s.scheduled_at) : ""}
-                    onChange={(e) => update(i, { scheduled_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                    className="bg-surface border border-border rounded px-2 py-1 text-xs"
-                    title="Optional time window for this stop"
-                  />
-                  <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="p-1 hover:bg-surface-2 rounded disabled:opacity-30"><ChevronUp className="size-3.5" /></button>
-                  <button type="button" onClick={() => move(i, 1)} disabled={i === stops.length - 1} className="p-1 hover:bg-surface-2 rounded disabled:opacity-30"><ChevronDown className="size-3.5" /></button>
-                  <button type="button" onClick={() => removeStop(i)} disabled={stops.length <= 2} className="p-1 hover:bg-destructive/20 rounded disabled:opacity-30"><Trash2 className="size-3.5" /></button>
-                </div>
-              ))}
+              {stops.map((s, i) => {
+                const auto = computedTimes[i];
+                const showAuto = !s.scheduled_at && auto;
+                return (
+                  <div key={i} className="flex items-center gap-2 rounded-md border border-border bg-background p-2">
+                    <span className="font-mono text-xs text-muted-foreground w-6 text-right">{i + 1}.</span>
+                    <select
+                      value={s.kind}
+                      onChange={(e) => update(i, { kind: e.target.value as "PICKUP" | "DROP" })}
+                      className="bg-surface border border-border rounded px-2 py-1 text-xs"
+                    >
+                      <option value="PICKUP">📦 Pickup</option>
+                      <option value="DROP">🏁 Drop</option>
+                    </select>
+                    <select
+                      required
+                      value={s.warehouse_id}
+                      onChange={(e) => update(i, { warehouse_id: e.target.value })}
+                      className="flex-1 bg-surface border border-border rounded px-2 py-1 text-xs"
+                    >
+                      <option value="">Select warehouse…</option>
+                      {warehouses.map((w) => <option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}
+                    </select>
+                    <div className="flex flex-col items-end">
+                      <input
+                        type="datetime-local"
+                        value={s.scheduled_at ? toLocalInput(s.scheduled_at) : auto ? toLocalInput(auto) : ""}
+                        onChange={(e) => update(i, { scheduled_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                        className={`bg-surface border border-border rounded px-2 py-1 text-xs ${showAuto ? "text-muted-foreground italic" : ""}`}
+                        title={showAuto ? "Auto-calculated from previous stop + driving + loading" : "Time window for this stop"}
+                      />
+                      {showAuto && (
+                        <span className="text-[9px] font-mono text-muted-foreground/70 mt-0.5">auto</span>
+                      )}
+                    </div>
+                    <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="p-1 hover:bg-surface-2 rounded disabled:opacity-30"><ChevronUp className="size-3.5" /></button>
+                    <button type="button" onClick={() => move(i, 1)} disabled={i === stops.length - 1} className="p-1 hover:bg-surface-2 rounded disabled:opacity-30"><ChevronDown className="size-3.5" /></button>
+                    <button type="button" onClick={() => removeStop(i)} disabled={stops.length <= 2} className="p-1 hover:bg-destructive/20 rounded disabled:opacity-30"><Trash2 className="size-3.5" /></button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
