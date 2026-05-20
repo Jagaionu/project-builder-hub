@@ -102,7 +102,16 @@ function JobsPage() {
                       <ArrowRight className="inline size-3 mx-1.5 text-muted-foreground" />
                       <span>{d?.code ?? "?"}</span>
                     </td>
-                    <td className="px-3 py-2.5">{drv?.name ?? <span className="text-muted-foreground italic">unassigned</span>}</td>
+                    <td className="px-3 py-2.5">
+                      <select
+                        value={j.assigned_driver_id ?? ""}
+                        onChange={(e) => assignDriver(j.id, e.target.value)}
+                        className="text-xs bg-surface border border-border rounded px-1.5 py-1"
+                      >
+                        <option value="">— unassigned —</option>
+                        {drivers.map((dr) => <option key={dr.id} value={dr.id}>{dr.name}{dr.telegram_id ? "" : " (no TG)"}</option>)}
+                      </select>
+                    </td>
                     <td className="px-3 py-2.5"><StatusBadge status={j.status} kind="job" /></td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs">{j.eta_minutes ? `${j.eta_minutes}m` : "—"}</td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">{j.scheduled_at ? new Date(j.scheduled_at).toLocaleString() : "—"}</td>
