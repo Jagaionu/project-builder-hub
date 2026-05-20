@@ -37,6 +37,18 @@ function AlertsPage() {
           out.push({ id: `s-${d.id}`, level: "warning", type: "Stale location", icon: WifiOff, message: `${d.name} no ping for ${Math.round(ageMin)} min` });
         }
       }
+      const c = compliance[d.id];
+      if (c) {
+        c.issues.forEach((iss, idx) => {
+          out.push({
+            id: `c-${d.id}-${idx}`,
+            level: iss.level === "breach" ? "critical" : "warning",
+            type: "HGV hours",
+            icon: Gauge,
+            message: `${d.name}: ${iss.msg}`,
+          });
+        });
+      }
     });
 
     jobs.forEach((j) => {
