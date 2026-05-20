@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
-import { useJobs, useWarehouses, useDrivers } from "@/lib/hooks";
+import { useJobs, useWarehouses, useDrivers, useCompliance } from "@/lib/hooks";
+import type { Compliance } from "@/lib/compliance";
 
 import { PageHeader } from "./_app.index";
 import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User } from "lucide-react";
