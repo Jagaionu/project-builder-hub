@@ -177,6 +177,9 @@ export type Database = {
           eta_minutes: number | null
           id: string
           origin_warehouse_id: string | null
+          planned_driver_id: string | null
+          planned_sequence: number | null
+          planned_start_at: string | null
           reference: string
           scheduled_at: string | null
           status: Database["public"]["Enums"]["job_status"]
@@ -189,6 +192,9 @@ export type Database = {
           eta_minutes?: number | null
           id?: string
           origin_warehouse_id?: string | null
+          planned_driver_id?: string | null
+          planned_sequence?: number | null
+          planned_start_at?: string | null
           reference?: string
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["job_status"]
@@ -201,6 +207,9 @@ export type Database = {
           eta_minutes?: number | null
           id?: string
           origin_warehouse_id?: string | null
+          planned_driver_id?: string | null
+          planned_sequence?: number | null
+          planned_start_at?: string | null
           reference?: string
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["job_status"]
