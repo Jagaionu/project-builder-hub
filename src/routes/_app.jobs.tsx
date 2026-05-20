@@ -14,15 +14,6 @@ export const Route = createFileRoute("/_app/jobs")({
   head: () => ({ meta: [{ title: "Jobs — Planning System" }] }),
 });
 
-const lifecycle = [
-  { value: "PENDING", label: "Pending" },
-  { value: "ASSIGNED", label: "Assigned" },
-  { value: "IN_PROGRESS", label: "En route → pickup" },
-  { value: "ARRIVED_PICKUP", label: "Arrived pickup" },
-  { value: "EN_ROUTE_DELIVERY", label: "En route → delivery" },
-  { value: "COMPLETED", label: "Completed" },
-  { value: "CANCELLED", label: "Cancelled" },
-];
 
 type Stop = {
   id?: string;
