@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
 import { computePlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
+import { computeStopSchedule, legMinutes } from "@/lib/geo";
 
 const ACTIVE_JOB_STATUSES = new Set(["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"]);
 void AUTO_ASSIGN_RADIUS_KM;
