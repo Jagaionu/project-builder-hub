@@ -240,30 +240,6 @@ export function Field({
   );
 }
 
-function SetupTelegramButton() {
-  const register = useServerFn(registerTelegramWebhook);
-  const [busy, setBusy] = useState(false);
-  async function run() {
-    setBusy(true);
-    try {
-      const r = await register();
-      toast.success(`Telegram webhook set: ${r.url}`);
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <button
-      onClick={run}
-      disabled={busy}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface text-xs font-medium hover:bg-surface-2 disabled:opacity-50"
-    >
-      <Send className="size-3.5" /> {busy ? "Setting up…" : "Setup Telegram"}
-    </button>
-  );
-}
 
 function PairButton({ driverId, hasTelegram }: { driverId: string; hasTelegram: boolean }) {
   const gen = useServerFn(generatePairingCode);
