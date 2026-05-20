@@ -164,7 +164,6 @@ function JobsPage() {
           mode="create"
           onClose={() => setCreateOpen(false)}
           warehouses={warehouses}
-          drivers={drivers}
         />
       )}
       {editingJob && (
@@ -172,13 +171,11 @@ function JobsPage() {
           mode="edit"
           jobId={editingJob.id}
           initial={{
-            driver_id: editingJob.assigned_driver_id ?? "",
             scheduled_at: editingJob.scheduled_at,
             stops: stopsMap[editingJob.id] ?? [],
           }}
           onClose={() => setEditJobId(null)}
           warehouses={warehouses}
-          drivers={drivers}
         />
       )}
     </div>
