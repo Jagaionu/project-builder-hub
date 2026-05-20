@@ -147,6 +147,8 @@ function JobsPage() {
         if (!job || !driver) continue;
         await assignDriver(a.jobId, a.driverId);
         toast.message(`Auto-assigned ${driver.name} → ${job.reference} (${a.distKm.toFixed(1)} km)`);
+        // Auto-fill stop times starting from job.scheduled_at or now
+        await fillStopTimes(a.jobId, job.scheduled_at ?? new Date().toISOString(), stopsMap[a.jobId] ?? [], warehouses);
       }
 
       // Pass 2: planned diffs
@@ -183,6 +185,8 @@ function JobsPage() {
               planned_start_at: want.t,
             })
             .eq("id", job.id);
+          // Auto-fill stop times anchored at planned start
+          await fillStopTimes(job.id, want.t, stopsMap[job.id] ?? [], warehouses);
         }
       }
     })();
