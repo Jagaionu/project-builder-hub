@@ -316,29 +316,34 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
     await logEvent(driver.id, "START_SHIFT", {});
     await sendMessage(
       chatId,
-      `✅ <b>Shift started.</b>\n\nTo receive jobs, please share your <b>Live Location</b> once — your phone will keep dispatch updated in the background, so you don't need to keep Telegram open.\n\n<b>How to share Live Location:</b>\n1️⃣ Tap the 📎 (attachment) icon\n2️⃣ Choose <b>Location</b>\n3️⃣ Tap <b>Share My Live Location for…</b>\n4️⃣ Select <b>8 hours</b>\n\nThat's it — drive safe. 🚚`,
+      `✅ <b>Shift started.</b>\n\nTap 📍 <b>Share Location</b> once so dispatch can match you to the closest route. Drive safe. 🚚`,
       mainMenu,
     );
     return;
   }
 
   if (t === "⏹ End Shift" || t === "/end_shift") {
+    if (await hasActiveRoute(driver.id)) {
+      await logEvent(driver.id, "END_SHIFT_BLOCKED", {});
+      await sendMessage(
+        chatId,
+        `⚠️ <b>You still have an active route.</b>\n\nAre you sure you want to end your shift? Dispatch will need to re-plan your job.`,
+        endShiftConfirmKeyboard(),
+      );
+      return;
+    }
     await supabaseAdmin
       .from("drivers")
       .update({ status: "OFF_SHIFT", last_update_time: new Date().toISOString() })
       .eq("id", driver.id);
     await logEvent(driver.id, "END_SHIFT", {});
-    await sendMessage(
-      chatId,
-      "🛑 <b>Shift ended.</b> Have a good rest!\n\n💡 Don't forget to <b>stop sharing your live location</b> — open the location message and tap <i>Stop sharing</i>.",
-      mainMenu,
-    );
+    await sendMessage(chatId, "🛑 <b>Shift ended.</b> Have a good rest!", mainMenu);
     return;
   }
 
   if (t === "📦 My Jobs" || t === "/jobs") {
     const n = await pushAllAssignedJobs(driver.id, chatId);
-    if (n === 0) await sendMessage(chatId, "No active jobs. Stay tuned!", mainMenu);
+    if (n === 0) await sendMessage(chatId, "No new jobs. Stay tuned!", mainMenu);
     return;
   }
 
@@ -356,7 +361,13 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
   await sendMessage(chatId, "I didn't recognise that. Use the menu below.", mainMenu);
 }
 
-async function handleCallback(chatId: number, driver: Driver | null, callbackId: string, data: string) {
+async function handleCallback(
+  chatId: number,
+  driver: Driver | null,
+  callbackId: string,
+  data: string,
+  messageId?: number,
+) {
   if (!driver) {
     await answerCallbackQuery(callbackId, "Not registered.");
     return;
@@ -369,35 +380,70 @@ async function handleCallback(chatId: number, driver: Driver | null, callbackId:
     await supabaseAdmin.from("drivers").update({ status: "ON_ROUTE" }).eq("id", driver.id);
     await logEvent(driver.id, "ACCEPT_JOB", { job_id: arg });
     await answerCallbackQuery(callbackId, "Accepted");
-    const card = await buildJobCard(arg, driver.id);
-    if (card) {
-      await sendMessage(chatId, `✅ Accepted. Full route below — tap 📍 Share Location to keep ETAs live.`, mainMenu);
-      await sendMessage(chatId, card.text, jobInlineKeyboard(arg));
-    } else {
-      await sendMessage(chatId, "✅ Accepted.", mainMenu);
+    // Replace the offer buttons with the single "Can't complete" escape hatch.
+    if (messageId) {
+      try { await editMessageReplyMarkup(chatId, messageId, jobInlineKeyboard(arg, "ACCEPTED")); } catch { /* ignore */ }
     }
+    await sendMessage(
+      chatId,
+      `✅ Accepted. We'll detect pickup & drop-off automatically from your live location.`,
+      mainMenu,
+    );
     return;
   }
   if (action === "REJECT" && arg) {
-    await supabaseAdmin.from("jobs").update({ status: "PENDING", assigned_driver_id: null }).eq("id", arg);
+    await supabaseAdmin.from("jobs").update({ status: "PENDING", assigned_driver_id: null, planned_driver_id: null }).eq("id", arg);
     await logEvent(driver.id, "REJECT_JOB", { job_id: arg });
     await answerCallbackQuery(callbackId, "Rejected");
+    if (messageId) {
+      try { await editMessageReplyMarkup(chatId, messageId, emptyInlineKeyboard); } catch { /* ignore */ }
+    }
     await sendMessage(chatId, "❌ Job released back to dispatch.", mainMenu);
     return;
   }
-  if (action === "PICKED" && arg) {
-    await supabaseAdmin.from("jobs").update({ status: "EN_ROUTE_DELIVERY" }).eq("id", arg);
-    await logEvent(driver.id, "DEPARTED", { job_id: arg });
-    await answerCallbackQuery(callbackId, "Picked up");
-    await sendMessage(chatId, "🚚 Marked as picked up. Driving to drop-off.", mainMenu);
+  if (action === "CANT" && arg) {
+    await supabaseAdmin
+      .from("jobs")
+      .update({ status: "PENDING", assigned_driver_id: null, planned_driver_id: null })
+      .eq("id", arg);
+    await supabaseAdmin.from("drivers").update({ status: "AVAILABLE" }).eq("id", driver.id);
+    await logEvent(driver.id, "CANT_COMPLETE", { job_id: arg });
+    await answerCallbackQuery(callbackId, "Dispatch notified");
+    if (messageId) {
+      try { await editMessageReplyMarkup(chatId, messageId, emptyInlineKeyboard); } catch { /* ignore */ }
+    }
+    await sendMessage(
+      chatId,
+      `🚫 Dispatch has been alerted. They'll re-plan this job.`,
+      mainMenu,
+    );
     return;
   }
-  if (action === "DELIVERED" && arg) {
-    await supabaseAdmin.from("jobs").update({ status: "COMPLETED" }).eq("id", arg);
-    await supabaseAdmin.from("drivers").update({ status: "AVAILABLE" }).eq("id", driver.id);
-    await logEvent(driver.id, "ARRIVED", { job_id: arg, completed: true });
-    await answerCallbackQuery(callbackId, "Delivered");
-    await sendMessage(chatId, "🏁 Job completed. Great work!", mainMenu);
+  if (action === "END_SHIFT_CONFIRM") {
+    // Release any active jobs so they can be re-planned.
+    await supabaseAdmin
+      .from("jobs")
+      .update({ status: "PENDING", assigned_driver_id: null, planned_driver_id: null })
+      .eq("assigned_driver_id", driver.id)
+      .in("status", ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"]);
+    await supabaseAdmin
+      .from("drivers")
+      .update({ status: "OFF_SHIFT", last_update_time: new Date().toISOString() })
+      .eq("id", driver.id);
+    await logEvent(driver.id, "END_SHIFT", { had_active_route: true });
+    await answerCallbackQuery(callbackId, "Shift ended");
+    if (messageId) {
+      try { await editMessageReplyMarkup(chatId, messageId, emptyInlineKeyboard); } catch { /* ignore */ }
+    }
+    await sendMessage(chatId, "🛑 Shift ended. Dispatch will re-plan your route.", mainMenu);
+    return;
+  }
+  if (action === "END_SHIFT_CANCEL") {
+    await answerCallbackQuery(callbackId, "Carrying on");
+    if (messageId) {
+      try { await editMessageReplyMarkup(chatId, messageId, emptyInlineKeyboard); } catch { /* ignore */ }
+    }
+    await sendMessage(chatId, "👍 Carrying on — drive safe.", mainMenu);
     return;
   }
   if (action === "DELAY") {
