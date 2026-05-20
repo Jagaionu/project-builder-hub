@@ -6,9 +6,9 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Check, X, Send, KeyRound } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, Send, KeyRound, MessageCircle } from "lucide-react";
 import { registerTelegramWebhook } from "@/lib/telegram-setup.functions";
-import { generatePairingCode } from "@/lib/telegram-notify.functions";
+import { createDriverInvite, generatePairingCode } from "@/lib/telegram-notify.functions";
 
 export const Route = createFileRoute("/_app/drivers")({
   component: DriversPage,
@@ -183,6 +183,7 @@ function DriversPage() {
                           </>
                         ) : (
                           <>
+                            <WhatsAppInviteButton driverId={d.id} phone={d.phone} />
                             <PairButton driverId={d.id} hasTelegram={!!d.telegram_id} />
                             <button
                               onClick={() => startEdit(d)}
@@ -285,6 +286,41 @@ function PairButton({ driverId, hasTelegram }: { driverId: string; hasTelegram: 
       className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary disabled:opacity-50"
     >
       <KeyRound className="size-3.5" />
+    </button>
+  );
+}
+
+function WhatsAppInviteButton({ driverId, phone }: { driverId: string; phone: string | null }) {
+  const invite = useServerFn(createDriverInvite);
+  const [busy, setBusy] = useState(false);
+  async function run() {
+    if (!phone) {
+      toast.error("Add a phone number first");
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await invite({ data: { driverId } });
+      const origin = window.location.origin;
+      const url = `${origin}/onboard/${r.code}${r.botUsername ? `?bot=${r.botUsername}` : ""}`;
+      const msg =
+        `Hi! You've been added as a driver. Follow this link to connect Telegram and start receiving jobs:\n\n${url}\n\nYour pairing code: ${r.code} (valid 60 min)`;
+      const clean = phone.replace(/[^\d+]/g, "").replace(/^\+/, "");
+      window.open(`https://wa.me/${clean}?text=${encodeURIComponent(msg)}`, "_blank");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <button
+      onClick={run}
+      disabled={busy}
+      title="Send WhatsApp invite"
+      className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-success disabled:opacity-50"
+    >
+      <MessageCircle className="size-3.5" />
     </button>
   );
 }

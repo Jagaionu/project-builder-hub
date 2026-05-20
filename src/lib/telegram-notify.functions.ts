@@ -1,8 +1,22 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { sendMessage, jobInlineKeyboard } from "./telegram.server";
+import { sendMessage, jobInlineKeyboard, getBotUsername } from "./telegram.server";
 import { buildJobCard } from "./job-card.server";
+
+export const createDriverInvite = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ driverId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const { error } = await supabaseAdmin
+      .from("drivers")
+      .update({ pairing_code: code, pairing_expires_at: expires })
+      .eq("id", data.driverId);
+    if (error) throw new Error(error.message);
+    const botUsername = await getBotUsername();
+    return { code, expires, botUsername };
+  });
 
 export const notifyDriverOfJob = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ jobId: z.string().uuid() }).parse(input))
