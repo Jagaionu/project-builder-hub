@@ -93,7 +93,7 @@ function JobsPage() {
               {jobs.map((j) => {
                 const o = warehouses.find((w) => w.id === j.origin_warehouse_id);
                 const d = warehouses.find((w) => w.id === j.destination_warehouse_id);
-                const drv = drivers.find((dr) => dr.id === j.assigned_driver_id);
+                
                 return (
                   <tr key={j.id} className="hover:bg-surface-2/40">
                     <td className="px-3 py-2.5 font-mono text-xs">{j.reference}</td>
