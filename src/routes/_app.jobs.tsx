@@ -598,3 +598,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
+
+function ComplianceDot({ c }: { c: Compliance }) {
+  const cls =
+    c.status === "breach"
+      ? "bg-destructive"
+      : c.status === "warn"
+        ? "bg-warning"
+        : "bg-success";
+  const title =
+    c.issues[0]?.msg ?? `OK · ${c.daily.toFixed(1)}/10 today · ${c.weekly.toFixed(1)}/56 this week`;
+  return <span title={title} className={`size-1.5 rounded-full shrink-0 ${cls}`} />;
+}
