@@ -40,7 +40,11 @@ export interface Job {
   scheduled_at: string | null;
   created_at: string;
   updated_at: string;
+  planned_driver_id?: string | null;
+  planned_sequence?: number | null;
+  planned_start_at?: string | null;
 }
+
 
 export interface DriverEvent {
   id: string;
