@@ -92,6 +92,13 @@ function JobsPage() {
   const notify = useServerFn(notifyDriverOfJob);
 
   async function assignDriver(jobId: string, driverId: string) {
+    if (driverId) {
+      const c = compliance[driverId];
+      if (c?.blockAssignment) {
+        const reason = c.issues.find((i) => i.level === "breach")?.msg ?? "compliance breach";
+        return toast.error(`Cannot assign: ${reason}`);
+      }
+    }
     const payload = driverId
       ? { assigned_driver_id: driverId, status: "ASSIGNED" as never }
       : { assigned_driver_id: null, status: "PENDING" as never };
