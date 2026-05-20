@@ -92,6 +92,6 @@ let _botUsername: string | null = null;
 export async function getBotUsername(): Promise<string> {
   if (_botUsername) return _botUsername;
   const r = await tg("getMe", {});
-  _botUsername = r?.result?.username ?? "";
+  _botUsername = (r?.result?.username as string) ?? "";
   return _botUsername;
 }
