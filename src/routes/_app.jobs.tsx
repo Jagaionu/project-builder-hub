@@ -117,6 +117,48 @@ function JobsPage() {
     }
   }
 
+  // Auto-assign newly-created PENDING jobs to the nearest eligible driver
+  // within 30 km of the first pickup. Eligibility: AVAILABLE or ON_SHIFT,
+  // known GPS, no active job, and HGV compliance allows the assignment.
+  const attemptedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const job of jobs) {
+      if (job.status !== "PENDING" || job.assigned_driver_id) continue;
+      if (attemptedRef.current.has(job.id)) continue;
+      const stops = stopsMap[job.id];
+      if (!stops || stops.length === 0) continue; // wait for stops to load
+      const firstPickup = stops.find((s) => s.kind === "PICKUP") ?? stops[0];
+      const wh = warehouses.find((w) => w.id === firstPickup.warehouse_id);
+      if (!wh) continue;
+
+      attemptedRef.current.add(job.id);
+
+      const busy = new Set(
+        jobs
+          .filter((j) => j.assigned_driver_id && ACTIVE_JOB_STATUSES.has(j.status))
+          .map((j) => j.assigned_driver_id as string),
+      );
+
+      const candidates = drivers
+        .filter((d) => d.status === "AVAILABLE" || d.status === "ON_SHIFT")
+        .filter((d) => d.current_lat != null && d.current_lon != null)
+        .filter((d) => !busy.has(d.id))
+        .filter((d) => !compliance[d.id]?.blockAssignment)
+        .map((d) => ({
+          d,
+          distKm: haversineKm(d.current_lat!, d.current_lon!, wh.latitude, wh.longitude),
+        }))
+        .filter((c) => c.distKm <= AUTO_ASSIGN_RADIUS_KM)
+        .sort((a, b) => a.distKm - b.distKm);
+
+      if (candidates.length === 0) continue;
+      const best = candidates[0];
+      void assignDriver(job.id, best.d.id).then(() => {
+        toast.message(`Auto-assigned ${best.d.name} → ${job.reference} (${best.distKm.toFixed(1)} km)`);
+      });
+    }
+  }, [jobs, stopsMap, drivers, warehouses, compliance]);
+
   // status config moved to module level
 
   async function setStatus(jobId: string, status: string) {
