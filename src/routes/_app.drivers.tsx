@@ -183,6 +183,7 @@ function DriversPage() {
                           </>
                         ) : (
                           <>
+                            <WhatsAppInviteButton driverId={d.id} phone={d.phone} />
                             <PairButton driverId={d.id} hasTelegram={!!d.telegram_id} />
                             <button
                               onClick={() => startEdit(d)}
