@@ -190,28 +190,16 @@ function JobsPage() {
                       </div>
                     </div>
                     <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
-                      <div className="relative">
-                        <User className="size-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                        <select
-                          value={j.assigned_driver_id ?? ""}
-                          onChange={(e) => assignDriver(j.id, e.target.value)}
-                          className="w-full text-xs bg-background text-foreground border border-border rounded-md pl-7 pr-2 py-1.5 cursor-pointer hover:border-primary focus:border-primary outline-none"
-                        >
-                          <option value="">Unassigned</option>
-                          {drivers.map((dr) => (
-                            <option key={dr.id} value={dr.id}>
-                              {dr.name}{dr.telegram_id ? "" : " (no TG)"}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      <DriverPicker
+                        driverId={j.assigned_driver_id}
+                        drivers={drivers}
+                        onChange={(id) => assignDriver(j.id, id)}
+                      />
                     </div>
                     <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
-                      <StatusMenu
+                      <StatusPill
                         status={j.status}
                         onChange={(s) => setStatus(j.id, s)}
-                        statuses={JOB_STATUSES as unknown as string[]}
-                        styles={STATUS_STYLES}
                       />
                     </div>
                     <div className="col-span-2 text-[11px] text-muted-foreground">
