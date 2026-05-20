@@ -661,38 +661,47 @@ function RouteDialog({
               </div>
             </div>
             <div className="space-y-2">
-              {stops.map((s, i) => (
-                <div key={i} className="flex items-center gap-2 rounded-md border border-border bg-background p-2">
-                  <span className="font-mono text-xs text-muted-foreground w-6 text-right">{i + 1}.</span>
-                  <select
-                    value={s.kind}
-                    onChange={(e) => update(i, { kind: e.target.value as "PICKUP" | "DROP" })}
-                    className="bg-surface border border-border rounded px-2 py-1 text-xs"
-                  >
-                    <option value="PICKUP">📦 Pickup</option>
-                    <option value="DROP">🏁 Drop</option>
-                  </select>
-                  <select
-                    required
-                    value={s.warehouse_id}
-                    onChange={(e) => update(i, { warehouse_id: e.target.value })}
-                    className="flex-1 bg-surface border border-border rounded px-2 py-1 text-xs"
-                  >
-                    <option value="">Select warehouse…</option>
-                    {warehouses.map((w) => <option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}
-                  </select>
-                  <input
-                    type="datetime-local"
-                    value={s.scheduled_at ? toLocalInput(s.scheduled_at) : ""}
-                    onChange={(e) => update(i, { scheduled_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                    className="bg-surface border border-border rounded px-2 py-1 text-xs"
-                    title="Optional time window for this stop"
-                  />
-                  <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="p-1 hover:bg-surface-2 rounded disabled:opacity-30"><ChevronUp className="size-3.5" /></button>
-                  <button type="button" onClick={() => move(i, 1)} disabled={i === stops.length - 1} className="p-1 hover:bg-surface-2 rounded disabled:opacity-30"><ChevronDown className="size-3.5" /></button>
-                  <button type="button" onClick={() => removeStop(i)} disabled={stops.length <= 2} className="p-1 hover:bg-destructive/20 rounded disabled:opacity-30"><Trash2 className="size-3.5" /></button>
-                </div>
-              ))}
+              {stops.map((s, i) => {
+                const auto = computedTimes[i];
+                const showAuto = !s.scheduled_at && auto;
+                return (
+                  <div key={i} className="flex items-center gap-2 rounded-md border border-border bg-background p-2">
+                    <span className="font-mono text-xs text-muted-foreground w-6 text-right">{i + 1}.</span>
+                    <select
+                      value={s.kind}
+                      onChange={(e) => update(i, { kind: e.target.value as "PICKUP" | "DROP" })}
+                      className="bg-surface border border-border rounded px-2 py-1 text-xs"
+                    >
+                      <option value="PICKUP">📦 Pickup</option>
+                      <option value="DROP">🏁 Drop</option>
+                    </select>
+                    <select
+                      required
+                      value={s.warehouse_id}
+                      onChange={(e) => update(i, { warehouse_id: e.target.value })}
+                      className="flex-1 bg-surface border border-border rounded px-2 py-1 text-xs"
+                    >
+                      <option value="">Select warehouse…</option>
+                      {warehouses.map((w) => <option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}
+                    </select>
+                    <div className="flex flex-col items-end">
+                      <input
+                        type="datetime-local"
+                        value={s.scheduled_at ? toLocalInput(s.scheduled_at) : auto ? toLocalInput(auto) : ""}
+                        onChange={(e) => update(i, { scheduled_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                        className={`bg-surface border border-border rounded px-2 py-1 text-xs ${showAuto ? "text-muted-foreground italic" : ""}`}
+                        title={showAuto ? "Auto-calculated from previous stop + driving + loading" : "Time window for this stop"}
+                      />
+                      {showAuto && (
+                        <span className="text-[9px] font-mono text-muted-foreground/70 mt-0.5">auto</span>
+                      )}
+                    </div>
+                    <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="p-1 hover:bg-surface-2 rounded disabled:opacity-30"><ChevronUp className="size-3.5" /></button>
+                    <button type="button" onClick={() => move(i, 1)} disabled={i === stops.length - 1} className="p-1 hover:bg-surface-2 rounded disabled:opacity-30"><ChevronDown className="size-3.5" /></button>
+                    <button type="button" onClick={() => removeStop(i)} disabled={stops.length <= 2} className="p-1 hover:bg-destructive/20 rounded disabled:opacity-30"><Trash2 className="size-3.5" /></button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
