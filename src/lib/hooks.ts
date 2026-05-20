@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Driver, Warehouse, Job } from "@/lib/types";
+import { computeCompliance, type Compliance, type ComplianceEvent } from "@/lib/compliance";
 
 export function useDrivers() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
