@@ -1,27 +1,56 @@
-## Plan: Seed all Amazon UK sites into warehouses
+## Goal
 
-Insert the full Amazon UK site list (~45 sites across Fulfillment Centres, Sortation Centres, and Delivery Stations) into the `warehouses` table so they all appear on the live map.
+Turn the existing Telegram bot into a fully two‑way driver app: dispatch assigns → driver gets a push with buttons → driver acts (accept, share location, picked up, delivered, delay, end shift) → app reflects it live. Also add a self‑link onboarding flow and register the webhook now so it goes live.
 
-### Approach
+## What's already in place (no rework needed)
 
-1. **Deduplicate existing sites** — the DB already contains 8 seeded warehouses (MAN8, BHX2, EMA1, etc.). I'll insert only the new codes and skip any that already exist (using `ON CONFLICT (code) DO NOTHING`; will add a unique constraint on `code` if missing).
-2. **Single batched INSERT** for all sites with `code`, `name` (City / Region), `address`, `latitude`, `longitude`.
-3. **Map auto-updates** — `LiveMap` already renders all rows from the `warehouses` table, so no UI changes needed.
+- Reply keyboard: Start Shift · Share Location · My Jobs · Report Delay · End Shift
+- Inline per‑job buttons: Accept · Reject · Picked up · Delivered
+- Location ingestion + geofence arrival (auto `ARRIVED_PICKUP` / `COMPLETED`)
+- ETA recalc on every ping
+- Webhook secret verification, `driver_events` logging
 
-### Site categorization in `name` field
+## Changes
 
-To keep the map readable, I'll prefix names with the site type:
-- `FC — <City>` for Fulfillment Centres (BHX1–4, MAN1–3, LTN1/2/4, LCY2, EDI4, CWL1, LBA1/2, EMA1, MME2, BRS1)
-- `SC — <City>` for Sortation Centres (BHX5/7/8, EMA2, LBA4, LCY8)
-- `DS — <City>` for Delivery Stations (all D-prefixed codes)
+### 1. Auto‑push assignments (app → driver)
 
-### Data scope
+Trigger when a job's `assigned_driver_id` is set or changed in dispatch.
 
-~45 sites total from your list, covering England, Scotland, and Wales. Coordinates copied verbatim from your table (converted to signed decimals — west = negative longitude, east = positive).
+- New server function `notifyDriverOfJob(jobId)` — loads job + driver + warehouses, sends the same formatted card + Accept/Reject/Picked/Delivered inline keyboard via the Telegram gateway.
+- Call it from the **Jobs page** wherever a driver is assigned (the existing Create Route dialog and any driver‑change dropdown) right after the Supabase update succeeds. No DB triggers needed — keeps logic in one place and works with the current `public-all` RLS.
+- Also push on important status changes the dispatcher makes manually (e.g. CANCELLED → "Job cancelled by dispatch").
 
-### Out of scope
+### 2. Self‑link with a 6‑digit code
 
-- No schema changes beyond adding a unique constraint on `warehouses.code` (needed for idempotent re-seeding).
-- No icon/category styling on the map yet — all sites use the existing warehouse marker. Happy to add type-based colors as a follow-up if you want.
+- Migration: add `pairing_code TEXT` and `pairing_expires_at TIMESTAMPTZ` to `drivers`.
+- Drivers page: "Generate code" button per row → writes a fresh 6‑digit code valid for 15 min and shows it for the dispatcher to text/whatsapp to the driver.
+- In the bot, when an unregistered chat sends a numeric 6‑digit message, the webhook looks it up, sets that driver's `telegram_id` to the chat id, clears the code, and replies with the main menu and "✅ Linked as <name>".
+- `/start` from a still‑unregistered chat replies "Send the 6‑digit code your dispatcher gave you."
 
-Ready to apply?
+### 3. One‑tap location (already correct shape)
+
+Keep the current behaviour: 📍 Share Location button uses Telegram's native `request_location`, one tap per request. After Start Shift the bot explicitly nudges: "Please tap 📍 Share Location to start receiving jobs," and again whenever a job is accepted.
+
+### 4. Register the webhook during implementation
+
+Run `setWebhook` against the project's stable dev URL (`project--<id>-dev.lovable.app/api/public/telegram/webhook`) using the existing `registerTelegramWebhook` server fn, then `getWebhookInfo` to confirm. Surface result in chat.
+
+### 5. Small polish
+
+- On `ACCEPT`, also DM a Google Maps deep link to the origin warehouse coordinates.
+- On `ARRIVED_PICKUP`, prompt "Tap 🚚 Picked up when loaded."
+- On `COMPLETED`, set driver back to `AVAILABLE` and push "✅ Done. Waiting for next job."
+
+## Technical notes
+
+- New file `src/lib/telegram-notify.functions.ts` exposes `notifyDriverOfJob` (server fn, uses `supabaseAdmin` + the existing `telegram.server.ts` helpers).
+- Webhook handler (`src/routes/api/public/telegram/webhook.ts`) gains a branch: if `message.text` matches `^\d{6}$` and the chat is unregistered, try to pair.
+- Jobs page calls `notifyDriverOfJob` after `supabase.from('jobs').update/insert(...).select().single()` when `assigned_driver_id` is present.
+- Migration adds two nullable columns to `drivers`; no RLS change needed.
+
+## Out of scope (say if you want them)
+
+- Driving‑hours / HOS compliance checks
+- Live‑location streaming subscription (15 min – 8 h pin)
+- Multi‑language bot replies
+- Photo proof of delivery

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { useJobs, useWarehouses, useDrivers } from "@/lib/hooks";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -6,6 +7,7 @@ import { PageHeader } from "./_app.index";
 import { ArrowRight, Plus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { notifyDriverOfJob, notifyDriverJobUpdate } from "@/lib/telegram-notify.functions";
 
 export const Route = createFileRoute("/_app/jobs")({
   component: JobsPage,
@@ -27,10 +29,36 @@ function JobsPage() {
   const warehouses = useWarehouses();
   const drivers = useDrivers();
   const [open, setOpen] = useState(false);
+  const notify = useServerFn(notifyDriverOfJob);
+  const notifyUpdate = useServerFn(notifyDriverJobUpdate);
 
   async function setStatus(id: string, status: string) {
     const { error } = await supabase.from("jobs").update({ status: status as never }).eq("id", id);
-    if (error) toast.error(error.message); else toast.success(`Status → ${status}`);
+    if (error) return toast.error(error.message);
+    toast.success(`Status → ${status}`);
+    if (status === "CANCELLED") {
+      try { await notifyUpdate({ data: { jobId: id, message: "❌ Job cancelled by dispatch." } }); } catch {}
+    }
+  }
+
+  async function assignDriver(jobId: string, driverId: string) {
+    const payload = driverId
+      ? { assigned_driver_id: driverId, status: "ASSIGNED" as never }
+      : { assigned_driver_id: null, status: "PENDING" as never };
+    const { error } = await supabase.from("jobs").update(payload).eq("id", jobId);
+    if (error) return toast.error(error.message);
+    if (driverId) {
+      try {
+        const r = await notify({ data: { jobId } });
+        if ((r as { skipped?: string }).skipped === "driver_no_telegram") {
+          toast.warning("Driver has no Telegram linked yet");
+        } else {
+          toast.success("Driver notified on Telegram");
+        }
+      } catch (e) {
+        toast.error(`Notify failed: ${(e as Error).message}`);
+      }
+    }
   }
 
   return (
@@ -65,7 +93,7 @@ function JobsPage() {
               {jobs.map((j) => {
                 const o = warehouses.find((w) => w.id === j.origin_warehouse_id);
                 const d = warehouses.find((w) => w.id === j.destination_warehouse_id);
-                const drv = drivers.find((dr) => dr.id === j.assigned_driver_id);
+                
                 return (
                   <tr key={j.id} className="hover:bg-surface-2/40">
                     <td className="px-3 py-2.5 font-mono text-xs">{j.reference}</td>
@@ -74,7 +102,16 @@ function JobsPage() {
                       <ArrowRight className="inline size-3 mx-1.5 text-muted-foreground" />
                       <span>{d?.code ?? "?"}</span>
                     </td>
-                    <td className="px-3 py-2.5">{drv?.name ?? <span className="text-muted-foreground italic">unassigned</span>}</td>
+                    <td className="px-3 py-2.5">
+                      <select
+                        value={j.assigned_driver_id ?? ""}
+                        onChange={(e) => assignDriver(j.id, e.target.value)}
+                        className="text-xs bg-surface border border-border rounded px-1.5 py-1"
+                      >
+                        <option value="">— unassigned —</option>
+                        {drivers.map((dr) => <option key={dr.id} value={dr.id}>{dr.name}{dr.telegram_id ? "" : " (no TG)"}</option>)}
+                      </select>
+                    </td>
                     <td className="px-3 py-2.5"><StatusBadge status={j.status} kind="job" /></td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs">{j.eta_minutes ? `${j.eta_minutes}m` : "—"}</td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">{j.scheduled_at ? new Date(j.scheduled_at).toLocaleString() : "—"}</td>
@@ -98,7 +135,7 @@ function JobsPage() {
         </div>
       </div>
 
-      {open && <CreateRouteDialog onClose={() => setOpen(false)} warehouses={warehouses} drivers={drivers} />}
+      {open && <CreateRouteDialog onClose={() => setOpen(false)} warehouses={warehouses} drivers={drivers} onAssigned={(id) => notify({ data: { jobId: id } }).catch(() => {})} />}
     </div>
   );
 }
@@ -107,10 +144,12 @@ function CreateRouteDialog({
   onClose,
   warehouses,
   drivers,
+  onAssigned,
 }: {
   onClose: () => void;
   warehouses: ReturnType<typeof useWarehouses>;
   drivers: ReturnType<typeof useDrivers>;
+  onAssigned: (jobId: string) => void;
 }) {
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
@@ -130,10 +169,11 @@ function CreateRouteDialog({
       status: (driverId ? "ASSIGNED" : "PENDING") as never,
       scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
     };
-    const { error } = await supabase.from("jobs").insert(payload as never);
+    const { data, error } = await supabase.from("jobs").insert(payload as never).select("id").single();
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Route created");
+    if (driverId && data?.id) onAssigned(data.id as string);
     onClose();
   }
 

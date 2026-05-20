@@ -6,8 +6,9 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Check, X, Send } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, Send, KeyRound } from "lucide-react";
 import { registerTelegramWebhook } from "@/lib/telegram-setup.functions";
+import { generatePairingCode } from "@/lib/telegram-notify.functions";
 
 export const Route = createFileRoute("/_app/drivers")({
   component: DriversPage,
@@ -182,6 +183,7 @@ function DriversPage() {
                           </>
                         ) : (
                           <>
+                            <PairButton driverId={d.id} hasTelegram={!!d.telegram_id} />
                             <button
                               onClick={() => startEdit(d)}
                               className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-foreground"
@@ -256,6 +258,33 @@ function SetupTelegramButton() {
       className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface text-xs font-medium hover:bg-surface-2 disabled:opacity-50"
     >
       <Send className="size-3.5" /> {busy ? "Setting up…" : "Setup Telegram"}
+    </button>
+  );
+}
+
+function PairButton({ driverId, hasTelegram }: { driverId: string; hasTelegram: boolean }) {
+  const gen = useServerFn(generatePairingCode);
+  const [busy, setBusy] = useState(false);
+  async function run() {
+    setBusy(true);
+    try {
+      const r = await gen({ data: { driverId } });
+      await navigator.clipboard?.writeText(r.code).catch(() => {});
+      toast.success(`Code ${r.code} — valid 15 min (copied)`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <button
+      onClick={run}
+      disabled={busy}
+      title={hasTelegram ? "Re-pair Telegram" : "Generate pairing code"}
+      className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary disabled:opacity-50"
+    >
+      <KeyRound className="size-3.5" />
     </button>
   );
 }

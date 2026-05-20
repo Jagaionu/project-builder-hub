@@ -119,20 +119,44 @@ async function handleLocation(driver: Driver, lat: number, lon: number) {
   return `📡 Location received. ETA to <b>${wh.code}</b>: ~${eta} min (${distKm.toFixed(1)} km).`;
 }
 
+async function tryPair(chatId: number, code: string): Promise<Driver | null> {
+  const { data } = await supabaseAdmin
+    .from("drivers")
+    .select("id,name,telegram_id,status,pairing_expires_at")
+    .eq("pairing_code", code)
+    .maybeSingle();
+  if (!data) return null;
+  if (data.pairing_expires_at && new Date(data.pairing_expires_at) < new Date()) return null;
+  await supabaseAdmin
+    .from("drivers")
+    .update({ telegram_id: String(chatId), pairing_code: null, pairing_expires_at: null })
+    .eq("id", data.id);
+  return { id: data.id, name: data.name, telegram_id: String(chatId), status: data.status };
+}
+
 async function handleText(chatId: number, driver: Driver | null, text: string) {
+  const t = text.trim();
+
   if (!driver) {
-    if (text.startsWith("/start")) {
-      await sendMessage(
-        chatId,
-        `👋 Welcome! Your Telegram ID is <code>${chatId}</code>.\nAsk your dispatcher to register this ID against your driver profile, then send /start again.`,
-      );
+    // Self-link via 6-digit pairing code
+    if (/^\d{6}$/.test(t)) {
+      const linked = await tryPair(chatId, t);
+      if (linked) {
+        await sendMessage(chatId, `✅ Linked as <b>${linked.name}</b>. Use the menu below.`, mainMenu);
+        return;
+      }
+      await sendMessage(chatId, "❌ Invalid or expired code. Ask dispatch for a fresh one.");
       return;
     }
-    await sendMessage(chatId, `You are not registered yet. Your Telegram ID: <code>${chatId}</code>`);
+    await sendMessage(
+      chatId,
+      `👋 Welcome! Send the 6‑digit code your dispatcher gave you to link this chat.\n(Your Telegram ID: <code>${chatId}</code>)`,
+    );
     return;
   }
 
-  const t = text.trim();
+
+  // (t already trimmed above)
 
   if (t.startsWith("/start") || t === "/menu") {
     await sendMessage(chatId, `Hi <b>${driver.name}</b>. Use the menu below.`, mainMenu);
@@ -198,7 +222,17 @@ async function handleCallback(chatId: number, driver: Driver | null, callbackId:
     await supabaseAdmin.from("drivers").update({ status: "ON_ROUTE" }).eq("id", driver.id);
     await logEvent(driver.id, "ACCEPT_JOB", { job_id: arg });
     await answerCallbackQuery(callbackId, "Accepted");
-    await sendMessage(chatId, "✅ Job accepted. Head to the pickup point.", mainMenu);
+    const { data: job } = await supabaseAdmin
+      .from("jobs").select("origin_warehouse_id").eq("id", arg).maybeSingle();
+    const { data: wh } = job
+      ? await supabaseAdmin.from("warehouses").select("code,name,latitude,longitude").eq("id", job.origin_warehouse_id).maybeSingle()
+      : { data: null };
+    const maps = wh ? `\n🗺 https://maps.google.com/?q=${wh.latitude},${wh.longitude}` : "";
+    await sendMessage(
+      chatId,
+      `✅ Job accepted. Head to pickup${wh ? ` <b>${wh.code} ${wh.name}</b>` : ""}.${maps}\nTap 📍 Share Location so we can track ETA.`,
+      mainMenu,
+    );
     return;
   }
   if (action === "REJECT" && arg) {

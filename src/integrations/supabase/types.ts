@@ -54,6 +54,8 @@ export type Database = {
           id: string
           last_update_time: string | null
           name: string
+          pairing_code: string | null
+          pairing_expires_at: string | null
           phone: string | null
           status: Database["public"]["Enums"]["driver_status"]
           telegram_id: string | null
@@ -65,6 +67,8 @@ export type Database = {
           id?: string
           last_update_time?: string | null
           name: string
+          pairing_code?: string | null
+          pairing_expires_at?: string | null
           phone?: string | null
           status?: Database["public"]["Enums"]["driver_status"]
           telegram_id?: string | null
@@ -76,6 +80,8 @@ export type Database = {
           id?: string
           last_update_time?: string | null
           name?: string
+          pairing_code?: string | null
+          pairing_expires_at?: string | null
           phone?: string | null
           status?: Database["public"]["Enums"]["driver_status"]
           telegram_id?: string | null
