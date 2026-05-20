@@ -298,8 +298,22 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               const driver = await findDriver(chatId);
               if (msg.location && driver) {
                 const reply = await handleLocation(driver, msg.location.latitude, msg.location.longitude);
-                if (reply) await sendMessage(chatId, reply, mainMenu);
-                else await sendMessage(chatId, "📍 Location received.", mainMenu);
+                if (reply) {
+                  await sendMessage(chatId, reply.text, mainMenu);
+                  if (reply.jobId) {
+                    const card = await buildJobCard(reply.jobId, driver.id);
+                    if (card) await sendMessage(chatId, card.text, jobInlineKeyboard(reply.jobId));
+                  }
+                } else {
+                  // No active job — push any newly-assigned ones with fresh ETAs
+                  const n = await pushAllAssignedJobs(driver.id, chatId);
+                  await sendMessage(
+                    chatId,
+                    n > 0 ? `📍 Location received. ${n} job(s) ready below.` : "📍 Location received. No jobs yet.",
+                    mainMenu,
+                  );
+                }
+              } else if (typeof msg.text === "string") {
               } else if (typeof msg.text === "string") {
                 await handleText(chatId, driver, msg.text);
               }
