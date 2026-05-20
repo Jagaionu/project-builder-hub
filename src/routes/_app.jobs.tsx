@@ -282,7 +282,15 @@ function JobsPage() {
                         compliance={compliance}
                         onChange={(id) => assignDriver(j.id, id)}
                       />
+                      {!j.assigned_driver_id && j.planned_driver_id && (
+                        <PlannedChip
+                          driverName={drivers.find((d) => d.id === j.planned_driver_id)?.name ?? "?"}
+                          sequence={j.planned_sequence ?? undefined}
+                          startAt={j.planned_start_at ?? undefined}
+                        />
+                      )}
                     </div>
+
                     <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
                       <StatusPill
                         status={j.status}
