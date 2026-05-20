@@ -1,56 +1,52 @@
 ## Goal
 
-Turn the existing Telegram bot into a fully two‑way driver app: dispatch assigns → driver gets a push with buttons → driver acts (accept, share location, picked up, delivered, delay, end shift) → app reflects it live. Also add a self‑link onboarding flow and register the webhook now so it goes live.
+1. Click any row in `/jobs` to **edit or delete** the lane.
+2. Build routes with **N stops** (pickup/drop, in any order you like) — not just one origin + one destination.
+3. The driver dropdown shows **every driver in the system** (already does — confirmed `Ionut` is the only one because earlier you said remove dummies). I'll keep it as-is and add an "Add driver" shortcut on the Drivers page.
 
-## What's already in place (no rework needed)
+## Schema
 
-- Reply keyboard: Start Shift · Share Location · My Jobs · Report Delay · End Shift
-- Inline per‑job buttons: Accept · Reject · Picked up · Delivered
-- Location ingestion + geofence arrival (auto `ARRIVED_PICKUP` / `COMPLETED`)
-- ETA recalc on every ping
-- Webhook secret verification, `driver_events` logging
+New table `job_stops`:
 
-## Changes
+- `job_id` (fk → jobs, cascade delete)
+- `seq` integer (0,1,2,…)
+- `kind` enum `stop_kind` = `PICKUP` | `DROP`
+- `warehouse_id` (fk → warehouses)
+- `scheduled_at` timestamptz, nullable
+- `arrived_at` timestamptz, nullable (filled by geofence)
+- public-all RLS to match the rest of the app
 
-### 1. Auto‑push assignments (app → driver)
+Backfill: every existing job gets two rows (PICKUP at `origin_warehouse_id` seq=0, DROP at `destination_warehouse_id` seq=1). The `origin_warehouse_id` / `destination_warehouse_id` columns on `jobs` stay (nullable from now on) for safety — the app reads from `job_stops`.
 
-Trigger when a job's `assigned_driver_id` is set or changed in dispatch.
+## UI — `src/routes/_app.jobs.tsx`
 
-- New server function `notifyDriverOfJob(jobId)` — loads job + driver + warehouses, sends the same formatted card + Accept/Reject/Picked/Delivered inline keyboard via the Telegram gateway.
-- Call it from the **Jobs page** wherever a driver is assigned (the existing Create Route dialog and any driver‑change dropdown) right after the Supabase update succeeds. No DB triggers needed — keeps logic in one place and works with the current `public-all` RLS.
-- Also push on important status changes the dispatcher makes manually (e.g. CANCELLED → "Job cancelled by dispatch").
+- Row click opens an **Edit Route** modal (same form as Create) with **Delete** in the footer.
+- "Route" column shows the full chain, e.g. `BHX1 → BHX5 → BHX2`.
+- The route editor has a stop list with **+ Add stop** / remove / reorder, each row = kind selector (Pickup/Drop) + warehouse select + optional scheduled time.
+- Driver dropdown unchanged — lists all drivers.
 
-### 2. Self‑link with a 6‑digit code
+## Telegram job card
 
-- Migration: add `pairing_code TEXT` and `pairing_expires_at TIMESTAMPTZ` to `drivers`.
-- Drivers page: "Generate code" button per row → writes a fresh 6‑digit code valid for 15 min and shows it for the dispatcher to text/whatsapp to the driver.
-- In the bot, when an unregistered chat sends a numeric 6‑digit message, the webhook looks it up, sets that driver's `telegram_id` to the chat id, clears the code, and replies with the main menu and "✅ Linked as <name>".
-- `/start` from a still‑unregistered chat replies "Send the 6‑digit code your dispatcher gave you."
+`buildJobCard` walks the ordered stops:
 
-### 3. One‑tap location (already correct shape)
+- Leg 0: driver location → stop 1 (transit time, ETA clock)
+- 30 min loading at each PICKUP
+- Leg N: stop N → stop N+1 (transit time)
+- Final line: total drive + loading time, ETA clock at last stop.
 
-Keep the current behaviour: 📍 Share Location button uses Telegram's native `request_location`, one tap per request. After Start Shift the bot explicitly nudges: "Please tap 📍 Share Location to start receiving jobs," and again whenever a job is accepted.
+Each stop shows its code, name, address and a Google Maps link.
 
-### 4. Register the webhook during implementation
+## Bot geofence
 
-Run `setWebhook` against the project's stable dev URL (`project--<id>-dev.lovable.app/api/public/telegram/webhook`) using the existing `registerTelegramWebhook` server fn, then `getWebhookInfo` to confirm. Surface result in chat.
+Webhook tracks the **next stop without `arrived_at`** for the active job. When the driver is inside that warehouse's geofence:
 
-### 5. Small polish
+- mark `arrived_at`
+- if it's a PICKUP → status `ARRIVED_PICKUP`, prompt "tap 🚚 Picked up when loaded"
+- if it's a DROP and not last → status `EN_ROUTE_DELIVERY` after driver taps Picked up, ETA recalculated to the following stop
+- if it's the last stop → job `COMPLETED`, driver `AVAILABLE`
 
-- On `ACCEPT`, also DM a Google Maps deep link to the origin warehouse coordinates.
-- On `ARRIVED_PICKUP`, prompt "Tap 🚚 Picked up when loaded."
-- On `COMPLETED`, set driver back to `AVAILABLE` and push "✅ Done. Waiting for next job."
+## Out of scope
 
-## Technical notes
-
-- New file `src/lib/telegram-notify.functions.ts` exposes `notifyDriverOfJob` (server fn, uses `supabaseAdmin` + the existing `telegram.server.ts` helpers).
-- Webhook handler (`src/routes/api/public/telegram/webhook.ts`) gains a branch: if `message.text` matches `^\d{6}$` and the chat is unregistered, try to pair.
-- Jobs page calls `notifyDriverOfJob` after `supabase.from('jobs').update/insert(...).select().single()` when `assigned_driver_id` is present.
-- Migration adds two nullable columns to `drivers`; no RLS change needed.
-
-## Out of scope (say if you want them)
-
-- Driving‑hours / HOS compliance checks
-- Live‑location streaming subscription (15 min – 8 h pin)
-- Multi‑language bot replies
-- Photo proof of delivery
+- Drag-to-reorder stops (use up/down buttons instead — simpler, ships now)
+- Per-stop time windows (only single `scheduled_at` per stop)
+- Editing a route mid-shift after the driver has already accepted (allowed but no special "notify driver of changes" flow beyond the existing `notifyDriverOfJob` re-push)

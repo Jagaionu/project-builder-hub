@@ -88,14 +88,62 @@ export type Database = {
         }
         Relationships: []
       }
+      job_stops: {
+        Row: {
+          arrived_at: string | null
+          created_at: string
+          id: string
+          job_id: string
+          kind: Database["public"]["Enums"]["stop_kind"]
+          scheduled_at: string | null
+          seq: number
+          warehouse_id: string
+        }
+        Insert: {
+          arrived_at?: string | null
+          created_at?: string
+          id?: string
+          job_id: string
+          kind: Database["public"]["Enums"]["stop_kind"]
+          scheduled_at?: string | null
+          seq: number
+          warehouse_id: string
+        }
+        Update: {
+          arrived_at?: string | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          kind?: Database["public"]["Enums"]["stop_kind"]
+          scheduled_at?: string | null
+          seq?: number
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_stops_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stops_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           assigned_driver_id: string | null
           created_at: string
-          destination_warehouse_id: string
+          destination_warehouse_id: string | null
           eta_minutes: number | null
           id: string
-          origin_warehouse_id: string
+          origin_warehouse_id: string | null
           reference: string
           scheduled_at: string | null
           status: Database["public"]["Enums"]["job_status"]
@@ -104,10 +152,10 @@ export type Database = {
         Insert: {
           assigned_driver_id?: string | null
           created_at?: string
-          destination_warehouse_id: string
+          destination_warehouse_id?: string | null
           eta_minutes?: number | null
           id?: string
-          origin_warehouse_id: string
+          origin_warehouse_id?: string | null
           reference?: string
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["job_status"]
@@ -116,10 +164,10 @@ export type Database = {
         Update: {
           assigned_driver_id?: string | null
           created_at?: string
-          destination_warehouse_id?: string
+          destination_warehouse_id?: string | null
           eta_minutes?: number | null
           id?: string
-          origin_warehouse_id?: string
+          origin_warehouse_id?: string | null
           reference?: string
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["job_status"]
@@ -210,6 +258,7 @@ export type Database = {
         | "EN_ROUTE_DELIVERY"
         | "COMPLETED"
         | "CANCELLED"
+      stop_kind: "PICKUP" | "DROP"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -363,6 +412,7 @@ export const Constants = {
         "COMPLETED",
         "CANCELLED",
       ],
+      stop_kind: ["PICKUP", "DROP"],
     },
   },
 } as const
