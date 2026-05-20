@@ -312,13 +312,15 @@ function StatusPill({ status, onChange }: { status: string; onChange: (s: string
   );
 }
 
-function DriverPicker({ driverId, drivers, onChange }: {
+function DriverPicker({ driverId, drivers, compliance, onChange }: {
   driverId: string | null | undefined;
   drivers: { id: string; name: string; telegram_id?: string | null }[];
+  compliance?: Record<string, Compliance>;
   onChange: (id: string) => void;
 }) {
   const { open, setOpen, ref } = usePopover();
   const driver = drivers.find((d) => d.id === driverId);
+  const activeC = driver ? compliance?.[driver.id] : undefined;
   return (
     <div ref={ref} className="relative">
       <button
