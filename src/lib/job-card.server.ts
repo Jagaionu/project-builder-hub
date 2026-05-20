@@ -103,15 +103,14 @@ export async function buildJobCard(jobId: string, driverId?: string): Promise<{ 
     lines.push(stopHeader);
     if (wh.address) lines.push(`📍 ${wh.address}`);
     lines.push(`🗺 https://maps.google.com/?q=${wh.latitude},${wh.longitude}`);
-    if (s.scheduled_at) lines.push(`🕒 Window: ${new Date(s.scheduled_at).toLocaleString()}`);
     if (s.arrived_at) {
       lines.push(`✅ Arrived ${new Date(s.arrived_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
     } else if (legMin != null && legKm != null) {
-      lines.push(`➡️ Leg: ${legKm.toFixed(1)} km · ${fmtMin(legMin)} (ETA ~${fmtClock(cumulativeMin)})`);
+      lines.push(`🕒 <b>${wh.code} ETA ${fmtClock(cumulativeMin)}</b> · ${fmtMin(legMin)} (${legKm.toFixed(1)} km)`);
     } else if (i === 0 && !haveStart) {
-      lines.push(`➡️ Share 📍 location to compute live ETA`);
-    } else if (legMin == null) {
-      lines.push(`➡️ Leg ETA available after location share`);
+      lines.push(`🕒 ${wh.code} ETA — share 📍 location to compute`);
+    } else {
+      lines.push(`🕒 ${wh.code} ETA — pending location`);
     }
 
     if (s.kind === "PICKUP") {

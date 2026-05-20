@@ -39,20 +39,29 @@ export const mainMenu = {
 
 export const removeKeyboard = { remove_keyboard: true };
 
-export function jobInlineKeyboard(jobId: string) {
-  return {
-    inline_keyboard: [
-      [
+export type JobKeyboardMode = "OFFER" | "ACCEPTED" | "NONE";
+
+export function jobInlineKeyboard(jobId: string, mode: JobKeyboardMode = "OFFER") {
+  if (mode === "OFFER") {
+    return {
+      inline_keyboard: [[
         { text: "✅ Accept", callback_data: `ACCEPT:${jobId}` },
         { text: "❌ Reject", callback_data: `REJECT:${jobId}` },
-      ],
-      [
-        { text: "🚚 Picked up", callback_data: `PICKED:${jobId}` },
-        { text: "🏁 Delivered", callback_data: `DELIVERED:${jobId}` },
-      ],
-    ],
-  };
+      ]],
+    };
+  }
+  if (mode === "ACCEPTED") {
+    return {
+      inline_keyboard: [[
+        { text: "🚫 Can't complete — notify dispatch", callback_data: `CANT:${jobId}` },
+      ]],
+    };
+  }
+  return { inline_keyboard: [] };
 }
+
+export const emptyInlineKeyboard = { inline_keyboard: [] };
+
 
 export function delayReasonsKeyboard() {
   return {
@@ -74,6 +83,18 @@ export async function sendMessage(chatId: number | string, text: string, replyMa
 
 export async function answerCallbackQuery(callbackQueryId: string, text?: string) {
   return tg("answerCallbackQuery", { callback_query_id: callbackQueryId, ...(text ? { text } : {}) });
+}
+
+export async function editMessageReplyMarkup(
+  chatId: number | string,
+  messageId: number,
+  replyMarkup: unknown,
+) {
+  return tg("editMessageReplyMarkup", {
+    chat_id: chatId,
+    message_id: messageId,
+    reply_markup: replyMarkup,
+  });
 }
 
 export async function setWebhook(url: string) {

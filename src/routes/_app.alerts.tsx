@@ -31,6 +31,21 @@ function AlertsPage() {
       if (d.status === "DELAYED") {
         out.push({ id: `d-${d.id}`, level: "critical", type: "Delay reported", icon: AlertTriangle, message: `${d.name} flagged DELAYED` });
       }
+      if (d.status === "OFF_SHIFT") {
+        const activeJobs = jobs.filter(
+          (j) => j.assigned_driver_id === d.id &&
+            ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
+        );
+        if (activeJobs.length > 0) {
+          out.push({
+            id: `off-${d.id}`,
+            level: "critical",
+            type: "Driver off-shift",
+            icon: AlertTriangle,
+            message: `${d.name} went OFF with ${activeJobs.length} active job(s) — re-plan needed`,
+          });
+        }
+      }
       if (d.last_update_time) {
         const ageMin = (now - new Date(d.last_update_time).getTime()) / 60000;
         if (ageMin > 15 && d.status !== "OFF_SHIFT") {

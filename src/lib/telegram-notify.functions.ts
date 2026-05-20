@@ -21,10 +21,26 @@ export const notifyDriverOfJob = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!driver?.telegram_id) return { skipped: "driver_no_telegram" };
 
+    // Dedupe: never send the same job card to the same driver twice.
+    const { data: already } = await supabaseAdmin
+      .from("driver_events")
+      .select("id")
+      .eq("driver_id", job.assigned_driver_id)
+      .eq("type", "JOB_CARD_SENT" as never)
+      .contains("payload", { job_id: data.jobId } as never)
+      .limit(1)
+      .maybeSingle();
+    if (already) return { skipped: "already_sent" };
+
     const card = await buildJobCard(job.id, job.assigned_driver_id);
     if (!card) return { skipped: "no_card" };
 
-    await sendMessage(driver.telegram_id, card.text, jobInlineKeyboard(job.id));
+    await sendMessage(driver.telegram_id, card.text, jobInlineKeyboard(job.id, "OFFER"));
+    await supabaseAdmin.from("driver_events").insert({
+      driver_id: job.assigned_driver_id,
+      type: "JOB_CARD_SENT" as never,
+      payload: { job_id: data.jobId } as never,
+    });
     return { ok: true };
   });
 
