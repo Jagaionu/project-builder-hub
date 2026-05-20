@@ -144,10 +144,12 @@ function CreateRouteDialog({
   onClose,
   warehouses,
   drivers,
+  onAssigned,
 }: {
   onClose: () => void;
   warehouses: ReturnType<typeof useWarehouses>;
   drivers: ReturnType<typeof useDrivers>;
+  onAssigned: (jobId: string) => void;
 }) {
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
@@ -167,10 +169,11 @@ function CreateRouteDialog({
       status: (driverId ? "ASSIGNED" : "PENDING") as never,
       scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
     };
-    const { error } = await supabase.from("jobs").insert(payload as never);
+    const { data, error } = await supabase.from("jobs").insert(payload as never).select("id").single();
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Route created");
+    if (driverId && data?.id) onAssigned(data.id as string);
     onClose();
   }
 
