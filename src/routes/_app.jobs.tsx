@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useJobs, useWarehouses, useDrivers } from "@/lib/hooks";
 
 import { PageHeader } from "./_app.index";
-import { Plus, Trash2, X, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Package, Flag, Clock, User, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
