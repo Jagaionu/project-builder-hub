@@ -103,6 +103,8 @@ function DriversPage() {
             </button>
           </div>
         )}
+        <PendingRegistrations />
+
         <div className="rounded-md border border-border overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
