@@ -82,6 +82,17 @@ function JobsPage() {
     }
   }
 
+  const JOB_STATUSES = [
+    "PENDING", "ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP",
+    "EN_ROUTE_DELIVERY", "COMPLETED", "CANCELLED",
+  ] as const;
+
+  async function setStatus(jobId: string, status: string) {
+    const { error } = await supabase.from("jobs").update({ status: status as never }).eq("id", jobId);
+    if (error) toast.error(error.message);
+    else toast.success(`Status → ${status}`);
+  }
+
   const editingJob = editJobId ? jobs.find((j) => j.id === editJobId) : null;
 
   return (
