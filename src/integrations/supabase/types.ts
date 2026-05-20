@@ -14,7 +14,165 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      driver_events: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_events_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drivers: {
+        Row: {
+          created_at: string
+          current_lat: number | null
+          current_lon: number | null
+          id: string
+          last_update_time: string | null
+          name: string
+          phone: string | null
+          status: Database["public"]["Enums"]["driver_status"]
+          telegram_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_lat?: number | null
+          current_lon?: number | null
+          id?: string
+          last_update_time?: string | null
+          name: string
+          phone?: string | null
+          status?: Database["public"]["Enums"]["driver_status"]
+          telegram_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_lat?: number | null
+          current_lon?: number | null
+          id?: string
+          last_update_time?: string | null
+          name?: string
+          phone?: string | null
+          status?: Database["public"]["Enums"]["driver_status"]
+          telegram_id?: string | null
+        }
+        Relationships: []
+      }
+      jobs: {
+        Row: {
+          assigned_driver_id: string | null
+          created_at: string
+          destination_warehouse_id: string
+          eta_minutes: number | null
+          id: string
+          origin_warehouse_id: string
+          reference: string
+          scheduled_at: string | null
+          status: Database["public"]["Enums"]["job_status"]
+          updated_at: string
+        }
+        Insert: {
+          assigned_driver_id?: string | null
+          created_at?: string
+          destination_warehouse_id: string
+          eta_minutes?: number | null
+          id?: string
+          origin_warehouse_id: string
+          reference?: string
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["job_status"]
+          updated_at?: string
+        }
+        Update: {
+          assigned_driver_id?: string | null
+          created_at?: string
+          destination_warehouse_id?: string
+          eta_minutes?: number | null
+          id?: string
+          origin_warehouse_id?: string
+          reference?: string
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["job_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_assigned_driver_id_fkey"
+            columns: ["assigned_driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_destination_warehouse_id_fkey"
+            columns: ["destination_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_origin_warehouse_id_fkey"
+            columns: ["origin_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      warehouses: {
+        Row: {
+          address: string | null
+          code: string
+          created_at: string
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+        }
+        Insert: {
+          address?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          latitude: number
+          longitude: number
+          name: string
+        }
+        Update: {
+          address?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +181,29 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      driver_event_type:
+        | "START_SHIFT"
+        | "LOCATION_UPDATE"
+        | "ACCEPT_JOB"
+        | "REJECT_JOB"
+        | "ARRIVED"
+        | "DEPARTED"
+        | "DELAY_REPORT"
+        | "END_SHIFT"
+      driver_status:
+        | "AVAILABLE"
+        | "ON_SHIFT"
+        | "ON_ROUTE"
+        | "DELAYED"
+        | "OFF_SHIFT"
+      job_status:
+        | "PENDING"
+        | "ASSIGNED"
+        | "IN_PROGRESS"
+        | "ARRIVED_PICKUP"
+        | "EN_ROUTE_DELIVERY"
+        | "COMPLETED"
+        | "CANCELLED"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +330,33 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      driver_event_type: [
+        "START_SHIFT",
+        "LOCATION_UPDATE",
+        "ACCEPT_JOB",
+        "REJECT_JOB",
+        "ARRIVED",
+        "DEPARTED",
+        "DELAY_REPORT",
+        "END_SHIFT",
+      ],
+      driver_status: [
+        "AVAILABLE",
+        "ON_SHIFT",
+        "ON_ROUTE",
+        "DELAYED",
+        "OFF_SHIFT",
+      ],
+      job_status: [
+        "PENDING",
+        "ASSIGNED",
+        "IN_PROGRESS",
+        "ARRIVED_PICKUP",
+        "EN_ROUTE_DELIVERY",
+        "COMPLETED",
+        "CANCELLED",
+      ],
+    },
   },
 } as const
