@@ -76,38 +76,49 @@ async function handleLocation(driver: Driver, lat: number, lon: number) {
 
   const { data: activeJob } = await supabaseAdmin
     .from("jobs")
-    .select("*")
+    .select("id,status")
     .eq("assigned_driver_id", driver.id)
     .in("status", ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"])
     .maybeSingle();
 
   if (!activeJob) return null;
 
-  const goingToPickup = activeJob.status === "ASSIGNED" || activeJob.status === "IN_PROGRESS";
-  const targetWhId = goingToPickup ? activeJob.origin_warehouse_id : activeJob.destination_warehouse_id;
+  // Find next unarrived stop
+  const { data: stops } = await supabaseAdmin
+    .from("job_stops")
+    .select("id,seq,kind,warehouse_id,arrived_at")
+    .eq("job_id", activeJob.id)
+    .order("seq", { ascending: true });
+  const next = (stops ?? []).find((s) => !s.arrived_at);
+  if (!next) return null;
+
   const { data: wh } = await supabaseAdmin
-    .from("warehouses")
-    .select("*")
-    .eq("id", targetWhId)
-    .maybeSingle();
+    .from("warehouses").select("*").eq("id", next.warehouse_id).maybeSingle();
   if (!wh) return null;
 
   const inside = isInsideGeofence(lat, lon, wh.latitude, wh.longitude);
-  if (inside && goingToPickup) {
-    await supabaseAdmin.from("jobs").update({ status: "ARRIVED_PICKUP" }).eq("id", activeJob.id);
-    await logEvent(driver.id, "ARRIVED", { job_id: activeJob.id, warehouse: wh.code });
-    return { text: `📍 Arrived at pickup <b>${wh.code}</b>. Tap 🚚 Picked up when loaded.`, jobId: activeJob.id as string };
-  }
-  if (inside && activeJob.status === "EN_ROUTE_DELIVERY") {
-    await supabaseAdmin.from("jobs").update({ status: "COMPLETED" }).eq("id", activeJob.id);
-    await supabaseAdmin.from("drivers").update({ status: "AVAILABLE" }).eq("id", driver.id);
-    await logEvent(driver.id, "ARRIVED", { job_id: activeJob.id, warehouse: wh.code, completed: true });
-    return { text: `🏁 Job completed at <b>${wh.code}</b>.`, jobId: null };
+  if (inside) {
+    await supabaseAdmin.from("job_stops").update({ arrived_at: new Date().toISOString() }).eq("id", next.id);
+    const remaining = (stops ?? []).filter((s) => s.id !== next.id && !s.arrived_at).length;
+    if (next.kind === "PICKUP") {
+      await supabaseAdmin.from("jobs").update({ status: "ARRIVED_PICKUP" }).eq("id", activeJob.id);
+      await logEvent(driver.id, "ARRIVED", { job_id: activeJob.id, warehouse: wh.code, kind: "PICKUP" });
+      return { text: `📍 Arrived pickup <b>${wh.code}</b>. Tap 🚚 Picked up when loaded.`, jobId: activeJob.id as string };
+    }
+    // DROP arrived
+    if (remaining === 0) {
+      await supabaseAdmin.from("jobs").update({ status: "COMPLETED" }).eq("id", activeJob.id);
+      await supabaseAdmin.from("drivers").update({ status: "AVAILABLE" }).eq("id", driver.id);
+      await logEvent(driver.id, "ARRIVED", { job_id: activeJob.id, warehouse: wh.code, completed: true });
+      return { text: `🏁 Final drop complete at <b>${wh.code}</b>. Job done.`, jobId: null };
+    }
+    await logEvent(driver.id, "ARRIVED", { job_id: activeJob.id, warehouse: wh.code, kind: "DROP" });
+    return { text: `📍 Drop done at <b>${wh.code}</b>. Continue to next stop.`, jobId: activeJob.id as string };
   }
   const distKm = haversineKm(lat, lon, wh.latitude, wh.longitude);
   const eta = etaMinutes(distKm);
   await supabaseAdmin.from("jobs").update({ eta_minutes: eta }).eq("id", activeJob.id);
-  return { text: `📡 Location received. ETA to <b>${wh.code}</b>: ~${eta} min (${distKm.toFixed(1)} km).`, jobId: activeJob.id as string };
+  return { text: `📡 ETA to <b>${wh.code}</b>: ~${eta} min (${distKm.toFixed(1)} km).`, jobId: activeJob.id as string };
 }
 
 async function tryPair(chatId: number, code: string): Promise<Driver | null> {
