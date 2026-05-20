@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { timingSafeEqual } from "crypto";
 import { haversineKm, etaMinutes, isInsideGeofence } from "@/lib/geo";
+import { buildJobCard } from "@/lib/job-card.server";
 import {
   deriveTelegramWebhookSecret,
   sendMessage,
@@ -51,27 +52,16 @@ async function listAssignedJobs(driverId: string) {
   return data ?? [];
 }
 
-async function warehouseLabel(id: string | null): Promise<string> {
-  if (!id) return "—";
-  const { data } = await supabaseAdmin.from("warehouses").select("code,name").eq("id", id).maybeSingle();
-  return data ? `${data.code} ${data.name}` : "—";
+
+async function pushAllAssignedJobs(driverId: string, chatId: number) {
+  const jobs = await listAssignedJobs(driverId);
+  for (const j of jobs) {
+    const card = await buildJobCard(j.id, driverId);
+    if (card) await sendMessage(chatId, card.text, jobInlineKeyboard(j.id));
+  }
+  return jobs.length;
 }
 
-async function formatJob(j: {
-  id: string;
-  reference: string;
-  status: string;
-  origin_warehouse_id: string;
-  destination_warehouse_id: string;
-  scheduled_at: string | null;
-}) {
-  const [o, d] = await Promise.all([
-    warehouseLabel(j.origin_warehouse_id),
-    warehouseLabel(j.destination_warehouse_id),
-  ]);
-  const when = j.scheduled_at ? new Date(j.scheduled_at).toLocaleString() : "anytime";
-  return `<b>${j.reference}</b> · ${j.status}\n📦 Pickup: ${o}\n🏁 Drop: ${d}\n🕒 ${when}`;
-}
 
 async function handleLocation(driver: Driver, lat: number, lon: number) {
   await supabaseAdmin
@@ -106,17 +96,18 @@ async function handleLocation(driver: Driver, lat: number, lon: number) {
   if (inside && goingToPickup) {
     await supabaseAdmin.from("jobs").update({ status: "ARRIVED_PICKUP" }).eq("id", activeJob.id);
     await logEvent(driver.id, "ARRIVED", { job_id: activeJob.id, warehouse: wh.code });
-    return `📍 Arrived at pickup <b>${wh.code}</b>.`;
+    return { text: `📍 Arrived at pickup <b>${wh.code}</b>. Tap 🚚 Picked up when loaded.`, jobId: activeJob.id as string };
   }
   if (inside && activeJob.status === "EN_ROUTE_DELIVERY") {
     await supabaseAdmin.from("jobs").update({ status: "COMPLETED" }).eq("id", activeJob.id);
+    await supabaseAdmin.from("drivers").update({ status: "AVAILABLE" }).eq("id", driver.id);
     await logEvent(driver.id, "ARRIVED", { job_id: activeJob.id, warehouse: wh.code, completed: true });
-    return `🏁 Job completed at <b>${wh.code}</b>.`;
+    return { text: `🏁 Job completed at <b>${wh.code}</b>.`, jobId: null };
   }
   const distKm = haversineKm(lat, lon, wh.latitude, wh.longitude);
   const eta = etaMinutes(distKm);
   await supabaseAdmin.from("jobs").update({ eta_minutes: eta }).eq("id", activeJob.id);
-  return `📡 Location received. ETA to <b>${wh.code}</b>: ~${eta} min (${distKm.toFixed(1)} km).`;
+  return { text: `📡 Location received. ETA to <b>${wh.code}</b>: ~${eta} min (${distKm.toFixed(1)} km).`, jobId: activeJob.id as string };
 }
 
 async function tryPair(chatId: number, code: string): Promise<Driver | null> {
@@ -184,17 +175,11 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
   }
 
   if (t === "📦 My Jobs" || t === "/jobs") {
-    const jobs = await listAssignedJobs(driver.id);
-    if (jobs.length === 0) {
-      await sendMessage(chatId, "No active jobs. Stay tuned!", mainMenu);
-      return;
-    }
-    for (const j of jobs) {
-      const txt = await formatJob(j);
-      await sendMessage(chatId, txt, jobInlineKeyboard(j.id));
-    }
+    const n = await pushAllAssignedJobs(driver.id, chatId);
+    if (n === 0) await sendMessage(chatId, "No active jobs. Stay tuned!", mainMenu);
     return;
   }
+
 
   if (t === "⚠️ Report Delay" || t === "/delay") {
     await sendMessage(chatId, "Select a delay reason:", delayReasonsKeyboard());
@@ -222,17 +207,13 @@ async function handleCallback(chatId: number, driver: Driver | null, callbackId:
     await supabaseAdmin.from("drivers").update({ status: "ON_ROUTE" }).eq("id", driver.id);
     await logEvent(driver.id, "ACCEPT_JOB", { job_id: arg });
     await answerCallbackQuery(callbackId, "Accepted");
-    const { data: job } = await supabaseAdmin
-      .from("jobs").select("origin_warehouse_id").eq("id", arg).maybeSingle();
-    const { data: wh } = job
-      ? await supabaseAdmin.from("warehouses").select("code,name,latitude,longitude").eq("id", job.origin_warehouse_id).maybeSingle()
-      : { data: null };
-    const maps = wh ? `\n🗺 https://maps.google.com/?q=${wh.latitude},${wh.longitude}` : "";
-    await sendMessage(
-      chatId,
-      `✅ Job accepted. Head to pickup${wh ? ` <b>${wh.code} ${wh.name}</b>` : ""}.${maps}\nTap 📍 Share Location so we can track ETA.`,
-      mainMenu,
-    );
+    const card = await buildJobCard(arg, driver.id);
+    if (card) {
+      await sendMessage(chatId, `✅ Accepted. Full route below — tap 📍 Share Location to keep ETAs live.`, mainMenu);
+      await sendMessage(chatId, card.text, jobInlineKeyboard(arg));
+    } else {
+      await sendMessage(chatId, "✅ Accepted.", mainMenu);
+    }
     return;
   }
   if (action === "REJECT" && arg) {
@@ -308,8 +289,21 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               const driver = await findDriver(chatId);
               if (msg.location && driver) {
                 const reply = await handleLocation(driver, msg.location.latitude, msg.location.longitude);
-                if (reply) await sendMessage(chatId, reply, mainMenu);
-                else await sendMessage(chatId, "📍 Location received.", mainMenu);
+                if (reply) {
+                  await sendMessage(chatId, reply.text, mainMenu);
+                  if (reply.jobId) {
+                    const card = await buildJobCard(reply.jobId, driver.id);
+                    if (card) await sendMessage(chatId, card.text, jobInlineKeyboard(reply.jobId));
+                  }
+                } else {
+                  // No active job — push any newly-assigned ones with fresh ETAs
+                  const n = await pushAllAssignedJobs(driver.id, chatId);
+                  await sendMessage(
+                    chatId,
+                    n > 0 ? `📍 Location received. ${n} job(s) ready below.` : "📍 Location received. No jobs yet.",
+                    mainMenu,
+                  );
+                }
               } else if (typeof msg.text === "string") {
                 await handleText(chatId, driver, msg.text);
               }
