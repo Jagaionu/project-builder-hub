@@ -222,7 +222,17 @@ async function handleCallback(chatId: number, driver: Driver | null, callbackId:
     await supabaseAdmin.from("drivers").update({ status: "ON_ROUTE" }).eq("id", driver.id);
     await logEvent(driver.id, "ACCEPT_JOB", { job_id: arg });
     await answerCallbackQuery(callbackId, "Accepted");
-    await sendMessage(chatId, "✅ Job accepted. Head to the pickup point.", mainMenu);
+    const { data: job } = await supabaseAdmin
+      .from("jobs").select("origin_warehouse_id").eq("id", arg).maybeSingle();
+    const { data: wh } = job
+      ? await supabaseAdmin.from("warehouses").select("code,name,latitude,longitude").eq("id", job.origin_warehouse_id).maybeSingle()
+      : { data: null };
+    const maps = wh ? `\n🗺 https://maps.google.com/?q=${wh.latitude},${wh.longitude}` : "";
+    await sendMessage(
+      chatId,
+      `✅ Job accepted. Head to pickup${wh ? ` <b>${wh.code} ${wh.name}</b>` : ""}.${maps}\nTap 📍 Share Location so we can track ETA.`,
+      mainMenu,
+    );
     return;
   }
   if (action === "REJECT" && arg) {
