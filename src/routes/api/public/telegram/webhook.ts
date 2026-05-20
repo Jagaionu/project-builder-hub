@@ -314,7 +314,6 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                   );
                 }
               } else if (typeof msg.text === "string") {
-              } else if (typeof msg.text === "string") {
                 await handleText(chatId, driver, msg.text);
               }
             }
