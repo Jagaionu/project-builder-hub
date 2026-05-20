@@ -155,7 +155,7 @@ function JobsPage() {
                 const stops = stopsMap[j.id] ?? [];
                 const whNames = stops.map((s) => {
                   const wh = warehouses.find((w) => w.id === s.warehouse_id);
-                  return wh?.code ?? "?";
+                  return { code: wh?.code ?? "?", kind: s.kind };
                 });
                 return (
                   <div
