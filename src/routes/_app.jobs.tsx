@@ -246,48 +246,132 @@ function JobsPage() {
   );
 }
 
-function StatusMenu({
-  status, onChange, statuses, styles,
-}: {
-  status: string;
-  onChange: (s: string) => void;
-  statuses: string[];
-  styles: Record<string, string>;
-}) {
+function usePopover() {
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
+  return { open, setOpen, ref };
+}
+
+function StatusPill({ status, onChange }: { status: string; onChange: (s: string) => void }) {
+  const { open, setOpen, ref } = usePopover();
+  const cfg = STATUS_CONFIG[status as JobStatus] ?? STATUS_CONFIG.PENDING;
   return (
-    <div className="relative">
+    <div ref={ref} className="relative">
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        className={`inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md border text-[10px] font-mono uppercase tracking-wider hover:opacity-80 ${styles[status] ?? ""}`}
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-opacity hover:opacity-80 select-none ${cfg.badge}`}
       >
-        <span className="size-1.5 rounded-full bg-current" />
-        {status.replace(/_/g, " ")}
-        <ChevronDown className="size-3 opacity-60" />
+        <span className={`size-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+        {cfg.label}
       </button>
       {open && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full mt-1 z-20 min-w-[170px] rounded-md border border-border bg-popover shadow-lg py-1"
+          className="absolute left-0 top-full mt-1.5 z-30 w-48 rounded-xl border border-border bg-popover shadow-xl py-1.5"
         >
-          {statuses.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => { onChange(s); setOpen(false); }}
-              className={`w-full text-left px-2 py-1.5 text-[10px] font-mono uppercase tracking-wider hover:bg-surface-2 flex items-center gap-2 ${s === status ? "font-bold" : ""}`}
-            >
-              <span className={`size-1.5 rounded-full ${styles[s]?.split(" ").find(c => c.startsWith("text-")) ?? ""}`} style={{ backgroundColor: "currentColor" }} />
-              {s.replace(/_/g, " ")}
-            </button>
-          ))}
+          {JOB_STATUSES.map((s) => {
+            const c = STATUS_CONFIG[s];
+            const active = s === status;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => { onChange(s); setOpen(false); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-surface-2 transition-colors"
+              >
+                <span className={`size-2 rounded-full shrink-0 ${c.dot}`} />
+                <span className={`flex-1 text-left ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                  {c.label}
+                </span>
+                {active && <Check className="size-3 text-foreground" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DriverPicker({ driverId, drivers, onChange }: {
+  driverId: string | null | undefined;
+  drivers: { id: string; name: string; telegram_id?: string | null }[];
+  onChange: (id: string) => void;
+}) {
+  const { open, setOpen, ref } = usePopover();
+  const driver = drivers.find((d) => d.id === driverId);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+      >
+        {driver ? (
+          <>
+            <span className="size-6 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
+              {driver.name[0]?.toUpperCase()}
+            </span>
+            <span className="text-xs text-foreground font-medium truncate max-w-[90px]">{driver.name}</span>
+            {!driver.telegram_id && <span className="text-[9px] text-muted-foreground/60 font-mono">no TG</span>}
+          </>
+        ) : (
+          <>
+            <span className="size-6 rounded-full border border-dashed border-border flex items-center justify-center shrink-0">
+              <User className="size-3 text-muted-foreground/50" />
+            </span>
+            <span className="text-xs text-muted-foreground">Unassigned</span>
+          </>
+        )}
+      </button>
+      {open && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute left-0 top-full mt-1.5 z-30 w-52 rounded-xl border border-border bg-popover shadow-xl py-1.5"
+        >
+          <button
+            type="button"
+            onClick={() => { onChange(""); setOpen(false); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-surface-2 transition-colors"
+          >
+            <span className="size-6 rounded-full border border-dashed border-border flex items-center justify-center shrink-0">
+              <User className="size-3 text-muted-foreground/40" />
+            </span>
+            <span className={`flex-1 text-left ${!driverId ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+              Unassigned
+            </span>
+            {!driverId && <Check className="size-3 text-foreground" />}
+          </button>
+          {drivers.length > 0 && <div className="my-1 border-t border-border/50" />}
+          {drivers.map((d) => {
+            const active = d.id === driverId;
+            return (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => { onChange(d.id); setOpen(false); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-surface-2 transition-colors"
+              >
+                <span className="size-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
+                  {d.name[0]?.toUpperCase()}
+                </span>
+                <span className={`flex-1 text-left ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                  {d.name}
+                  {!d.telegram_id && <span className="ml-1 text-[9px] text-muted-foreground/50">no TG</span>}
+                </span>
+                {active && <Check className="size-3 text-foreground" />}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
