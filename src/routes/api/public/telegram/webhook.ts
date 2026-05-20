@@ -179,17 +179,11 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
   }
 
   if (t === "📦 My Jobs" || t === "/jobs") {
-    const jobs = await listAssignedJobs(driver.id);
-    if (jobs.length === 0) {
-      await sendMessage(chatId, "No active jobs. Stay tuned!", mainMenu);
-      return;
-    }
-    for (const j of jobs) {
-      const txt = await formatJob(j);
-      await sendMessage(chatId, txt, jobInlineKeyboard(j.id));
-    }
+    const n = await pushAllAssignedJobs(driver.id, chatId);
+    if (n === 0) await sendMessage(chatId, "No active jobs. Stay tuned!", mainMenu);
     return;
   }
+
 
   if (t === "⚠️ Report Delay" || t === "/delay") {
     await sendMessage(chatId, "Select a delay reason:", delayReasonsKeyboard());
