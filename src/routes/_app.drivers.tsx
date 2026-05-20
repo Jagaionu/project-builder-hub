@@ -428,6 +428,7 @@ function ComplianceCell({ c }: { c: Compliance | undefined }) {
   return (
     <div className="relative">
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium ${ring}`}
@@ -441,10 +442,13 @@ function ComplianceCell({ c }: { c: Compliance | undefined }) {
           </span>
         )}
       </button>
-      {open && (
+      {open && pos && typeof document !== "undefined" && createPortal(
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute z-50 mt-1 w-80 rounded-md border border-border bg-surface shadow-lg p-3 space-y-3">
+          <div className="fixed inset-0 z-[100]" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-[101] w-80 rounded-md border border-border bg-surface shadow-lg p-3 space-y-3"
+            style={{ top: pos.top, left: pos.left }}
+          >
             <div className="flex items-center justify-between">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
                 UK HGV hours
@@ -488,7 +492,8 @@ function ComplianceCell({ c }: { c: Compliance | undefined }) {
               </div>
             )}
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );
