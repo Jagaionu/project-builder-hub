@@ -109,7 +109,7 @@ function JobsPage() {
   async function setStatus(jobId: string, status: string) {
     const { error } = await supabase.from("jobs").update({ status: status as never }).eq("id", jobId);
     if (error) toast.error(error.message);
-    else toast.success(`Status → ${status.replace(/_/g, " ")}`);
+    else toast.success(`Status → ${STATUS_CONFIG[status as JobStatus]?.label ?? status}`);
   }
 
   const editingJob = editJobId ? jobs.find((j) => j.id === editJobId) : null;
