@@ -28,6 +28,9 @@ export function etaMinutes(distanceKm: number) {
   return Math.round(transitTimeHours(distanceKm) * 60);
 }
 
+// Default loading/unloading dwell time at a warehouse, in minutes.
+export const LOADING_MINUTES = 30;
+
 export const GEOFENCE_RADIUS_M = 300;
 export function isInsideGeofence(driverLat: number, driverLon: number, whLat: number, whLon: number) {
   return haversineKm(driverLat, driverLon, whLat, whLon) * 1000 <= GEOFENCE_RADIUS_M;
