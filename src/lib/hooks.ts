@@ -60,3 +60,54 @@ export function useJobs() {
   }, []);
   return jobs;
 }
+
+export function useDriverEventsByDriver(): Record<string, ComplianceEvent[]> {
+  const [map, setMap] = useState<Record<string, ComplianceEvent[]>>({});
+  useEffect(() => {
+    let mounted = true;
+    const since = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
+    const load = async () => {
+      const { data } = await supabase
+        .from("driver_events")
+        .select("driver_id,type,timestamp")
+        .in("type", ["START_SHIFT", "END_SHIFT"])
+        .gte("timestamp", since)
+        .order("timestamp", { ascending: true });
+      if (!mounted || !data) return;
+      const m: Record<string, ComplianceEvent[]> = {};
+      for (const e of data as Array<{ driver_id: string; type: string; timestamp: string }>) {
+        (m[e.driver_id] ||= []).push({ type: e.type, timestamp: e.timestamp });
+      }
+      setMap(m);
+    };
+    load();
+    const ch = supabase
+      .channel("rt-driver-events")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "driver_events" }, load)
+      .subscribe();
+    return () => {
+      mounted = false;
+      supabase.removeChannel(ch);
+    };
+  }, []);
+  return map;
+}
+
+export function useCompliance(): Record<string, Compliance> {
+  const events = useDriverEventsByDriver();
+  // Tick every minute so headroom / break timers stay current.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return useMemo(() => {
+    const now = Date.now();
+    void tick;
+    const out: Record<string, Compliance> = {};
+    for (const [driverId, evs] of Object.entries(events)) {
+      out[driverId] = computeCompliance(evs, now);
+    }
+    return out;
+  }, [events, tick]);
+}
