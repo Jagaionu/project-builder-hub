@@ -39,20 +39,29 @@ export const mainMenu = {
 
 export const removeKeyboard = { remove_keyboard: true };
 
-export function jobInlineKeyboard(jobId: string) {
-  return {
-    inline_keyboard: [
-      [
+export type JobKeyboardMode = "OFFER" | "ACCEPTED" | "NONE";
+
+export function jobInlineKeyboard(jobId: string, mode: JobKeyboardMode = "OFFER") {
+  if (mode === "OFFER") {
+    return {
+      inline_keyboard: [[
         { text: "✅ Accept", callback_data: `ACCEPT:${jobId}` },
         { text: "❌ Reject", callback_data: `REJECT:${jobId}` },
-      ],
-      [
-        { text: "🚚 Picked up", callback_data: `PICKED:${jobId}` },
-        { text: "🏁 Delivered", callback_data: `DELIVERED:${jobId}` },
-      ],
-    ],
-  };
+      ]],
+    };
+  }
+  if (mode === "ACCEPTED") {
+    return {
+      inline_keyboard: [[
+        { text: "🚫 Can't complete — notify dispatch", callback_data: `CANT:${jobId}` },
+      ]],
+    };
+  }
+  return { inline_keyboard: [] };
 }
+
+export const emptyInlineKeyboard = { inline_keyboard: [] };
+
 
 export function delayReasonsKeyboard() {
   return {
