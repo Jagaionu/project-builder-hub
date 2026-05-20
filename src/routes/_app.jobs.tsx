@@ -164,7 +164,6 @@ function JobsPage() {
           mode="create"
           onClose={() => setCreateOpen(false)}
           warehouses={warehouses}
-          drivers={drivers}
         />
       )}
       {editingJob && (
@@ -172,13 +171,11 @@ function JobsPage() {
           mode="edit"
           jobId={editingJob.id}
           initial={{
-            driver_id: editingJob.assigned_driver_id ?? "",
             scheduled_at: editingJob.scheduled_at,
             stops: stopsMap[editingJob.id] ?? [],
           }}
           onClose={() => setEditJobId(null)}
           warehouses={warehouses}
-          drivers={drivers}
         />
       )}
     </div>
@@ -191,17 +188,13 @@ function RouteDialog({
   initial,
   onClose,
   warehouses,
-  drivers,
 }: {
   mode: "create" | "edit";
   jobId?: string;
-  initial?: { driver_id: string; scheduled_at: string | null; stops: Stop[] };
+  initial?: { scheduled_at: string | null; stops: Stop[] };
   onClose: () => void;
   warehouses: ReturnType<typeof useWarehouses>;
-  drivers: ReturnType<typeof useDrivers>;
 }) {
-  const notify = useServerFn(notifyDriverOfJob);
-  const [driverId, setDriverId] = useState(initial?.driver_id ?? "");
   const [scheduledAt, setScheduledAt] = useState(
     initial?.scheduled_at ? toLocalInput(initial.scheduled_at) : "",
   );
@@ -242,8 +235,6 @@ function RouteDialog({
     setSaving(true);
 
     const jobPayload = {
-      assigned_driver_id: driverId || null,
-      status: (driverId ? "ASSIGNED" : "PENDING") as never,
       scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
       // Keep legacy fields populated with first/last for backward compatibility
       origin_warehouse_id: stops[0].warehouse_id,
@@ -275,9 +266,6 @@ function RouteDialog({
     if (stopErr) return toast.error(stopErr.message);
 
     toast.success(mode === "create" ? "Route created" : "Route updated");
-    if (driverId && targetJobId) {
-      try { await notify({ data: { jobId: targetJobId } }); } catch {}
-    }
     onClose();
   }
 
@@ -306,16 +294,11 @@ function RouteDialog({
           </button>
         </div>
         <div className="p-5 space-y-4 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Driver (optional)">
-              <select value={driverId} onChange={(e) => setDriverId(e.target.value)} className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm">
-                <option value="">Unassigned</option>
-                {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}{d.telegram_id ? "" : " (no TG)"}</option>)}
-              </select>
-            </Field>
+          <div>
             <Field label="Scheduled (optional)">
               <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm" />
             </Field>
+            <p className="mt-2 text-[11px] text-muted-foreground">Driver is assigned from the jobs list once the route is created.</p>
           </div>
 
           <div>
