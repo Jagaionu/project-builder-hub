@@ -60,7 +60,7 @@ function AlertsPage() {
       }
     });
     return out;
-  }, [drivers, jobs]);
+  }, [drivers, jobs, compliance]);
 
   const colors = {
     critical: "border-destructive/40 bg-destructive/10 text-destructive",
