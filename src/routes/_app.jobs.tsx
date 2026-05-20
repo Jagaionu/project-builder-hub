@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useJobs, useWarehouses, useDrivers } from "@/lib/hooks";
 
 import { PageHeader } from "./_app.index";
-import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, User } from "lucide-react";
+import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
@@ -58,6 +58,28 @@ function useJobStops(): JobStopsMap {
   return map;
 }
 
+const JOB_STATUSES = [
+  "PENDING",
+  "ASSIGNED",
+  "IN_PROGRESS",
+  "ARRIVED_PICKUP",
+  "EN_ROUTE_DELIVERY",
+  "COMPLETED",
+  "CANCELLED",
+] as const;
+
+type JobStatus = (typeof JOB_STATUSES)[number];
+
+const STATUS_CONFIG: Record<JobStatus, { label: string; dot: string; badge: string }> = {
+  PENDING:           { label: "Pending",          dot: "bg-amber-400",   badge: "text-amber-500 bg-amber-500/10" },
+  ASSIGNED:          { label: "Assigned",          dot: "bg-blue-400",    badge: "text-blue-500 bg-blue-500/10" },
+  IN_PROGRESS:       { label: "In Progress",       dot: "bg-violet-400",  badge: "text-violet-500 bg-violet-500/10" },
+  ARRIVED_PICKUP:    { label: "Arrived Pickup",    dot: "bg-cyan-400",    badge: "text-cyan-500 bg-cyan-500/10" },
+  EN_ROUTE_DELIVERY: { label: "En Route Delivery", dot: "bg-indigo-400",  badge: "text-indigo-500 bg-indigo-500/10" },
+  COMPLETED:         { label: "Completed",         dot: "bg-emerald-400", badge: "text-emerald-600 bg-emerald-500/10" },
+  CANCELLED:         { label: "Cancelled",         dot: "bg-zinc-400",    badge: "text-zinc-400 bg-zinc-500/10" },
+};
+
 function JobsPage() {
   const jobs = useJobs();
   const warehouses = useWarehouses();
@@ -82,25 +104,12 @@ function JobsPage() {
     }
   }
 
-  const JOB_STATUSES = [
-    "PENDING", "ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP",
-    "EN_ROUTE_DELIVERY", "COMPLETED", "CANCELLED",
-  ] as const;
-
-  const STATUS_STYLES: Record<string, string> = {
-    PENDING: "bg-warning/15 text-warning border-warning/30",
-    ASSIGNED: "bg-info/15 text-info border-info/30",
-    IN_PROGRESS: "bg-primary/15 text-primary border-primary/30",
-    ARRIVED_PICKUP: "bg-accent/15 text-accent border-accent/30",
-    EN_ROUTE_DELIVERY: "bg-primary/15 text-primary border-primary/30",
-    COMPLETED: "bg-success/15 text-success border-success/30",
-    CANCELLED: "bg-muted text-muted-foreground border-border",
-  };
+  // status config moved to module level
 
   async function setStatus(jobId: string, status: string) {
     const { error } = await supabase.from("jobs").update({ status: status as never }).eq("id", jobId);
     if (error) toast.error(error.message);
-    else toast.success(`Status → ${status.replace(/_/g, " ")}`);
+    else toast.success(`Status → ${STATUS_CONFIG[status as JobStatus]?.label ?? status}`);
   }
 
   const editingJob = editJobId ? jobs.find((j) => j.id === editJobId) : null;
@@ -146,7 +155,7 @@ function JobsPage() {
                 const stops = stopsMap[j.id] ?? [];
                 const whNames = stops.map((s) => {
                   const wh = warehouses.find((w) => w.id === s.warehouse_id);
-                  return wh?.code ?? "?";
+                  return { code: wh?.code ?? "?", kind: s.kind };
                 });
                 return (
                   <div
@@ -159,15 +168,21 @@ function JobsPage() {
                       <div className="text-[10px] font-mono text-muted-foreground">{stops.length} stops</div>
                     </div>
                     <div className="col-span-4">
-                      <div className="flex items-center gap-1.5 flex-wrap text-xs text-foreground">
+                      <div className="flex items-center gap-1 flex-wrap">
                         {whNames.length === 0 ? (
-                          <span className="text-muted-foreground italic">No stops</span>
+                          <span className="text-xs text-muted-foreground/50 italic">No stops</span>
                         ) : (
-                          whNames.map((code, idx) => (
-                            <span key={idx} className="inline-flex items-center gap-1">
-                              <span className="font-mono">{code}</span>
+                          whNames.map(({ code, kind }, idx) => (
+                            <span key={idx} className="flex items-center gap-1">
+                              <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium ${
+                                kind === "PICKUP"
+                                  ? "bg-blue-500/10 text-blue-500"
+                                  : "bg-emerald-500/10 text-emerald-600"
+                              }`}>
+                                {code}
+                              </span>
                               {idx < whNames.length - 1 && (
-                                <ChevronDown className="size-3 text-muted-foreground rotate-[-90deg]" />
+                                <ChevronRight className="size-3 text-muted-foreground/40 shrink-0" />
                               )}
                             </span>
                           ))
@@ -175,28 +190,16 @@ function JobsPage() {
                       </div>
                     </div>
                     <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
-                      <div className="relative">
-                        <User className="size-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                        <select
-                          value={j.assigned_driver_id ?? ""}
-                          onChange={(e) => assignDriver(j.id, e.target.value)}
-                          className="w-full text-xs bg-background text-foreground border border-border rounded-md pl-7 pr-2 py-1.5 cursor-pointer hover:border-primary focus:border-primary outline-none"
-                        >
-                          <option value="">Unassigned</option>
-                          {drivers.map((dr) => (
-                            <option key={dr.id} value={dr.id}>
-                              {dr.name}{dr.telegram_id ? "" : " (no TG)"}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      <DriverPicker
+                        driverId={j.assigned_driver_id}
+                        drivers={drivers}
+                        onChange={(id) => assignDriver(j.id, id)}
+                      />
                     </div>
                     <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
-                      <StatusMenu
+                      <StatusPill
                         status={j.status}
                         onChange={(s) => setStatus(j.id, s)}
-                        statuses={JOB_STATUSES as unknown as string[]}
-                        styles={STATUS_STYLES}
                       />
                     </div>
                     <div className="col-span-2 text-[11px] text-muted-foreground">
@@ -243,48 +246,132 @@ function JobsPage() {
   );
 }
 
-function StatusMenu({
-  status, onChange, statuses, styles,
-}: {
-  status: string;
-  onChange: (s: string) => void;
-  statuses: string[];
-  styles: Record<string, string>;
-}) {
+function usePopover() {
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
+  return { open, setOpen, ref };
+}
+
+function StatusPill({ status, onChange }: { status: string; onChange: (s: string) => void }) {
+  const { open, setOpen, ref } = usePopover();
+  const cfg = STATUS_CONFIG[status as JobStatus] ?? STATUS_CONFIG.PENDING;
   return (
-    <div className="relative">
+    <div ref={ref} className="relative">
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        className={`inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md border text-[10px] font-mono uppercase tracking-wider hover:opacity-80 ${styles[status] ?? ""}`}
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-opacity hover:opacity-80 select-none ${cfg.badge}`}
       >
-        <span className="size-1.5 rounded-full bg-current" />
-        {status.replace(/_/g, " ")}
-        <ChevronDown className="size-3 opacity-60" />
+        <span className={`size-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+        {cfg.label}
       </button>
       {open && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full mt-1 z-20 min-w-[170px] rounded-md border border-border bg-popover shadow-lg py-1"
+          className="absolute left-0 top-full mt-1.5 z-30 w-48 rounded-xl border border-border bg-popover shadow-xl py-1.5"
         >
-          {statuses.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => { onChange(s); setOpen(false); }}
-              className={`w-full text-left px-2 py-1.5 text-[10px] font-mono uppercase tracking-wider hover:bg-surface-2 flex items-center gap-2 ${s === status ? "font-bold" : ""}`}
-            >
-              <span className={`size-1.5 rounded-full ${styles[s]?.split(" ").find(c => c.startsWith("text-")) ?? ""}`} style={{ backgroundColor: "currentColor" }} />
-              {s.replace(/_/g, " ")}
-            </button>
-          ))}
+          {JOB_STATUSES.map((s) => {
+            const c = STATUS_CONFIG[s];
+            const active = s === status;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => { onChange(s); setOpen(false); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-surface-2 transition-colors"
+              >
+                <span className={`size-2 rounded-full shrink-0 ${c.dot}`} />
+                <span className={`flex-1 text-left ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                  {c.label}
+                </span>
+                {active && <Check className="size-3 text-foreground" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DriverPicker({ driverId, drivers, onChange }: {
+  driverId: string | null | undefined;
+  drivers: { id: string; name: string; telegram_id?: string | null }[];
+  onChange: (id: string) => void;
+}) {
+  const { open, setOpen, ref } = usePopover();
+  const driver = drivers.find((d) => d.id === driverId);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+      >
+        {driver ? (
+          <>
+            <span className="size-6 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
+              {driver.name[0]?.toUpperCase()}
+            </span>
+            <span className="text-xs text-foreground font-medium truncate max-w-[90px]">{driver.name}</span>
+            {!driver.telegram_id && <span className="text-[9px] text-muted-foreground/60 font-mono">no TG</span>}
+          </>
+        ) : (
+          <>
+            <span className="size-6 rounded-full border border-dashed border-border flex items-center justify-center shrink-0">
+              <User className="size-3 text-muted-foreground/50" />
+            </span>
+            <span className="text-xs text-muted-foreground">Unassigned</span>
+          </>
+        )}
+      </button>
+      {open && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute left-0 top-full mt-1.5 z-30 w-52 rounded-xl border border-border bg-popover shadow-xl py-1.5"
+        >
+          <button
+            type="button"
+            onClick={() => { onChange(""); setOpen(false); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-surface-2 transition-colors"
+          >
+            <span className="size-6 rounded-full border border-dashed border-border flex items-center justify-center shrink-0">
+              <User className="size-3 text-muted-foreground/40" />
+            </span>
+            <span className={`flex-1 text-left ${!driverId ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+              Unassigned
+            </span>
+            {!driverId && <Check className="size-3 text-foreground" />}
+          </button>
+          {drivers.length > 0 && <div className="my-1 border-t border-border/50" />}
+          {drivers.map((d) => {
+            const active = d.id === driverId;
+            return (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => { onChange(d.id); setOpen(false); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-surface-2 transition-colors"
+              >
+                <span className="size-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
+                  {d.name[0]?.toUpperCase()}
+                </span>
+                <span className={`flex-1 text-left ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                  {d.name}
+                  {!d.telegram_id && <span className="ml-1 text-[9px] text-muted-foreground/50">no TG</span>}
+                </span>
+                {active && <Check className="size-3 text-foreground" />}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
