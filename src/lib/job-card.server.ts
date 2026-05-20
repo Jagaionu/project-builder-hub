@@ -10,6 +10,15 @@ type Wh = {
   longitude: number;
 };
 
+type StopRow = {
+  id: string;
+  seq: number;
+  kind: "PICKUP" | "DROP";
+  warehouse_id: string;
+  scheduled_at: string | null;
+  arrived_at: string | null;
+};
+
 function fmtMin(total: number) {
   if (total < 60) return `${total} min`;
   const h = Math.floor(total / 60);
@@ -22,20 +31,32 @@ function fmtClock(addMin: number) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-export type JobCard = { text: string; pickup?: Wh; drop?: Wh };
+export async function getJobStops(jobId: string): Promise<StopRow[]> {
+  const { data } = await supabaseAdmin
+    .from("job_stops")
+    .select("id,seq,kind,warehouse_id,scheduled_at,arrived_at")
+    .eq("job_id", jobId)
+    .order("seq", { ascending: true });
+  return (data ?? []) as StopRow[];
+}
 
-export async function buildJobCard(jobId: string, driverId?: string): Promise<JobCard | null> {
+export async function buildJobCard(jobId: string, driverId?: string): Promise<{ text: string } | null> {
   const { data: job } = await supabaseAdmin
     .from("jobs")
-    .select("id,reference,status,origin_warehouse_id,destination_warehouse_id,scheduled_at,assigned_driver_id,eta_minutes")
+    .select("id,reference,status,assigned_driver_id,scheduled_at")
     .eq("id", jobId)
     .maybeSingle();
   if (!job) return null;
 
-  const [{ data: o }, { data: d }] = await Promise.all([
-    supabaseAdmin.from("warehouses").select("id,code,name,address,latitude,longitude").eq("id", job.origin_warehouse_id).maybeSingle(),
-    supabaseAdmin.from("warehouses").select("id,code,name,address,latitude,longitude").eq("id", job.destination_warehouse_id).maybeSingle(),
-  ]);
+  const stops = await getJobStops(jobId);
+  if (stops.length === 0) return { text: `<b>${job.reference}</b> · ${job.status}\n(No stops configured)` };
+
+  const whIds = Array.from(new Set(stops.map((s) => s.warehouse_id)));
+  const { data: whs } = await supabaseAdmin
+    .from("warehouses")
+    .select("id,code,name,address,latitude,longitude")
+    .in("id", whIds);
+  const whMap = new Map<string, Wh>(((whs ?? []) as Wh[]).map((w) => [w.id, w]));
 
   let driverLat: number | null = null;
   let driverLon: number | null = null;
@@ -50,53 +71,64 @@ export async function buildJobCard(jobId: string, driverId?: string): Promise<Jo
     driverLon = dr?.current_lon ?? null;
   }
 
-  const distLeg2 = o && d ? haversineKm(o.latitude, o.longitude, d.latitude, d.longitude) : 0;
-  const leg2Min = o && d ? etaMinutes(distLeg2) : 0;
-
-  let leg1Min: number | null = null;
-  let distLeg1: number | null = null;
-  if (o && driverLat != null && driverLon != null) {
-    distLeg1 = haversineKm(driverLat, driverLon, o.latitude, o.longitude);
-    leg1Min = etaMinutes(distLeg1);
-  }
-
   const when = job.scheduled_at ? new Date(job.scheduled_at).toLocaleString() : "ASAP";
-
   const lines: string[] = [];
   lines.push(`🚚 <b>${job.reference}</b> · ${job.status}`);
   lines.push(`🕒 Scheduled: ${when}`);
+  const chain = stops.map((s) => whMap.get(s.warehouse_id)?.code ?? "?").join(" → ");
+  lines.push(`🧭 Route: <b>${chain}</b>`);
   lines.push("");
-  if (o) {
-    lines.push(`📦 <b>Pickup — ${o.code} ${o.name}</b>`);
-    if (o.address) lines.push(`📍 ${o.address}`);
-    lines.push(`🗺 https://maps.google.com/?q=${o.latitude},${o.longitude}`);
-  }
-  if (leg1Min != null && distLeg1 != null) {
-    lines.push(`➡️ To pickup: ${distLeg1.toFixed(1)} km · ${fmtMin(leg1Min)} (ETA ~${fmtClock(leg1Min)})`);
-  } else {
-    lines.push(`➡️ To pickup: share 📍 location to compute ETA`);
-  }
-  lines.push("");
-  if (d) {
-    lines.push(`🏁 <b>Drop — ${d.code} ${d.name}</b>`);
-    if (d.address) lines.push(`📍 ${d.address}`);
-    lines.push(`🗺 https://maps.google.com/?q=${d.latitude},${d.longitude}`);
-  }
-  lines.push(`⏳ Loading: ${LOADING_MINUTES} min`);
-  if (o && d) {
-    lines.push(`🛣 Pickup → Drop: ${distLeg2.toFixed(1)} km · ${fmtMin(leg2Min)}`);
-  }
-  if (leg1Min != null) {
-    const total = leg1Min + LOADING_MINUTES + leg2Min;
-    lines.push(`🏁 ETA at drop: ~${fmtClock(total)} (total ${fmtMin(total)})`);
-  } else if (o && d) {
-    const total = LOADING_MINUTES + leg2Min;
-    lines.push(`🏁 Drop ETA from pickup: ${fmtMin(total)} (incl. loading)`);
+
+  let cumulativeMin = 0;
+  let prevLat = driverLat;
+  let prevLon = driverLon;
+  const haveStart = prevLat != null && prevLon != null;
+
+  for (let i = 0; i < stops.length; i++) {
+    const s = stops[i];
+    const wh = whMap.get(s.warehouse_id);
+    if (!wh) continue;
+
+    let legMin: number | null = null;
+    let legKm: number | null = null;
+    if (prevLat != null && prevLon != null) {
+      legKm = haversineKm(prevLat, prevLon, wh.latitude, wh.longitude);
+      legMin = etaMinutes(legKm);
+      cumulativeMin += legMin;
+    }
+
+    const kindIcon = s.kind === "PICKUP" ? "📦" : "🏁";
+    const label = s.kind === "PICKUP" ? "Pickup" : "Drop";
+    const stopHeader = `${kindIcon} <b>Stop ${i + 1} — ${label} ${wh.code} ${wh.name}</b>`;
+    lines.push(stopHeader);
+    if (wh.address) lines.push(`📍 ${wh.address}`);
+    lines.push(`🗺 https://maps.google.com/?q=${wh.latitude},${wh.longitude}`);
+    if (s.scheduled_at) lines.push(`🕒 Window: ${new Date(s.scheduled_at).toLocaleString()}`);
+    if (s.arrived_at) {
+      lines.push(`✅ Arrived ${new Date(s.arrived_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+    } else if (legMin != null && legKm != null) {
+      lines.push(`➡️ Leg: ${legKm.toFixed(1)} km · ${fmtMin(legMin)} (ETA ~${fmtClock(cumulativeMin)})`);
+    } else if (i === 0 && !haveStart) {
+      lines.push(`➡️ Share 📍 location to compute live ETA`);
+    } else if (legMin == null) {
+      lines.push(`➡️ Leg ETA available after location share`);
+    }
+
+    if (s.kind === "PICKUP") {
+      cumulativeMin += LOADING_MINUTES;
+      lines.push(`⏳ Loading: ${LOADING_MINUTES} min`);
+    }
+    lines.push("");
+
+    prevLat = wh.latitude;
+    prevLon = wh.longitude;
   }
 
-  return {
-    text: lines.join("\n"),
-    pickup: o ?? undefined,
-    drop: d ?? undefined,
-  };
+  if (haveStart) {
+    lines.push(`🏁 Total: ${fmtMin(cumulativeMin)} — ETA at final stop ~${fmtClock(cumulativeMin)}`);
+  } else {
+    lines.push(`🏁 Total drive + ${LOADING_MINUTES}m/pickup loading: ${fmtMin(cumulativeMin)} (from first stop)`);
+  }
+
+  return { text: lines.join("\n") };
 }

@@ -32,8 +32,8 @@ export interface Warehouse {
 export interface Job {
   id: string;
   reference: string;
-  origin_warehouse_id: string;
-  destination_warehouse_id: string;
+  origin_warehouse_id: string | null;
+  destination_warehouse_id: string | null;
   assigned_driver_id: string | null;
   status: JobStatus;
   eta_minutes: number | null;
