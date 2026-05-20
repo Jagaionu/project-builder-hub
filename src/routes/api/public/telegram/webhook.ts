@@ -237,10 +237,16 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
 
   // (t already trimmed above)
 
+  if (t === "/register" || t.toLowerCase() === "register") {
+    await sendMessage(chatId, `You're already registered as <b>${driver.name}</b>. Use the menu below.`, mainMenu);
+    return;
+  }
+
   if (t.startsWith("/start") || t === "/menu") {
     await sendMessage(chatId, `Hi <b>${driver.name}</b>. Use the menu below.`, mainMenu);
     return;
   }
+
 
   if (t === "▶️ Start Shift" || t === "/start_shift") {
     await supabaseAdmin
