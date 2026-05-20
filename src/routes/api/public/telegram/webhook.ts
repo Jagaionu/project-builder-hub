@@ -52,11 +52,6 @@ async function listAssignedJobs(driverId: string) {
   return data ?? [];
 }
 
-async function warehouseLabel(id: string | null): Promise<string> {
-  if (!id) return "—";
-  const { data } = await supabaseAdmin.from("warehouses").select("code,name").eq("id", id).maybeSingle();
-  return data ? `${data.code} ${data.name}` : "—";
-}
 
 async function pushAllAssignedJobs(driverId: string, chatId: number) {
   const jobs = await listAssignedJobs(driverId);
