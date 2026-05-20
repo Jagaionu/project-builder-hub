@@ -21,6 +21,7 @@ interface Alert {
 function AlertsPage() {
   const drivers = useDrivers();
   const jobs = useJobs();
+  const compliance = useCompliance();
 
   const alerts = useMemo<Alert[]>(() => {
     const out: Alert[] = [];
