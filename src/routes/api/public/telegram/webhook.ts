@@ -486,9 +486,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           if (update.callback_query) {
             const cb = update.callback_query;
             const chatId = cb.message?.chat?.id ?? cb.from?.id;
+            const messageId = cb.message?.message_id;
             if (chatId) {
               const driver = await findDriver(chatId);
-              await handleCallback(chatId, driver, cb.id, cb.data ?? "");
+              await handleCallback(chatId, driver, cb.id, cb.data ?? "", messageId);
             }
           } else {
             const isEdit = !!update.edited_message;
@@ -498,23 +499,20 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               const driver = await findDriver(chatId);
               if (msg.location && driver) {
                 const reply = await handleLocation(driver, msg.location.latitude, msg.location.longitude);
-                // Always process location silently for live-location edits.
-                // Only chat back on the first share, or on a meaningful state change
-                // (arrival at a stop / job completion) returned by handleLocation.
+                // Process live-location edits silently. Only chat back on first
+                // share or on a meaningful state change (arrival / completion).
                 if (reply && (!isEdit || reply.text.startsWith("📍 Arrived") || reply.text.startsWith("🏁") || reply.text.startsWith("📍 Drop"))) {
                   await sendMessage(chatId, reply.text, mainMenu);
-                  if (reply.jobId) {
-                    const card = await buildJobCard(reply.jobId, driver.id);
-                    if (card) await sendMessage(chatId, card.text, jobInlineKeyboard(reply.jobId));
-                  }
+                  // No re-send of the job card on ETA pings — drivers asked us
+                  // not to spam the same route info repeatedly.
                 } else if (!reply && !isEdit) {
-                  // First-time location share (not an edit) — confirm + push any jobs.
+                  // First-time location share — confirm + push any new jobs (deduped).
                   const n = await pushAllAssignedJobs(driver.id, chatId);
                   await sendMessage(
                     chatId,
                     n > 0
-                      ? `📍 Live location received — thanks! ${n} job(s) ready below.`
-                      : "📍 Live location received — thanks! You'll be notified as soon as a job is assigned.",
+                      ? `📍 Live location received — ${n} new job(s) below.`
+                      : "📍 Live location received — you'll get a route as soon as one is assigned.",
                     mainMenu,
                   );
                 }
