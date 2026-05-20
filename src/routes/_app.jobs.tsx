@@ -168,15 +168,21 @@ function JobsPage() {
                       <div className="text-[10px] font-mono text-muted-foreground">{stops.length} stops</div>
                     </div>
                     <div className="col-span-4">
-                      <div className="flex items-center gap-1.5 flex-wrap text-xs text-foreground">
+                      <div className="flex items-center gap-1 flex-wrap">
                         {whNames.length === 0 ? (
-                          <span className="text-muted-foreground italic">No stops</span>
+                          <span className="text-xs text-muted-foreground/50 italic">No stops</span>
                         ) : (
-                          whNames.map((code, idx) => (
-                            <span key={idx} className="inline-flex items-center gap-1">
-                              <span className="font-mono">{code}</span>
+                          whNames.map(({ code, kind }, idx) => (
+                            <span key={idx} className="flex items-center gap-1">
+                              <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium ${
+                                kind === "PICKUP"
+                                  ? "bg-blue-500/10 text-blue-500"
+                                  : "bg-emerald-500/10 text-emerald-600"
+                              }`}>
+                                {code}
+                              </span>
                               {idx < whNames.length - 1 && (
-                                <ChevronDown className="size-3 text-muted-foreground rotate-[-90deg]" />
+                                <ChevronRight className="size-3 text-muted-foreground/40 shrink-0" />
                               )}
                             </span>
                           ))
