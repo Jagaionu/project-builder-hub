@@ -188,17 +188,13 @@ function RouteDialog({
   initial,
   onClose,
   warehouses,
-  drivers,
 }: {
   mode: "create" | "edit";
   jobId?: string;
-  initial?: { driver_id: string; scheduled_at: string | null; stops: Stop[] };
+  initial?: { scheduled_at: string | null; stops: Stop[] };
   onClose: () => void;
   warehouses: ReturnType<typeof useWarehouses>;
-  drivers: ReturnType<typeof useDrivers>;
 }) {
-  const notify = useServerFn(notifyDriverOfJob);
-  const [driverId, setDriverId] = useState(initial?.driver_id ?? "");
   const [scheduledAt, setScheduledAt] = useState(
     initial?.scheduled_at ? toLocalInput(initial.scheduled_at) : "",
   );
@@ -239,8 +235,6 @@ function RouteDialog({
     setSaving(true);
 
     const jobPayload = {
-      assigned_driver_id: driverId || null,
-      status: (driverId ? "ASSIGNED" : "PENDING") as never,
       scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
       // Keep legacy fields populated with first/last for backward compatibility
       origin_warehouse_id: stops[0].warehouse_id,
@@ -272,9 +266,6 @@ function RouteDialog({
     if (stopErr) return toast.error(stopErr.message);
 
     toast.success(mode === "create" ? "Route created" : "Route updated");
-    if (driverId && targetJobId) {
-      try { await notify({ data: { jobId: targetJobId } }); } catch {}
-    }
     onClose();
   }
 
