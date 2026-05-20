@@ -684,6 +684,37 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function PlannedChip({
+  driverName,
+  sequence,
+  startAt,
+}: {
+  driverName: string;
+  sequence?: number;
+  startAt?: string;
+}) {
+  const when = startAt
+    ? new Date(startAt).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+  return (
+    <div
+      title="Planned follow-on assignment — not confirmed yet"
+      className="mt-1 inline-flex items-center gap-1 rounded-md bg-muted/40 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground"
+    >
+      <span className="size-1 rounded-full bg-muted-foreground/60" />
+      planned: {driverName}
+      {sequence ? ` · #${sequence}` : ""}
+      {when ? ` · ${when}` : ""}
+    </div>
+  );
+}
+
+
 function ComplianceDot({ c }: { c: Compliance }) {
   const cls =
     c.status === "breach"
