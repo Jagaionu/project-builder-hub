@@ -82,20 +82,7 @@ function JobsPage() {
     }
   }
 
-  const JOB_STATUSES = [
-    "PENDING", "ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP",
-    "EN_ROUTE_DELIVERY", "COMPLETED", "CANCELLED",
-  ] as const;
-
-  const STATUS_STYLES: Record<string, string> = {
-    PENDING: "bg-warning/15 text-warning border-warning/30",
-    ASSIGNED: "bg-info/15 text-info border-info/30",
-    IN_PROGRESS: "bg-primary/15 text-primary border-primary/30",
-    ARRIVED_PICKUP: "bg-accent/15 text-accent border-accent/30",
-    EN_ROUTE_DELIVERY: "bg-primary/15 text-primary border-primary/30",
-    COMPLETED: "bg-success/15 text-success border-success/30",
-    CANCELLED: "bg-muted text-muted-foreground border-border",
-  };
+  // status config moved to module level
 
   async function setStatus(jobId: string, status: string) {
     const { error } = await supabase.from("jobs").update({ status: status as never }).eq("id", jobId);
