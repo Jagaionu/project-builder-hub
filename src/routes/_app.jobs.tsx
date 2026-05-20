@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { useJobs, useWarehouses, useDrivers } from "@/lib/hooks";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -6,6 +7,7 @@ import { PageHeader } from "./_app.index";
 import { ArrowRight, Plus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { notifyDriverOfJob, notifyDriverJobUpdate } from "@/lib/telegram-notify.functions";
 
 export const Route = createFileRoute("/_app/jobs")({
   component: JobsPage,
@@ -27,10 +29,36 @@ function JobsPage() {
   const warehouses = useWarehouses();
   const drivers = useDrivers();
   const [open, setOpen] = useState(false);
+  const notify = useServerFn(notifyDriverOfJob);
+  const notifyUpdate = useServerFn(notifyDriverJobUpdate);
 
   async function setStatus(id: string, status: string) {
     const { error } = await supabase.from("jobs").update({ status: status as never }).eq("id", id);
-    if (error) toast.error(error.message); else toast.success(`Status → ${status}`);
+    if (error) return toast.error(error.message);
+    toast.success(`Status → ${status}`);
+    if (status === "CANCELLED") {
+      try { await notifyUpdate({ data: { jobId: id, message: "❌ Job cancelled by dispatch." } }); } catch {}
+    }
+  }
+
+  async function assignDriver(jobId: string, driverId: string) {
+    const payload = driverId
+      ? { assigned_driver_id: driverId, status: "ASSIGNED" as never }
+      : { assigned_driver_id: null, status: "PENDING" as never };
+    const { error } = await supabase.from("jobs").update(payload).eq("id", jobId);
+    if (error) return toast.error(error.message);
+    if (driverId) {
+      try {
+        const r = await notify({ data: { jobId } });
+        if ((r as { skipped?: string }).skipped === "driver_no_telegram") {
+          toast.warning("Driver has no Telegram linked yet");
+        } else {
+          toast.success("Driver notified on Telegram");
+        }
+      } catch (e) {
+        toast.error(`Notify failed: ${(e as Error).message}`);
+      }
+    }
   }
 
   return (
