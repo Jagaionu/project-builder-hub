@@ -171,7 +171,7 @@ function JobsPage() {
                 );
               })}
               {jobs.length === 0 && (
-                <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground text-xs">No jobs yet. Click "Create route" to add one.</td></tr>
+                <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground text-xs">No jobs yet. Click "Create route" to add one.</td></tr>
               )}
             </tbody>
           </table>
