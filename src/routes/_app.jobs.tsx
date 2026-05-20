@@ -164,15 +164,6 @@ function JobsPage() {
                     <td className="px-3 py-2.5"><StatusBadge status={j.status} kind="job" /></td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs">{j.eta_minutes ? `${j.eta_minutes}m` : "—"}</td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">{j.scheduled_at ? new Date(j.scheduled_at).toLocaleString() : "—"}</td>
-                    <td className="px-3 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
-                      <select
-                        value={j.status}
-                        onChange={(e) => setStatus(j.id, e.target.value)}
-                        className="text-xs bg-surface border border-border rounded px-1.5 py-1"
-                      >
-                        {lifecycle.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                      </select>
-                    </td>
                     <td className="px-3 py-2.5 text-right">
                       <ArrowRight className="inline size-3.5 text-muted-foreground" />
                     </td>
