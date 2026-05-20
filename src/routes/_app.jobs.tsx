@@ -119,100 +119,106 @@ function JobsPage() {
           </button>
         }
       />
-      <div className="flex-1 overflow-y-auto p-5">
-        {jobs.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border p-12 text-center">
-            <MapPin className="size-8 mx-auto text-muted-foreground/50 mb-3" />
-            <p className="text-sm text-muted-foreground">No routes yet.</p>
-            <button
-              onClick={() => setCreateOpen(true)}
-              className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              <Plus className="size-3.5" /> Create your first route
-            </button>
-          </div>
-        ) : (
-          <div className="grid gap-3 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-            {jobs.map((j) => {
-              const stops = stopsMap[j.id] ?? [];
-              return (
-                <div
-                  key={j.id}
-                  onClick={() => setEditJobId(j.id)}
-                  className="group relative rounded-lg border border-border bg-surface hover:border-primary/60 hover:shadow-md transition cursor-pointer p-4 flex flex-col gap-3"
-                >
-                  {/* Header */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="font-mono text-xs text-muted-foreground">{j.reference}</div>
-                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/70 mt-0.5">
-                        {stops.length} {stops.length === 1 ? "stop" : "stops"}
+        <div className="flex-1 overflow-y-auto p-5">
+          {jobs.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border p-12 text-center">
+              <MapPin className="size-8 mx-auto text-muted-foreground/50 mb-3" />
+              <p className="text-sm text-muted-foreground">No routes yet.</p>
+              <button
+                onClick={() => setCreateOpen(true)}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="size-3.5" /> Create your first route
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border bg-surface overflow-hidden">
+              {/* Table header */}
+              <div className="grid grid-cols-12 gap-3 px-4 py-2.5 bg-background border-b border-border text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                <div className="col-span-2">Reference</div>
+                <div className="col-span-4">Route</div>
+                <div className="col-span-2">Driver</div>
+                <div className="col-span-2">Status</div>
+                <div className="col-span-2">Scheduled / ETA</div>
+              </div>
+              {/* Rows */}
+              {jobs.map((j) => {
+                const stops = stopsMap[j.id] ?? [];
+                const whNames = stops.map((s) => {
+                  const wh = warehouses.find((w) => w.id === s.warehouse_id);
+                  return wh?.code ?? "?";
+                });
+                return (
+                  <div
+                    key={j.id}
+                    onClick={() => setEditJobId(j.id)}
+                    className="grid grid-cols-12 gap-3 px-4 py-3 border-b border-border last:border-b-0 items-center hover:bg-surface-2 cursor-pointer transition group"
+                  >
+                    <div className="col-span-2">
+                      <div className="font-mono text-xs text-foreground">{j.reference}</div>
+                      <div className="text-[10px] font-mono text-muted-foreground">{stops.length} stops</div>
+                    </div>
+                    <div className="col-span-4">
+                      <div className="flex items-center gap-1.5 flex-wrap text-xs text-foreground">
+                        {whNames.length === 0 ? (
+                          <span className="text-muted-foreground italic">No stops</span>
+                        ) : (
+                          whNames.map((code, idx) => (
+                            <span key={idx} className="inline-flex items-center gap-1">
+                              <span className="font-mono">{code}</span>
+                              {idx < whNames.length - 1 && (
+                                <ChevronDown className="size-3 text-muted-foreground rotate-[-90deg]" />
+                              )}
+                            </span>
+                          ))
+                        )}
                       </div>
                     </div>
-                    <div className="opacity-0 group-hover:opacity-100 transition flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-primary">
-                      <Pencil className="size-3" /> Edit
+                    <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="relative">
+                        <User className="size-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                        <select
+                          value={j.assigned_driver_id ?? ""}
+                          onChange={(e) => assignDriver(j.id, e.target.value)}
+                          className="w-full text-xs bg-background text-foreground border border-border rounded-md pl-7 pr-2 py-1.5 cursor-pointer hover:border-primary focus:border-primary outline-none"
+                        >
+                          <option value="">Unassigned</option>
+                          {drivers.map((dr) => (
+                            <option key={dr.id} value={dr.id}>
+                              {dr.name}{dr.telegram_id ? "" : " (no TG)"}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
+                      <StatusMenu
+                        status={j.status}
+                        onChange={(s) => setStatus(j.id, s)}
+                        statuses={JOB_STATUSES as unknown as string[]}
+                        styles={STATUS_STYLES}
+                      />
+                    </div>
+                    <div className="col-span-2 text-[11px] text-muted-foreground">
+                      {j.scheduled_at && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="size-3" />
+                          {new Date(j.scheduled_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      )}
+                      {j.eta_minutes != null && (
+                        <span className="font-mono">ETA {j.eta_minutes}m</span>
+                      )}
+                      {!j.scheduled_at && j.eta_minutes == null && (
+                        <span>—</span>
+                      )}
                     </div>
                   </div>
-
-                  {/* Stops chain */}
-                  <div className="space-y-1.5">
-                    {stops.length === 0 ? (
-                      <div className="text-xs text-muted-foreground italic">No stops configured</div>
-                    ) : (
-                      stops.map((s, idx) => {
-                        const wh = warehouses.find((w) => w.id === s.warehouse_id);
-                        const Icon = s.kind === "PICKUP" ? Package : Flag;
-                        return (
-                          <div key={idx} className="flex items-center gap-2 text-xs">
-                            <Icon className={`size-3.5 shrink-0 ${s.kind === "PICKUP" ? "text-info" : "text-success"}`} />
-                            <span className="font-mono text-foreground">{wh?.code ?? "?"}</span>
-                            <span className="text-muted-foreground truncate">{wh?.name ?? ""}</span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  {/* Meta row */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground border-t border-border pt-2">
-                    {j.scheduled_at && (
-                      <span className="inline-flex items-center gap-1"><Clock className="size-3" />{new Date(j.scheduled_at).toLocaleString()}</span>
-                    )}
-                    {j.eta_minutes != null && (
-                      <span className="inline-flex items-center gap-1 font-mono">ETA {j.eta_minutes}m</span>
-                    )}
-                  </div>
-
-                  {/* Driver + Status controls */}
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex-1 relative">
-                      <User className="size-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                      <select
-                        value={j.assigned_driver_id ?? ""}
-                        onChange={(e) => assignDriver(j.id, e.target.value)}
-                        className="w-full text-xs bg-background text-foreground border border-border rounded-md pl-7 pr-2 py-1.5 cursor-pointer hover:border-primary focus:border-primary outline-none"
-                      >
-                        <option value="">Unassigned</option>
-                        {drivers.map((dr) => (
-                          <option key={dr.id} value={dr.id}>
-                            {dr.name}{dr.telegram_id ? "" : " (no TG)"}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <StatusMenu
-                      status={j.status}
-                      onChange={(s) => setStatus(j.id, s)}
-                      statuses={JOB_STATUSES as unknown as string[]}
-                      styles={STATUS_STYLES}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
       {createOpen && (
         <RouteDialog
