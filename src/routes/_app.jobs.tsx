@@ -277,43 +277,57 @@ function JobsPage() {
                       <div className="font-mono text-xs text-foreground">{j.reference}</div>
                       <div className="text-[10px] font-mono text-muted-foreground">{stops.length} stops</div>
                     </div>
-                    <div className="col-span-4">
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {whNames.length === 0 ? (
-                          <span className="text-xs text-muted-foreground/50 italic">No stops</span>
-                        ) : (
-                          whNames.map(({ code, kind }, idx) => (
+                  <div className="col-span-4">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {stops.length === 0 ? (
+                        <span className="text-xs text-muted-foreground/50 italic">No stops</span>
+                      ) : (
+                        stops.map((s, idx) => {
+                          const wh = warehouses.find((w) => w.id === s.warehouse_id);
+                          const code = wh?.code ?? "?";
+                          const next = stops[idx + 1];
+                          const nextWh = next ? warehouses.find((w) => w.id === next.warehouse_id) : null;
+                          const leg = wh && nextWh ? legMinutes(s, wh, nextWh) : null;
+                          return (
                             <span key={idx} className="flex items-center gap-1">
                               <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium ${
-                                kind === "PICKUP"
+                                s.kind === "PICKUP"
                                   ? "bg-blue-500/10 text-blue-500"
                                   : "bg-emerald-500/10 text-emerald-600"
                               }`}>
                                 {code}
                               </span>
-                              {idx < whNames.length - 1 && (
-                                <ChevronRight className="size-3 text-muted-foreground/40 shrink-0" />
+                              {leg && (
+                                <span className="flex items-center gap-0.5 text-[10px] font-mono text-muted-foreground/70 px-1">
+                                  {leg.loadingMin > 0 && (
+                                    <span title="Loading at pickup" className="text-amber-500/80">+{leg.loadingMin}m load</span>
+                                  )}
+                                  <ChevronRight className="size-3 text-muted-foreground/40 shrink-0" />
+                                  <span title={`${leg.km.toFixed(1)} km`}>ETA {leg.transitMin}m</span>
+                                  <ChevronRight className="size-3 text-muted-foreground/40 shrink-0" />
+                                </span>
                               )}
                             </span>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                    <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
-                      <DriverPicker
-                        driverId={j.assigned_driver_id}
-                        drivers={drivers}
-                        compliance={compliance}
-                        onChange={(id) => assignDriver(j.id, id)}
-                      />
-                      {!j.assigned_driver_id && j.planned_driver_id && (
-                        <PlannedChip
-                          driverName={drivers.find((d) => d.id === j.planned_driver_id)?.name ?? "?"}
-                          sequence={j.planned_sequence ?? undefined}
-                          startAt={j.planned_start_at ?? undefined}
-                        />
+                          );
+                        })
                       )}
                     </div>
+                  </div>
+                  <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
+                    <DriverPicker
+                      driverId={j.assigned_driver_id}
+                      drivers={drivers}
+                      compliance={compliance}
+                      onChange={(id) => assignDriver(j.id, id)}
+                    />
+                    {!j.assigned_driver_id && j.planned_driver_id && (
+                      <PlannedChip
+                        driverName={drivers.find((d) => d.id === j.planned_driver_id)?.name ?? "?"}
+                        sequence={j.planned_sequence ?? undefined}
+                        startAt={j.planned_start_at ?? undefined}
+                      />
+                    )}
+                  </div>
 
                     <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
                       <StatusPill
