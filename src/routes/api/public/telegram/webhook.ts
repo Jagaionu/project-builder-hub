@@ -58,21 +58,15 @@ async function warehouseLabel(id: string | null): Promise<string> {
   return data ? `${data.code} ${data.name}` : "—";
 }
 
-async function formatJob(j: {
-  id: string;
-  reference: string;
-  status: string;
-  origin_warehouse_id: string;
-  destination_warehouse_id: string;
-  scheduled_at: string | null;
-}) {
-  const [o, d] = await Promise.all([
-    warehouseLabel(j.origin_warehouse_id),
-    warehouseLabel(j.destination_warehouse_id),
-  ]);
-  const when = j.scheduled_at ? new Date(j.scheduled_at).toLocaleString() : "anytime";
-  return `<b>${j.reference}</b> · ${j.status}\n📦 Pickup: ${o}\n🏁 Drop: ${d}\n🕒 ${when}`;
+async function pushAllAssignedJobs(driverId: string, chatId: number) {
+  const jobs = await listAssignedJobs(driverId);
+  for (const j of jobs) {
+    const card = await buildJobCard(j.id, driverId);
+    if (card) await sendMessage(chatId, card.text, jobInlineKeyboard(j.id));
+  }
+  return jobs.length;
 }
+
 
 async function handleLocation(driver: Driver, lat: number, lon: number) {
   await supabaseAdmin
