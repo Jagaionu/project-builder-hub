@@ -93,6 +93,13 @@ function JobsPage() {
     else toast.success(`Status → ${status}`);
   }
 
+  async function deleteJob(jobId: string) {
+    if (!confirm("Delete this lane? This cannot be undone.")) return;
+    const { error } = await supabase.from("jobs").delete().eq("id", jobId);
+    if (error) toast.error(error.message);
+    else toast.success("Lane deleted");
+  }
+
   const editingJob = editJobId ? jobs.find((j) => j.id === editJobId) : null;
 
   return (
