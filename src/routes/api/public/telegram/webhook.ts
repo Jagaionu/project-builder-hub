@@ -75,13 +75,52 @@ async function listAssignedJobs(driverId: string) {
 
 
 
+async function jobCardAlreadySent(driverId: string, jobId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("driver_events")
+    .select("id")
+    .eq("driver_id", driverId)
+    .eq("type", "JOB_CARD_SENT" as never)
+    .contains("payload", { job_id: jobId } as never)
+    .limit(1)
+    .maybeSingle();
+  return !!data;
+}
+
 async function pushAllAssignedJobs(driverId: string, chatId: number) {
   const jobs = await listAssignedJobs(driverId);
+  let sent = 0;
   for (const j of jobs) {
+    if (await jobCardAlreadySent(driverId, j.id)) continue;
     const card = await buildJobCard(j.id, driverId);
-    if (card) await sendMessage(chatId, card.text, jobInlineKeyboard(j.id));
+    if (!card) continue;
+    // Only show Accept/Reject for jobs the driver hasn't acted on yet.
+    const mode = j.status === "ASSIGNED" ? "OFFER" : "ACCEPTED";
+    await sendMessage(chatId, card.text, jobInlineKeyboard(j.id, mode));
+    await logEvent(driverId, "JOB_CARD_SENT", { job_id: j.id });
+    sent++;
   }
-  return jobs.length;
+  return sent;
+}
+
+async function hasActiveRoute(driverId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("jobs")
+    .select("id")
+    .eq("assigned_driver_id", driverId)
+    .in("status", ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"])
+    .limit(1)
+    .maybeSingle();
+  return !!data;
+}
+
+function endShiftConfirmKeyboard() {
+  return {
+    inline_keyboard: [[
+      { text: "✅ Yes, end shift", callback_data: "END_SHIFT_CONFIRM" },
+      { text: "↩️ No, keep going", callback_data: "END_SHIFT_CANCEL" },
+    ]],
+  };
 }
 
 
