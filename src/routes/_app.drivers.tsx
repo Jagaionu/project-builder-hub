@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { useDrivers } from "@/lib/hooks";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Check, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, Send } from "lucide-react";
+import { registerTelegramWebhook } from "@/lib/telegram-setup.functions";
 
 export const Route = createFileRoute("/_app/drivers")({
   component: DriversPage,
@@ -73,12 +75,15 @@ function DriversPage() {
         title="Drivers"
         subtitle={`${drivers.length} drivers in roster`}
         right={
-          <button
-            onClick={() => setOpen((o) => !o)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
-          >
-            <Plus className="size-3.5" /> New Driver
-          </button>
+          <div className="flex items-center gap-2">
+            <SetupTelegramButton />
+            <button
+              onClick={() => setOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
+            >
+              <Plus className="size-3.5" /> New Driver
+            </button>
+          </div>
         }
       />
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
