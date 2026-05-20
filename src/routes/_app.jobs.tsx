@@ -306,16 +306,11 @@ function RouteDialog({
           </button>
         </div>
         <div className="p-5 space-y-4 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Driver (optional)">
-              <select value={driverId} onChange={(e) => setDriverId(e.target.value)} className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm">
-                <option value="">Unassigned</option>
-                {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}{d.telegram_id ? "" : " (no TG)"}</option>)}
-              </select>
-            </Field>
+          <div>
             <Field label="Scheduled (optional)">
               <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm" />
             </Field>
+            <p className="mt-2 text-[11px] text-muted-foreground">Driver is assigned from the jobs list once the route is created.</p>
           </div>
 
           <div>
