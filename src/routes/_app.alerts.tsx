@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { useDrivers, useJobs } from "@/lib/hooks";
+import { useDrivers, useJobs, useCompliance } from "@/lib/hooks";
 import { PageHeader } from "./_app.index";
-import { AlertTriangle, Clock, WifiOff, Timer } from "lucide-react";
+import { AlertTriangle, Clock, WifiOff, Timer, Gauge } from "lucide-react";
 
 export const Route = createFileRoute("/_app/alerts")({
   component: AlertsPage,
@@ -21,6 +21,7 @@ interface Alert {
 function AlertsPage() {
   const drivers = useDrivers();
   const jobs = useJobs();
+  const compliance = useCompliance();
 
   const alerts = useMemo<Alert[]>(() => {
     const out: Alert[] = [];
@@ -36,6 +37,18 @@ function AlertsPage() {
           out.push({ id: `s-${d.id}`, level: "warning", type: "Stale location", icon: WifiOff, message: `${d.name} no ping for ${Math.round(ageMin)} min` });
         }
       }
+      const c = compliance[d.id];
+      if (c) {
+        c.issues.forEach((iss, idx) => {
+          out.push({
+            id: `c-${d.id}-${idx}`,
+            level: iss.level === "breach" ? "critical" : "warning",
+            type: "HGV hours",
+            icon: Gauge,
+            message: `${d.name}: ${iss.msg}`,
+          });
+        });
+      }
     });
 
     jobs.forEach((j) => {
@@ -47,7 +60,7 @@ function AlertsPage() {
       }
     });
     return out;
-  }, [drivers, jobs]);
+  }, [drivers, jobs, compliance]);
 
   const colors = {
     critical: "border-destructive/40 bg-destructive/10 text-destructive",

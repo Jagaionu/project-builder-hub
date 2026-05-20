@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { useDrivers } from "@/lib/hooks";
+import { useDrivers, useCompliance } from "@/lib/hooks";
+import type { Compliance } from "@/lib/compliance";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +20,7 @@ type DriverForm = { name: string; phone: string; telegram_id: string };
 
 function DriversPage() {
   const drivers = useDrivers();
+  const compliance = useCompliance();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<DriverForm>({ name: "", phone: "", telegram_id: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -109,6 +111,7 @@ function DriversPage() {
                 <th className="px-3 py-2 text-left">Phone</th>
                 <th className="px-3 py-2 text-left">Telegram</th>
                 <th className="px-3 py-2 text-left">Status</th>
+                <th className="px-3 py-2 text-left">Compliance (UK HGV)</th>
                 <th className="px-3 py-2 text-left">Last Update</th>
                 <th className="px-3 py-2 text-right">Coords</th>
                 <th className="px-3 py-2 text-right w-24">Actions</th>
@@ -154,6 +157,9 @@ function DriversPage() {
                     </td>
                     <td className="px-3 py-2.5">
                       <StatusBadge status={d.status} kind="driver" />
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <ComplianceCell c={compliance[d.id]} />
                     </td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">
                       {d.last_update_time ? new Date(d.last_update_time).toLocaleTimeString() : "—"}
@@ -377,3 +383,52 @@ function PendingRegistrations() {
   );
 }
 
+
+function ComplianceCell({ c }: { c: Compliance | undefined }) {
+  if (!c) {
+    return <span className="text-[11px] text-muted-foreground/50">—</span>;
+  }
+  const dot =
+    c.status === "breach"
+      ? "bg-destructive"
+      : c.status === "warn"
+        ? "bg-warning"
+        : "bg-success";
+  const ringColor =
+    c.status === "breach"
+      ? "border-destructive/40 text-destructive"
+      : c.status === "warn"
+        ? "border-warning/40 text-warning"
+        : "border-success/30 text-success";
+  return (
+    <div className="flex flex-col gap-1">
+      <div className={`inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-widest w-fit ${ringColor}`}>
+        <span className={`size-1.5 rounded-full ${dot}`} />
+        {c.status}
+        {c.onShift && <span className="opacity-60">· on shift</span>}
+      </div>
+      <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+        <span title="Driving in last 24h">D {c.daily.toFixed(1)}/10</span>
+        <span title="Driving in last 7 days">W {c.weekly.toFixed(1)}/56</span>
+        <span title="Driving in last 14 days">2W {c.twoWeek.toFixed(1)}/90</span>
+        {c.onShift && (
+          <span title="Continuous drive in current 4.5h cycle">
+            Cycle {c.continuousDrive.toFixed(1)}/4.5
+          </span>
+        )}
+      </div>
+      {c.issues.length > 0 && (
+        <div className="flex flex-col gap-0.5">
+          {c.issues.slice(0, 2).map((i, idx) => (
+            <div
+              key={idx}
+              className={`text-[10px] ${i.level === "breach" ? "text-destructive" : "text-warning"}`}
+            >
+              {i.msg}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
