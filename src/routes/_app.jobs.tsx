@@ -135,7 +135,7 @@ function JobsPage() {
         </div>
       </div>
 
-      {open && <CreateRouteDialog onClose={() => setOpen(false)} warehouses={warehouses} drivers={drivers} />}
+      {open && <CreateRouteDialog onClose={() => setOpen(false)} warehouses={warehouses} drivers={drivers} onAssigned={(id) => notify({ data: { jobId: id } }).catch(() => {})} />}
     </div>
   );
 }
