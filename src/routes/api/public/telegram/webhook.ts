@@ -385,24 +385,30 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               await handleCallback(chatId, driver, cb.id, cb.data ?? "");
             }
           } else {
+            const isEdit = !!update.edited_message;
             const msg = update.message ?? update.edited_message;
             const chatId = msg?.chat?.id;
             if (chatId) {
               const driver = await findDriver(chatId);
               if (msg.location && driver) {
                 const reply = await handleLocation(driver, msg.location.latitude, msg.location.longitude);
-                if (reply) {
+                // Always process location silently for live-location edits.
+                // Only chat back on the first share, or on a meaningful state change
+                // (arrival at a stop / job completion) returned by handleLocation.
+                if (reply && (!isEdit || reply.text.startsWith("📍 Arrived") || reply.text.startsWith("🏁") || reply.text.startsWith("📍 Drop"))) {
                   await sendMessage(chatId, reply.text, mainMenu);
                   if (reply.jobId) {
                     const card = await buildJobCard(reply.jobId, driver.id);
                     if (card) await sendMessage(chatId, card.text, jobInlineKeyboard(reply.jobId));
                   }
-                } else {
-                  // No active job — push any newly-assigned ones with fresh ETAs
+                } else if (!reply && !isEdit) {
+                  // First-time location share (not an edit) — confirm + push any jobs.
                   const n = await pushAllAssignedJobs(driver.id, chatId);
                   await sendMessage(
                     chatId,
-                    n > 0 ? `📍 Location received. ${n} job(s) ready below.` : "📍 Location received. No jobs yet.",
+                    n > 0
+                      ? `📍 Live location received — thanks! ${n} job(s) ready below.`
+                      : "📍 Live location received — thanks! You'll be notified as soon as a job is assigned.",
                     mainMenu,
                   );
                 }
