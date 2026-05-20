@@ -86,6 +86,7 @@ function JobsPage() {
   const warehouses = useWarehouses();
   const drivers = useDrivers();
   const stopsMap = useJobStops();
+  const compliance = useCompliance();
   const [createOpen, setCreateOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const notify = useServerFn(notifyDriverOfJob);
