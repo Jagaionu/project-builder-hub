@@ -76,15 +76,12 @@ function DriversPage() {
         title="Drivers"
         subtitle={`${drivers.length} drivers in roster`}
         right={
-          <div className="flex items-center gap-2">
-            <SetupTelegramButton />
-            <button
-              onClick={() => setOpen((o) => !o)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
-            >
-              <Plus className="size-3.5" /> New Driver
-            </button>
-          </div>
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
+          >
+            <Plus className="size-3.5" /> New Driver
+          </button>
         }
       />
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
