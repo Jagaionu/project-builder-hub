@@ -58,6 +58,28 @@ function useJobStops(): JobStopsMap {
   return map;
 }
 
+const JOB_STATUSES = [
+  "PENDING",
+  "ASSIGNED",
+  "IN_PROGRESS",
+  "ARRIVED_PICKUP",
+  "EN_ROUTE_DELIVERY",
+  "COMPLETED",
+  "CANCELLED",
+] as const;
+
+type JobStatus = (typeof JOB_STATUSES)[number];
+
+const STATUS_CONFIG: Record<JobStatus, { label: string; dot: string; badge: string }> = {
+  PENDING:           { label: "Pending",          dot: "bg-amber-400",   badge: "text-amber-500 bg-amber-500/10" },
+  ASSIGNED:          { label: "Assigned",          dot: "bg-blue-400",    badge: "text-blue-500 bg-blue-500/10" },
+  IN_PROGRESS:       { label: "In Progress",       dot: "bg-violet-400",  badge: "text-violet-500 bg-violet-500/10" },
+  ARRIVED_PICKUP:    { label: "Arrived Pickup",    dot: "bg-cyan-400",    badge: "text-cyan-500 bg-cyan-500/10" },
+  EN_ROUTE_DELIVERY: { label: "En Route Delivery", dot: "bg-indigo-400",  badge: "text-indigo-500 bg-indigo-500/10" },
+  COMPLETED:         { label: "Completed",         dot: "bg-emerald-400", badge: "text-emerald-600 bg-emerald-500/10" },
+  CANCELLED:         { label: "Cancelled",         dot: "bg-zinc-400",    badge: "text-zinc-400 bg-zinc-500/10" },
+};
+
 function JobsPage() {
   const jobs = useJobs();
   const warehouses = useWarehouses();
