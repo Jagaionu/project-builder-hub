@@ -87,3 +87,11 @@ export async function setWebhook(url: string) {
 export async function getWebhookInfo() {
   return tg("getWebhookInfo", {});
 }
+
+let _botUsername: string | null = null;
+export async function getBotUsername(): Promise<string> {
+  if (_botUsername) return _botUsername;
+  const r = await tg("getMe", {});
+  _botUsername = r?.result?.username ?? "";
+  return _botUsername;
+}
