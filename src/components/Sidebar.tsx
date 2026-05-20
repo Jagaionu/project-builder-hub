@@ -1,0 +1,55 @@
+import { Link, useRouterState } from "@tanstack/react-router";
+import { Activity, Map, Truck, Warehouse, ClipboardList, AlertTriangle, Webhook } from "lucide-react";
+
+const nav = [
+  { to: "/", label: "Live Map", icon: Map },
+  { to: "/dispatch", label: "Dispatch", icon: ClipboardList },
+  { to: "/jobs", label: "Jobs", icon: Activity },
+  { to: "/drivers", label: "Drivers", icon: Truck },
+  { to: "/warehouses", label: "Warehouses", icon: Warehouse },
+  { to: "/alerts", label: "Alerts", icon: AlertTriangle },
+  { to: "/events", label: "Event Log", icon: Webhook },
+] as const;
+
+export function Sidebar() {
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  return (
+    <aside className="w-56 shrink-0 border-r border-border bg-surface flex flex-col">
+      <div className="px-4 py-4 border-b border-border">
+        <div className="flex items-center gap-2">
+          <div className="size-7 rounded-md bg-primary grid place-items-center text-primary-foreground font-mono font-bold text-sm">P</div>
+          <div>
+            <div className="text-sm font-semibold tracking-tight">Planning System</div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">UK · Dispatch v1</div>
+          </div>
+        </div>
+      </div>
+      <nav className="flex-1 p-2 space-y-0.5">
+        {nav.map((n) => {
+          const Icon = n.icon;
+          const active = path === n.to;
+          return (
+            <Link
+              key={n.to}
+              to={n.to}
+              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm transition-colors ${
+                active
+                  ? "bg-surface-2 text-foreground border border-border"
+                  : "text-muted-foreground hover:text-foreground hover:bg-surface-2/60"
+              }`}
+            >
+              <Icon className="size-4" />
+              {n.label}
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="p-3 border-t border-border">
+        <div className="flex items-center gap-2 text-[11px] font-mono text-muted-foreground">
+          <span className="size-1.5 rounded-full bg-success animate-pulse" />
+          REALTIME CONNECTED
+        </div>
+      </div>
+    </aside>
+  );
+}
