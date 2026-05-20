@@ -46,6 +46,39 @@ export type Database = {
           },
         ]
       }
+      driver_registrations: {
+        Row: {
+          created_at: string
+          driver_id: string | null
+          id: string
+          name: string | null
+          phone: string | null
+          status: Database["public"]["Enums"]["registration_status"]
+          telegram_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          status?: Database["public"]["Enums"]["registration_status"]
+          telegram_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          status?: Database["public"]["Enums"]["registration_status"]
+          telegram_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       drivers: {
         Row: {
           created_at: string
@@ -258,6 +291,12 @@ export type Database = {
         | "EN_ROUTE_DELIVERY"
         | "COMPLETED"
         | "CANCELLED"
+      registration_status:
+        | "AWAITING_NAME"
+        | "AWAITING_PHONE"
+        | "PENDING"
+        | "APPROVED"
+        | "REJECTED"
       stop_kind: "PICKUP" | "DROP"
     }
     CompositeTypes: {
@@ -411,6 +450,13 @@ export const Constants = {
         "EN_ROUTE_DELIVERY",
         "COMPLETED",
         "CANCELLED",
+      ],
+      registration_status: [
+        "AWAITING_NAME",
+        "AWAITING_PHONE",
+        "PENDING",
+        "APPROVED",
+        "REJECTED",
       ],
       stop_kind: ["PICKUP", "DROP"],
     },
