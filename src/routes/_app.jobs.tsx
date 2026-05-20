@@ -533,8 +533,13 @@ function RouteDialog({
   onClose: () => void;
   warehouses: ReturnType<typeof useWarehouses>;
 }) {
+  // Default scheduled time to "now" on create so the planner can compute ETAs immediately
   const [scheduledAt, setScheduledAt] = useState(
-    initial?.scheduled_at ? toLocalInput(initial.scheduled_at) : "",
+    initial?.scheduled_at
+      ? toLocalInput(initial.scheduled_at)
+      : mode === "create"
+        ? toLocalInput(new Date().toISOString())
+        : "",
   );
   const [stops, setStops] = useState<Stop[]>(
     initial?.stops?.length
@@ -546,6 +551,10 @@ function RouteDialog({
   );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Auto-compute each stop's scheduled_at from jobStart + transit + loading
+  const startIso = scheduledAt ? new Date(scheduledAt).toISOString() : null;
+  const computedTimes = computeStopSchedule(stops, startIso, warehouses);
 
   function update(i: number, patch: Partial<Stop>) {
     setStops((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
@@ -572,9 +581,11 @@ function RouteDialog({
     if (stops.some((s) => !s.warehouse_id)) return toast.error("Every stop needs a warehouse");
     setSaving(true);
 
+    const jobStartIso = scheduledAt ? new Date(scheduledAt).toISOString() : new Date().toISOString();
+    const autoTimes = computeStopSchedule(stops, jobStartIso, warehouses);
+
     const jobPayload = {
-      scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
-      // Keep legacy fields populated with first/last for backward compatibility
+      scheduled_at: jobStartIso,
       origin_warehouse_id: stops[0].warehouse_id,
       destination_warehouse_id: stops[stops.length - 1].warehouse_id,
     };
@@ -583,25 +594,27 @@ function RouteDialog({
     if (mode === "create") {
       const { data, error } = await supabase
         .from("jobs").insert(jobPayload as never).select("id").single();
-      if (error) { setSaving(false); return toast.error(error.message); }
-      targetJobId = data.id as string;
+      if (error) { setSaving(false); console.error("[jobs.insert]", error); return toast.error(`Job create failed: ${error.message}`); }
+      targetJobId = (data as { id: string }).id;
     } else {
       const { error } = await supabase.from("jobs").update(jobPayload).eq("id", targetJobId!);
-      if (error) { setSaving(false); return toast.error(error.message); }
+      if (error) { setSaving(false); console.error("[jobs.update]", error); return toast.error(`Job update failed: ${error.message}`); }
     }
 
-    // Replace stops
-    await supabase.from("job_stops").delete().eq("job_id", targetJobId!);
+    // Replace stops — use computed times when user didn't enter one
+    const { error: delErr } = await supabase.from("job_stops").delete().eq("job_id", targetJobId!);
+    if (delErr) { setSaving(false); console.error("[stops.delete]", delErr); return toast.error(`Clear stops failed: ${delErr.message}`); }
+
     const rows = stops.map((s, i) => ({
       job_id: targetJobId!,
       seq: i,
       kind: s.kind as never,
       warehouse_id: s.warehouse_id,
-      scheduled_at: s.scheduled_at,
+      scheduled_at: s.scheduled_at ?? autoTimes[i] ?? null,
     }));
     const { error: stopErr } = await supabase.from("job_stops").insert(rows as never);
     setSaving(false);
-    if (stopErr) return toast.error(stopErr.message);
+    if (stopErr) { console.error("[stops.insert]", stopErr, rows); return toast.error(`Stops insert failed: ${stopErr.message}`); }
 
     toast.success(mode === "create" ? "Route created" : "Route updated");
     onClose();
