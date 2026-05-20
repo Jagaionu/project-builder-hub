@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { useJobs, useWarehouses, useDrivers } from "@/lib/hooks";
-import { StatusBadge } from "@/components/StatusBadge";
+
 import { PageHeader } from "./_app.index";
 import { ArrowRight, Plus, Trash2, X, ChevronUp, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -82,6 +82,17 @@ function JobsPage() {
     }
   }
 
+  const JOB_STATUSES = [
+    "PENDING", "ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP",
+    "EN_ROUTE_DELIVERY", "COMPLETED", "CANCELLED",
+  ] as const;
+
+  async function setStatus(jobId: string, status: string) {
+    const { error } = await supabase.from("jobs").update({ status: status as never }).eq("id", jobId);
+    if (error) toast.error(error.message);
+    else toast.success(`Status → ${status}`);
+  }
+
   const editingJob = editJobId ? jobs.find((j) => j.id === editJobId) : null;
 
   return (
@@ -142,7 +153,17 @@ function JobsPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="px-3 py-2.5"><StatusBadge status={j.status} kind="job" /></td>
+                    <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                      <select
+                        value={j.status}
+                        onChange={(e) => setStatus(j.id, e.target.value)}
+                        className="text-[10px] font-mono uppercase tracking-wider bg-surface border border-border rounded px-1.5 py-1"
+                      >
+                        {JOB_STATUSES.map((s) => (
+                          <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
+                        ))}
+                      </select>
+                    </td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs">{j.eta_minutes ? `${j.eta_minutes}m` : "—"}</td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">{j.scheduled_at ? new Date(j.scheduled_at).toLocaleString() : "—"}</td>
                     <td className="px-3 py-2.5 text-right">
