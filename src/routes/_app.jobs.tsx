@@ -128,7 +128,6 @@ function JobsPage() {
                 <th className="px-3 py-2 text-left">Status</th>
                 <th className="px-3 py-2 text-right">ETA</th>
                 <th className="px-3 py-2 text-left">Scheduled</th>
-                <th className="px-3 py-2 text-right">Advance</th>
                 <th className="px-3 py-2 text-right">Actions</th>
               </tr>
             </thead>
