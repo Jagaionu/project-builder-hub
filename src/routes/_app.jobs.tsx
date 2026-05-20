@@ -202,6 +202,7 @@ function JobsPage() {
                       <DriverPicker
                         driverId={j.assigned_driver_id}
                         drivers={drivers}
+                        compliance={compliance}
                         onChange={(id) => assignDriver(j.id, id)}
                       />
                     </div>
