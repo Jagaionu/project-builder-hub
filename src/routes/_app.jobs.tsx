@@ -367,12 +367,16 @@ function DriverPicker({ driverId, drivers, compliance, onChange }: {
           {drivers.length > 0 && <div className="my-1 border-t border-border/50" />}
           {drivers.map((d) => {
             const active = d.id === driverId;
+            const dc = compliance?.[d.id];
+            const blocked = !!dc?.blockAssignment;
             return (
               <button
                 key={d.id}
                 type="button"
-                onClick={() => { onChange(d.id); setOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-surface-2 transition-colors"
+                disabled={blocked}
+                onClick={() => { if (!blocked) { onChange(d.id); setOpen(false); } }}
+                title={blocked ? dc?.issues.find((i) => i.level === "breach")?.msg : undefined}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${blocked ? "opacity-40 cursor-not-allowed" : "hover:bg-surface-2"}`}
               >
                 <span className="size-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
                   {d.name[0]?.toUpperCase()}
@@ -380,7 +384,13 @@ function DriverPicker({ driverId, drivers, compliance, onChange }: {
                 <span className={`flex-1 text-left ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
                   {d.name}
                   {!d.telegram_id && <span className="ml-1 text-[9px] text-muted-foreground/50">no TG</span>}
+                  {dc && (
+                    <span className="ml-1 text-[9px] font-mono text-muted-foreground/70">
+                      {dc.weekly.toFixed(0)}/56 · {dc.dailyHeadroom.toFixed(1)}h left
+                    </span>
+                  )}
                 </span>
+                {dc && <ComplianceDot c={dc} />}
                 {active && <Check className="size-3 text-foreground" />}
               </button>
             );
