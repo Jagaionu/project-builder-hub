@@ -111,6 +111,7 @@ function DriversPage() {
                 <th className="px-3 py-2 text-left">Phone</th>
                 <th className="px-3 py-2 text-left">Telegram</th>
                 <th className="px-3 py-2 text-left">Status</th>
+                <th className="px-3 py-2 text-left">Compliance (UK HGV)</th>
                 <th className="px-3 py-2 text-left">Last Update</th>
                 <th className="px-3 py-2 text-right">Coords</th>
                 <th className="px-3 py-2 text-right w-24">Actions</th>
