@@ -137,23 +137,99 @@ async function tryPair(chatId: number, code: string): Promise<Driver | null> {
   return { id: data.id, name: data.name, telegram_id: String(chatId), status: data.status };
 }
 
+async function getRegistration(chatId: number) {
+  const { data } = await supabaseAdmin
+    .from("driver_registrations")
+    .select("id,telegram_id,name,phone,status")
+    .eq("telegram_id", String(chatId))
+    .maybeSingle();
+  return data;
+}
+
+async function handleRegistration(chatId: number, text: string): Promise<boolean> {
+  const t = text.trim();
+  const reg = await getRegistration(chatId);
+
+  if (t === "/register" || t.toLowerCase() === "register") {
+    if (reg && reg.status === "PENDING") {
+      await sendMessage(chatId, "⏳ Your registration is awaiting approval. We'll notify you here.");
+      return true;
+    }
+    if (reg && reg.status === "APPROVED") {
+      await sendMessage(chatId, "✅ You are already approved.", mainMenu);
+      return true;
+    }
+    await supabaseAdmin.from("driver_registrations").upsert(
+      { telegram_id: String(chatId), name: null, phone: null, status: "AWAITING_NAME" as never },
+      { onConflict: "telegram_id" },
+    );
+    await sendMessage(chatId, "📝 Let's get you registered. What's your <b>full name</b>?");
+    return true;
+  }
+
+  if (!reg) return false;
+
+  if (reg.status === "AWAITING_NAME") {
+    if (t.length < 2 || t.length > 80) {
+      await sendMessage(chatId, "Please send your full name (2–80 characters).");
+      return true;
+    }
+    await supabaseAdmin
+      .from("driver_registrations")
+      .update({ name: t, status: "AWAITING_PHONE" as never })
+      .eq("id", reg.id);
+    await sendMessage(chatId, `Thanks <b>${t}</b>. Now send your <b>phone number</b> (e.g. +44…).`);
+    return true;
+  }
+
+  if (reg.status === "AWAITING_PHONE") {
+    if (!/^[+0-9 ()-]{6,20}$/.test(t)) {
+      await sendMessage(chatId, "That doesn't look like a phone number. Try again (e.g. +44 7…).");
+      return true;
+    }
+    await supabaseAdmin
+      .from("driver_registrations")
+      .update({ phone: t, status: "PENDING" as never })
+      .eq("id", reg.id);
+    await sendMessage(
+      chatId,
+      `✅ Registration submitted!\n\n<b>Name:</b> ${reg.name}\n<b>Phone:</b> ${t}\n\nDispatch will review shortly. You'll get a message here when approved.`,
+    );
+    return true;
+  }
+
+  if (reg.status === "PENDING") {
+    await sendMessage(chatId, "⏳ Still awaiting approval — please hold tight.");
+    return true;
+  }
+
+  if (reg.status === "REJECTED") {
+    await sendMessage(chatId, "❌ Your previous registration was rejected. Send /register to try again.");
+    return true;
+  }
+
+  return false;
+}
+
 async function handleText(chatId: number, driver: Driver | null, text: string) {
   const t = text.trim();
 
   if (!driver) {
-    // Self-link via 6-digit pairing code
     if (/^\d{6}$/.test(t)) {
       const linked = await tryPair(chatId, t);
       if (linked) {
         await sendMessage(chatId, `✅ Linked as <b>${linked.name}</b>. Use the menu below.`, mainMenu);
         return;
       }
-      await sendMessage(chatId, "❌ Invalid or expired code. Ask dispatch for a fresh one.");
+      await sendMessage(chatId, "❌ Invalid or expired code. Ask dispatch for a fresh one, or send /register to sign up.");
       return;
     }
+
+    if (await handleRegistration(chatId, t)) return;
+
     await sendMessage(
       chatId,
-      `👋 Welcome! Send the 6‑digit code your dispatcher gave you to link this chat.\n(Your Telegram ID: <code>${chatId}</code>)`,
+      `👋 Welcome! Two ways to get started:\n\n• Send /register to create a new account\n• Send your 6‑digit pairing code if dispatch gave you one\n\n(Your Telegram ID: <code>${chatId}</code>)`,
     );
     return;
   }
