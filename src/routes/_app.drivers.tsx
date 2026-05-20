@@ -183,6 +183,7 @@ function DriversPage() {
                           </>
                         ) : (
                           <>
+                            <PairButton driverId={d.id} hasTelegram={!!d.telegram_id} />
                             <button
                               onClick={() => startEdit(d)}
                               className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-foreground"
