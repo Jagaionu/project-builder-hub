@@ -1,14 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDrivers } from "@/lib/hooks";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Check, X, Send, KeyRound } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, Send, KeyRound, UserPlus } from "lucide-react";
 import { registerTelegramWebhook } from "@/lib/telegram-setup.functions";
 import { generatePairingCode } from "@/lib/telegram-notify.functions";
+import { approveRegistration, rejectRegistration } from "@/lib/registrations.functions";
 
 export const Route = createFileRoute("/_app/drivers")({
   component: DriversPage,
@@ -102,6 +103,8 @@ function DriversPage() {
             </button>
           </div>
         )}
+        <PendingRegistrations />
+
         <div className="rounded-md border border-border overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -288,3 +291,117 @@ function PairButton({ driverId, hasTelegram }: { driverId: string; hasTelegram: 
     </button>
   );
 }
+
+type Registration = {
+  id: string;
+  telegram_id: string;
+  name: string | null;
+  phone: string | null;
+  status: "AWAITING_NAME" | "AWAITING_PHONE" | "PENDING" | "APPROVED" | "REJECTED";
+  created_at: string;
+};
+
+function PendingRegistrations() {
+  const [regs, setRegs] = useState<Registration[]>([]);
+  const approve = useServerFn(approveRegistration);
+  const reject = useServerFn(rejectRegistration);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = () =>
+      supabase
+        .from("driver_registrations")
+        .select("*")
+        .eq("status", "PENDING")
+        .order("created_at", { ascending: false })
+        .then(({ data }) => {
+          if (mounted && data) setRegs(data as Registration[]);
+        });
+    load();
+    const ch = supabase
+      .channel("rt-registrations")
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_registrations" }, load)
+      .subscribe();
+    return () => {
+      mounted = false;
+      supabase.removeChannel(ch);
+    };
+  }, []);
+
+  async function onApprove(id: string) {
+    setBusyId(id);
+    try {
+      await approve({ data: { registrationId: id } });
+      toast.success("Driver approved & notified");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function onReject(id: string) {
+    const reason = prompt("Optional reason for rejection?") ?? undefined;
+    setBusyId(id);
+    try {
+      await reject({ data: { registrationId: id, reason: reason || undefined } });
+      toast.success("Registration rejected");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (regs.length === 0) return null;
+  return (
+    <div className="rounded-md border border-warning/40 bg-warning/5 overflow-hidden">
+      <div className="px-3 py-2 bg-warning/10 text-[10px] font-mono uppercase tracking-widest text-warning flex items-center gap-1.5">
+        <UserPlus className="size-3.5" /> Pending registrations · {regs.length}
+      </div>
+      <table className="w-full text-sm">
+        <thead className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2 text-left">Name</th>
+            <th className="px-3 py-2 text-left">Phone</th>
+            <th className="px-3 py-2 text-left">Telegram ID</th>
+            <th className="px-3 py-2 text-left">Submitted</th>
+            <th className="px-3 py-2 text-right w-40">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {regs.map((r) => (
+            <tr key={r.id}>
+              <td className="px-3 py-2.5">{r.name ?? "—"}</td>
+              <td className="px-3 py-2.5 font-mono text-xs">{r.phone ?? "—"}</td>
+              <td className="px-3 py-2.5 font-mono text-xs">{r.telegram_id}</td>
+              <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                {new Date(r.created_at).toLocaleString()}
+              </td>
+              <td className="px-3 py-2.5">
+                <div className="flex items-center justify-end gap-1.5">
+                  <button
+                    disabled={busyId === r.id}
+                    onClick={() => onApprove(r.id)}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-primary text-primary-foreground text-xs disabled:opacity-50"
+                  >
+                    <Check className="size-3" /> Approve
+                  </button>
+                  <button
+                    disabled={busyId === r.id}
+                    onClick={() => onReject(r.id)}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border text-xs hover:bg-surface-2 disabled:opacity-50"
+                  >
+                    <X className="size-3" /> Reject
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
