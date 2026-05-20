@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { useJobs, useWarehouses, useDrivers } from "@/lib/hooks";
-import { StatusBadge } from "@/components/StatusBadge";
+
 import { PageHeader } from "./_app.index";
 import { ArrowRight, Plus, Trash2, X, ChevronUp, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
