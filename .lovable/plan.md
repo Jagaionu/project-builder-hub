@@ -1,85 +1,56 @@
-## Goal
+## What's happening
 
-Extend auto-assignment so every PENDING job gets a planned driver, not just the ones a free driver can grab right now. When there are more jobs than drivers, chain follow-on jobs onto drivers who will finish their current run nearby and still have legal HGV hours left.
+Ionut's compliance card shows `BREACH`. The rule that's firing is **"Insufficient rest (≈0h < 9h)"**, not weekly/daily/drive-cycle. So the maths is doing what it's told — the input data is wrong.
 
-## How it works
+## Root cause
 
-### Pass 1 — Immediate assignment (already built)
-
-For each PENDING job, on shift drivers within 30 km of the first PICKUP get the closest one, respecting HGV compliance. These become **hard assignments** (`assigned_driver_id` set, status `ASSIGNED`), shown in the current solid colour.
-
-### Pass 2 — Planned chaining (new)
-
-After Pass 1, walk the remaining unassigned PENDING jobs in `scheduled_at` order. For each driver, build a forecast of where and when they will finish their current chain:
-
-- Start from the driver's current job's **last DROP** warehouse.
-- Compute finish time = now + remaining drive time on current job + 30 min loading per remaining PICKUP.
-- Track projected daily / weekly / fortnight driving hours via the same `compliance.ts` model, pretending each leg's drive time is added to the shift.
-
-For each unassigned job, the best candidate is the driver whose projected end location is closest to the job's first PICKUP (≤30 km) AND whose projected hours after completing the new job stay inside legal limits (10 h daily, 56 h weekly, 90 h fortnight, plus 11 h rest before next shift). Pick the closest. Repeat — a driver can be chained 2, 3, N times until either the radius or the hours run out.
-
-These are **planned assignments**, not hard ones. They show as a grey pill on the driver row and a grey badge on the job row ("planned: Ionut, after SNG1→BHX2").
-
-### Pass 3 — Leftovers
-
-Jobs that no driver can legally reach today stay PENDING and surface on the Alerts page as "Unassignable — needs extra driver or reschedule", with the closest near-miss driver listed (e.g. "Ionut: 42 km out of 30, or 9.8/10 h").
-
-## Schema
-
-New columns on `jobs`:
-
-- `planned_driver_id uuid null` — soft assignment from Pass 2
-- `planned_sequence int null` — 1 = first follow-on, 2 = second, etc., per driver
-- `planned_start_at timestamptz null` — forecast pickup time
-
-No new tables. Hard assignment still uses `assigned_driver_id`.
-
-Re-plan triggers: a job is created/edited/cancelled, a driver's status changes, a stop's `arrived_at` is filled, or the manual "Re-optimise" button on Dispatch is pressed. All plans are wiped and rebuilt — cheap, deterministic, avoids stale chains.
-
-## UI
-
-- **Jobs page**: existing assigned-driver cell stays as-is. Add a second line "Planned: Ionut · 2nd run · ETA 14:20" in muted grey when only `planned_driver_id` is set.
-- **Drivers page**: under the compliance pill, a small grey chip "Next: JOB-AB12 (BHX2→SNG3)" listing the chain in order.
-- **Dispatch page**: "Re-optimise all" button; map shows planned legs as dashed grey lines from each driver's last DROP to their next planned PICKUP.
-- **Alerts page**: "Unassignable jobs" group with the near-miss reason.
-
-## Algorithm (technical)
+When Telegram's webhook was re-registered earlier today, the pending queue flushed and replayed several shift toggles within ~2 seconds. Ionut's `driver_events` now contains:
 
 ```text
-runPlanner(jobs, drivers, stops, warehouses, compliance):
-  clear all planned_* on jobs
-  pending = jobs.filter(PENDING and not assigned)
-
-  # Pass 1: immediate (unchanged from current code)
-  for job in pending sorted by scheduled_at:
-    assignClosestEligible(job)
-
-  # Pass 2: build per-driver forecast
-  forecast = {}
-  for d in drivers where on_shift or available:
-    forecast[d.id] = projectEnd(d)   # {endLat, endLon, endTime, hoursUsed}
-
-  unplanned = jobs.filter(PENDING and not assigned and not planned)
-  for job in unplanned sorted by scheduled_at:
-    best = null
-    for d, f in forecast:
-      dist = haversine(f.endLat/Lon, job.firstPickup)
-      if dist > 30: continue
-      legDrive = transitTimeHours(dist) + jobDriveHours(job)
-      if !fitsHgv(f.hoursUsed + legDrive, restBefore=f.endTime): continue
-      if !best or dist < best.dist: best = {d, dist, legDrive}
-    if best:
-      job.planned_driver_id = best.d.id
-      job.planned_sequence  = ++seqOf[best.d.id]
-      job.planned_start_at  = forecast[best.d.id].endTime + transit
-      forecast[best.d.id] = advanceForecast(best)
+20:11:58.570  START_SHIFT
+20:11:58.927  START_SHIFT     ← duplicate (folded)
+20:11:59.304  LOCATION_UPDATE
+20:11:59.783  END_SHIFT       ← closes a 1.2-second "shift"
+20:12:00.165  START_SHIFT     ← the real current shift
 ```
 
-`jobDriveHours(job)` sums haversine transit + 0.5 h loading per PICKUP through the stop list. `fitsHgv` reuses the caps in `compliance.ts` (daily 10, weekly 56, fortnight 90, plus the 11 h rest rule before the next shift if the projection crosses a rest boundary).
+`buildSegments` in `src/lib/compliance.ts` produces:
+
+- a closed segment 20:11:58.57 → 20:11:59.78 (1.2 seconds)
+- an open segment 20:12:00.16 → now
+
+The compliance rule then computes
+`restHours = openShiftStart − previousShiftEnd ≈ 0.4 seconds`,
+which is `< 9h`, so it raises a **breach**.
+
+The earlier real shift (14:44 → 17:48) gave him 2h24m of rest before 20:12, which would already trip the "<9h" rest rule, but the phantom 1-second segment is what's actually being compared against.
+
+## Why it shows up as "everything seems right"
+
+In the UI he looks fine — on shift, ~1h driven today, well under all caps. The breach is purely an artefact of (a) Telegram replaying queued events and (b) the compliance code treating any END_SHIFT/START_SHIFT pair as a real driving shift, no matter how short.
+
+## Plan
+
+Two surgical fixes, no schema or business-logic change.
+
+### 1. Ignore degenerate shift segments in compliance (`src/lib/compliance.ts`)
+
+In `buildSegments`, drop any closed segment shorter than a small threshold (e.g. 60 seconds). Rationale: a "shift" under a minute can't represent real driving and is almost always a webhook replay, double-tap, or accidental END→START bounce. This also makes `restHours` ignore the phantom segment and correctly compare against the previous *real* shift end (17:48 → 20:12 = 2.4h, which is still a legitimate `warn`/`breach` depending on policy, but at least based on real data).
+
+### 2. Debounce shift toggles at the webhook (`src/routes/api/public/telegram/webhook.ts`)
+
+Before inserting a `START_SHIFT` or `END_SHIFT` event, look up the most recent shift event for that driver. If it's the same type within the last ~10 seconds, skip the insert. If it's the opposite type within the last ~30 seconds, also skip (prevents a START→END→START bounce from the queue flush). This stops the bad data from being recorded in the first place.
+
+### 3. One-off cleanup for Ionut's current rows
+
+Insert a corrective record? No — `driver_events` is append-only and the public table only allows `select`/`insert` via psql. Instead, the threshold filter in step 1 makes the existing rows benign without a migration. We can leave history as-is.
+
+## Technical details
+
+- File: `src/lib/compliance.ts` — add `MIN_SEG_MS = 60_000`; filter `segs` after building.
+- File: `src/routes/api/public/telegram/webhook.ts` — before each shift-event insert, `SELECT type, timestamp FROM driver_events WHERE driver_id=$1 AND type IN ('START_SHIFT','END_SHIFT') ORDER BY timestamp DESC LIMIT 1` and apply the debounce rule above.
+- No DB migration, no UI change, no behaviour change for healthy data.
 
 ## Out of scope
 
-- Real road distance (still haversine — fine for radius checks)
-- Driver preferences / skills / vehicle type matching
-- Multi-driver swap optimisation (no global cost solver; greedy by distance only)
-- Auto-promotion of `planned_driver_id` to `assigned_driver_id` (dispatcher confirms manually in this iteration)
+- Reworking the rest-hours rule itself (2.4h is still under 9h, so once the phantom segment is filtered out, the badge may show `warn` rather than `ok` — that's correct behaviour, not a bug). If you want a different policy here (e.g. allow split shifts within a day), say so and I'll add it.

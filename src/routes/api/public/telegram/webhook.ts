@@ -35,6 +35,25 @@ async function findDriver(chatId: number): Promise<Driver | null> {
 }
 
 async function logEvent(driver_id: string, type: string, payload: Record<string, unknown>) {
+  // Debounce shift toggles: Telegram occasionally replays queued updates after
+  // a webhook re-registration, which can produce duplicate START/END events
+  // within milliseconds. Drop those before they corrupt compliance maths.
+  if (type === "START_SHIFT" || type === "END_SHIFT") {
+    const { data: last } = await supabaseAdmin
+      .from("driver_events")
+      .select("type,timestamp")
+      .eq("driver_id", driver_id)
+      .in("type", ["START_SHIFT", "END_SHIFT"] as never)
+      .order("timestamp", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (last) {
+      const ageMs = Date.now() - new Date(last.timestamp as string).getTime();
+      const sameType = last.type === type;
+      if (sameType && ageMs < 10_000) return;
+      if (!sameType && ageMs < 30_000) return;
+    }
+  }
   await supabaseAdmin.from("driver_events").insert({
     driver_id,
     type: type as never,

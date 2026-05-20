@@ -23,6 +23,9 @@ export type Compliance = {
 };
 
 const H = 3_600_000;
+// Drop closed shift segments shorter than this — they're almost always
+// webhook replays or accidental END→START bounces, not real driving.
+const MIN_SEG_MS = 60_000;
 
 type Seg = { start: number; end: number; open: boolean };
 
@@ -42,7 +45,7 @@ function buildSegments(events: ComplianceEvent[], nowMs: number): Seg[] {
     }
   }
   if (openStart != null) segs.push({ start: openStart, end: nowMs, open: true });
-  return segs;
+  return segs.filter((s) => s.open || s.end - s.start >= MIN_SEG_MS);
 }
 
 // Driving hours for a shift of `durHours`, auto-deducting 45min break per 4.5h driven.
