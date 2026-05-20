@@ -143,9 +143,10 @@ function JobsPage() {
                       <select
                         value={j.assigned_driver_id ?? ""}
                         onChange={(e) => assignDriver(j.id, e.target.value)}
-                        className="text-xs bg-surface border border-border rounded px-1.5 py-1 min-w-[140px]"
+                        className="text-xs bg-background text-foreground border border-border rounded px-2 py-1 min-w-[160px] appearance-auto cursor-pointer hover:border-primary"
+                        style={{ appearance: "auto" }}
                       >
-                        <option value="">— unassigned —</option>
+                        <option value="">— Assign driver —</option>
                         {drivers.map((dr) => (
                           <option key={dr.id} value={dr.id}>
                             {dr.name}{dr.telegram_id ? "" : " (no TG)"}
@@ -157,7 +158,8 @@ function JobsPage() {
                       <select
                         value={j.status}
                         onChange={(e) => setStatus(j.id, e.target.value)}
-                        className="text-[10px] font-mono uppercase tracking-wider bg-surface border border-border rounded px-1.5 py-1"
+                        className="text-[10px] font-mono uppercase tracking-wider bg-background text-foreground border border-border rounded px-2 py-1 cursor-pointer hover:border-primary"
+                        style={{ appearance: "auto" }}
                       >
                         {JOB_STATUSES.map((s) => (
                           <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
@@ -166,8 +168,21 @@ function JobsPage() {
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs">{j.eta_minutes ? `${j.eta_minutes}m` : "—"}</td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">{j.scheduled_at ? new Date(j.scheduled_at).toLocaleString() : "—"}</td>
-                    <td className="px-3 py-2.5 text-right">
-                      <ArrowRight className="inline size-3.5 text-muted-foreground" />
+                    <td className="px-3 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="inline-flex gap-1">
+                        <button
+                          onClick={() => setEditJobId(j.id)}
+                          className="rounded border border-border px-2 py-1 text-[10px] font-mono uppercase tracking-wider hover:bg-surface-2 hover:border-primary"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => deleteJob(j.id)}
+                          className="rounded border border-destructive/40 text-destructive px-2 py-1 text-[10px] font-mono uppercase tracking-wider hover:bg-destructive/10"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
