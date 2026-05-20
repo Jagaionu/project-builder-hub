@@ -263,10 +263,6 @@ function JobsPage() {
               {/* Rows */}
               {jobs.map((j) => {
                 const stops = stopsMap[j.id] ?? [];
-                const whNames = stops.map((s) => {
-                  const wh = warehouses.find((w) => w.id === s.warehouse_id);
-                  return { code: wh?.code ?? "?", kind: s.kind };
-                });
                 return (
                   <div
                     key={j.id}
