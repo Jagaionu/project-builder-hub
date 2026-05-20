@@ -254,7 +254,11 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
       .update({ status: "AVAILABLE", last_update_time: new Date().toISOString() })
       .eq("id", driver.id);
     await logEvent(driver.id, "START_SHIFT", {});
-    await sendMessage(chatId, "✅ Shift started. Please share your location to receive jobs.", mainMenu);
+    await sendMessage(
+      chatId,
+      `✅ <b>Shift started.</b>\n\nTo receive jobs, please share your <b>Live Location</b> once — your phone will keep dispatch updated in the background, so you don't need to keep Telegram open.\n\n<b>How to share Live Location:</b>\n1️⃣ Tap the 📎 (attachment) icon\n2️⃣ Choose <b>Location</b>\n3️⃣ Tap <b>Share My Live Location for…</b>\n4️⃣ Select <b>8 hours</b>\n\nThat's it — drive safe. 🚚`,
+      mainMenu,
+    );
     return;
   }
 
@@ -264,7 +268,11 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
       .update({ status: "OFF_SHIFT", last_update_time: new Date().toISOString() })
       .eq("id", driver.id);
     await logEvent(driver.id, "END_SHIFT", {});
-    await sendMessage(chatId, "🛑 Shift ended. Have a good rest!", mainMenu);
+    await sendMessage(
+      chatId,
+      "🛑 <b>Shift ended.</b> Have a good rest!\n\n💡 Don't forget to <b>stop sharing your live location</b> — open the location message and tap <i>Stop sharing</i>.",
+      mainMenu,
+    );
     return;
   }
 
