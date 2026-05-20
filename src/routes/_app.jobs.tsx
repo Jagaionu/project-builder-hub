@@ -9,6 +9,10 @@ import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, C
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
+import { haversineKm } from "@/lib/geo";
+
+const AUTO_ASSIGN_RADIUS_KM = 30;
+const ACTIVE_JOB_STATUSES = new Set(["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"]);
 
 export const Route = createFileRoute("/_app/jobs")({
   component: JobsPage,
