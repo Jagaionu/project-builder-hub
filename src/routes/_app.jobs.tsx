@@ -9,10 +9,12 @@ import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, C
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
-import { haversineKm } from "@/lib/geo";
+import { computePlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
 
-const AUTO_ASSIGN_RADIUS_KM = 30;
 const ACTIVE_JOB_STATUSES = new Set(["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"]);
+void AUTO_ASSIGN_RADIUS_KM;
+void ACTIVE_JOB_STATUSES;
+
 
 export const Route = createFileRoute("/_app/jobs")({
   component: JobsPage,
@@ -117,47 +119,76 @@ function JobsPage() {
     }
   }
 
-  // Auto-assign newly-created PENDING jobs to the nearest eligible driver
-  // within 30 km of the first pickup. Eligibility: AVAILABLE or ON_SHIFT,
-  // known GPS, no active job, and HGV compliance allows the assignment.
-  const attemptedRef = useRef<Set<string>>(new Set());
+  // Auto-planner: Pass 1 immediate assign, Pass 2 planned chaining, Pass 3 leftovers (alerts).
+  // Re-runs on any change to jobs/stops/drivers/compliance. Writes only diffs.
+  const planSigRef = useRef<string>("");
   useEffect(() => {
-    for (const job of jobs) {
-      if (job.status !== "PENDING" || job.assigned_driver_id) continue;
-      if (attemptedRef.current.has(job.id)) continue;
-      const stops = stopsMap[job.id];
-      if (!stops || stops.length === 0) continue; // wait for stops to load
-      const firstPickup = stops.find((s) => s.kind === "PICKUP") ?? stops[0];
-      const wh = warehouses.find((w) => w.id === firstPickup.warehouse_id);
-      if (!wh) continue;
+    if (drivers.length === 0 || warehouses.length === 0) return;
+    // Wait until every PENDING job has its stops loaded
+    const pending = jobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id);
+    if (pending.some((j) => !stopsMap[j.id])) return;
 
-      attemptedRef.current.add(job.id);
+    const plan = computePlan(jobs, stopsMap, drivers, warehouses, compliance);
 
-      const busy = new Set(
-        jobs
-          .filter((j) => j.assigned_driver_id && ACTIVE_JOB_STATUSES.has(j.status))
-          .map((j) => j.assigned_driver_id as string),
+    // Stable signature to avoid loops if the same plan is recomputed.
+    const sig = JSON.stringify({
+      i: plan.immediate.map((x) => [x.jobId, x.driverId]),
+      p: plan.planned.map((x) => [x.jobId, x.driverId, x.sequence, x.startAt]),
+    });
+    if (sig === planSigRef.current) return;
+    planSigRef.current = sig;
+
+    (async () => {
+      // Pass 1: immediate assignments (uses existing assignDriver path so Telegram notify fires)
+      for (const a of plan.immediate) {
+        const job = jobs.find((j) => j.id === a.jobId);
+        const driver = drivers.find((d) => d.id === a.driverId);
+        if (!job || !driver) continue;
+        await assignDriver(a.jobId, a.driverId);
+        toast.message(`Auto-assigned ${driver.name} → ${job.reference} (${a.distKm.toFixed(1)} km)`);
+      }
+
+      // Pass 2: planned diffs
+      const desired = new Map(
+        plan.planned.map((p) => [p.jobId, { d: p.driverId, s: p.sequence, t: p.startAt }] as const),
       );
-
-      const candidates = drivers
-        .filter((d) => d.status === "AVAILABLE" || d.status === "ON_SHIFT")
-        .filter((d) => d.current_lat != null && d.current_lon != null)
-        .filter((d) => !busy.has(d.id))
-        .filter((d) => !compliance[d.id]?.blockAssignment)
-        .map((d) => ({
-          d,
-          distKm: haversineKm(d.current_lat!, d.current_lon!, wh.latitude, wh.longitude),
-        }))
-        .filter((c) => c.distKm <= AUTO_ASSIGN_RADIUS_KM)
-        .sort((a, b) => a.distKm - b.distKm);
-
-      if (candidates.length === 0) continue;
-      const best = candidates[0];
-      void assignDriver(job.id, best.d.id).then(() => {
-        toast.message(`Auto-assigned ${best.d.name} → ${job.reference} (${best.distKm.toFixed(1)} km)`);
-      });
-    }
+      for (const job of jobs) {
+        const want = desired.get(job.id);
+        const have = {
+          d: job.planned_driver_id ?? null,
+          s: job.planned_sequence ?? null,
+          t: job.planned_start_at ?? null,
+        };
+        // Clear stale planned_* on jobs that are no longer pending OR no longer planned
+        if (!want) {
+          if (have.d || have.s || have.t) {
+            await supabase
+              .from("jobs")
+              .update({
+                planned_driver_id: null,
+                planned_sequence: null,
+                planned_start_at: null,
+              })
+              .eq("id", job.id);
+          }
+          continue;
+        }
+        if (have.d !== want.d || have.s !== want.s || have.t !== want.t) {
+          await supabase
+            .from("jobs")
+            .update({
+              planned_driver_id: want.d,
+              planned_sequence: want.s,
+              planned_start_at: want.t,
+            })
+            .eq("id", job.id);
+        }
+      }
+    })();
+    // Note: assignDriver excluded from deps — it's stable enough for this effect's purpose.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobs, stopsMap, drivers, warehouses, compliance]);
+
 
   // status config moved to module level
 
@@ -251,7 +282,15 @@ function JobsPage() {
                         compliance={compliance}
                         onChange={(id) => assignDriver(j.id, id)}
                       />
+                      {!j.assigned_driver_id && j.planned_driver_id && (
+                        <PlannedChip
+                          driverName={drivers.find((d) => d.id === j.planned_driver_id)?.name ?? "?"}
+                          sequence={j.planned_sequence ?? undefined}
+                          startAt={j.planned_start_at ?? undefined}
+                        />
+                      )}
                     </div>
+
                     <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
                       <StatusPill
                         status={j.status}
@@ -644,6 +683,37 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
+
+function PlannedChip({
+  driverName,
+  sequence,
+  startAt,
+}: {
+  driverName: string;
+  sequence?: number;
+  startAt?: string;
+}) {
+  const when = startAt
+    ? new Date(startAt).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+  return (
+    <div
+      title="Planned follow-on assignment — not confirmed yet"
+      className="mt-1 inline-flex items-center gap-1 rounded-md bg-muted/40 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground"
+    >
+      <span className="size-1 rounded-full bg-muted-foreground/60" />
+      planned: {driverName}
+      {sequence ? ` · #${sequence}` : ""}
+      {when ? ` · ${when}` : ""}
+    </div>
+  );
+}
+
 
 function ComplianceDot({ c }: { c: Compliance }) {
   const cls =

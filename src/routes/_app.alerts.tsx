@@ -58,7 +58,21 @@ function AlertsPage() {
           out.push({ id: `j-${j.id}`, level: "warning", type: "Overdue ETA", icon: Timer, message: `${j.reference} overdue by ${Math.round(overdueMin)} min` });
         }
       }
+      // Unassignable: pending > 2 min, no driver and no planned driver
+      if (j.status === "PENDING" && !j.assigned_driver_id && !j.planned_driver_id) {
+        const ageMin = (now - new Date(j.created_at).getTime()) / 60000;
+        if (ageMin > 2) {
+          out.push({
+            id: `u-${j.id}`,
+            level: "critical",
+            type: "Unassignable",
+            icon: AlertTriangle,
+            message: `${j.reference}: no driver in 30 km with hours to spare`,
+          });
+        }
+      }
     });
+
     return out;
   }, [drivers, jobs, compliance]);
 
