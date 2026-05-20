@@ -7,7 +7,7 @@ import { PageHeader } from "./_app.index";
 import { ArrowRight, Plus, Trash2, X, ChevronUp, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { notifyDriverOfJob, notifyDriverJobUpdate } from "@/lib/telegram-notify.functions";
+import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
 
 export const Route = createFileRoute("/_app/jobs")({
   component: JobsPage,
