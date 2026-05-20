@@ -7,22 +7,13 @@ import { PageHeader } from "./_app.index";
 import { ArrowRight, Plus, Trash2, X, ChevronUp, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { notifyDriverOfJob, notifyDriverJobUpdate } from "@/lib/telegram-notify.functions";
+import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
 
 export const Route = createFileRoute("/_app/jobs")({
   component: JobsPage,
   head: () => ({ meta: [{ title: "Jobs — Planning System" }] }),
 });
 
-const lifecycle = [
-  { value: "PENDING", label: "Pending" },
-  { value: "ASSIGNED", label: "Assigned" },
-  { value: "IN_PROGRESS", label: "En route → pickup" },
-  { value: "ARRIVED_PICKUP", label: "Arrived pickup" },
-  { value: "EN_ROUTE_DELIVERY", label: "En route → delivery" },
-  { value: "COMPLETED", label: "Completed" },
-  { value: "CANCELLED", label: "Cancelled" },
-];
 
 type Stop = {
   id?: string;
@@ -75,16 +66,6 @@ function JobsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const notify = useServerFn(notifyDriverOfJob);
-  const notifyUpdate = useServerFn(notifyDriverJobUpdate);
-
-  async function setStatus(id: string, status: string) {
-    const { error } = await supabase.from("jobs").update({ status: status as never }).eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success(`Status → ${status}`);
-    if (status === "CANCELLED") {
-      try { await notifyUpdate({ data: { jobId: id, message: "❌ Job cancelled by dispatch." } }); } catch {}
-    }
-  }
 
   async function assignDriver(jobId: string, driverId: string) {
     const payload = driverId
@@ -128,7 +109,6 @@ function JobsPage() {
                 <th className="px-3 py-2 text-left">Status</th>
                 <th className="px-3 py-2 text-right">ETA</th>
                 <th className="px-3 py-2 text-left">Scheduled</th>
-                <th className="px-3 py-2 text-right">Advance</th>
                 <th className="px-3 py-2 text-right">Actions</th>
               </tr>
             </thead>
@@ -165,15 +145,6 @@ function JobsPage() {
                     <td className="px-3 py-2.5"><StatusBadge status={j.status} kind="job" /></td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs">{j.eta_minutes ? `${j.eta_minutes}m` : "—"}</td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">{j.scheduled_at ? new Date(j.scheduled_at).toLocaleString() : "—"}</td>
-                    <td className="px-3 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
-                      <select
-                        value={j.status}
-                        onChange={(e) => setStatus(j.id, e.target.value)}
-                        className="text-xs bg-surface border border-border rounded px-1.5 py-1"
-                      >
-                        {lifecycle.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                      </select>
-                    </td>
                     <td className="px-3 py-2.5 text-right">
                       <ArrowRight className="inline size-3.5 text-muted-foreground" />
                     </td>
@@ -181,7 +152,7 @@ function JobsPage() {
                 );
               })}
               {jobs.length === 0 && (
-                <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground text-xs">No jobs yet. Click "Create route" to add one.</td></tr>
+                <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground text-xs">No jobs yet. Click "Create route" to add one.</td></tr>
               )}
             </tbody>
           </table>
