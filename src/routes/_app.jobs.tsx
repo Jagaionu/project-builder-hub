@@ -66,16 +66,6 @@ function JobsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const notify = useServerFn(notifyDriverOfJob);
-  const notifyUpdate = useServerFn(notifyDriverJobUpdate);
-
-  async function setStatus(id: string, status: string) {
-    const { error } = await supabase.from("jobs").update({ status: status as never }).eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success(`Status → ${status}`);
-    if (status === "CANCELLED") {
-      try { await notifyUpdate({ data: { jobId: id, message: "❌ Job cancelled by dispatch." } }); } catch {}
-    }
-  }
 
   async function assignDriver(jobId: string, driverId: string) {
     const payload = driverId
