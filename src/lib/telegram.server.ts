@@ -85,6 +85,18 @@ export async function answerCallbackQuery(callbackQueryId: string, text?: string
   return tg("answerCallbackQuery", { callback_query_id: callbackQueryId, ...(text ? { text } : {}) });
 }
 
+export async function editMessageReplyMarkup(
+  chatId: number | string,
+  messageId: number,
+  replyMarkup: unknown,
+) {
+  return tg("editMessageReplyMarkup", {
+    chat_id: chatId,
+    message_id: messageId,
+    reply_markup: replyMarkup,
+  });
+}
+
 export async function setWebhook(url: string) {
   return tg("setWebhook", {
     url,
