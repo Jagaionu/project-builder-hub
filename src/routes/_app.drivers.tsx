@@ -383,3 +383,52 @@ function PendingRegistrations() {
   );
 }
 
+
+function ComplianceCell({ c }: { c: Compliance | undefined }) {
+  if (!c) {
+    return <span className="text-[11px] text-muted-foreground/50">—</span>;
+  }
+  const dot =
+    c.status === "breach"
+      ? "bg-destructive"
+      : c.status === "warn"
+        ? "bg-warning"
+        : "bg-success";
+  const ringColor =
+    c.status === "breach"
+      ? "border-destructive/40 text-destructive"
+      : c.status === "warn"
+        ? "border-warning/40 text-warning"
+        : "border-success/30 text-success";
+  return (
+    <div className="flex flex-col gap-1">
+      <div className={`inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-widest w-fit ${ringColor}`}>
+        <span className={`size-1.5 rounded-full ${dot}`} />
+        {c.status}
+        {c.onShift && <span className="opacity-60">· on shift</span>}
+      </div>
+      <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+        <span title="Driving in last 24h">D {c.daily.toFixed(1)}/10</span>
+        <span title="Driving in last 7 days">W {c.weekly.toFixed(1)}/56</span>
+        <span title="Driving in last 14 days">2W {c.twoWeek.toFixed(1)}/90</span>
+        {c.onShift && (
+          <span title="Continuous drive in current 4.5h cycle">
+            Cycle {c.continuousDrive.toFixed(1)}/4.5
+          </span>
+        )}
+      </div>
+      {c.issues.length > 0 && (
+        <div className="flex flex-col gap-0.5">
+          {c.issues.slice(0, 2).map((i, idx) => (
+            <div
+              key={idx}
+              className={`text-[10px] ${i.level === "breach" ? "text-destructive" : "text-warning"}`}
+            >
+              {i.msg}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
