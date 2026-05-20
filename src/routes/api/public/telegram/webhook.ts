@@ -1,94 +1,292 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { z } from "zod";
+import { timingSafeEqual } from "crypto";
 import { haversineKm, etaMinutes, isInsideGeofence } from "@/lib/geo";
+import {
+  deriveTelegramWebhookSecret,
+  sendMessage,
+  answerCallbackQuery,
+  mainMenu,
+  jobInlineKeyboard,
+  delayReasonsKeyboard,
+} from "@/lib/telegram.server";
 
-/**
- * Telegram bot webhook.
- * Expected payloads from the bot:
- *   { telegram_id: string, type: "LOCATION_UPDATE", lat: number, lon: number }
- *   { telegram_id: string, type: "START_SHIFT" | "END_SHIFT" }
- *   { telegram_id: string, type: "ACCEPT_JOB" | "REJECT_JOB", job_id: string }
- *   { telegram_id: string, type: "DELAY_REPORT", reason?: string }
- */
-const Payload = z.object({
-  telegram_id: z.string().min(1).max(128),
-  type: z.enum(["LOCATION_UPDATE","START_SHIFT","END_SHIFT","ACCEPT_JOB","REJECT_JOB","DELAY_REPORT","ARRIVED","DEPARTED"]),
-  lat: z.number().optional(),
-  lon: z.number().optional(),
-  job_id: z.string().uuid().optional(),
-  reason: z.string().max(500).optional(),
-});
+function safeEqual(a: string, b: string) {
+  const A = Buffer.from(a);
+  const B = Buffer.from(b);
+  return A.length === B.length && timingSafeEqual(A, B);
+}
+
+type Driver = {
+  id: string;
+  name: string;
+  telegram_id: string | null;
+  status: string;
+};
+
+async function findDriver(chatId: number): Promise<Driver | null> {
+  const { data } = await supabaseAdmin
+    .from("drivers")
+    .select("id,name,telegram_id,status")
+    .eq("telegram_id", String(chatId))
+    .maybeSingle();
+  return (data as Driver) ?? null;
+}
+
+async function logEvent(driver_id: string, type: string, payload: Record<string, unknown>) {
+  await supabaseAdmin.from("driver_events").insert({
+    driver_id,
+    type: type as never,
+    payload: payload as never,
+  });
+}
+
+async function listAssignedJobs(driverId: string) {
+  const { data } = await supabaseAdmin
+    .from("jobs")
+    .select("id,reference,status,origin_warehouse_id,destination_warehouse_id,scheduled_at")
+    .eq("assigned_driver_id", driverId)
+    .in("status", ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"])
+    .order("scheduled_at", { ascending: true, nullsFirst: false });
+  return data ?? [];
+}
+
+async function warehouseLabel(id: string | null): Promise<string> {
+  if (!id) return "—";
+  const { data } = await supabaseAdmin.from("warehouses").select("code,name").eq("id", id).maybeSingle();
+  return data ? `${data.code} ${data.name}` : "—";
+}
+
+async function formatJob(j: {
+  id: string;
+  reference: string;
+  status: string;
+  origin_warehouse_id: string;
+  destination_warehouse_id: string;
+  scheduled_at: string | null;
+}) {
+  const [o, d] = await Promise.all([
+    warehouseLabel(j.origin_warehouse_id),
+    warehouseLabel(j.destination_warehouse_id),
+  ]);
+  const when = j.scheduled_at ? new Date(j.scheduled_at).toLocaleString() : "anytime";
+  return `<b>${j.reference}</b> · ${j.status}\n📦 Pickup: ${o}\n🏁 Drop: ${d}\n🕒 ${when}`;
+}
+
+async function handleLocation(driver: Driver, lat: number, lon: number) {
+  await supabaseAdmin
+    .from("drivers")
+    .update({
+      current_lat: lat,
+      current_lon: lon,
+      last_update_time: new Date().toISOString(),
+    })
+    .eq("id", driver.id);
+  await logEvent(driver.id, "LOCATION_UPDATE", { lat, lon });
+
+  const { data: activeJob } = await supabaseAdmin
+    .from("jobs")
+    .select("*")
+    .eq("assigned_driver_id", driver.id)
+    .in("status", ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"])
+    .maybeSingle();
+
+  if (!activeJob) return null;
+
+  const goingToPickup = activeJob.status === "ASSIGNED" || activeJob.status === "IN_PROGRESS";
+  const targetWhId = goingToPickup ? activeJob.origin_warehouse_id : activeJob.destination_warehouse_id;
+  const { data: wh } = await supabaseAdmin
+    .from("warehouses")
+    .select("*")
+    .eq("id", targetWhId)
+    .maybeSingle();
+  if (!wh) return null;
+
+  const inside = isInsideGeofence(lat, lon, wh.latitude, wh.longitude);
+  if (inside && goingToPickup) {
+    await supabaseAdmin.from("jobs").update({ status: "ARRIVED_PICKUP" }).eq("id", activeJob.id);
+    await logEvent(driver.id, "ARRIVED", { job_id: activeJob.id, warehouse: wh.code });
+    return `📍 Arrived at pickup <b>${wh.code}</b>.`;
+  }
+  if (inside && activeJob.status === "EN_ROUTE_DELIVERY") {
+    await supabaseAdmin.from("jobs").update({ status: "COMPLETED" }).eq("id", activeJob.id);
+    await logEvent(driver.id, "ARRIVED", { job_id: activeJob.id, warehouse: wh.code, completed: true });
+    return `🏁 Job completed at <b>${wh.code}</b>.`;
+  }
+  const distKm = haversineKm(lat, lon, wh.latitude, wh.longitude);
+  const eta = etaMinutes(distKm);
+  await supabaseAdmin.from("jobs").update({ eta_minutes: eta }).eq("id", activeJob.id);
+  return `📡 Location received. ETA to <b>${wh.code}</b>: ~${eta} min (${distKm.toFixed(1)} km).`;
+}
+
+async function handleText(chatId: number, driver: Driver | null, text: string) {
+  if (!driver) {
+    if (text.startsWith("/start")) {
+      await sendMessage(
+        chatId,
+        `👋 Welcome! Your Telegram ID is <code>${chatId}</code>.\nAsk your dispatcher to register this ID against your driver profile, then send /start again.`,
+      );
+      return;
+    }
+    await sendMessage(chatId, `You are not registered yet. Your Telegram ID: <code>${chatId}</code>`);
+    return;
+  }
+
+  const t = text.trim();
+
+  if (t.startsWith("/start") || t === "/menu") {
+    await sendMessage(chatId, `Hi <b>${driver.name}</b>. Use the menu below.`, mainMenu);
+    return;
+  }
+
+  if (t === "▶️ Start Shift" || t === "/start_shift") {
+    await supabaseAdmin
+      .from("drivers")
+      .update({ status: "AVAILABLE", last_update_time: new Date().toISOString() })
+      .eq("id", driver.id);
+    await logEvent(driver.id, "START_SHIFT", {});
+    await sendMessage(chatId, "✅ Shift started. Please share your location to receive jobs.", mainMenu);
+    return;
+  }
+
+  if (t === "⏹ End Shift" || t === "/end_shift") {
+    await supabaseAdmin
+      .from("drivers")
+      .update({ status: "OFF_SHIFT", last_update_time: new Date().toISOString() })
+      .eq("id", driver.id);
+    await logEvent(driver.id, "END_SHIFT", {});
+    await sendMessage(chatId, "🛑 Shift ended. Have a good rest!", mainMenu);
+    return;
+  }
+
+  if (t === "📦 My Jobs" || t === "/jobs") {
+    const jobs = await listAssignedJobs(driver.id);
+    if (jobs.length === 0) {
+      await sendMessage(chatId, "No active jobs. Stay tuned!", mainMenu);
+      return;
+    }
+    for (const j of jobs) {
+      const txt = await formatJob(j);
+      await sendMessage(chatId, txt, jobInlineKeyboard(j.id));
+    }
+    return;
+  }
+
+  if (t === "⚠️ Report Delay" || t === "/delay") {
+    await sendMessage(chatId, "Select a delay reason:", delayReasonsKeyboard());
+    return;
+  }
+
+  if (t === "📍 Share Location") {
+    await sendMessage(chatId, "Tap the 📍 button below to share your live location.", mainMenu);
+    return;
+  }
+
+  await sendMessage(chatId, "I didn't recognise that. Use the menu below.", mainMenu);
+}
+
+async function handleCallback(chatId: number, driver: Driver | null, callbackId: string, data: string) {
+  if (!driver) {
+    await answerCallbackQuery(callbackId, "Not registered.");
+    return;
+  }
+  const [action, ...rest] = data.split(":");
+  const arg = rest.join(":");
+
+  if (action === "ACCEPT" && arg) {
+    await supabaseAdmin.from("jobs").update({ status: "IN_PROGRESS" }).eq("id", arg);
+    await supabaseAdmin.from("drivers").update({ status: "ON_ROUTE" }).eq("id", driver.id);
+    await logEvent(driver.id, "ACCEPT_JOB", { job_id: arg });
+    await answerCallbackQuery(callbackId, "Accepted");
+    await sendMessage(chatId, "✅ Job accepted. Head to the pickup point.", mainMenu);
+    return;
+  }
+  if (action === "REJECT" && arg) {
+    await supabaseAdmin.from("jobs").update({ status: "PENDING", assigned_driver_id: null }).eq("id", arg);
+    await logEvent(driver.id, "REJECT_JOB", { job_id: arg });
+    await answerCallbackQuery(callbackId, "Rejected");
+    await sendMessage(chatId, "❌ Job released back to dispatch.", mainMenu);
+    return;
+  }
+  if (action === "PICKED" && arg) {
+    await supabaseAdmin.from("jobs").update({ status: "EN_ROUTE_DELIVERY" }).eq("id", arg);
+    await logEvent(driver.id, "DEPARTED", { job_id: arg });
+    await answerCallbackQuery(callbackId, "Picked up");
+    await sendMessage(chatId, "🚚 Marked as picked up. Driving to drop-off.", mainMenu);
+    return;
+  }
+  if (action === "DELIVERED" && arg) {
+    await supabaseAdmin.from("jobs").update({ status: "COMPLETED" }).eq("id", arg);
+    await supabaseAdmin.from("drivers").update({ status: "AVAILABLE" }).eq("id", driver.id);
+    await logEvent(driver.id, "ARRIVED", { job_id: arg, completed: true });
+    await answerCallbackQuery(callbackId, "Delivered");
+    await sendMessage(chatId, "🏁 Job completed. Great work!", mainMenu);
+    return;
+  }
+  if (action === "DELAY") {
+    await supabaseAdmin
+      .from("drivers")
+      .update({ status: "DELAYED", last_update_time: new Date().toISOString() })
+      .eq("id", driver.id);
+    await logEvent(driver.id, "DELAY_REPORT", { reason: arg });
+    await answerCallbackQuery(callbackId, "Reported");
+    await sendMessage(chatId, `⚠️ Delay reported: <b>${arg}</b>. Dispatch has been notified.`, mainMenu);
+    return;
+  }
+  await answerCallbackQuery(callbackId);
+}
 
 export const Route = createFileRoute("/api/public/telegram/webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        let body: unknown;
-        try { body = await request.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
-        const parsed = Payload.safeParse(body);
-        if (!parsed.success) return json({ error: "Invalid payload", details: parsed.error.flatten() }, 400);
-        const p = parsed.data;
+        // Verify Telegram secret token
+        let expected: string;
+        try {
+          expected = deriveTelegramWebhookSecret();
+        } catch (e) {
+          return new Response("Server not configured", { status: 500 });
+        }
+        const actual = request.headers.get("x-telegram-bot-api-secret-token") ?? "";
+        if (!safeEqual(actual, expected)) {
+          return new Response("Unauthorized", { status: 401 });
+        }
 
-        const { data: driver, error: drvErr } = await supabaseAdmin
-          .from("drivers").select("*").eq("telegram_id", p.telegram_id).maybeSingle();
-        if (drvErr) return json({ error: drvErr.message }, 500);
-        if (!driver) return json({ error: "Unknown driver" }, 404);
+        let update: any;
+        try {
+          update = await request.json();
+        } catch {
+          return Response.json({ ok: true });
+        }
 
-        const updates: Record<string, unknown> = { last_update_time: new Date().toISOString() };
-
-        if (p.type === "LOCATION_UPDATE" && p.lat != null && p.lon != null) {
-          updates.current_lat = p.lat;
-          updates.current_lon = p.lon;
-
-          // Geofence detection against driver's active job destination
-          const { data: activeJob } = await supabaseAdmin
-            .from("jobs").select("*").eq("assigned_driver_id", driver.id)
-            .in("status", ["ASSIGNED","IN_PROGRESS","ARRIVED_PICKUP","EN_ROUTE_DELIVERY"])
-            .maybeSingle();
-
-          if (activeJob) {
-            const targetWhId = activeJob.status === "ASSIGNED" || activeJob.status === "IN_PROGRESS"
-              ? activeJob.origin_warehouse_id
-              : activeJob.destination_warehouse_id;
-            const { data: wh } = await supabaseAdmin.from("warehouses").select("*").eq("id", targetWhId).maybeSingle();
-            if (wh) {
-              const inside = isInsideGeofence(p.lat, p.lon, wh.latitude, wh.longitude);
-              if (inside && (activeJob.status === "ASSIGNED" || activeJob.status === "IN_PROGRESS")) {
-                await supabaseAdmin.from("jobs").update({ status: "ARRIVED_PICKUP" }).eq("id", activeJob.id);
-                await logEvent(driver.id, "ARRIVED", { job_id: activeJob.id, warehouse: wh.code });
-              } else if (inside && activeJob.status === "EN_ROUTE_DELIVERY") {
-                await supabaseAdmin.from("jobs").update({ status: "COMPLETED" }).eq("id", activeJob.id);
-                await logEvent(driver.id, "ARRIVED", { job_id: activeJob.id, warehouse: wh.code, completed: true });
-              } else {
-                const distKm = haversineKm(p.lat, p.lon, wh.latitude, wh.longitude);
-                await supabaseAdmin.from("jobs").update({ eta_minutes: etaMinutes(distKm) }).eq("id", activeJob.id);
+        try {
+          if (update.callback_query) {
+            const cb = update.callback_query;
+            const chatId = cb.message?.chat?.id ?? cb.from?.id;
+            if (chatId) {
+              const driver = await findDriver(chatId);
+              await handleCallback(chatId, driver, cb.id, cb.data ?? "");
+            }
+          } else {
+            const msg = update.message ?? update.edited_message;
+            const chatId = msg?.chat?.id;
+            if (chatId) {
+              const driver = await findDriver(chatId);
+              if (msg.location && driver) {
+                const reply = await handleLocation(driver, msg.location.latitude, msg.location.longitude);
+                if (reply) await sendMessage(chatId, reply, mainMenu);
+                else await sendMessage(chatId, "📍 Location received.", mainMenu);
+              } else if (typeof msg.text === "string") {
+                await handleText(chatId, driver, msg.text);
               }
             }
           }
+        } catch (err) {
+          console.error("Telegram webhook error", err);
         }
 
-        if (p.type === "START_SHIFT") updates.status = "AVAILABLE";
-        if (p.type === "END_SHIFT") updates.status = "OFF_SHIFT";
-        if (p.type === "DELAY_REPORT") updates.status = "DELAYED";
-        if (p.type === "ACCEPT_JOB" && p.job_id) {
-          updates.status = "ON_ROUTE";
-          await supabaseAdmin.from("jobs").update({ status: "IN_PROGRESS" }).eq("id", p.job_id);
-        }
-
-        await supabaseAdmin.from("drivers").update(updates as never).eq("id", driver.id);
-        await logEvent(driver.id, p.type, p as unknown as Record<string, unknown>);
-
-        return json({ ok: true });
+        return Response.json({ ok: true });
       },
     },
   },
 });
-
-async function logEvent(driver_id: string, type: string, payload: Record<string, unknown>) {
-  await supabaseAdmin.from("driver_events").insert({ driver_id, type: type as never, payload: payload as never });
-}
-
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
-}
