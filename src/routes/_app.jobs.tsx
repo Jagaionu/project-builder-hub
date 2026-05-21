@@ -554,8 +554,9 @@ function StatusPill({ status, onChange }: { status: string; onChange: (s: string
   );
 }
 
-function DriverPicker({ driverId, drivers, compliance, onChange }: {
+function DriverPicker({ driverId, allowUnassign = true, drivers, compliance, onChange }: {
   driverId: string | null | undefined;
+  allowUnassign?: boolean;
   drivers: { id: string; name: string; telegram_id?: string | null }[];
   compliance?: Record<string, Compliance>;
   onChange: (id: string) => void;
@@ -596,20 +597,24 @@ function DriverPicker({ driverId, drivers, compliance, onChange }: {
           style={{ position: "fixed", top: coords.top, left: coords.left }}
           className="z-[1000] w-52 rounded-xl border border-border bg-popover shadow-xl py-1.5 max-h-[60vh] overflow-y-auto"
         >
-          <button
-            type="button"
-            onClick={() => { onChange(""); setOpen(false); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-surface-2 transition-colors"
-          >
-            <span className="size-6 rounded-full border border-dashed border-border flex items-center justify-center shrink-0">
-              <User className="size-3 text-muted-foreground/40" />
-            </span>
-            <span className={`flex-1 text-left ${!driverId ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
-              Unassigned
-            </span>
-            {!driverId && <Check className="size-3 text-foreground" />}
-          </button>
-          {drivers.length > 0 && <div className="my-1 border-t border-border/50" />}
+          {allowUnassign && (
+            <>
+              <button
+                type="button"
+                onClick={() => { onChange(""); setOpen(false); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-surface-2 transition-colors"
+              >
+                <span className="size-6 rounded-full border border-dashed border-border flex items-center justify-center shrink-0">
+                  <User className="size-3 text-muted-foreground/40" />
+                </span>
+                <span className={`flex-1 text-left ${!driverId ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                  Unassigned
+                </span>
+                {!driverId && <Check className="size-3 text-foreground" />}
+              </button>
+              {drivers.length > 0 && <div className="my-1 border-t border-border/50" />}
+            </>
+          )}
           {drivers.map((d) => {
             const active = d.id === driverId;
             const dc = compliance?.[d.id];
@@ -871,10 +876,14 @@ function PlannedChip({
   driverName,
   sequence,
   startAt,
+  distanceKm,
+  dailyHoursLeft,
 }: {
   driverName: string;
   sequence?: number;
   startAt?: string;
+  distanceKm?: number;
+  dailyHoursLeft?: number;
 }) {
   const when = startAt
     ? new Date(startAt).toLocaleString(undefined, {
@@ -893,6 +902,8 @@ function PlannedChip({
       planned: {driverName}
       {sequence ? ` · #${sequence}` : ""}
       {when ? ` · ${when}` : ""}
+      {distanceKm != null ? ` · ${distanceKm.toFixed(0)}km away` : ""}
+      {dailyHoursLeft != null ? ` · ${dailyHoursLeft.toFixed(1)}h left` : ""}
     </div>
   );
 }
