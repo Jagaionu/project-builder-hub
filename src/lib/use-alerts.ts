@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Gauge, Timer, WifiOff, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Gauge, Timer, type LucideIcon } from "lucide-react";
 import { useCompliance, useDrivers, useJobs, useRecentDelays } from "@/lib/hooks";
 
 export interface AppAlert {
