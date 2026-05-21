@@ -108,6 +108,7 @@ type Stop = {
   kind: "PICKUP" | "DROP";
   warehouse_id: string;
   scheduled_at: string | null;
+  arrived_at?: string | null;
 };
 
 type JobStopsMap = Record<string, Stop[]>;
@@ -129,6 +130,7 @@ function useJobStops(): JobStopsMap {
           kind: s.kind,
           warehouse_id: s.warehouse_id,
           scheduled_at: s.scheduled_at,
+          arrived_at: s.arrived_at,
         });
       }
       setMap(m);
@@ -278,6 +280,13 @@ function JobsPage() {
   // status config moved to module level
 
   async function setStatus(jobId: string, status: string) {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const requiresDriver = ACTIVE_JOB_STATUSES.has(status);
+    if (requiresDriver && !job.assigned_driver_id) {
+      toast.error("Assign a driver before setting this route in progress");
+      return;
+    }
     const { error } = await supabase.from("jobs").update({ status: status as never }).eq("id", jobId);
     if (error) toast.error(error.message);
     else toast.success(`Status → ${STATUS_CONFIG[status as JobStatus]?.label ?? status}`);
@@ -376,6 +385,7 @@ function JobsPage() {
                   <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
                     <DriverPicker
                       driverId={j.assigned_driver_id}
+                      allowUnassign={!ACTIVE_JOB_STATUSES.has(j.status)}
                       drivers={drivers}
                       compliance={compliance}
                       onChange={(id) => assignDriver(j.id, id)}
@@ -385,6 +395,7 @@ function JobsPage() {
                         driverName={drivers.find((d) => d.id === j.planned_driver_id)?.name ?? "?"}
                         sequence={j.planned_sequence ?? undefined}
                         startAt={j.planned_start_at ?? undefined}
+                        job={j}
                       />
                     )}
                   </div>
