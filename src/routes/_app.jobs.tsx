@@ -465,12 +465,13 @@ function DriverPicker({ driverId, drivers, compliance, onChange }: {
   compliance?: Record<string, Compliance>;
   onChange: (id: string) => void;
 }) {
-  const { open, setOpen, ref } = usePopover();
+  const { open, setOpen, btnRef, popRef, coords } = usePopover();
   const driver = drivers.find((d) => d.id === driverId);
   const activeC = driver ? compliance?.[driver.id] : undefined;
   return (
-    <div ref={ref} className="relative">
+    <div className="relative inline-block">
       <button
+        ref={btnRef}
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -493,10 +494,12 @@ function DriverPicker({ driverId, drivers, compliance, onChange }: {
           </>
         )}
       </button>
-      {open && (
+      {open && coords && typeof document !== "undefined" && createPortal(
         <div
+          ref={popRef}
           onClick={(e) => e.stopPropagation()}
-          className="absolute left-0 top-full mt-1.5 z-30 w-52 rounded-xl border border-border bg-popover shadow-xl py-1.5"
+          style={{ position: "fixed", top: coords.top, left: coords.left }}
+          className="z-[1000] w-52 rounded-xl border border-border bg-popover shadow-xl py-1.5 max-h-[60vh] overflow-y-auto"
         >
           <button
             type="button"
@@ -542,7 +545,8 @@ function DriverPicker({ driverId, drivers, compliance, onChange }: {
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
