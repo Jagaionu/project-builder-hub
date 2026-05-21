@@ -354,6 +354,40 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
 
   // (t already trimmed above)
 
+  // Tomorrow availability flow — YES/NO after END_SHIFT
+  if (pendingTomorrowState.get(String(chatId)) === "awaiting_answer") {
+    const up = t.toUpperCase();
+    if (up === "YES" || up === "Y") {
+      await supabaseAdmin
+        .from("drivers")
+        .update({ available_tomorrow: true })
+        .eq("telegram_id", String(chatId));
+      await sendMessage(
+        chatId,
+        `📍 Great! Please share your location so we know your pickup point for tomorrow.`,
+        tomorrowLocationKeyboard,
+      );
+      pendingTomorrowState.set(String(chatId), "awaiting_location");
+      return;
+    }
+    if (up === "NO" || up === "N") {
+      await supabaseAdmin
+        .from("drivers")
+        .update({
+          available_tomorrow: false,
+          tomorrow_start_lat: null,
+          tomorrow_start_lon: null,
+        })
+        .eq("telegram_id", String(chatId));
+      await sendMessage(chatId, `👍 Noted. Rest well! See you next time. 🚚`, mainMenu);
+      pendingTomorrowState.delete(String(chatId));
+      return;
+    }
+    await sendMessage(chatId, `Please reply <b>YES</b> or <b>NO</b> — are you available for tomorrow?`);
+    return;
+  }
+
+
   if (t === "/register" || t.toLowerCase() === "register") {
     await sendMessage(chatId, `You're already registered as <b>${driver.name}</b>. Use the menu below.`, mainMenu);
     return;
