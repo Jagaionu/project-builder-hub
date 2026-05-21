@@ -129,18 +129,8 @@ export function useAlerts() {
           out.push({ id: `j-${j.id}`, level: "warning", type: "Overdue ETA", icon: Timer, message: `${j.reference} overdue by ${Math.round(overdueMin)} min` });
         }
       }
-      if (j.status === "PENDING" && !j.assigned_driver_id && !j.planned_driver_id) {
-        const ageMin = (now - new Date(j.created_at).getTime()) / 60000;
-        if (ageMin > 2) {
-          out.push({
-            id: `u-${j.id}`,
-            level: "critical",
-            type: "Unassignable",
-            icon: AlertTriangle,
-            message: `${j.reference}: no driver in 30 km with hours to spare`,
-          });
-        }
-      }
+      // Unassigned jobs are surfaced as a count badge on the Dispatch nav
+      // item instead of an alert — dispatchers already work that queue.
     });
 
     return out;
@@ -154,4 +144,15 @@ export function useAlerts() {
 export function useAlertCount() {
   const { alerts } = useAlerts();
   return alerts.length;
+}
+
+export function useUnassignedJobCount() {
+  const jobs = useJobs();
+  return useMemo(
+    () =>
+      jobs.filter(
+        (j) => j.status === "PENDING" && !j.assigned_driver_id && !j.planned_driver_id,
+      ).length,
+    [jobs],
+  );
 }
