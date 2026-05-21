@@ -1,35 +1,24 @@
-## Findings
-- **The crash is most likely not caused by missing driver rows.** I checked the backend and **both drivers are present** in the `drivers` table:
-  - DM
-  - Ionut
-- The new `driver_day_hours` table currently has **2 rows for only 1 driver** (`Ionut`). `DM` has no hours rows yet.
-- That missing hours data **should not crash the page by itself**, because the current compliance code already falls back to an empty array when a driver has no ledger rows.
-- The strongest concrete failure signal is a **hydration mismatch** on the Drivers tab:
-  - server rendered: `18:56:09`
-  - client rendered: `5:56:09 PM`
-- That points to **locale/time-format rendering inside the Drivers page**. The route is using `toLocaleTimeString()` / `toLocaleString()` directly, so the server and browser format the same timestamp differently. React then tears down and rebuilds the page, which matches the “loads for 1 sec then crashes” behavior.
+# Make `for_date` = first stop's scheduled arrival
 
-## Plan
-1. **Stabilize Drivers page rendering**
-   - Replace locale-dependent time rendering on the Drivers route with a deterministic formatter shared by server and client.
-   - Fix both the roster “Last Update” cell and the pending registrations “Submitted” cell.
+The route's date should come from the **first stop's scheduled arrival**, not from the creation date or the job's `scheduled_at`. This applies to both the manual create form and the CSV import.
 
-2. **Verify the hours table path after the render fix**
-   - Re-check the compliance section with one driver having ledger rows and one without.
-   - Confirm the page stays mounted and that missing rows simply show normal fallback behavior instead of crashing.
+## What's already done
 
-3. **Optional cleanup path for driver data**
-   - If you want, I can also remove the current driver records and their related hours/event records so you can re-add both cleanly.
-   - I would do that in a controlled way so there are no orphaned rows left behind.
+A database trigger (`sync_job_for_date`) is now installed on `job_stops`. After any insert/update/delete of stops, it recomputes the parent job's `for_date` as `MIN(stop.scheduled_at)::date`. Existing routes have been backfilled.
 
-## Technical details
-- Current driver count: **2**
-- Current ledger count in `driver_day_hours`: **2**
-- Distinct drivers represented in ledger: **1**
-- Most likely root cause: **SSR/client time formatting mismatch**, not missing drivers
+This alone fixes the underlying bug: from now on, every route — manual, CSV, Telegram, future code paths — will have the correct `for_date` automatically.
 
-## Expected result after implementation
-- Drivers tab should stop flashing/crashing.
-- Both existing drivers should remain visible.
-- The driver with no `driver_day_hours` rows should still load normally.
-- If you choose cleanup afterward, I can then wipe and reinsert the driver data safely.
+## Code changes to apply on approval
+
+1. **`src/lib/jobs-import.functions.ts`** — remove the explicit `for_date: firstScheduled.slice(0,10)` from the job insert payload. The trigger handles it, so we drop the duplicate logic.
+
+2. **`src/routes/_app.jobs.tsx`** (create/edit job form) — no change needed to the insert payload itself; the trigger will set `for_date` once stops are inserted. Small UX improvement: after save, if the computed first-stop date is tomorrow, show a toast *"Route scheduled for tomorrow — click Plan Tomorrow to assign a driver"*.
+
+That's it — no other files touched.
+
+## Why your job didn't get planned
+
+- Today is 2026-05-21. Your new route had `for_date = today`, so "Plan Tomorrow" (which targets 2026-05-22) never saw it.
+- Even if it had targeted today, Ionut is `OFF_SHIFT`. The live auto-planner only picks AVAILABLE / ON_SHIFT / ON_ROUTE drivers — off-shift is intentionally skipped.
+
+After this change, the route's date will reflect its first stop. To assign Ionut, the first stop must be on 2026-05-22 and you click **Plan Tomorrow**.

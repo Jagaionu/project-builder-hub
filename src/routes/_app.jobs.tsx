@@ -1110,7 +1110,15 @@ function RouteDialog({
     setSaving(false);
     if (stopErr) { console.error("[stops.insert]", stopErr, rows); return toast.error(`Stops insert failed: ${stopErr.message}`); }
 
-    toast.success(mode === "create" ? "Route created" : "Route updated");
+    // The DB trigger sets for_date from the first stop's scheduled arrival.
+    const firstArrival = rows.map((r) => r.scheduled_at).find((s) => !!s) as string | undefined;
+    const firstDate = firstArrival ? firstArrival.slice(0, 10) : null;
+    const tomorrow = (() => { const t = new Date(); t.setUTCDate(t.getUTCDate() + 1); return t.toISOString().slice(0, 10); })();
+    if (firstDate === tomorrow) {
+      toast.success("Route scheduled for tomorrow — click Plan Tomorrow to assign a driver");
+    } else {
+      toast.success(mode === "create" ? "Route created" : "Route updated");
+    }
     onClose();
   }
 
