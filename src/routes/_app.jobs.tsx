@@ -965,14 +965,17 @@ function PlannedChip({
 
 
 function ComplianceDot({ c }: { c: Compliance }) {
-  const cls =
-    c.status === "breach"
+  const offShift = !c.onShift;
+  const cls = offShift
+    ? "bg-muted-foreground/40"
+    : c.status === "breach"
       ? "bg-destructive"
       : c.status === "warn"
         ? "bg-warning"
         : "bg-success";
-  const title =
-    c.issues[0]?.msg ?? `OK · ${c.daily.toFixed(1)}/10 today · ${c.weekly.toFixed(1)}/56 this week`;
+  const title = offShift
+    ? `Off shift · ${c.restHours === Infinity ? "—" : c.restHours.toFixed(1) + "h rest"}`
+    : (c.issues[0]?.msg ?? `OK · ${c.daily.toFixed(1)}/10 today · ${c.weekly.toFixed(1)}/56 this week`);
   return <span title={title} className={`size-1.5 rounded-full shrink-0 ${cls}`} />;
 }
 
