@@ -13,6 +13,7 @@ import {
   delayReasonsKeyboard,
   emptyInlineKeyboard,
 } from "@/lib/telegram.server";
+import { recomputeRecent } from "@/lib/shift-ledger.server";
 
 function safeEqual(a: string, b: string) {
   const A = Buffer.from(a);
