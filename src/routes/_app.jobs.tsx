@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notifyDriverOfJob, notifyDriverTomorrowRoutes } from "@/lib/telegram-notify.functions";
 import { computePlan, computeTomorrowPlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
+import { planTomorrow } from "@/lib/tomorrow.functions";
 import { computeStopSchedule, stopDwellMinutes } from "@/lib/geo";
 import { importJobsCsv } from "@/lib/jobs-import.functions";
 import { csvToImportRows } from "@/lib/csv-import";
