@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useDrivers, useCompliance } from "@/lib/hooks";
+import { useDrivers, useCompliance, useDriverDayHours, type DriverDayHours } from "@/lib/hooks";
 import type { Compliance } from "@/lib/compliance";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "./_app.index";
@@ -160,7 +160,7 @@ function DriversPage() {
                       <StatusBadge status={d.status} kind="driver" />
                     </td>
                     <td className="px-3 py-2.5">
-                      <ComplianceCell c={compliance[d.id]} />
+                      <ComplianceCell c={compliance[d.id]} driverId={d.id} />
                     </td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">
                       {d.last_update_time ? new Date(d.last_update_time).toLocaleTimeString() : "—"}
@@ -385,7 +385,9 @@ function PendingRegistrations() {
 }
 
 
-function ComplianceCell({ c }: { c: Compliance | undefined }) {
+function ComplianceCell({ c, driverId }: { c: Compliance | undefined; driverId: string }) {
+  const allLedger = useDriverDayHours();
+  const rows = allLedger[driverId] ?? [];
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -491,6 +493,8 @@ function ComplianceCell({ c }: { c: Compliance | undefined }) {
                 All limits within legal range.
               </div>
             )}
+
+            <DayHoursTable rows={rows} />
           </div>
         </>,
         document.body
@@ -527,6 +531,63 @@ function Metric({
       </div>
       <div className="h-1 rounded-full bg-surface-2 overflow-hidden">
         <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function fmtHm(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m}m`;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
+function DayHoursTable({ rows }: { rows: DriverDayHours[] }) {
+  if (!rows.length) {
+    return (
+      <div className="border-t border-border pt-2 text-[11px] text-muted-foreground">
+        No hours recorded yet.
+      </div>
+    );
+  }
+  const last14 = rows.slice(0, 14);
+  return (
+    <div className="border-t border-border pt-2 space-y-1">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+        Last 14 days
+      </div>
+      <div className="max-h-44 overflow-y-auto">
+        <table className="w-full text-[11px]">
+          <thead className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">
+            <tr>
+              <th className="text-left py-1 font-normal">Date</th>
+              <th className="text-right py-1 font-normal">On shift</th>
+              <th className="text-right py-1 font-normal">Drive</th>
+              <th className="text-right py-1 font-normal">Off</th>
+            </tr>
+          </thead>
+          <tbody>
+            {last14.map((r) => {
+              const d = new Date(r.day + "T00:00:00");
+              const label = d.toLocaleDateString("en-GB", {
+                weekday: "short",
+                day: "2-digit",
+                month: "2-digit",
+              });
+              return (
+                <tr key={r.day} className="border-t border-border/40">
+                  <td className="py-1">{label}</td>
+                  <td className="py-1 text-right font-mono">{fmtHm(r.shift_minutes)}</td>
+                  <td className="py-1 text-right font-mono">{fmtHm(r.drive_minutes)}</td>
+                  <td className="py-1 text-right font-mono text-muted-foreground">
+                    {fmtHm(r.off_minutes)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );

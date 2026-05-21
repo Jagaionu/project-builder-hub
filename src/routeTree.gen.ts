@@ -19,6 +19,7 @@ import { Route as AppDriversRouteImport } from './routes/_app.drivers'
 import { Route as AppDispatchRouteImport } from './routes/_app.dispatch'
 import { Route as AppAlertsRouteImport } from './routes/_app.alerts'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
+import { Route as ApiPublicCronShiftRolloverRouteImport } from './routes/api/public/cron/shift-rollover'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -70,6 +71,12 @@ const ApiPublicTelegramWebhookRoute =
     path: '/api/public/telegram/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCronShiftRolloverRoute =
+  ApiPublicCronShiftRolloverRouteImport.update({
+    id: '/api/public/cron/shift-rollover',
+    path: '/api/public/cron/shift-rollover',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/events': typeof AppEventsRoute
   '/jobs': typeof AppJobsRoute
   '/warehouses': typeof AppWarehousesRoute
+  '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -91,6 +99,7 @@ export interface FileRoutesByTo {
   '/jobs': typeof AppJobsRoute
   '/warehouses': typeof AppWarehousesRoute
   '/': typeof AppIndexRoute
+  '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesById {
@@ -104,6 +113,7 @@ export interface FileRoutesById {
   '/_app/jobs': typeof AppJobsRoute
   '/_app/warehouses': typeof AppWarehousesRoute
   '/_app/': typeof AppIndexRoute
+  '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRouteTypes {
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/jobs'
     | '/warehouses'
+    | '/api/public/cron/shift-rollover'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/jobs'
     | '/warehouses'
     | '/'
+    | '/api/public/cron/shift-rollover'
     | '/api/public/telegram/webhook'
   id:
     | '__root__'
@@ -140,12 +152,14 @@ export interface FileRouteTypes {
     | '/_app/jobs'
     | '/_app/warehouses'
     | '/_app/'
+    | '/api/public/cron/shift-rollover'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiPublicCronShiftRolloverRoute: typeof ApiPublicCronShiftRolloverRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
 
@@ -221,6 +235,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTelegramWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/shift-rollover': {
+      id: '/api/public/cron/shift-rollover'
+      path: '/api/public/cron/shift-rollover'
+      fullPath: '/api/public/cron/shift-rollover'
+      preLoaderRoute: typeof ApiPublicCronShiftRolloverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -249,6 +270,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiPublicCronShiftRolloverRoute: ApiPublicCronShiftRolloverRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
 export const routeTree = rootRouteImport

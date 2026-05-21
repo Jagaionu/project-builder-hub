@@ -93,8 +93,62 @@ export function useDriverEventsByDriver(): Record<string, ComplianceEvent[]> {
   return map;
 }
 
+export type DriverDayHours = {
+  driver_id: string;
+  day: string;            // YYYY-MM-DD
+  shift_minutes: number;
+  drive_minutes: number;
+  off_minutes: number;
+  week_start: string;     // YYYY-MM-DD
+};
+
+export function useDriverDayHours(): Record<string, DriverDayHours[]> {
+  const [map, setMap] = useState<Record<string, DriverDayHours[]>>({});
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      const since = new Date(Date.now() - 21 * 24 * 3600 * 1000)
+        .toISOString()
+        .slice(0, 10);
+      const { data } = await supabase
+        .from("driver_day_hours")
+        .select("driver_id,day,shift_minutes,drive_minutes,off_minutes,week_start")
+        .gte("day", since)
+        .order("day", { ascending: false });
+      if (!mounted || !data) return;
+      const m: Record<string, DriverDayHours[]> = {};
+      for (const r of data as DriverDayHours[]) {
+        (m[r.driver_id] ||= []).push(r);
+      }
+      setMap(m);
+    };
+    load();
+    const ch = supabase
+      .channel("rt-driver-day-hours")
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_day_hours" }, load)
+      .subscribe();
+    return () => {
+      mounted = false;
+      supabase.removeChannel(ch);
+    };
+  }, []);
+  return map;
+}
+
+function ukDayStringLocal(d: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
 export function useCompliance(): Record<string, Compliance> {
   const events = useDriverEventsByDriver();
+  const ledger = useDriverDayHours();
   // Tick every minute so headroom / break timers stay current.
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -104,10 +158,28 @@ export function useCompliance(): Record<string, Compliance> {
   return useMemo(() => {
     const now = Date.now();
     void tick;
+    const today = ukDayStringLocal(new Date(now));
+    const weekAgo = ukDayStringLocal(new Date(now - 6 * 24 * 3600 * 1000));
+    const fortnightAgo = ukDayStringLocal(new Date(now - 13 * 24 * 3600 * 1000));
     const out: Record<string, Compliance> = {};
-    for (const [driverId, evs] of Object.entries(events)) {
-      out[driverId] = computeCompliance(evs, now);
+    const driverIds = new Set([...Object.keys(events), ...Object.keys(ledger)]);
+    for (const driverId of driverIds) {
+      const evs = events[driverId] ?? [];
+      const rows = ledger[driverId] ?? [];
+      const todayRow = rows.find((r) => r.day === today);
+      const weekRows = rows.filter((r) => r.day >= weekAgo && r.day <= today);
+      const fortRows = rows.filter((r) => r.day >= fortnightAgo && r.day <= today);
+      const totals = {
+        daily: todayRow ? todayRow.drive_minutes / 60 : undefined,
+        weekly: weekRows.length
+          ? weekRows.reduce((s, r) => s + r.drive_minutes, 0) / 60
+          : undefined,
+        twoWeek: fortRows.length
+          ? fortRows.reduce((s, r) => s + r.drive_minutes, 0) / 60
+          : undefined,
+      };
+      out[driverId] = computeCompliance(evs, now, totals);
     }
     return out;
-  }, [events, tick]);
+  }, [events, ledger, tick]);
 }

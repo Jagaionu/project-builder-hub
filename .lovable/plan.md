@@ -1,56 +1,92 @@
-## What's happening
+## Problem
 
-Ionut's compliance card shows `BREACH`. The rule that's firing is **"Insufficient rest (≈0h < 9h)"**, not weekly/daily/drive-cycle. So the maths is doing what it's told — the input data is wrong.
+Right now compliance is computed on the fly from `driver_events` (START_SHIFT / END_SHIFT pairs) every time the UI renders. Two things go wrong:
 
-## Root cause
+1. **Rest-hours logic is broken.** When you start a fresh shift after a long break, the previous closed shift's `end` is still close to "now" only if there were recent phantom toggles, but in general the rule compares `openShiftStart − previousShiftEnd`. If anything has dirtied the events (duplicate START_SHIFTs from Telegram replays, a missing END_SHIFT, etc.), `restHours` ends up tiny and the badge stays on **breach** forever — even though you've actually been off for hours.
+2. **No durable per-day / per-week ledger.** Weekly (56h) and 2-week (90h) totals are re-derived from raw events every render. There's nothing to inspect, nothing to correct, and no clean weekly reset.
 
-When Telegram's webhook was re-registered earlier today, the pending queue flushed and replayed several shift toggles within ~2 seconds. Ionut's `driver_events` now contains:
-
-```text
-20:11:58.570  START_SHIFT
-20:11:58.927  START_SHIFT     ← duplicate (folded)
-20:11:59.304  LOCATION_UPDATE
-20:11:59.783  END_SHIFT       ← closes a 1.2-second "shift"
-20:12:00.165  START_SHIFT     ← the real current shift
-```
-
-`buildSegments` in `src/lib/compliance.ts` produces:
-
-- a closed segment 20:11:58.57 → 20:11:59.78 (1.2 seconds)
-- an open segment 20:12:00.16 → now
-
-The compliance rule then computes
-`restHours = openShiftStart − previousShiftEnd ≈ 0.4 seconds`,
-which is `< 9h`, so it raises a **breach**.
-
-The earlier real shift (14:44 → 17:48) gave him 2h24m of rest before 20:12, which would already trip the "<9h" rest rule, but the phantom 1-second segment is what's actually being compared against.
-
-## Why it shows up as "everything seems right"
-
-In the UI he looks fine — on shift, ~1h driven today, well under all caps. The breach is purely an artefact of (a) Telegram replaying queued events and (b) the compliance code treating any END_SHIFT/START_SHIFT pair as a real driving shift, no matter how short.
+You asked for a proper table per driver, keyed by date, that tracks on-shift / off-shift hours, and a clean weekly rollover.
 
 ## Plan
 
-Two surgical fixes, no schema or business-logic change.
+### 1. New table: `driver_day_hours`
 
-### 1. Ignore degenerate shift segments in compliance (`src/lib/compliance.ts`)
+One row per driver per UK calendar day.
 
-In `buildSegments`, drop any closed segment shorter than a small threshold (e.g. 60 seconds). Rationale: a "shift" under a minute can't represent real driving and is almost always a webhook replay, double-tap, or accidental END→START bounce. This also makes `restHours` ignore the phantom segment and correctly compare against the previous *real* shift end (17:48 → 20:12 = 2.4h, which is still a legitimate `warn`/`breach` depending on policy, but at least based on real data).
+```text
+driver_day_hours
+  id             uuid pk
+  driver_id      uuid  → drivers.id
+  day            date            -- UK local date (Europe/London)
+  shift_minutes  int   default 0 -- total on-shift time that day
+  drive_minutes  int   default 0 -- shift_minutes minus auto-deducted 45m / 4.5h
+  off_minutes    int   default 0 -- 1440 − shift_minutes
+  week_start     date            -- Monday of the ISO week (for weekly reset)
+  updated_at     timestamptz
+  unique(driver_id, day)
+```
 
-### 2. Debounce shift toggles at the webhook (`src/routes/api/public/telegram/webhook.ts`)
+- `week_start` lets us aggregate the 56h weekly cap with a simple
+  `sum(drive_minutes) where week_start = current_monday`.
+- 2-week (90h) cap = sum over the last 14 days.
+- "Cleared on new week" is implicit: once `week_start` changes, the weekly
+  total naturally drops to 0 and grows from there. Old rows stay for audit
+  and for the 2-week window; nothing is destroyed.
 
-Before inserting a `START_SHIFT` or `END_SHIFT` event, look up the most recent shift event for that driver. If it's the same type within the last ~10 seconds, skip the insert. If it's the opposite type within the last ~30 seconds, also skip (prevents a START→END→START bounce from the queue flush). This stops the bad data from being recorded in the first place.
+### 2. Recompute logic (single source of truth)
 
-### 3. One-off cleanup for Ionut's current rows
+Add `src/lib/shift-ledger.server.ts` with one function:
 
-Insert a corrective record? No — `driver_events` is append-only and the public table only allows `select`/`insert` via psql. Instead, the threshold filter in step 1 makes the existing rows benign without a migration. We can leave history as-is.
+```text
+recomputeDriverDay(driverId, day)
+  → reads driver_events for that day (+ a small overlap window)
+  → folds START/END pairs into total shift minutes
+  → applies the same 45m-per-4.5h break rule already in compliance.ts
+  → upserts driver_day_hours for (driver_id, day)
+```
 
-## Technical details
+Call sites (server-side only, via `supabaseAdmin`):
+- Telegram webhook, right after inserting a `START_SHIFT` / `END_SHIFT` event.
+- A small `/api/public/cron/shift-rollover` route that, at ~00:05 UK time, closes the previous day for any driver still on shift (splits the open segment at midnight, writes yesterday's row, leaves today's row growing). The user can call this from any cron service; no DB cron required.
 
-- File: `src/lib/compliance.ts` — add `MIN_SEG_MS = 60_000`; filter `segs` after building.
-- File: `src/routes/api/public/telegram/webhook.ts` — before each shift-event insert, `SELECT type, timestamp FROM driver_events WHERE driver_id=$1 AND type IN ('START_SHIFT','END_SHIFT') ORDER BY timestamp DESC LIMIT 1` and apply the debounce rule above.
-- No DB migration, no UI change, no behaviour change for healthy data.
+### 3. Rewrite `computeCompliance` to read the ledger
+
+`src/lib/compliance.ts` keeps the same exported `Compliance` shape, but the maths becomes:
+
+- `daily` = today's `drive_minutes` from `driver_day_hours`.
+- `weekly` = sum of `drive_minutes` for rows where `week_start = thisMonday`.
+- `twoWeek` = sum of `drive_minutes` for rows where `day >= today − 13`.
+- `onShift` / `restHours` / `continuousDrive` = derived from the **single most recent** START/END pair in `driver_events` (not the full history), so a fresh START_SHIFT after a real rest period correctly shows the gap.
+- The 60-second phantom-segment filter stays as a belt-and-braces guard.
+
+This fixes the "still showing breach after I just started" bug at the root: rest is measured from the immediately previous END_SHIFT, not from whatever the segment-builder happened to produce.
+
+### 4. UI
+
+- **Drivers page**: existing compliance badge keeps working (same shape).
+- **Driver detail / compliance drawer**: add a small 14-day table:
+
+```text
+Date        On shift   Drive   Off
+Mon 18/05   8h 12m     7h 27m  15h 48m
+Tue 19/05   …
+```
+
+  Pulled from `driver_day_hours` so the user can see and trust the numbers that drive the breach calc.
+
+### 5. Backfill
+
+One-off script (run from the migration): for each driver, replay existing `driver_events` for the last 14 days through `recomputeDriverDay` so weekly/2-week totals are correct from day one.
+
+## Technical notes
+
+- Table is in `public`, RLS = `using (true) with check (true)` to match the rest of the schema; all writes go through server functions / webhook with `supabaseAdmin`.
+- `week_start` computed as `date_trunc('week', day)::date` (Postgres ISO week, Monday-based) in a generated column or in the upsert payload — generated column is cleaner.
+- No change to `driver_events` schema; it remains the append-only event log. The new table is a derived, queryable rollup.
+- No new dependency, no edge function.
 
 ## Out of scope
 
-- Reworking the rest-hours rule itself (2.4h is still under 9h, so once the phantom segment is filtered out, the badge may show `warn` rather than `ok` — that's correct behaviour, not a bug). If you want a different policy here (e.g. allow split shifts within a day), say so and I'll add it.
+- Changing the legal thresholds (still 10h daily / 56h weekly / 90h fortnightly / 9h rest).
+- Manual edit UI for the ledger (read-only for now; we can add an admin override later if you want).
+- Timezones other than Europe/London.
