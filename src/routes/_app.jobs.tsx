@@ -403,22 +403,56 @@ function JobsPage() {
                   placeholder="Search by reference, route (warehouse code/name), driver, status…"
                   className="flex-1 rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary"
                 />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as "ALL" | JobStatus)}
-                  className="rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="ALL">All statuses</option>
-                  {JOB_STATUSES.map((s) => (
-                    <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
-                  ))}
-                </select>
-                {(search || statusFilter !== "ALL") && (
+                <div ref={statusMenuRef} className="relative">
                   <button
-                    onClick={() => { setSearch(""); setStatusFilter("ALL"); }}
+                    onClick={() => setStatusMenuOpen((o) => !o)}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-foreground hover:bg-surface-2"
+                  >
+                    Statuses
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {JOB_STATUSES.length - hiddenStatuses.size}/{JOB_STATUSES.length}
+                    </span>
+                    <ChevronDown className="size-3" />
+                  </button>
+                  {statusMenuOpen && (
+                    <div className="absolute right-0 top-full mt-1 z-30 w-56 rounded-md border border-border bg-surface shadow-lg overflow-hidden">
+                      <div className="flex items-center justify-between px-2 py-1.5 border-b border-border text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                        <span>Show statuses</span>
+                        <div className="flex gap-2">
+                          <button onClick={() => setHiddenStatuses(new Set())} className="hover:text-foreground">All</button>
+                          <button onClick={() => setHiddenStatuses(new Set(JOB_STATUSES))} className="hover:text-foreground">None</button>
+                        </div>
+                      </div>
+                      {JOB_STATUSES.map((s) => {
+                        const shown = !hiddenStatuses.has(s);
+                        return (
+                          <label
+                            key={s}
+                            className="flex items-center gap-2 px-2.5 py-1.5 text-xs hover:bg-surface-2 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={shown}
+                              onChange={() => toggleStatus(s)}
+                              className="size-3.5 accent-primary"
+                            />
+                            <span className={`size-1.5 rounded-full ${STATUS_CONFIG[s].dot}`} />
+                            <span className="flex-1">{STATUS_CONFIG[s].label}</span>
+                            <span className="font-mono text-[10px] text-muted-foreground">
+                              {jobs.filter((j) => j.status === s).length}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                {(search || hiddenStatuses.size !== 2 || !hiddenStatuses.has("COMPLETED") || !hiddenStatuses.has("CANCELLED")) && (
+                  <button
+                    onClick={() => { setSearch(""); setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"])); }}
                     className="rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-2"
                   >
-                    Clear
+                    Reset
                   </button>
                 )}
                 <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">
