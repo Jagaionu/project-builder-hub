@@ -821,7 +821,7 @@ function DriverPicker({ driverId, allowUnassign = true, drivers, compliance, onC
               {driver.name[0]?.toUpperCase()}
             </span>
             <span className="text-xs text-foreground font-medium truncate max-w-[90px]">{driver.name}</span>
-            {activeC && <ComplianceDot c={activeC} />}
+            {activeC && <ComplianceDot c={activeC} driverStatus={driver.status} />}
             {!driver.telegram_id && <span className="text-[9px] text-muted-foreground/60 font-mono">no TG</span>}
           </>
         ) : (
