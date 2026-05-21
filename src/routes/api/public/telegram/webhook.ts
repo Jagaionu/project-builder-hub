@@ -77,9 +77,10 @@ async function logEvent(driver_id: string, type: string, payload: Record<string,
 async function listAssignedJobs(driverId: string) {
   const { data } = await supabaseAdmin
     .from("jobs")
-    .select("id,reference,status,scheduled_at")
-    .eq("assigned_driver_id", driverId)
-    .in("status", ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"])
+    .select("id,reference,status,scheduled_at,planned_start_at")
+    .or(`assigned_driver_id.eq.${driverId},planned_driver_id.eq.${driverId}`)
+    .in("status", ["PENDING", "ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"])
+    .order("planned_start_at", { ascending: true, nullsFirst: false })
     .order("scheduled_at", { ascending: true, nullsFirst: false });
   return data ?? [];
 }
