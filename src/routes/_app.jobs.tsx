@@ -6,12 +6,14 @@ import { useJobs, useWarehouses, useDrivers, useCompliance } from "@/lib/hooks";
 import type { Compliance } from "@/lib/compliance";
 
 import { PageHeader } from "./_app.index";
-import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User } from "lucide-react";
+import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
 import { computePlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
 import { computeStopSchedule, legMinutes } from "@/lib/geo";
+import { importJobsCsv } from "@/lib/jobs-import.functions";
+import { csvToImportRows } from "@/lib/csv-import";
 
 const ACTIVE_JOB_STATUSES = new Set(["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"]);
 void AUTO_ASSIGN_RADIUS_KM;
@@ -231,12 +233,15 @@ function JobsPage() {
         title="Jobs"
         subtitle="Multi-stop routes — click a row to edit or delete"
         right={
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="size-3.5" /> Create route
-          </button>
+          <div className="flex items-center gap-2">
+            <ImportCsvButton />
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="size-3.5" /> Create route
+            </button>
+          </div>
         }
       />
         <div className="flex-1 overflow-y-auto p-5">
@@ -813,4 +818,62 @@ function ComplianceDot({ c }: { c: Compliance }) {
   const title =
     c.issues[0]?.msg ?? `OK · ${c.daily.toFixed(1)}/10 today · ${c.weekly.toFixed(1)}/56 this week`;
   return <span title={title} className={`size-1.5 rounded-full shrink-0 ${cls}`} />;
+}
+
+function ImportCsvButton() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const runImport = useServerFn(importJobsCsv);
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      const text = await file.text();
+      const rows = csvToImportRows(text);
+      if (rows.length === 0) {
+        toast.error("No rows found in CSV");
+        return;
+      }
+      const res = await runImport({ data: { rows } });
+      const parts: string[] = [`${res.created} created`];
+      if (res.skippedDuplicate.length) parts.push(`${res.skippedDuplicate.length} duplicate`);
+      if (res.skippedUnknownWh.length) parts.push(`${res.skippedUnknownWh.length} unknown warehouse`);
+      if (res.errors.length) parts.push(`${res.errors.length} errors`);
+      toast.success(parts.join(" · "));
+      if (res.skippedUnknownWh.length) {
+        const codes = Array.from(new Set(res.skippedUnknownWh.flatMap((r) => r.missing)));
+        toast.message("Missing warehouse codes", { description: codes.join(", ") });
+      }
+      if (res.errors.length) {
+        console.error("[csv-import] errors", res.errors);
+      }
+    } catch (err) {
+      console.error("[csv-import]", err);
+      toast.error(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv,text/csv"
+        className="hidden"
+        onChange={onFile}
+      />
+      <button
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-2 disabled:opacity-50"
+      >
+        <Upload className="size-3.5" /> {busy ? "Importing…" : "Import CSV"}
+      </button>
+    </>
+  );
 }
