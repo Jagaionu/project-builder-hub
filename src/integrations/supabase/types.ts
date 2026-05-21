@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      driver_day_hours: {
+        Row: {
+          day: string
+          drive_minutes: number
+          driver_id: string
+          id: string
+          off_minutes: number
+          shift_minutes: number
+          updated_at: string
+          week_start: string | null
+        }
+        Insert: {
+          day: string
+          drive_minutes?: number
+          driver_id: string
+          id?: string
+          off_minutes?: number
+          shift_minutes?: number
+          updated_at?: string
+          week_start?: string | null
+        }
+        Update: {
+          day?: string
+          drive_minutes?: number
+          driver_id?: string
+          id?: string
+          off_minutes?: number
+          shift_minutes?: number
+          updated_at?: string
+          week_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_day_hours_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_events: {
         Row: {
           driver_id: string
