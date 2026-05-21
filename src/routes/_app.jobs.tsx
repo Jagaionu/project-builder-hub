@@ -883,7 +883,7 @@ function DriverPicker({ driverId, allowUnassign = true, drivers, compliance, onC
                     </span>
                   )}
                 </span>
-                {dc && <ComplianceDot c={dc} />}
+                {dc && <ComplianceDot c={dc} driverStatus={d.status} />}
                 {active && <Check className="size-3 text-foreground" />}
               </button>
             );
