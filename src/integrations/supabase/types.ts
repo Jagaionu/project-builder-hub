@@ -215,6 +215,7 @@ export type Database = {
           assigned_driver_id: string | null
           created_at: string
           destination_warehouse_id: string | null
+          equipment_type: string | null
           eta_minutes: number | null
           id: string
           origin_warehouse_id: string | null
@@ -230,6 +231,7 @@ export type Database = {
           assigned_driver_id?: string | null
           created_at?: string
           destination_warehouse_id?: string | null
+          equipment_type?: string | null
           eta_minutes?: number | null
           id?: string
           origin_warehouse_id?: string | null
@@ -245,6 +247,7 @@ export type Database = {
           assigned_driver_id?: string | null
           created_at?: string
           destination_warehouse_id?: string | null
+          equipment_type?: string | null
           eta_minutes?: number | null
           id?: string
           origin_warehouse_id?: string | null
