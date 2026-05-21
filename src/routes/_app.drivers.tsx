@@ -549,12 +549,14 @@ function Metric({
   cap,
   unit,
   hint,
+  live,
 }: {
   label: string;
   value: number;
   cap: number;
   unit: string;
   hint?: string;
+  live?: "up" | "down";
 }) {
   const pct = Math.min(100, (value / cap) * 100);
   const color = pct >= 100 ? "bg-destructive" : pct >= 85 ? "bg-warning" : "bg-success";
@@ -572,7 +574,43 @@ function Metric({
       <div className="h-1 rounded-full bg-surface-2 overflow-hidden">
         <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
+      {live && (
+        <div className="text-[10px] font-mono text-muted-foreground text-right">
+          {live === "down" ? "−" : "+"}
+          <LiveTimer baseHours={live === "down" ? Math.max(0, cap - value) : value} dir={live} />
+        </div>
+      )}
     </div>
+  );
+}
+
+// Live ticking timer. Anchors at the baseline value (hours) the moment the
+// component receives that value, then ticks every second. When the parent
+// re-renders with a refreshed baseline (compliance recomputes every minute),
+// the anchor resets so the displayed time stays consistent with the source
+// of truth.
+function LiveTimer({ baseHours, dir }: { baseHours: number; dir: "up" | "down" }) {
+  const anchorRef = useRef<{ base: number; at: number }>({ base: baseHours, at: Date.now() });
+  const [, force] = useState(0);
+  // Reset anchor when baseHours changes (>1s drift from interpolation).
+  useEffect(() => {
+    anchorRef.current = { base: baseHours, at: Date.now() };
+    force((n) => n + 1);
+  }, [baseHours]);
+  useEffect(() => {
+    const id = setInterval(() => force((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const elapsedSec = (Date.now() - anchorRef.current.at) / 1000;
+  let totalSec = anchorRef.current.base * 3600 + (dir === "up" ? elapsedSec : -elapsedSec);
+  if (totalSec < 0) totalSec = 0;
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = Math.floor(totalSec % 60);
+  return (
+    <span className="tabular-nums">
+      {String(h).padStart(2, "0")}:{String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}
+    </span>
   );
 }
 
