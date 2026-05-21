@@ -511,7 +511,7 @@ function JobsPage() {
                 );
               })}
             </div>
-            </>
+            </div>
           )}
         </div>
 
