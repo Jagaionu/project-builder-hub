@@ -40,7 +40,12 @@ export async function getJobStops(jobId: string): Promise<StopRow[]> {
   return (data ?? []) as StopRow[];
 }
 
-export async function buildJobCard(jobId: string, driverId?: string): Promise<{ text: string } | null> {
+export async function buildJobCard(
+  jobId: string,
+  driverId?: string,
+  startLat?: number,
+  startLon?: number,
+): Promise<{ text: string } | null> {
   const { data: job } = await supabaseAdmin
     .from("jobs")
     .select("id,reference,status,assigned_driver_id,scheduled_at")
@@ -60,15 +65,20 @@ export async function buildJobCard(jobId: string, driverId?: string): Promise<{ 
 
   let driverLat: number | null = null;
   let driverLon: number | null = null;
-  const targetDriver = driverId ?? job.assigned_driver_id ?? null;
-  if (targetDriver) {
-    const { data: dr } = await supabaseAdmin
-      .from("drivers")
-      .select("current_lat,current_lon")
-      .eq("id", targetDriver)
-      .maybeSingle();
-    driverLat = dr?.current_lat ?? null;
-    driverLon = dr?.current_lon ?? null;
+  if (startLat != null && startLon != null) {
+    driverLat = startLat;
+    driverLon = startLon;
+  } else {
+    const targetDriver = driverId ?? job.assigned_driver_id ?? null;
+    if (targetDriver) {
+      const { data: dr } = await supabaseAdmin
+        .from("drivers")
+        .select("current_lat,current_lon")
+        .eq("id", targetDriver)
+        .maybeSingle();
+      driverLat = dr?.current_lat ?? null;
+      driverLon = dr?.current_lon ?? null;
+    }
   }
 
   const when = job.scheduled_at ? new Date(job.scheduled_at).toLocaleString() : "ASAP";
