@@ -283,6 +283,21 @@ export function Field({
   );
 }
 
+function TomorrowCell({ available, hasLocation, updatedAt }: { available: boolean; hasLocation: boolean; updatedAt: string | null }) {
+  if (!available) {
+    return <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/60"><span className="size-1.5 rounded-full bg-muted-foreground/40" />Not set</span>;
+  }
+  const tone = hasLocation ? "text-success" : "text-warning";
+  const dot = hasLocation ? "bg-success" : "bg-warning";
+  const label = hasLocation ? "Available" : "Needs location";
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-[11px] ${tone}`} title={updatedAt ? `Updated ${new Date(updatedAt).toLocaleString()}` : undefined}>
+      <span className={`size-1.5 rounded-full ${dot}`} /> {label}
+    </span>
+  );
+}
+
+
 
 function PairButton({ driverId, hasTelegram }: { driverId: string; hasTelegram: boolean }) {
   const gen = useServerFn(generatePairingCode);
