@@ -315,6 +315,27 @@ function JobsPage() {
 
   const editingJob = editJobId ? jobs.find((j) => j.id === editJobId) : null;
 
+  const filteredJobs = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return jobs.filter((j) => {
+      if (statusFilter !== "ALL" && j.status !== statusFilter) return false;
+      if (!q) return true;
+      if (j.reference.toLowerCase().includes(q)) return true;
+      if (j.status.toLowerCase().replace(/_/g, " ").includes(q)) return true;
+      if ((STATUS_CONFIG[j.status as JobStatus]?.label ?? "").toLowerCase().includes(q)) return true;
+      const stops = stopsMap[j.id] ?? [];
+      const route = stops
+        .map((s) => warehouses.find((w) => w.id === s.warehouse_id))
+        .map((w) => `${w?.code ?? ""} ${w?.name ?? ""}`)
+        .join(" ")
+        .toLowerCase();
+      if (route.includes(q)) return true;
+      const driver = drivers.find((d) => d.id === j.assigned_driver_id);
+      if (driver?.name.toLowerCase().includes(q)) return true;
+      return false;
+    });
+  }, [jobs, stopsMap, warehouses, drivers, search, statusFilter]);
+
   return (
     <div className="h-full flex flex-col">
       <PageHeader
