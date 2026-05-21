@@ -93,6 +93,50 @@ export function useDriverEventsByDriver(): Record<string, ComplianceEvent[]> {
   return map;
 }
 
+export type RecentDelay = {
+  driver_id: string;
+  timestamp: string;
+  reason: string;
+  job_id?: string;
+};
+
+export function useRecentDelays(): RecentDelay[] {
+  const [rows, setRows] = useState<RecentDelay[]>([]);
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      const since = new Date(Date.now() - 6 * 3600 * 1000).toISOString();
+      const { data } = await supabase
+        .from("driver_events")
+        .select("driver_id,timestamp,payload")
+        .eq("type", "DELAY_REPORT" as never)
+        .gte("timestamp", since)
+        .order("timestamp", { ascending: false });
+      if (!mounted || !data) return;
+      setRows(
+        (data as Array<{ driver_id: string; timestamp: string; payload: { reason?: string; job_id?: string } }>).map(
+          (r) => ({
+            driver_id: r.driver_id,
+            timestamp: r.timestamp,
+            reason: r.payload?.reason ?? "Delay reported",
+            job_id: r.payload?.job_id,
+          }),
+        ),
+      );
+    };
+    load();
+    const ch = supabase
+      .channel("rt-delay-events")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "driver_events" }, load)
+      .subscribe();
+    return () => {
+      mounted = false;
+      supabase.removeChannel(ch);
+    };
+  }, []);
+  return rows;
+}
+
 export type DriverDayHours = {
   driver_id: string;
   day: string;            // YYYY-MM-DD
