@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useRef, useState, useLayoutEffect, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useLayoutEffect, type ChangeEvent } from "react";
 import { createPortal } from "react-dom";
 import { useJobs, useWarehouses, useDrivers, useCompliance } from "@/lib/hooks";
 import type { Compliance } from "@/lib/compliance";
@@ -108,6 +108,7 @@ type Stop = {
   kind: "PICKUP" | "DROP";
   warehouse_id: string;
   scheduled_at: string | null;
+  arrived_at?: string | null;
 };
 
 type JobStopsMap = Record<string, Stop[]>;
@@ -119,7 +120,7 @@ function useJobStops(): JobStopsMap {
     const load = async () => {
       const { data } = await supabase
         .from("job_stops")
-        .select("id,job_id,kind,warehouse_id,scheduled_at,seq")
+        .select("id,job_id,kind,warehouse_id,scheduled_at,arrived_at,seq")
         .order("seq", { ascending: true });
       if (!mounted) return;
       const m: JobStopsMap = {};
@@ -129,6 +130,7 @@ function useJobStops(): JobStopsMap {
           kind: s.kind,
           warehouse_id: s.warehouse_id,
           scheduled_at: s.scheduled_at,
+          arrived_at: s.arrived_at,
         });
       }
       setMap(m);
@@ -177,6 +179,25 @@ function JobsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const notify = useServerFn(notifyDriverOfJob);
+  const plan = useMemo(
+    () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
+    [jobs, stopsMap, drivers, warehouses, compliance],
+  );
+  const plannedByJob = useMemo(
+    () => new Map(plan.planned.map((item) => [item.jobId, item] as const)),
+    [plan],
+  );
+
+  useEffect(() => {
+    const inconsistent = jobs.filter((j) => !j.assigned_driver_id && ACTIVE_JOB_STATUSES.has(j.status));
+    if (inconsistent.length === 0) return;
+    void (async () => {
+      for (const job of inconsistent) {
+        const { error } = await supabase.from("jobs").update({ status: "PENDING" as never }).eq("id", job.id);
+        if (error) console.error("[jobs] failed to normalize unassigned active job", job.id, error.message);
+      }
+    })();
+  }, [jobs]);
 
   async function assignDriver(jobId: string, driverId: string) {
     if (driverId) {
@@ -278,6 +299,13 @@ function JobsPage() {
   // status config moved to module level
 
   async function setStatus(jobId: string, status: string) {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const requiresDriver = ACTIVE_JOB_STATUSES.has(status);
+    if (requiresDriver && !job.assigned_driver_id) {
+      toast.error("Assign a driver before setting this route in progress");
+      return;
+    }
     const { error } = await supabase.from("jobs").update({ status: status as never }).eq("id", jobId);
     if (error) toast.error(error.message);
     else toast.success(`Status → ${STATUS_CONFIG[status as JobStatus]?.label ?? status}`);
@@ -327,6 +355,7 @@ function JobsPage() {
               {/* Rows */}
               {jobs.map((j) => {
                 const stops = stopsMap[j.id] ?? [];
+                const planned = plannedByJob.get(j.id);
                 return (
                   <div
                     key={j.id}
@@ -376,15 +405,18 @@ function JobsPage() {
                   <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
                     <DriverPicker
                       driverId={j.assigned_driver_id}
+                      allowUnassign={!ACTIVE_JOB_STATUSES.has(j.status)}
                       drivers={drivers}
                       compliance={compliance}
                       onChange={(id) => assignDriver(j.id, id)}
                     />
-                    {!j.assigned_driver_id && j.planned_driver_id && (
+                    {!j.assigned_driver_id && (planned || j.planned_driver_id) && (
                       <PlannedChip
-                        driverName={drivers.find((d) => d.id === j.planned_driver_id)?.name ?? "?"}
-                        sequence={j.planned_sequence ?? undefined}
-                        startAt={j.planned_start_at ?? undefined}
+                        driverName={drivers.find((d) => d.id === (planned?.driverId ?? j.planned_driver_id))?.name ?? "?"}
+                        sequence={planned?.sequence ?? j.planned_sequence ?? undefined}
+                        startAt={planned?.startAt ?? j.planned_start_at ?? undefined}
+                        distanceKm={planned?.distKm}
+                        dailyHoursLeft={planned?.dailyHoursLeft}
                       />
                     )}
                   </div>
@@ -522,8 +554,9 @@ function StatusPill({ status, onChange }: { status: string; onChange: (s: string
   );
 }
 
-function DriverPicker({ driverId, drivers, compliance, onChange }: {
+function DriverPicker({ driverId, allowUnassign = true, drivers, compliance, onChange }: {
   driverId: string | null | undefined;
+  allowUnassign?: boolean;
   drivers: { id: string; name: string; telegram_id?: string | null }[];
   compliance?: Record<string, Compliance>;
   onChange: (id: string) => void;
@@ -564,20 +597,24 @@ function DriverPicker({ driverId, drivers, compliance, onChange }: {
           style={{ position: "fixed", top: coords.top, left: coords.left }}
           className="z-[1000] w-52 rounded-xl border border-border bg-popover shadow-xl py-1.5 max-h-[60vh] overflow-y-auto"
         >
-          <button
-            type="button"
-            onClick={() => { onChange(""); setOpen(false); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-surface-2 transition-colors"
-          >
-            <span className="size-6 rounded-full border border-dashed border-border flex items-center justify-center shrink-0">
-              <User className="size-3 text-muted-foreground/40" />
-            </span>
-            <span className={`flex-1 text-left ${!driverId ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
-              Unassigned
-            </span>
-            {!driverId && <Check className="size-3 text-foreground" />}
-          </button>
-          {drivers.length > 0 && <div className="my-1 border-t border-border/50" />}
+          {allowUnassign && (
+            <>
+              <button
+                type="button"
+                onClick={() => { onChange(""); setOpen(false); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-surface-2 transition-colors"
+              >
+                <span className="size-6 rounded-full border border-dashed border-border flex items-center justify-center shrink-0">
+                  <User className="size-3 text-muted-foreground/40" />
+                </span>
+                <span className={`flex-1 text-left ${!driverId ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                  Unassigned
+                </span>
+                {!driverId && <Check className="size-3 text-foreground" />}
+              </button>
+              {drivers.length > 0 && <div className="my-1 border-t border-border/50" />}
+            </>
+          )}
           {drivers.map((d) => {
             const active = d.id === driverId;
             const dc = compliance?.[d.id];
@@ -839,10 +876,14 @@ function PlannedChip({
   driverName,
   sequence,
   startAt,
+  distanceKm,
+  dailyHoursLeft,
 }: {
   driverName: string;
   sequence?: number;
   startAt?: string;
+  distanceKm?: number;
+  dailyHoursLeft?: number;
 }) {
   const when = startAt
     ? new Date(startAt).toLocaleString(undefined, {
@@ -861,6 +902,8 @@ function PlannedChip({
       planned: {driverName}
       {sequence ? ` · #${sequence}` : ""}
       {when ? ` · ${when}` : ""}
+      {distanceKm != null ? ` · ${distanceKm.toFixed(0)}km away` : ""}
+      {dailyHoursLeft != null ? ` · ${dailyHoursLeft.toFixed(1)}h left` : ""}
     </div>
   );
 }

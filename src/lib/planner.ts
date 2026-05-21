@@ -16,7 +16,11 @@ const DAILY_CAP = 10;
 const WEEKLY_CAP = 56;
 const ACTIVE = new Set(["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"]);
 
-export type PlannerStop = { kind: "PICKUP" | "DROP"; warehouse_id: string };
+export type PlannerStop = {
+  kind: "PICKUP" | "DROP";
+  warehouse_id: string;
+  arrived_at?: string | null;
+};
 export type StopsMap = Record<string, PlannerStop[]>;
 
 export type ImmediateAssign = { jobId: string; driverId: string; distKm: number };
@@ -26,6 +30,8 @@ export type PlannedAssign = {
   sequence: number;
   startAt: string;
   distKm: number;
+  dailyHoursLeft: number;
+  weeklyHoursLeft: number;
 };
 export type Unassignable = { jobId: string; reason: string };
 
@@ -61,6 +67,21 @@ function lastDropWh(stops: PlannerStop[] | undefined, warehouses: Warehouse[]) {
 
 type Forecast = { lat: number; lon: number; endMs: number; daily: number; weekly: number };
 
+function remainingJobHours(
+  driver: Driver,
+  stops: PlannerStop[] | undefined,
+  warehouses: Warehouse[],
+) {
+  if (driver.current_lat == null || driver.current_lon == null) return 0;
+  const remaining = (stops ?? []).filter((s) => !s.arrived_at);
+  if (remaining.length === 0) return 0;
+  const nextWh = warehouses.find((w) => w.id === remaining[0].warehouse_id);
+  const deadheadKm = nextWh
+    ? haversineKm(driver.current_lat, driver.current_lon, nextWh.latitude, nextWh.longitude)
+    : 0;
+  return transitTimeHours(deadheadKm) + jobDriveHours(remaining, warehouses);
+}
+
 export function computePlan(
   jobs: Job[],
   stopsMap: StopsMap,
@@ -73,7 +94,7 @@ export function computePlan(
 
   const eligible = drivers.filter(
     (d) =>
-      (d.status === "AVAILABLE" || d.status === "ON_SHIFT") &&
+      (d.status === "AVAILABLE" || d.status === "ON_SHIFT" || d.status === "ON_ROUTE") &&
       d.current_lat != null &&
       d.current_lon != null,
   );
@@ -93,8 +114,9 @@ export function computePlan(
     const active = activeByDriver[d.id];
     if (active) {
       const stops = stopsMap[active.id];
-      const ld = lastDropWh(stops, warehouses);
-      const drive = stops ? jobDriveHours(stops, warehouses) : 0;
+      const remaining = (stops ?? []).filter((s) => !s.arrived_at);
+      const ld = lastDropWh(remaining, warehouses);
+      const drive = remainingJobHours(d, stops, warehouses);
       forecast[d.id] = {
         lat: ld?.latitude ?? d.current_lat!,
         lon: ld?.longitude ?? d.current_lon!,
@@ -190,12 +212,16 @@ export function computePlan(
       const f = forecast[best.d.id];
       const startMs = f.endMs + best.transit * 3_600_000;
       const seq = (seqByDriver[best.d.id] = (seqByDriver[best.d.id] ?? 0) + 1);
+      const nextDaily = f.daily + best.driveAdd;
+      const nextWeekly = f.weekly + best.driveAdd;
       out.planned.push({
         jobId: job.id,
         driverId: best.d.id,
         sequence: seq,
         startAt: new Date(startMs).toISOString(),
         distKm: best.dist,
+        dailyHoursLeft: Math.max(0, DAILY_CAP - nextDaily),
+        weeklyHoursLeft: Math.max(0, WEEKLY_CAP - nextWeekly),
       });
       const ld = lastDropWh(stops, warehouses);
       f.lat = ld?.latitude ?? f.lat;
