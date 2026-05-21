@@ -825,7 +825,7 @@ function ImportCsvButton() {
   const [busy, setBusy] = useState(false);
   const runImport = useServerFn(importJobsCsv);
 
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setBusy(true);
