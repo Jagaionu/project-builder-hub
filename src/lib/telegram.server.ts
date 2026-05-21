@@ -52,9 +52,10 @@ export function jobInlineKeyboard(jobId: string, mode: JobKeyboardMode = "OFFER"
   }
   if (mode === "ACCEPTED") {
     return {
-      inline_keyboard: [[
-        { text: "🚫 Can't complete — notify dispatch", callback_data: `CANT:${jobId}` },
-      ]],
+      inline_keyboard: [
+        [{ text: "⚠️ Issue with this job — alert dispatch", callback_data: `ISSUE:${jobId}` }],
+        [{ text: "🚫 Can't complete — release job", callback_data: `CANT:${jobId}` }],
+      ],
     };
   }
   return { inline_keyboard: [] };
