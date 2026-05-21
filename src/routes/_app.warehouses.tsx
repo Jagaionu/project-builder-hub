@@ -33,15 +33,24 @@ function WarehousesPage() {
     const lat = parseFloat(form.latitude),
       lon = parseFloat(form.longitude);
     if (isNaN(lat) || isNaN(lon)) return toast.error("Invalid coordinates");
+    const code = form.code.toUpperCase().trim();
+    if (warehouses.some((w) => w.code.toUpperCase() === code)) {
+      return toast.error(`A warehouse with code "${code}" already exists`);
+    }
     const { error } = await supabase.from("warehouses").insert({
-      code: form.code.toUpperCase(),
+      code,
       name: form.name,
       latitude: lat,
       longitude: lon,
       address: form.address || null,
     });
-    if (error) toast.error(error.message);
-    else {
+    if (error) {
+      if (error.code === "23505" || /duplicate|unique/i.test(error.message)) {
+        toast.error(`A warehouse with code "${code}" already exists`);
+      } else {
+        toast.error(error.message);
+      }
+    } else {
       toast.success("Warehouse added");
       setOpen(false);
       setForm(empty);
