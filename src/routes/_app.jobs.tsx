@@ -395,8 +395,14 @@ function JobsPage() {
 
   const filteredJobs = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const from = dateRange?.from ? startOfDay(dateRange.from).getTime() : null;
+    const to = dateRange ? endOfDay(dateRange.to ?? dateRange.from ?? new Date()).getTime() : null;
     return jobs.filter((j) => {
       if (hiddenStatuses.has(j.status as JobStatus)) return false;
+      if (from !== null && to !== null) {
+        const t = jobDate(j, stopsMap[j.id] ?? []).getTime();
+        if (t < from || t > to) return false;
+      }
       if (!q) return true;
       if (j.reference.toLowerCase().includes(q)) return true;
       if (j.status.toLowerCase().replace(/_/g, " ").includes(q)) return true;
@@ -412,7 +418,17 @@ function JobsPage() {
       if (driver?.name.toLowerCase().includes(q)) return true;
       return false;
     });
-  }, [jobs, stopsMap, warehouses, drivers, search, hiddenStatuses]);
+  }, [jobs, stopsMap, warehouses, drivers, search, hiddenStatuses, dateRange]);
+
+  const dateLabel = useMemo(() => {
+    if (!dateRange?.from) return "All dates";
+    const today = startOfDay(new Date());
+    const from = dateRange.from;
+    const to = dateRange.to ?? from;
+    if (sameDay(from, today) && sameDay(to, today)) return "Today";
+    if (sameDay(from, to)) return fmtDateShort(from);
+    return `${fmtDateShort(from)} – ${fmtDateShort(to)}`;
+  }, [dateRange]);
 
   return (
     <div className="h-full flex flex-col">
