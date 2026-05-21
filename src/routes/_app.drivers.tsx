@@ -477,6 +477,7 @@ function ComplianceCell({ c, rows }: { c: Compliance | undefined; rows: DriverDa
         <span className={`size-1.5 rounded-full ${dot}`} />
         <span className="uppercase tracking-wider text-[10px] font-mono">{c.status}</span>
         <span className="opacity-70">· {label}</span>
+        <span className="opacity-60 font-mono text-[10px] hidden sm:inline">· {liveLabel}</span>
         {c.issues.length > 0 && (
           <span className="ml-0.5 rounded-full bg-foreground/10 px-1 text-[9px] font-mono">
             {c.issues.length}
