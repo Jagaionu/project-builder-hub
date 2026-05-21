@@ -385,7 +385,9 @@ function PendingRegistrations() {
 }
 
 
-function ComplianceCell({ c }: { c: Compliance | undefined }) {
+function ComplianceCell({ c, driverId }: { c: Compliance | undefined; driverId: string }) {
+  const allLedger = useDriverDayHours();
+  const rows = allLedger[driverId] ?? [];
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
