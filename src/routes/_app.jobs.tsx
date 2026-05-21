@@ -516,7 +516,7 @@ function JobsPage() {
                       endMonth={monthEnd}
                       disabled={(d) => d < monthStart || d > monthEnd || !hasJobsOn(d)}
                       modifiers={{ hasJobs: (d) => hasJobsOn(d) }}
-                      modifiersClassNames={{ hasJobs: "font-semibold text-primary" }}
+                      modifiersClassNames={{ hasJobs: "font-semibold underline underline-offset-4 decoration-primary/70" }}
                       className={cn("p-3 pointer-events-auto")}
                     />
                   </PopoverContent>
