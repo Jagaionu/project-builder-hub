@@ -25,7 +25,10 @@ export type Compliance = {
 const H = 3_600_000;
 // Drop closed shift segments shorter than this — they're almost always
 // webhook replays or accidental END→START bounces, not real driving.
-const MIN_SEG_MS = 60_000;
+const MIN_SEG_MS = 5 * 60_000;
+// If a shift ends and a new one starts within this window, treat them as one
+// continuous shift. Stops a fat-finger toggle from resetting rest hours.
+const MERGE_GAP_MS = 10 * 60_000;
 
 type Seg = { start: number; end: number; open: boolean };
 
@@ -45,7 +48,18 @@ function buildSegments(events: ComplianceEvent[], nowMs: number): Seg[] {
     }
   }
   if (openStart != null) segs.push({ start: openStart, end: nowMs, open: true });
-  return segs.filter((s) => s.open || s.end - s.start >= MIN_SEG_MS);
+  // Merge adjacent segments separated by a tiny gap (accidental bounces).
+  const merged: Seg[] = [];
+  for (const s of segs) {
+    const prev = merged[merged.length - 1];
+    if (prev && s.start - prev.end <= MERGE_GAP_MS) {
+      prev.end = s.end;
+      prev.open = s.open;
+    } else {
+      merged.push({ ...s });
+    }
+  }
+  return merged.filter((s) => s.open || s.end - s.start >= MIN_SEG_MS);
 }
 
 // Driving hours for a shift of `durHours`, auto-deducting 45min break per 4.5h driven.
