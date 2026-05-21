@@ -181,6 +181,52 @@ function JobsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const notify = useServerFn(notifyDriverOfJob);
+  const [hiddenStatuses, setHiddenStatuses] = useState<Set<JobStatus>>(() => {
+    if (typeof window === "undefined") return new Set(["COMPLETED", "CANCELLED"]);
+    try {
+      const raw = localStorage.getItem("jobs.hiddenStatuses");
+      if (raw) return new Set(JSON.parse(raw) as JobStatus[]);
+    } catch {
+      /* ignore */
+    }
+    return new Set(["COMPLETED", "CANCELLED"]);
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("jobs.hiddenStatuses", JSON.stringify(Array.from(hiddenStatuses)));
+    } catch {
+      /* ignore */
+    }
+  }, [hiddenStatuses]);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const statusMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!statusMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) {
+        setStatusMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [statusMenuOpen]);
+  const visibleJobs = useMemo(
+    () => jobs.filter((j) => !hiddenStatuses.has(j.status as JobStatus)),
+    [jobs, hiddenStatuses],
+  );
+  const statusCounts = useMemo(() => {
+    const m: Partial<Record<JobStatus, number>> = {};
+    for (const j of jobs) m[j.status as JobStatus] = (m[j.status as JobStatus] ?? 0) + 1;
+    return m;
+  }, [jobs]);
+  function toggleStatus(s: JobStatus) {
+    setHiddenStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  }
   const plan = useMemo(
     () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
     [jobs, stopsMap, drivers, warehouses, compliance],
@@ -310,6 +356,57 @@ function JobsPage() {
         subtitle="Multi-stop routes — click a row to edit or delete"
         right={
           <div className="flex items-center gap-3">
+            <div className="relative" ref={statusMenuRef}>
+              <button
+                onClick={() => setStatusMenuOpen((v) => !v)}
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-2 transition-colors"
+              >
+                Statuses
+                <span className="font-mono text-xs text-muted-foreground">
+                  {JOB_STATUSES.length - hiddenStatuses.size}/{JOB_STATUSES.length}
+                </span>
+                <ChevronDown className="size-4" />
+              </button>
+              {statusMenuOpen && (
+                <div className="absolute right-0 mt-2 w-64 rounded-xl border border-border bg-surface shadow-lg z-50 p-2">
+                  <div className="flex items-center justify-between px-2 py-1.5">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Show statuses
+                    </span>
+                    <button
+                      onClick={() => setHiddenStatuses(new Set(["COMPLETED", "CANCELLED"]))}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  {JOB_STATUSES.map((s) => {
+                    const cfg = STATUS_CONFIG[s];
+                    const checked = !hiddenStatuses.has(s);
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => toggleStatus(s)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-surface-2 text-sm text-left"
+                      >
+                        <span
+                          className={`size-4 rounded border flex items-center justify-center ${
+                            checked ? "bg-primary border-primary" : "border-border"
+                          }`}
+                        >
+                          {checked && <Check className="size-3 text-primary-foreground" />}
+                        </span>
+                        <span className={`size-2 rounded-full ${cfg.dot}`} />
+                        <span className="flex-1">{cfg.label}</span>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {statusCounts[s] ?? 0}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             <ImportCsvButton />
             <button
               onClick={() => setCreateOpen(true)}
@@ -343,7 +440,12 @@ function JobsPage() {
               <div className="col-span-2">Scheduled / ETA</div>
             </div>
             {/* Rows */}
-            {jobs.map((j, idx) => {
+            {visibleJobs.length === 0 ? (
+              <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+                All {jobs.length} job{jobs.length === 1 ? "" : "s"} are hidden by the status filter.
+              </div>
+            ) : null}
+            {visibleJobs.map((j, idx) => {
               const stops = stopsMap[j.id] ?? [];
               const planned = plannedByJob.get(j.id);
               return (
@@ -351,7 +453,7 @@ function JobsPage() {
                   key={j.id}
                   onClick={() => setEditJobId(j.id)}
                   className={`grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-surface-2/50 cursor-pointer transition-colors group ${
-                    idx !== jobs.length - 1 ? "border-b border-border/60" : ""
+                    idx !== visibleJobs.length - 1 ? "border-b border-border/60" : ""
                   }`}
                 >
                   <div className="col-span-2">
