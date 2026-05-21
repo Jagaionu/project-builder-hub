@@ -3,8 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Driver, Warehouse, Job } from "@/lib/types";
 import { computeCompliance, type Compliance, type ComplianceEvent } from "@/lib/compliance";
 
-export function useDrivers() {
-  const [drivers, setDrivers] = useState<Driver[]>([]);
+export function useDrivers(initialDrivers: Driver[] = []) {
+  const [drivers, setDrivers] = useState<Driver[]>(initialDrivers);
   useEffect(() => {
     let mounted = true;
     supabase.from("drivers").select("*").order("name").then(({ data }) => {

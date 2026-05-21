@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDrivers, useCompliance, useDriverDayHours, type DriverDayHours } from "@/lib/hooks";
+import { getDriversSnapshot } from "@/lib/drivers.functions";
 import type { Compliance } from "@/lib/compliance";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "./_app.index";
@@ -13,6 +14,7 @@ import { generatePairingCode } from "@/lib/telegram-notify.functions";
 import { approveRegistration, rejectRegistration } from "@/lib/registrations.functions";
 
 export const Route = createFileRoute("/_app/drivers")({
+  loader: () => getDriversSnapshot(),
   component: DriversPage,
   head: () => ({ meta: [{ title: "Drivers — Planning System" }] }),
 });
@@ -20,7 +22,8 @@ export const Route = createFileRoute("/_app/drivers")({
 type DriverForm = { name: string; phone: string; telegram_id: string };
 
 function DriversPage() {
-  const drivers = useDrivers();
+  const { drivers: initialDrivers } = Route.useLoaderData();
+  const drivers = useDrivers(initialDrivers);
   const compliance = useCompliance();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<DriverForm>({ name: "", phone: "", telegram_id: "" });
