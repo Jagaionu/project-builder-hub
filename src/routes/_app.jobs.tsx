@@ -6,12 +6,14 @@ import { useJobs, useWarehouses, useDrivers, useCompliance } from "@/lib/hooks";
 import type { Compliance } from "@/lib/compliance";
 
 import { PageHeader } from "./_app.index";
-import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User } from "lucide-react";
+import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
 import { computePlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
 import { computeStopSchedule, legMinutes } from "@/lib/geo";
+import { importJobsCsv } from "@/lib/jobs-import.functions";
+import { csvToImportRows } from "@/lib/csv-import";
 
 const ACTIVE_JOB_STATUSES = new Set(["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"]);
 void AUTO_ASSIGN_RADIUS_KM;
