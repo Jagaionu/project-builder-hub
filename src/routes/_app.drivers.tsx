@@ -52,7 +52,8 @@ function formatLedgerDay(day: string): string {
 function DriversPage() {
   const { drivers: initialDrivers } = Route.useLoaderData();
   const drivers = useDrivers(initialDrivers);
-  const compliance = useCompliance();
+  const driverDayHours = useDriverDayHours();
+  const compliance = useCompliance(driverDayHours);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<DriverForm>({ name: "", phone: "", telegram_id: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -191,7 +192,7 @@ function DriversPage() {
                       <StatusBadge status={d.status} kind="driver" />
                     </td>
                     <td className="px-3 py-2.5">
-                      <ComplianceCell c={compliance[d.id]} driverId={d.id} />
+                      <ComplianceCell c={compliance[d.id]} rows={driverDayHours[d.id] ?? []} />
                     </td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">
                       {formatStableTime(d.last_update_time)}
@@ -416,9 +417,7 @@ function PendingRegistrations() {
 }
 
 
-function ComplianceCell({ c, driverId }: { c: Compliance | undefined; driverId: string }) {
-  const allLedger = useDriverDayHours();
-  const rows = allLedger[driverId] ?? [];
+function ComplianceCell({ c, rows }: { c: Compliance | undefined; rows: DriverDayHours[] }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
