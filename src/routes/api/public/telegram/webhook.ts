@@ -22,6 +22,19 @@ function safeEqual(a: string, b: string) {
   return A.length === B.length && timingSafeEqual(A, B);
 }
 
+// Multi-step state for the END_SHIFT → availability → location flow.
+// Module-scoped Map; entries cleared once flow completes.
+const pendingTomorrowState = new Map<
+  string,
+  "awaiting_answer" | "awaiting_location"
+>();
+
+const tomorrowLocationKeyboard = {
+  keyboard: [[{ text: "📍 Share my location", request_location: true }]],
+  resize_keyboard: true,
+  one_time_keyboard: true,
+};
+
 type Driver = {
   id: string;
   name: string;
