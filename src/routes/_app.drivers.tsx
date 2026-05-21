@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useDrivers, useCompliance, useDriverDayHours, type DriverDayHours } from "@/lib/hooks";
+import { useDrivers, useComplianceWithLedger, useDriverDayHours, type DriverDayHours } from "@/lib/hooks";
 import { getDriversSnapshot } from "@/lib/drivers.functions";
 import type { Compliance } from "@/lib/compliance";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -53,7 +53,7 @@ function DriversPage() {
   const { drivers: initialDrivers } = Route.useLoaderData();
   const drivers = useDrivers(initialDrivers);
   const driverDayHours = useDriverDayHours();
-  const compliance = useCompliance(driverDayHours);
+  const compliance = useComplianceWithLedger(driverDayHours);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<DriverForm>({ name: "", phone: "", telegram_id: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
