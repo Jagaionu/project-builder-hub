@@ -799,13 +799,14 @@ function StatusPill({ status, onChange }: { status: string; onChange: (s: string
 function DriverPicker({ driverId, allowUnassign = true, drivers, compliance, onChange }: {
   driverId: string | null | undefined;
   allowUnassign?: boolean;
-  drivers: { id: string; name: string; telegram_id?: string | null }[];
+  drivers: { id: string; name: string; telegram_id?: string | null; status?: string }[];
   compliance?: Record<string, Compliance>;
   onChange: (id: string) => void;
 }) {
   const { open, setOpen, btnRef, popRef, coords } = usePopover();
   const driver = drivers.find((d) => d.id === driverId);
   const activeC = driver ? compliance?.[driver.id] : undefined;
+
   return (
     <div className="relative inline-block">
       <button
