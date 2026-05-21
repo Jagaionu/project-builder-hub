@@ -235,6 +235,26 @@ function JobsPage() {
       return next;
     });
   }
+  // Expanded rows (per job) — persisted in localStorage
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set<string>();
+    try {
+      const raw = localStorage.getItem("jobs.expanded");
+      if (raw) return new Set(JSON.parse(raw) as string[]);
+    } catch { /* noop */ }
+    return new Set<string>();
+  });
+  useEffect(() => {
+    try { localStorage.setItem("jobs.expanded", JSON.stringify(Array.from(expandedJobs))); }
+    catch { /* noop */ }
+  }, [expandedJobs]);
+  function toggleExpand(id: string) {
+    setExpandedJobs((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }
   // Date range filter (defaults to today). Persisted in localStorage.
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const today = startOfDay(new Date());
