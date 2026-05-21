@@ -53,7 +53,7 @@ function DriversPage() {
   const { drivers: initialDrivers } = Route.useLoaderData();
   const drivers = useDrivers(initialDrivers);
   const driverDayHours = useDriverDayHours();
-  const compliance = useCompliance();
+  const compliance = useCompliance(driverDayHours);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<DriverForm>({ name: "", phone: "", telegram_id: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
