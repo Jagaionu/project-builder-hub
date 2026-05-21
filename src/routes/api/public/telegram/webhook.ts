@@ -62,6 +62,15 @@ async function logEvent(driver_id: string, type: string, payload: Record<string,
     type: type as never,
     payload: payload as never,
   });
+  if (type === "START_SHIFT" || type === "END_SHIFT") {
+    // Keep the daily hours ledger in sync. Errors here must not break the
+    // webhook response, so swallow & log.
+    try {
+      await recomputeRecent(driver_id);
+    } catch (err) {
+      console.error("recomputeRecent failed", err);
+    }
+  }
 }
 
 async function listAssignedJobs(driverId: string) {
