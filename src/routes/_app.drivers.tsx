@@ -454,8 +454,17 @@ function ComplianceCell({ c, rows }: { c: Compliance | undefined; rows: DriverDa
         : "border-success/30 text-success hover:bg-success/5";
 
   const tightest = Math.min(c.dailyHeadroom, c.weeklyHeadroom);
-  const label =
-    c.status === "breach" ? "Breach" : c.status === "warn" ? "Warning" : `${tightest.toFixed(1)}h left`;
+  // Live pill label: when on shift, count DOWN to next break; when off, count UP rest.
+  const liveLabel = c.onShift ? (
+    c.continuousDrive >= 4.5 ? (
+      <span>break overdue</span>
+    ) : (
+      <>break in <LiveTimer baseHours={4.5 - c.continuousDrive} dir="down" /></>
+    )
+  ) : (
+    <>rest <LiveTimer baseHours={Math.min(c.restHours, 99)} dir="up" /></>
+  );
+  const label = c.status === "breach" ? "Breach" : c.status === "warn" ? "Warning" : `${tightest.toFixed(1)}h left`;
 
   return (
     <div className="relative">
@@ -468,6 +477,7 @@ function ComplianceCell({ c, rows }: { c: Compliance | undefined; rows: DriverDa
         <span className={`size-1.5 rounded-full ${dot}`} />
         <span className="uppercase tracking-wider text-[10px] font-mono">{c.status}</span>
         <span className="opacity-70">· {label}</span>
+        <span className="opacity-60 font-mono text-[10px] hidden sm:inline">· {liveLabel}</span>
         {c.issues.length > 0 && (
           <span className="ml-0.5 rounded-full bg-foreground/10 px-1 text-[9px] font-mono">
             {c.issues.length}
@@ -493,13 +503,13 @@ function ComplianceCell({ c, rows }: { c: Compliance | undefined; rows: DriverDa
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <Metric label="Today (24h)" value={c.daily} cap={10} unit="h" hint="Max 9h, 10h up to 2×/wk" />
-              <Metric label="This week" value={c.weekly} cap={56} unit="h" hint="56h rolling 7 days" />
+              <Metric label="Today (24h)" value={c.daily} cap={10} unit="h" hint="Max 9h, 10h up to 2×/wk" live={c.onShift ? "up" : undefined} />
+              <Metric label="This week" value={c.weekly} cap={56} unit="h" hint="56h rolling 7 days" live={c.onShift ? "up" : undefined} />
               <Metric label="Fortnight" value={c.twoWeek} cap={90} unit="h" hint="90h rolling 14 days" />
               {c.onShift ? (
-                <Metric label="Drive cycle" value={c.continuousDrive} cap={4.5} unit="h" hint="45min break after 4.5h" />
+                <Metric label="Drive cycle" value={c.continuousDrive} cap={4.5} unit="h" hint="45min break after 4.5h" live="up" />
               ) : (
-                <Metric label="Rest taken" value={Math.min(c.restHours, 24)} cap={11} unit="h" hint="11h normal, 9h reduced" />
+                <Metric label="Rest taken" value={Math.min(c.restHours, 24)} cap={11} unit="h" hint="11h normal, 9h reduced" live="up" />
               )}
             </div>
 
@@ -539,12 +549,14 @@ function Metric({
   cap,
   unit,
   hint,
+  live,
 }: {
   label: string;
   value: number;
   cap: number;
   unit: string;
   hint?: string;
+  live?: "up" | "down";
 }) {
   const pct = Math.min(100, (value / cap) * 100);
   const color = pct >= 100 ? "bg-destructive" : pct >= 85 ? "bg-warning" : "bg-success";
@@ -562,7 +574,43 @@ function Metric({
       <div className="h-1 rounded-full bg-surface-2 overflow-hidden">
         <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
+      {live && (
+        <div className="text-[10px] font-mono text-muted-foreground text-right">
+          {live === "down" ? "−" : "+"}
+          <LiveTimer baseHours={live === "down" ? Math.max(0, cap - value) : value} dir={live} />
+        </div>
+      )}
     </div>
+  );
+}
+
+// Live ticking timer. Anchors at the baseline value (hours) the moment the
+// component receives that value, then ticks every second. When the parent
+// re-renders with a refreshed baseline (compliance recomputes every minute),
+// the anchor resets so the displayed time stays consistent with the source
+// of truth.
+function LiveTimer({ baseHours, dir }: { baseHours: number; dir: "up" | "down" }) {
+  const anchorRef = useRef<{ base: number; at: number }>({ base: baseHours, at: Date.now() });
+  const [, force] = useState(0);
+  // Reset anchor when baseHours changes (>1s drift from interpolation).
+  useEffect(() => {
+    anchorRef.current = { base: baseHours, at: Date.now() };
+    force((n) => n + 1);
+  }, [baseHours]);
+  useEffect(() => {
+    const id = setInterval(() => force((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const elapsedSec = (Date.now() - anchorRef.current.at) / 1000;
+  let totalSec = anchorRef.current.base * 3600 + (dir === "up" ? elapsedSec : -elapsedSec);
+  if (totalSec < 0) totalSec = 0;
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = Math.floor(totalSec % 60);
+  return (
+    <span className="tabular-nums">
+      {String(h).padStart(2, "0")}:{String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}
+    </span>
   );
 }
 
