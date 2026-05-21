@@ -535,3 +535,60 @@ function Metric({
     </div>
   );
 }
+
+function fmtHm(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m}m`;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
+function DayHoursTable({ rows }: { rows: DriverDayHours[] }) {
+  if (!rows.length) {
+    return (
+      <div className="border-t border-border pt-2 text-[11px] text-muted-foreground">
+        No hours recorded yet.
+      </div>
+    );
+  }
+  const last14 = rows.slice(0, 14);
+  return (
+    <div className="border-t border-border pt-2 space-y-1">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+        Last 14 days
+      </div>
+      <div className="max-h-44 overflow-y-auto">
+        <table className="w-full text-[11px]">
+          <thead className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">
+            <tr>
+              <th className="text-left py-1 font-normal">Date</th>
+              <th className="text-right py-1 font-normal">On shift</th>
+              <th className="text-right py-1 font-normal">Drive</th>
+              <th className="text-right py-1 font-normal">Off</th>
+            </tr>
+          </thead>
+          <tbody>
+            {last14.map((r) => {
+              const d = new Date(r.day + "T00:00:00");
+              const label = d.toLocaleDateString("en-GB", {
+                weekday: "short",
+                day: "2-digit",
+                month: "2-digit",
+              });
+              return (
+                <tr key={r.day} className="border-t border-border/40">
+                  <td className="py-1">{label}</td>
+                  <td className="py-1 text-right font-mono">{fmtHm(r.shift_minutes)}</td>
+                  <td className="py-1 text-right font-mono">{fmtHm(r.drive_minutes)}</td>
+                  <td className="py-1 text-right font-mono text-muted-foreground">
+                    {fmtHm(r.off_minutes)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
