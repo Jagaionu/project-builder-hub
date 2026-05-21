@@ -486,6 +486,19 @@ async function handleCallback(
     );
     return;
   }
+  if (action === "ISSUE" && arg) {
+    // Driver flags an issue but keeps the job. Marks driver DELAYED so the
+    // alert surfaces on the Alerts tab without releasing the route.
+    await supabaseAdmin.from("drivers").update({ status: "DELAYED" }).eq("id", driver.id);
+    await logEvent(driver.id, "DELAY_REPORT", { job_id: arg, reason: "Driver flagged issue on job card" });
+    await answerCallbackQuery(callbackId, "Dispatch alerted");
+    await sendMessage(
+      chatId,
+      `⚠️ Dispatch has been alerted about an issue with this job. You still hold the route — continue if you can, or use 🚫 Can't complete to release it.`,
+      mainMenu,
+    );
+    return;
+  }
   if (action === "END_SHIFT_CONFIRM") {
     // Release any active jobs so they can be re-planned.
     await supabaseAdmin
@@ -502,6 +515,7 @@ async function handleCallback(
     if (messageId) {
       try { await editMessageReplyMarkup(chatId, messageId, emptyInlineKeyboard); } catch { /* ignore */ }
     }
+    await clearJobCardsFromChat(driver.id, chatId);
     await sendMessage(chatId, "🛑 Shift ended. Dispatch will re-plan your route.", mainMenu);
     return;
   }
