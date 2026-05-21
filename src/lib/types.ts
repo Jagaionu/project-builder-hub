@@ -18,6 +18,10 @@ export interface Driver {
   status: DriverStatus;
   last_update_time: string | null;
   created_at: string;
+  available_tomorrow?: boolean;
+  tomorrow_start_lat?: number | null;
+  tomorrow_start_lon?: number | null;
+  tomorrow_start_updated_at?: string | null;
 }
 
 export interface Warehouse {
