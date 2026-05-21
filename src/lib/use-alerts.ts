@@ -104,12 +104,10 @@ export function useAlerts() {
           });
         }
       }
-      if (d.last_update_time) {
-        const ageMin = (now - new Date(d.last_update_time).getTime()) / 60000;
-        if (ageMin > 15 && d.status !== "OFF_SHIFT") {
-          out.push({ id: `s-${d.id}`, level: "warning", type: "Stale location", icon: WifiOff, message: `${d.name} no ping for ${Math.round(ageMin)} min` });
-        }
-      }
+      // Stale-location alerts intentionally removed: drivers must not use
+      // their phone while driving, so missing pings are expected. Position
+      // is now projected from the job timeline (start + buffers + dwell +
+      // transit) instead of relying on live GPS.
       const c = compliance[d.id];
       if (c) {
         c.issues.forEach((iss, idx) => {
