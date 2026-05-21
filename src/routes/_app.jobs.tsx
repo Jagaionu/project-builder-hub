@@ -212,6 +212,29 @@ function JobsPage() {
       return next;
     });
   }
+  // Date range filter (defaults to today). Persisted in localStorage.
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const today = startOfDay(new Date());
+    if (typeof window === "undefined") return { from: today, to: today };
+    try {
+      const raw = localStorage.getItem("jobs.dateRange");
+      if (raw) {
+        const p = JSON.parse(raw) as { from?: string; to?: string; mode?: "all" };
+        if (p.mode === "all") return undefined;
+        if (p.from) return { from: new Date(p.from), to: p.to ? new Date(p.to) : undefined };
+      }
+    } catch { /* noop */ }
+    return { from: today, to: today };
+  });
+  useEffect(() => {
+    try {
+      if (!dateRange) localStorage.setItem("jobs.dateRange", JSON.stringify({ mode: "all" }));
+      else localStorage.setItem("jobs.dateRange", JSON.stringify({
+        from: dateRange.from?.toISOString(),
+        to: dateRange.to?.toISOString(),
+      }));
+    } catch { /* noop */ }
+  }, [dateRange]);
   const notify = useServerFn(notifyDriverOfJob);
   const plan = useMemo(
     () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
