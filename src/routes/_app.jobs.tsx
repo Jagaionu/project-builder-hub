@@ -356,6 +356,57 @@ function JobsPage() {
         subtitle="Multi-stop routes — click a row to edit or delete"
         right={
           <div className="flex items-center gap-3">
+            <div className="relative" ref={statusMenuRef}>
+              <button
+                onClick={() => setStatusMenuOpen((v) => !v)}
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-2 transition-colors"
+              >
+                Statuses
+                <span className="font-mono text-xs text-muted-foreground">
+                  {JOB_STATUSES.length - hiddenStatuses.size}/{JOB_STATUSES.length}
+                </span>
+                <ChevronDown className="size-4" />
+              </button>
+              {statusMenuOpen && (
+                <div className="absolute right-0 mt-2 w-64 rounded-xl border border-border bg-surface shadow-lg z-50 p-2">
+                  <div className="flex items-center justify-between px-2 py-1.5">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Show statuses
+                    </span>
+                    <button
+                      onClick={() => setHiddenStatuses(new Set(["COMPLETED", "CANCELLED"]))}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  {JOB_STATUSES.map((s) => {
+                    const cfg = STATUS_CONFIG[s];
+                    const checked = !hiddenStatuses.has(s);
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => toggleStatus(s)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-surface-2 text-sm text-left"
+                      >
+                        <span
+                          className={`size-4 rounded border flex items-center justify-center ${
+                            checked ? "bg-primary border-primary" : "border-border"
+                          }`}
+                        >
+                          {checked && <Check className="size-3 text-primary-foreground" />}
+                        </span>
+                        <span className={`size-2 rounded-full ${cfg.dot}`} />
+                        <span className="flex-1">{cfg.label}</span>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {statusCounts[s] ?? 0}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             <ImportCsvButton />
             <button
               onClick={() => setCreateOpen(true)}
