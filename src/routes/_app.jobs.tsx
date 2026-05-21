@@ -366,6 +366,49 @@ function JobsPage() {
               </button>
             </div>
           ) : (
+            <>
+              <div className="mb-3 flex items-center gap-2">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by reference, route (warehouse code/name), driver, status…"
+                  className="flex-1 rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as "ALL" | JobStatus)}
+                  className="rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="ALL">All statuses</option>
+                  {JOB_STATUSES.map((s) => (
+                    <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
+                  ))}
+                </select>
+                {(search || statusFilter !== "ALL") && (
+                  <button
+                    onClick={() => { setSearch(""); setStatusFilter("ALL"); }}
+                    className="rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-2"
+                  >
+                    Clear
+                  </button>
+                )}
+                <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">
+                  {filteredJobs.length} / {jobs.length}
+                </span>
+              </div>
+            <div className="rounded-lg border border-border bg-surface overflow-hidden">
+            <div className="rounded-lg border border-dashed border-border p-12 text-center">
+              <MapPin className="size-8 mx-auto text-muted-foreground/50 mb-3" />
+              <p className="text-sm text-muted-foreground">No routes yet.</p>
+              <button
+                onClick={() => setCreateOpen(true)}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="size-3.5" /> Create your first route
+              </button>
+            </div>
+          ) : (
             <div className="rounded-lg border border-border bg-surface overflow-hidden">
               {/* Table header */}
               <div className="grid grid-cols-12 gap-3 px-4 py-2.5 bg-background border-b border-border text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
