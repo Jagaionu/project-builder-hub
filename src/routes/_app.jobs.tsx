@@ -430,6 +430,19 @@ function JobsPage() {
     return `${fmtDateShort(from)} – ${fmtDateShort(to)}`;
   }, [dateRange]);
 
+  // Dates that have at least one job (from all loaded jobs, regardless of filters).
+  const jobDays = useMemo(() => {
+    const s = new Set<string>();
+    for (const j of jobs) {
+      const d = startOfDay(jobDate(j, stopsMap[j.id] ?? []));
+      s.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+    }
+    return s;
+  }, [jobs, stopsMap]);
+  const hasJobsOn = (d: Date) => jobDays.has(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+  const monthStart = startOfDay(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const monthEnd = startOfDay(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
+
   return (
     <div className="h-full flex flex-col">
       <PageHeader
@@ -498,7 +511,12 @@ function JobsPage() {
                       mode="range"
                       selected={dateRange}
                       onSelect={setDateRange}
-                      numberOfMonths={2}
+                      numberOfMonths={1}
+                      startMonth={monthStart}
+                      endMonth={monthEnd}
+                      disabled={(d) => d < monthStart || d > monthEnd || !hasJobsOn(d)}
+                      modifiers={{ hasJobs: (d) => hasJobsOn(d) }}
+                      modifiersClassNames={{ hasJobs: "font-semibold text-primary" }}
                       className={cn("p-3 pointer-events-auto")}
                     />
                   </PopoverContent>
