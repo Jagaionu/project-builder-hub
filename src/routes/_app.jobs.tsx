@@ -6,7 +6,7 @@ import { useJobs, useWarehouses, useDrivers, useCompliance } from "@/lib/hooks";
 import type { Compliance } from "@/lib/compliance";
 
 import { PageHeader } from "./_app.index";
-import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User, Upload } from "lucide-react";
+import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User, Upload, Calendar as CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
@@ -14,6 +14,10 @@ import { computePlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
 import { computeStopSchedule, legMinutes } from "@/lib/geo";
 import { importJobsCsv } from "@/lib/jobs-import.functions";
 import { csvToImportRows } from "@/lib/csv-import";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import type { DateRange } from "react-day-picker";
+import { cn } from "@/lib/utils";
 
 const ACTIVE_JOB_STATUSES = new Set(["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"]);
 void AUTO_ASSIGN_RADIUS_KM;
@@ -170,6 +174,29 @@ const STATUS_CONFIG: Record<JobStatus, { label: string; dot: string; badge: stri
   CANCELLED:         { label: "Cancelled",         dot: "bg-zinc-400",    badge: "text-zinc-400 bg-zinc-500/10" },
 };
 
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+function endOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(23, 59, 59, 999);
+  return x;
+}
+function sameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+function fmtDateShort(d: Date): string {
+  return d.toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+}
+function jobDate(j: { scheduled_at: string | null; planned_start_at?: string | null; created_at: string }, stops: { scheduled_at: string | null }[]): Date {
+  const firstStop = stops.find((s) => s.scheduled_at)?.scheduled_at;
+  const iso = j.scheduled_at ?? j.planned_start_at ?? firstStop ?? j.created_at;
+  return new Date(iso);
+}
+
+
 function JobsPage() {
   const jobs = useJobs();
   const warehouses = useWarehouses();
@@ -208,6 +235,29 @@ function JobsPage() {
       return next;
     });
   }
+  // Date range filter (defaults to today). Persisted in localStorage.
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const today = startOfDay(new Date());
+    if (typeof window === "undefined") return { from: today, to: today };
+    try {
+      const raw = localStorage.getItem("jobs.dateRange");
+      if (raw) {
+        const p = JSON.parse(raw) as { from?: string; to?: string; mode?: "all" };
+        if (p.mode === "all") return undefined;
+        if (p.from) return { from: new Date(p.from), to: p.to ? new Date(p.to) : undefined };
+      }
+    } catch { /* noop */ }
+    return { from: today, to: today };
+  });
+  useEffect(() => {
+    try {
+      if (!dateRange) localStorage.setItem("jobs.dateRange", JSON.stringify({ mode: "all" }));
+      else localStorage.setItem("jobs.dateRange", JSON.stringify({
+        from: dateRange.from?.toISOString(),
+        to: dateRange.to?.toISOString(),
+      }));
+    } catch { /* noop */ }
+  }, [dateRange]);
   const notify = useServerFn(notifyDriverOfJob);
   const plan = useMemo(
     () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
@@ -345,8 +395,14 @@ function JobsPage() {
 
   const filteredJobs = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const from = dateRange?.from ? startOfDay(dateRange.from).getTime() : null;
+    const to = dateRange ? endOfDay(dateRange.to ?? dateRange.from ?? new Date()).getTime() : null;
     return jobs.filter((j) => {
       if (hiddenStatuses.has(j.status as JobStatus)) return false;
+      if (from !== null && to !== null) {
+        const t = jobDate(j, stopsMap[j.id] ?? []).getTime();
+        if (t < from || t > to) return false;
+      }
       if (!q) return true;
       if (j.reference.toLowerCase().includes(q)) return true;
       if (j.status.toLowerCase().replace(/_/g, " ").includes(q)) return true;
@@ -362,7 +418,17 @@ function JobsPage() {
       if (driver?.name.toLowerCase().includes(q)) return true;
       return false;
     });
-  }, [jobs, stopsMap, warehouses, drivers, search, hiddenStatuses]);
+  }, [jobs, stopsMap, warehouses, drivers, search, hiddenStatuses, dateRange]);
+
+  const dateLabel = useMemo(() => {
+    if (!dateRange?.from) return "All dates";
+    const today = startOfDay(new Date());
+    const from = dateRange.from;
+    const to = dateRange.to ?? from;
+    if (sameDay(from, today) && sameDay(to, today)) return "Today";
+    if (sameDay(from, to)) return fmtDateShort(from);
+    return `${fmtDateShort(from)} – ${fmtDateShort(to)}`;
+  }, [dateRange]);
 
   return (
     <div className="h-full flex flex-col">
@@ -396,6 +462,47 @@ function JobsPage() {
           ) : (
             <div>
               <div className="mb-3 flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs hover:bg-surface-2",
+                        dateRange ? "text-foreground" : "text-muted-foreground",
+                      )}
+                    >
+                      <CalendarIcon className="size-3.5" />
+                      {dateLabel}
+                      <ChevronDown className="size-3" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <div className="flex items-center gap-1 border-b border-border px-2 py-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                      <button
+                        onClick={() => { const t = startOfDay(new Date()); setDateRange({ from: t, to: t }); }}
+                        className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                      >Today</button>
+                      <button
+                        onClick={() => { const y = startOfDay(new Date(Date.now() - 86400000)); setDateRange({ from: y, to: y }); }}
+                        className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                      >Yesterday</button>
+                      <button
+                        onClick={() => { const to = startOfDay(new Date()); const from = startOfDay(new Date(Date.now() - 6 * 86400000)); setDateRange({ from, to }); }}
+                        className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                      >7d</button>
+                      <button
+                        onClick={() => setDateRange(undefined)}
+                        className="ml-auto rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                      >All</button>
+                    </div>
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={2}
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
                 <input
                   type="text"
                   value={search}
@@ -447,9 +554,9 @@ function JobsPage() {
                     </div>
                   )}
                 </div>
-                {(search || hiddenStatuses.size !== 2 || !hiddenStatuses.has("COMPLETED") || !hiddenStatuses.has("CANCELLED")) && (
+                {(search || hiddenStatuses.size !== 2 || !hiddenStatuses.has("COMPLETED") || !hiddenStatuses.has("CANCELLED") || !dateRange || !dateRange.from || !sameDay(dateRange.from, startOfDay(new Date())) || !sameDay(dateRange.to ?? dateRange.from, startOfDay(new Date()))) && (
                   <button
-                    onClick={() => { setSearch(""); setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"])); }}
+                    onClick={() => { const t = startOfDay(new Date()); setSearch(""); setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"])); setDateRange({ from: t, to: t }); }}
                     className="rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-2"
                   >
                     Reset
