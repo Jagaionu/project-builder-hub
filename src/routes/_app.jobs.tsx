@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
 import { computePlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
-import { computeStopSchedule, legMinutes } from "@/lib/geo";
+import { computeStopSchedule, stopDwellMinutes } from "@/lib/geo";
 import { importJobsCsv } from "@/lib/jobs-import.functions";
 import { csvToImportRows } from "@/lib/csv-import";
 import { Calendar } from "@/components/ui/calendar";
@@ -233,6 +233,26 @@ function JobsPage() {
       const next = new Set(prev);
       if (next.has(s)) next.delete(s); else next.add(s);
       return next;
+    });
+  }
+  // Expanded rows (per job) — persisted in localStorage
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set<string>();
+    try {
+      const raw = localStorage.getItem("jobs.expanded");
+      if (raw) return new Set(JSON.parse(raw) as string[]);
+    } catch { /* noop */ }
+    return new Set<string>();
+  });
+  useEffect(() => {
+    try { localStorage.setItem("jobs.expanded", JSON.stringify(Array.from(expandedJobs))); }
+    catch { /* noop */ }
+  }, [expandedJobs]);
+  function toggleExpand(id: string) {
+    setExpandedJobs((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
     });
   }
   // Date range filter (defaults to today). Persisted in localStorage.
@@ -587,101 +607,125 @@ function JobsPage() {
             <div className="rounded-lg border border-border bg-surface overflow-hidden">
               {/* Table header */}
               <div className="grid grid-cols-12 gap-3 px-4 py-2.5 bg-background border-b border-border text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                <div className="col-span-2">Reference</div>
+                <div className="col-span-1">Ref</div>
+                <div className="col-span-2">Type</div>
                 <div className="col-span-4">Route</div>
+                <div className="col-span-2">Scheduled</div>
                 <div className="col-span-2">Driver</div>
-                <div className="col-span-2">Status</div>
-                <div className="col-span-2">Scheduled / ETA</div>
+                <div className="col-span-1">Status</div>
               </div>
               {/* Rows */}
               {filteredJobs.map((j) => {
                 const stops = stopsMap[j.id] ?? [];
                 const planned = plannedByJob.get(j.id);
+                const expanded = expandedJobs.has(j.id);
+                const isMR = stops.length > 2;
+                const routeChain = stops.length === 0
+                  ? "—"
+                  : stops.map((s) => warehouses.find((w) => w.id === s.warehouse_id)?.code ?? "?").join(" → ");
+                const stopTimes = j.scheduled_at
+                  ? computeStopSchedule(stops, j.scheduled_at, warehouses)
+                  : stops.map((s) => s.scheduled_at);
                 return (
-                  <div
-                    key={j.id}
-                    onClick={() => setEditJobId(j.id)}
-                    className="grid grid-cols-12 gap-3 px-4 py-3 border-b border-border last:border-b-0 items-center hover:bg-surface-2 cursor-pointer transition group"
-                  >
-                    <div className="col-span-2">
-                      <div className="font-mono text-xs text-foreground">{j.reference}</div>
-                      <div className="text-[10px] font-mono text-muted-foreground">{stops.length} stops</div>
-                    </div>
-                  <div className="col-span-4">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {stops.length === 0 ? (
-                        <span className="text-xs text-muted-foreground/50 italic">No stops</span>
-                      ) : (
-                        stops.map((s, idx) => {
-                          const wh = warehouses.find((w) => w.id === s.warehouse_id);
-                          const code = wh?.code ?? "?";
-                          const next = stops[idx + 1];
-                          const nextWh = next ? warehouses.find((w) => w.id === next.warehouse_id) : null;
-                          const leg = wh && nextWh ? legMinutes(s, wh, nextWh) : null;
-                          return (
-                            <span key={idx} className="flex items-center gap-1">
-                              <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium ${
-                                s.kind === "PICKUP"
-                                  ? "bg-blue-500/10 text-blue-500"
-                                  : "bg-emerald-500/10 text-emerald-600"
-                              }`}>
-                                {code}
-                              </span>
-                              {leg && (
-                                <span className="flex items-center gap-0.5 text-[10px] font-mono text-muted-foreground/70 px-1">
-                                  {leg.loadingMin > 0 && (
-                                    <span title="Loading at pickup" className="text-amber-500/80">+{leg.loadingMin}m load</span>
-                                  )}
-                                  <ChevronRight className="size-3 text-muted-foreground/40 shrink-0" />
-                                  <span title={`${leg.km.toFixed(1)} km`}>ETA {leg.transitMin}m</span>
-                                  <ChevronRight className="size-3 text-muted-foreground/40 shrink-0" />
-                                </span>
-                              )}
-                            </span>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                  <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
-                    <DriverPicker
-                      driverId={j.assigned_driver_id}
-                      allowUnassign={!ACTIVE_JOB_STATUSES.has(j.status)}
-                      drivers={drivers}
-                      compliance={compliance}
-                      onChange={(id) => assignDriver(j.id, id)}
-                    />
-                    {!j.assigned_driver_id && (planned || j.planned_driver_id) && (
-                      <PlannedChip
-                        driverName={drivers.find((d) => d.id === (planned?.driverId ?? j.planned_driver_id))?.name ?? "?"}
-                        sequence={planned?.sequence ?? j.planned_sequence ?? undefined}
-                        startAt={planned?.startAt ?? j.planned_start_at ?? undefined}
-                        distanceKm={planned?.distKm}
-                        dailyHoursLeft={planned?.dailyHoursLeft}
-                      />
-                    )}
-                  </div>
-
-                    <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
-                      <StatusPill
-                        status={j.status}
-                        onChange={(s) => setStatus(j.id, s)}
-                      />
-                    </div>
-                    <div className="col-span-2 text-[11px] text-muted-foreground">
-                      {j.scheduled_at && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="size-3" />
-                          {new Date(j.scheduled_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  <div key={j.id} className="border-b border-border last:border-b-0">
+                    <div
+                      onClick={() => setEditJobId(j.id)}
+                      className="grid grid-cols-12 gap-3 px-4 py-2.5 items-center hover:bg-surface-2 cursor-pointer transition group"
+                    >
+                      <div className="col-span-1 flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleExpand(j.id); }}
+                          className="rounded p-0.5 hover:bg-surface-2 text-muted-foreground hover:text-foreground"
+                          aria-label={expanded ? "Collapse" : "Expand"}
+                        >
+                          {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                        </button>
+                        <span className="font-mono text-xs text-foreground truncate">{j.reference}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className={`inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[10px] font-medium border ${
+                          isMR
+                            ? "border-amber-500/30 text-amber-600 bg-amber-500/5"
+                            : "border-border text-muted-foreground bg-transparent"
+                        }`}>
+                          {isMR ? `MR · ${stops.length} stops` : "LH · direct"}
                         </span>
-                      )}
-                      {j.eta_minutes != null && (
-                        <span className="font-mono">ETA {j.eta_minutes}m</span>
-                      )}
-                      {!j.scheduled_at && j.eta_minutes == null && (
-                        <span>—</span>
-                      )}
+                      </div>
+                      <div className="col-span-4">
+                        <span className="font-mono text-xs text-foreground">{routeChain}</span>
+                      </div>
+                      <div className="col-span-2 text-[11px] text-muted-foreground">
+                        {j.scheduled_at ? (
+                          <span className="flex items-center gap-1">
+                            <Clock className="size-3" />
+                            {new Date(j.scheduled_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        ) : (
+                          <span>—</span>
+                        )}
+                      </div>
+                      <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
+                        <DriverPicker
+                          driverId={j.assigned_driver_id}
+                          allowUnassign={!ACTIVE_JOB_STATUSES.has(j.status)}
+                          drivers={drivers}
+                          compliance={compliance}
+                          onChange={(id) => assignDriver(j.id, id)}
+                        />
+                        {!j.assigned_driver_id && (planned || j.planned_driver_id) && (
+                          <PlannedChip
+                            driverName={drivers.find((d) => d.id === (planned?.driverId ?? j.planned_driver_id))?.name ?? "?"}
+                            sequence={planned?.sequence ?? j.planned_sequence ?? undefined}
+                            startAt={planned?.startAt ?? j.planned_start_at ?? undefined}
+                            distanceKm={planned?.distKm}
+                            dailyHoursLeft={planned?.dailyHoursLeft}
+                          />
+                        )}
+                      </div>
+                      <div className="col-span-1" onClick={(e) => e.stopPropagation()}>
+                        <StatusPill status={j.status} onChange={(s) => setStatus(j.id, s)} />
+                      </div>
                     </div>
+                    {expanded && stops.length > 0 && (
+                      <div className="px-4 pb-3 pt-1 bg-background/50">
+                        <div className="rounded border border-border overflow-hidden">
+                          <div className="grid grid-cols-12 gap-2 px-3 py-1.5 bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                            <div className="col-span-1">#</div>
+                            <div className="col-span-2">Stop</div>
+                            <div className="col-span-2">Kind</div>
+                            <div className="col-span-3">Planned arrival</div>
+                            <div className="col-span-3">Planned departure</div>
+                            <div className="col-span-1">Actual</div>
+                          </div>
+                          {stops.map((s, idx) => {
+                            const wh = warehouses.find((w) => w.id === s.warehouse_id);
+                            const arr = s.scheduled_at ?? stopTimes[idx];
+                            const dep = arr ? new Date(new Date(arr).getTime() + stopDwellMinutes(s.kind) * 60_000).toISOString() : null;
+                            const fmt = (iso: string | null | undefined) =>
+                              iso ? new Date(iso).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+                            return (
+                              <div key={idx} className="grid grid-cols-12 gap-2 px-3 py-2 text-[11px] border-t border-border items-center">
+                                <div className="col-span-1 font-mono text-muted-foreground">{idx + 1}</div>
+                                <div className="col-span-2">
+                                  <div className="font-mono text-xs text-foreground">{wh?.code ?? "?"}</div>
+                                  <div className="text-[10px] text-muted-foreground truncate">{wh?.name}</div>
+                                </div>
+                                <div className="col-span-2">
+                                  <span className={`font-mono text-[10px] uppercase ${s.kind === "PICKUP" ? "text-blue-500" : "text-emerald-600"}`}>
+                                    {s.kind === "PICKUP" ? "Pickup" : "Drop"}
+                                  </span>
+                                </div>
+                                <div className="col-span-3 font-mono text-muted-foreground">{fmt(arr)}</div>
+                                <div className="col-span-3 font-mono text-muted-foreground">{fmt(dep)}</div>
+                                <div className="col-span-1 font-mono text-muted-foreground">
+                                  {s.arrived_at ? new Date(s.arrived_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
