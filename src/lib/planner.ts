@@ -9,7 +9,7 @@
 
 import type { Driver, Warehouse, Job } from "./types";
 import type { Compliance } from "./compliance";
-import { haversineKm, transitTimeHours, LOADING_MINUTES } from "./geo";
+import { haversineKm, transitTimeHours, stopDwellMinutes, ARRIVAL_BUFFER_MINUTES } from "./geo";
 
 export const AUTO_ASSIGN_RADIUS_KM = 30;
 const DAILY_CAP = 10;
@@ -41,17 +41,20 @@ export type PlanResult = {
   unassignable: Unassignable[];
 };
 
+// Total hours a job consumes once the driver is at the first stop:
+// dwell at every stop (load/unload + checks) + transit (with buffer) between stops.
 function jobDriveHours(stops: PlannerStop[], warehouses: Warehouse[]): number {
-  let h = 0;
+  if (stops.length === 0) return 0;
+  let minutes = 0;
   for (let i = 0; i < stops.length - 1; i++) {
     const a = warehouses.find((w) => w.id === stops[i].warehouse_id);
     const b = warehouses.find((w) => w.id === stops[i + 1].warehouse_id);
+    minutes += stopDwellMinutes(stops[i].kind);
     if (!a || !b) continue;
-    h += transitTimeHours(haversineKm(a.latitude, a.longitude, b.latitude, b.longitude));
+    minutes += Math.round(transitTimeHours(haversineKm(a.latitude, a.longitude, b.latitude, b.longitude)) * 60) + ARRIVAL_BUFFER_MINUTES;
   }
-  const pickups = stops.filter((s) => s.kind === "PICKUP").length;
-  h += (pickups * LOADING_MINUTES) / 60;
-  return h;
+  minutes += stopDwellMinutes(stops[stops.length - 1].kind);
+  return minutes / 60;
 }
 
 function firstPickupWh(stops: PlannerStop[] | undefined, warehouses: Warehouse[]) {

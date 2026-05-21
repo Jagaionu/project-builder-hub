@@ -28,8 +28,18 @@ export function etaMinutes(distanceKm: number) {
   return Math.round(transitTimeHours(distanceKm) * 60);
 }
 
-// Default loading/unloading dwell time at a warehouse, in minutes.
+// Dwell-time model. We assume the driver:
+//  - takes 30 min to load at a pickup, plus 15 min of paperwork/checks
+//  - takes 30 min to unload at a drop,  plus 15 min of paperwork/checks
+//  - adds a 5 min buffer per transit leg (traffic / parking / approach)
 export const LOADING_MINUTES = 30;
+export const UNLOADING_MINUTES = 30;
+export const CHECKS_MINUTES = 15;
+export const ARRIVAL_BUFFER_MINUTES = 5;
+
+export function stopDwellMinutes(kind: "PICKUP" | "DROP"): number {
+  return (kind === "PICKUP" ? LOADING_MINUTES : UNLOADING_MINUTES) + CHECKS_MINUTES;
+}
 
 export const GEOFENCE_RADIUS_M = 300;
 export function isInsideGeofence(driverLat: number, driverLon: number, whLat: number, whLon: number) {
@@ -37,7 +47,7 @@ export function isInsideGeofence(driverLat: number, driverLon: number, whLat: nu
 }
 
 // Compute the leg duration in minutes between two warehouse points,
-// optionally including loading time at the FROM stop if it's a PICKUP.
+// including dwell time at the FROM stop and a small arrival buffer.
 export type StopLike = { kind: "PICKUP" | "DROP"; warehouse_id: string };
 export type WhLike = { id: string; latitude: number; longitude: number };
 
@@ -47,14 +57,14 @@ export function legMinutes(
   toWh: WhLike,
 ): { transitMin: number; loadingMin: number; totalMin: number; km: number } {
   const km = haversineKm(fromWh.latitude, fromWh.longitude, toWh.latitude, toWh.longitude);
-  const transitMin = Math.round(transitTimeHours(km) * 60);
-  const loadingMin = fromStop.kind === "PICKUP" ? LOADING_MINUTES : 0;
+  const transitMin = Math.round(transitTimeHours(km) * 60) + ARRIVAL_BUFFER_MINUTES;
+  const loadingMin = stopDwellMinutes(fromStop.kind);
   return { transitMin, loadingMin, totalMin: transitMin + loadingMin, km };
 }
 
 // Given a job start time + the ordered stops, compute scheduled_at for each
-// stop. First stop = jobStart. Each next stop = previous + loading (if prev
-// was a PICKUP) + driving time between the two warehouses.
+// stop. First stop = jobStart. Each next stop = previous arrival
+// + dwell at previous (load/unload + checks) + transit (incl. buffer).
 export function computeStopSchedule(
   stops: StopLike[],
   jobStart: string | Date | null | undefined,
@@ -77,4 +87,64 @@ export function computeStopSchedule(
     out.push(new Date(t).toISOString());
   }
   return out;
+}
+
+// Total minutes a driver is occupied by a job, from arrival at the first
+// stop through to "good to go" after checks at the final stop.
+export function jobTotalMinutes(stops: StopLike[], warehouses: WhLike[]): number {
+  if (stops.length === 0) return 0;
+  let total = 0;
+  for (let i = 0; i < stops.length - 1; i++) {
+    const a = warehouses.find((w) => w.id === stops[i].warehouse_id);
+    const b = warehouses.find((w) => w.id === stops[i + 1].warehouse_id);
+    if (!a || !b) continue;
+    total += legMinutes(stops[i], a, b).totalMin;
+  }
+  // Dwell at the final stop (unload + checks) so the driver is "free".
+  total += stopDwellMinutes(stops[stops.length - 1].kind);
+  return total;
+}
+
+// Project where a driver should be along a job timeline at `nowMs`, given the
+// job started at `startMs`. Returns the warehouse the driver is at (or heading
+// to next) and the phase. Used for predictive position when no GPS ping is
+// available — safer than asking drivers to use their phone while driving.
+export type ProjectedPosition = {
+  phase: "BEFORE_START" | "EN_ROUTE" | "AT_STOP" | "COMPLETED";
+  stopIndex: number; // 0-based index of the current/next stop
+  minutesUntilNextEvent: number;
+};
+
+export function projectPosition(
+  stops: StopLike[],
+  warehouses: WhLike[],
+  startMs: number,
+  nowMs: number,
+): ProjectedPosition | null {
+  if (stops.length === 0) return null;
+  if (nowMs < startMs) {
+    return { phase: "BEFORE_START", stopIndex: 0, minutesUntilNextEvent: Math.round((startMs - nowMs) / 60_000) };
+  }
+  // Add an initial arrival buffer to reach the first stop.
+  let cursor = startMs + ARRIVAL_BUFFER_MINUTES * 60_000;
+  if (nowMs < cursor) {
+    return { phase: "EN_ROUTE", stopIndex: 0, minutesUntilNextEvent: Math.round((cursor - nowMs) / 60_000) };
+  }
+  for (let i = 0; i < stops.length; i++) {
+    const dwell = stopDwellMinutes(stops[i].kind) * 60_000;
+    if (nowMs < cursor + dwell) {
+      return { phase: "AT_STOP", stopIndex: i, minutesUntilNextEvent: Math.round((cursor + dwell - nowMs) / 60_000) };
+    }
+    cursor += dwell;
+    if (i === stops.length - 1) break;
+    const a = warehouses.find((w) => w.id === stops[i].warehouse_id);
+    const b = warehouses.find((w) => w.id === stops[i + 1].warehouse_id);
+    if (!a || !b) continue;
+    const transit = (Math.round(transitTimeHours(haversineKm(a.latitude, a.longitude, b.latitude, b.longitude)) * 60) + ARRIVAL_BUFFER_MINUTES) * 60_000;
+    if (nowMs < cursor + transit) {
+      return { phase: "EN_ROUTE", stopIndex: i + 1, minutesUntilNextEvent: Math.round((cursor + transit - nowMs) / 60_000) };
+    }
+    cursor += transit;
+  }
+  return { phase: "COMPLETED", stopIndex: stops.length - 1, minutesUntilNextEvent: 0 };
 }
