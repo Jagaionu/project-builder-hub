@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useRef, useState, useLayoutEffect } from "react";
+import { useEffect, useRef, useState, useLayoutEffect, type ChangeEvent } from "react";
 import { createPortal } from "react-dom";
 import { useJobs, useWarehouses, useDrivers, useCompliance } from "@/lib/hooks";
 import type { Compliance } from "@/lib/compliance";
@@ -825,7 +825,7 @@ function ImportCsvButton() {
   const [busy, setBusy] = useState(false);
   const runImport = useServerFn(importJobsCsv);
 
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setBusy(true);
