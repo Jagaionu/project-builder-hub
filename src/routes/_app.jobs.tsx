@@ -519,6 +519,10 @@ function JobsPage() {
                         className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
                       >Yesterday</button>
                       <button
+                        onClick={() => { const tm = startOfDay(new Date(Date.now() + 86400000)); setDateRange({ from: tm, to: tm }); }}
+                        className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                      >Tomorrow</button>
+                      <button
                         onClick={() => { const to = startOfDay(new Date()); const from = startOfDay(new Date(Date.now() - 6 * 86400000)); setDateRange({ from, to }); }}
                         className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
                       >7d</button>
