@@ -6,7 +6,7 @@ import { useJobs, useWarehouses, useDrivers, useCompliance } from "@/lib/hooks";
 import type { Compliance } from "@/lib/compliance";
 
 import { PageHeader } from "./_app.index";
-import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User, Upload, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User, Upload, Calendar as CalendarIcon, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
