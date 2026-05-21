@@ -44,6 +44,64 @@ export const Route = createFileRoute("/_app/jobs")({
   head: () => ({ meta: [{ title: "Jobs — Planning System" }] }),
 });
 
+function ImportCsvButton() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const runImport = useServerFn(importJobsCsv);
+
+  async function onFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      const text = await file.text();
+      const rows = csvToImportRows(text);
+      if (rows.length === 0) {
+        toast.error("No rows found in CSV");
+        return;
+      }
+      const res = await runImport({ data: { rows } });
+      const parts: string[] = [`${res.created} created`];
+      if (res.skippedDuplicate.length) parts.push(`${res.skippedDuplicate.length} duplicate`);
+      if (res.skippedUnknownWh.length) parts.push(`${res.skippedUnknownWh.length} unknown warehouse`);
+      if (res.errors.length) parts.push(`${res.errors.length} errors`);
+      toast.success(parts.join(" · "));
+      if (res.skippedUnknownWh.length) {
+        const codes = Array.from(new Set(res.skippedUnknownWh.flatMap((r) => r.missing)));
+        toast.message("Missing warehouse codes", { description: codes.join(", ") });
+      }
+      if (res.errors.length) {
+        console.error("[csv-import] errors", res.errors);
+      }
+    } catch (err) {
+      console.error("[csv-import]", err);
+      toast.error(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv,text/csv"
+        className="hidden"
+        onChange={onFile}
+      />
+      <button
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-2 disabled:opacity-50"
+      >
+        <Upload className="size-3.5" /> {busy ? "Importing…" : "Import CSV"}
+      </button>
+    </>
+  );
+}
+
 
 type Stop = {
   id?: string;
@@ -820,60 +878,3 @@ function ComplianceDot({ c }: { c: Compliance }) {
   return <span title={title} className={`size-1.5 rounded-full shrink-0 ${cls}`} />;
 }
 
-function ImportCsvButton() {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-  const runImport = useServerFn(importJobsCsv);
-
-  async function onFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setBusy(true);
-    try {
-      const text = await file.text();
-      const rows = csvToImportRows(text);
-      if (rows.length === 0) {
-        toast.error("No rows found in CSV");
-        return;
-      }
-      const res = await runImport({ data: { rows } });
-      const parts: string[] = [`${res.created} created`];
-      if (res.skippedDuplicate.length) parts.push(`${res.skippedDuplicate.length} duplicate`);
-      if (res.skippedUnknownWh.length) parts.push(`${res.skippedUnknownWh.length} unknown warehouse`);
-      if (res.errors.length) parts.push(`${res.errors.length} errors`);
-      toast.success(parts.join(" · "));
-      if (res.skippedUnknownWh.length) {
-        const codes = Array.from(new Set(res.skippedUnknownWh.flatMap((r) => r.missing)));
-        toast.message("Missing warehouse codes", { description: codes.join(", ") });
-      }
-      if (res.errors.length) {
-        console.error("[csv-import] errors", res.errors);
-      }
-    } catch (err) {
-      console.error("[csv-import]", err);
-      toast.error(err instanceof Error ? err.message : "Import failed");
-    } finally {
-      setBusy(false);
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  }
-
-  return (
-    <>
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".csv,text/csv"
-        className="hidden"
-        onChange={onFile}
-      />
-      <button
-        onClick={() => inputRef.current?.click()}
-        disabled={busy}
-        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-2 disabled:opacity-50"
-      >
-        <Upload className="size-3.5" /> {busy ? "Importing…" : "Import CSV"}
-      </button>
-    </>
-  );
-}
