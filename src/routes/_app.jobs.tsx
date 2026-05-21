@@ -462,6 +462,47 @@ function JobsPage() {
           ) : (
             <div>
               <div className="mb-3 flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs hover:bg-surface-2",
+                        dateRange ? "text-foreground" : "text-muted-foreground",
+                      )}
+                    >
+                      <CalendarIcon className="size-3.5" />
+                      {dateLabel}
+                      <ChevronDown className="size-3" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <div className="flex items-center gap-1 border-b border-border px-2 py-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                      <button
+                        onClick={() => { const t = startOfDay(new Date()); setDateRange({ from: t, to: t }); }}
+                        className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                      >Today</button>
+                      <button
+                        onClick={() => { const y = startOfDay(new Date(Date.now() - 86400000)); setDateRange({ from: y, to: y }); }}
+                        className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                      >Yesterday</button>
+                      <button
+                        onClick={() => { const to = startOfDay(new Date()); const from = startOfDay(new Date(Date.now() - 6 * 86400000)); setDateRange({ from, to }); }}
+                        className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                      >7d</button>
+                      <button
+                        onClick={() => setDateRange(undefined)}
+                        className="ml-auto rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                      >All</button>
+                    </div>
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={2}
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
                 <input
                   type="text"
                   value={search}
