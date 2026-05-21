@@ -12,6 +12,7 @@ import {
   jobInlineKeyboard,
   delayReasonsKeyboard,
   emptyInlineKeyboard,
+  deleteMessage,
 } from "@/lib/telegram.server";
 import { recomputeRecent } from "@/lib/shift-ledger.server";
 
