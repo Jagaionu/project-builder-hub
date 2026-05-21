@@ -493,6 +493,8 @@ function ComplianceCell({ c, driverId }: { c: Compliance | undefined; driverId: 
                 All limits within legal range.
               </div>
             )}
+
+            <DayHoursTable rows={rows} />
           </div>
         </>,
         document.body
