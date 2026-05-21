@@ -233,12 +233,15 @@ function JobsPage() {
         title="Jobs"
         subtitle="Multi-stop routes — click a row to edit or delete"
         right={
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="size-3.5" /> Create route
-          </button>
+          <div className="flex items-center gap-2">
+            <ImportCsvButton />
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="size-3.5" /> Create route
+            </button>
+          </div>
         }
       />
         <div className="flex-1 overflow-y-auto p-5">
