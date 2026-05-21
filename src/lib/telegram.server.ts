@@ -98,6 +98,14 @@ export async function editMessageReplyMarkup(
   });
 }
 
+export async function deleteMessage(chatId: number | string, messageId: number) {
+  try {
+    await tg("deleteMessage", { chat_id: chatId, message_id: messageId });
+  } catch {
+    // Telegram only allows deleting messages <48h old; ignore failures.
+  }
+}
+
 export async function setWebhook(url: string) {
   return tg("setWebhook", {
     url,
