@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Driver, Warehouse, Job } from "@/lib/types";
 import { computeCompliance, type Compliance, type ComplianceEvent } from "@/lib/compliance";
@@ -104,6 +104,7 @@ export type DriverDayHours = {
 
 export function useDriverDayHours(): Record<string, DriverDayHours[]> {
   const [map, setMap] = useState<Record<string, DriverDayHours[]>>({});
+  const channelNameRef = useRef(`rt-driver-day-hours-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -139,7 +140,7 @@ export function useDriverDayHours(): Record<string, DriverDayHours[]> {
     load();
 
     const ch = supabase
-      .channel("rt-driver-day-hours")
+      .channel(channelNameRef.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "driver_day_hours" }, () => {
         console.info("[drivers][day-hours] realtime change detected");
         void load();
@@ -154,27 +155,17 @@ export function useDriverDayHours(): Record<string, DriverDayHours[]> {
   return map;
 }
 
-function ukDayStringLocal(d: Date): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/London",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(d);
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")}`;
-}
-
-export function useCompliance(ledgerOverride?: Record<string, DriverDayHours[]>): Record<string, Compliance> {
-  const events = useDriverEventsByDriver();
-  const internalLedger = useDriverDayHours();
-  const ledger = ledgerOverride ?? internalLedger;
+function useComplianceState(
+  events: Record<string, ComplianceEvent[]>,
+  ledger: Record<string, DriverDayHours[]>,
+): Record<string, Compliance> {
   // Tick every minute so headroom / break timers stay current.
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 60_000);
     return () => clearInterval(id);
   }, []);
+
   return useMemo(() => {
     const now = Date.now();
     void tick;
@@ -202,4 +193,28 @@ export function useCompliance(ledgerOverride?: Record<string, DriverDayHours[]>)
     }
     return out;
   }, [events, ledger, tick]);
+}
+
+function ukDayStringLocal(d: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+export function useCompliance(): Record<string, Compliance> {
+  const events = useDriverEventsByDriver();
+  const ledger = useDriverDayHours();
+  return useComplianceState(events, ledger);
+}
+
+export function useComplianceWithLedger(
+  ledger: Record<string, DriverDayHours[]>,
+): Record<string, Compliance> {
+  const events = useDriverEventsByDriver();
+  return useComplianceState(events, ledger);
 }
