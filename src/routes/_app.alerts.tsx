@@ -1,116 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
-import { useDrivers, useJobs, useCompliance, useRecentDelays } from "@/lib/hooks";
 import { PageHeader } from "./_app.index";
-import { AlertTriangle, Clock, WifiOff, Timer, Gauge } from "lucide-react";
+import { Clock, Check } from "lucide-react";
+import { useAlerts } from "@/lib/use-alerts";
 
 export const Route = createFileRoute("/_app/alerts")({
   component: AlertsPage,
   head: () => ({ meta: [{ title: "Alerts — Planning System" }] }),
 });
 
-interface Alert {
-  id: string;
-  level: "critical" | "warning" | "info";
-  type: string;
-  message: string;
-  icon: typeof AlertTriangle;
-  time?: string;
-}
-
 function AlertsPage() {
-  const drivers = useDrivers();
-  const jobs = useJobs();
-  const compliance = useCompliance();
-  const recentDelays = useRecentDelays();
-
-  const alerts = useMemo<Alert[]>(() => {
-    const out: Alert[] = [];
-    const now = Date.now();
-
-    // Surface delay reports from the last few hours so they don't disappear
-    // when the driver's status flips back to AVAILABLE/ON_ROUTE.
-    const driversById = new Map(drivers.map((d) => [d.id, d]));
-    const jobsById = new Map(jobs.map((j) => [j.id, j]));
-    recentDelays.forEach((dr) => {
-      const d = driversById.get(dr.driver_id);
-      const name = d?.name ?? "Driver";
-      const job = dr.job_id ? jobsById.get(dr.job_id) : null;
-      const jobRef = job ? ` on ${job.reference}` : "";
-      const ageMin = Math.round((now - new Date(dr.timestamp).getTime()) / 60000);
-      out.push({
-        id: `delay-${dr.driver_id}-${dr.timestamp}`,
-        level: "critical",
-        type: "Delay reported",
-        icon: AlertTriangle,
-        message: `${name}${jobRef}: ${dr.reason} (${ageMin}m ago)`,
-      });
-    });
-
-
-    drivers.forEach((d) => {
-      if (d.status === "DELAYED") {
-        out.push({ id: `d-${d.id}`, level: "critical", type: "Delay reported", icon: AlertTriangle, message: `${d.name} flagged DELAYED` });
-      }
-      if (d.status === "OFF_SHIFT") {
-        const activeJobs = jobs.filter(
-          (j) => j.assigned_driver_id === d.id &&
-            ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
-        );
-        if (activeJobs.length > 0) {
-          out.push({
-            id: `off-${d.id}`,
-            level: "critical",
-            type: "Driver off-shift",
-            icon: AlertTriangle,
-            message: `${d.name} went OFF with ${activeJobs.length} active job(s) — re-plan needed`,
-          });
-        }
-      }
-      if (d.last_update_time) {
-        const ageMin = (now - new Date(d.last_update_time).getTime()) / 60000;
-        if (ageMin > 15 && d.status !== "OFF_SHIFT") {
-          out.push({ id: `s-${d.id}`, level: "warning", type: "Stale location", icon: WifiOff, message: `${d.name} no ping for ${Math.round(ageMin)} min` });
-        }
-      }
-      const c = compliance[d.id];
-      if (c) {
-        c.issues.forEach((iss, idx) => {
-          out.push({
-            id: `c-${d.id}-${idx}`,
-            level: iss.level === "breach" ? "critical" : "warning",
-            type: "HGV hours",
-            icon: Gauge,
-            message: `${d.name}: ${iss.msg}`,
-          });
-        });
-      }
-    });
-
-    jobs.forEach((j) => {
-      if ((j.status === "ASSIGNED" || j.status === "IN_PROGRESS") && j.eta_minutes && j.scheduled_at) {
-        const overdueMin = (now - new Date(j.scheduled_at).getTime()) / 60000 - j.eta_minutes;
-        if (overdueMin > 0) {
-          out.push({ id: `j-${j.id}`, level: "warning", type: "Overdue ETA", icon: Timer, message: `${j.reference} overdue by ${Math.round(overdueMin)} min` });
-        }
-      }
-      // Unassignable: pending > 2 min, no driver and no planned driver
-      if (j.status === "PENDING" && !j.assigned_driver_id && !j.planned_driver_id) {
-        const ageMin = (now - new Date(j.created_at).getTime()) / 60000;
-        if (ageMin > 2) {
-          out.push({
-            id: `u-${j.id}`,
-            level: "critical",
-            type: "Unassignable",
-            icon: AlertTriangle,
-            message: `${j.reference}: no driver in 30 km with hours to spare`,
-          });
-        }
-      }
-    });
-
-    return out;
-  }, [drivers, jobs, compliance, recentDelays]);
+  const { alerts, ack } = useAlerts();
 
   const colors = {
     critical: "border-destructive/40 bg-destructive/10 text-destructive",
@@ -139,6 +38,15 @@ function AlertsPage() {
                     <div className="text-sm">{a.message}</div>
                   </div>
                   <Clock className="size-3.5 opacity-60" />
+                  <button
+                    type="button"
+                    onClick={() => ack(a.id)}
+                    className="ml-1 inline-flex items-center gap-1 rounded-md border border-current/30 px-2 py-1 text-[11px] font-mono uppercase tracking-wider hover:bg-current/10 transition-colors"
+                    title="Acknowledge and clear this alert"
+                  >
+                    <Check className="size-3" />
+                    Ack
+                  </button>
                 </li>
               );
             })}
