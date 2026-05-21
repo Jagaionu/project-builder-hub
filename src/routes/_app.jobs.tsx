@@ -179,7 +179,35 @@ function JobsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | JobStatus>("ALL");
+  const [hiddenStatuses, setHiddenStatuses] = useState<Set<JobStatus>>(() => {
+    if (typeof window === "undefined") return new Set<JobStatus>(["COMPLETED", "CANCELLED"]);
+    try {
+      const raw = localStorage.getItem("jobs.hiddenStatuses");
+      if (raw) return new Set(JSON.parse(raw) as JobStatus[]);
+    } catch { /* noop */ }
+    return new Set<JobStatus>(["COMPLETED", "CANCELLED"]);
+  });
+  useEffect(() => {
+    try { localStorage.setItem("jobs.hiddenStatuses", JSON.stringify(Array.from(hiddenStatuses))); }
+    catch { /* noop */ }
+  }, [hiddenStatuses]);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const statusMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!statusMenuOpen) return;
+    const h = (e: MouseEvent) => {
+      if (statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) setStatusMenuOpen(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [statusMenuOpen]);
+  function toggleStatus(s: JobStatus) {
+    setHiddenStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s); else next.add(s);
+      return next;
+    });
+  }
   const notify = useServerFn(notifyDriverOfJob);
   const plan = useMemo(
     () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
