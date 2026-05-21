@@ -181,6 +181,52 @@ function JobsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const notify = useServerFn(notifyDriverOfJob);
+  const [hiddenStatuses, setHiddenStatuses] = useState<Set<JobStatus>>(() => {
+    if (typeof window === "undefined") return new Set(["COMPLETED", "CANCELLED"]);
+    try {
+      const raw = localStorage.getItem("jobs.hiddenStatuses");
+      if (raw) return new Set(JSON.parse(raw) as JobStatus[]);
+    } catch {
+      /* ignore */
+    }
+    return new Set(["COMPLETED", "CANCELLED"]);
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("jobs.hiddenStatuses", JSON.stringify(Array.from(hiddenStatuses)));
+    } catch {
+      /* ignore */
+    }
+  }, [hiddenStatuses]);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const statusMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!statusMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) {
+        setStatusMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [statusMenuOpen]);
+  const visibleJobs = useMemo(
+    () => jobs.filter((j) => !hiddenStatuses.has(j.status as JobStatus)),
+    [jobs, hiddenStatuses],
+  );
+  const statusCounts = useMemo(() => {
+    const m: Partial<Record<JobStatus, number>> = {};
+    for (const j of jobs) m[j.status as JobStatus] = (m[j.status as JobStatus] ?? 0) + 1;
+    return m;
+  }, [jobs]);
+  function toggleStatus(s: JobStatus) {
+    setHiddenStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  }
   const plan = useMemo(
     () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
     [jobs, stopsMap, drivers, warehouses, compliance],
