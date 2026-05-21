@@ -353,6 +353,28 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
 
 
   if (t === "▶️ Start Shift" || t === "/start_shift") {
+    if (driver.status !== "OFF_SHIFT") {
+      // Already on shift — don't double-log or reset the clock.
+      const { data: lastStart } = await supabaseAdmin
+        .from("driver_events")
+        .select("timestamp")
+        .eq("driver_id", driver.id)
+        .eq("type", "START_SHIFT" as never)
+        .order("timestamp", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const since = lastStart
+        ? new Date(lastStart.timestamp as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        : null;
+      await sendMessage(
+        chatId,
+        since
+          ? `ℹ️ You're already <b>on shift</b> since ${since}. Tap ⏹ End Shift when you're done.`
+          : `ℹ️ You're already <b>on shift</b>. Tap ⏹ End Shift when you're done.`,
+        mainMenu,
+      );
+      return;
+    }
     await supabaseAdmin
       .from("drivers")
       .update({ status: "AVAILABLE", last_update_time: new Date().toISOString() })
@@ -381,6 +403,7 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
       .update({ status: "OFF_SHIFT", last_update_time: new Date().toISOString() })
       .eq("id", driver.id);
     await logEvent(driver.id, "END_SHIFT", {});
+    await clearJobCardsFromChat(driver.id, chatId);
     await sendMessage(chatId, "🛑 <b>Shift ended.</b> Have a good rest!", mainMenu);
     return;
   }
