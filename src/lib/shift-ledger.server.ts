@@ -4,7 +4,7 @@
 // correction (delete a bad event, run recompute) just works.
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { driveHoursOf } from "@/lib/compliance";
+import { legMinutes, type StopLike, type WhLike } from "@/lib/geo";
 
 const UK_TZ = "Europe/London";
 
