@@ -799,13 +799,14 @@ function StatusPill({ status, onChange }: { status: string; onChange: (s: string
 function DriverPicker({ driverId, allowUnassign = true, drivers, compliance, onChange }: {
   driverId: string | null | undefined;
   allowUnassign?: boolean;
-  drivers: { id: string; name: string; telegram_id?: string | null }[];
+  drivers: { id: string; name: string; telegram_id?: string | null; status?: string }[];
   compliance?: Record<string, Compliance>;
   onChange: (id: string) => void;
 }) {
   const { open, setOpen, btnRef, popRef, coords } = usePopover();
   const driver = drivers.find((d) => d.id === driverId);
   const activeC = driver ? compliance?.[driver.id] : undefined;
+
   return (
     <div className="relative inline-block">
       <button
@@ -820,7 +821,7 @@ function DriverPicker({ driverId, allowUnassign = true, drivers, compliance, onC
               {driver.name[0]?.toUpperCase()}
             </span>
             <span className="text-xs text-foreground font-medium truncate max-w-[90px]">{driver.name}</span>
-            {activeC && <ComplianceDot c={activeC} />}
+            {activeC && <ComplianceDot c={activeC} driverStatus={driver.status} />}
             {!driver.telegram_id && <span className="text-[9px] text-muted-foreground/60 font-mono">no TG</span>}
           </>
         ) : (
@@ -882,7 +883,7 @@ function DriverPicker({ driverId, allowUnassign = true, drivers, compliance, onC
                     </span>
                   )}
                 </span>
-                {dc && <ComplianceDot c={dc} />}
+                {dc && <ComplianceDot c={dc} driverStatus={d.status} />}
                 {active && <Check className="size-3 text-foreground" />}
               </button>
             );
@@ -1151,8 +1152,9 @@ function PlannedChip({
 }
 
 
-function ComplianceDot({ c }: { c: Compliance }) {
-  const offShift = !c.onShift;
+function ComplianceDot({ c, driverStatus }: { c: Compliance; driverStatus?: string }) {
+  const activeStatus = driverStatus && driverStatus !== "OFF_SHIFT";
+  const offShift = !c.onShift && !activeStatus;
   const cls = offShift
     ? "bg-muted-foreground/40"
     : c.status === "breach"
@@ -1165,4 +1167,5 @@ function ComplianceDot({ c }: { c: Compliance }) {
     : (c.issues[0]?.msg ?? `OK · ${c.daily.toFixed(1)}/10 today · ${c.weekly.toFixed(1)}/56 this week`);
   return <span title={title} className={`size-1.5 rounded-full shrink-0 ${cls}`} />;
 }
+
 
