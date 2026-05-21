@@ -178,6 +178,8 @@ function JobsPage() {
   const compliance = useCompliance();
   const [createOpen, setCreateOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | JobStatus>("ALL");
   const notify = useServerFn(notifyDriverOfJob);
   const plan = useMemo(
     () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
@@ -313,6 +315,27 @@ function JobsPage() {
 
   const editingJob = editJobId ? jobs.find((j) => j.id === editJobId) : null;
 
+  const filteredJobs = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return jobs.filter((j) => {
+      if (statusFilter !== "ALL" && j.status !== statusFilter) return false;
+      if (!q) return true;
+      if (j.reference.toLowerCase().includes(q)) return true;
+      if (j.status.toLowerCase().replace(/_/g, " ").includes(q)) return true;
+      if ((STATUS_CONFIG[j.status as JobStatus]?.label ?? "").toLowerCase().includes(q)) return true;
+      const stops = stopsMap[j.id] ?? [];
+      const route = stops
+        .map((s) => warehouses.find((w) => w.id === s.warehouse_id))
+        .map((w) => `${w?.code ?? ""} ${w?.name ?? ""}`)
+        .join(" ")
+        .toLowerCase();
+      if (route.includes(q)) return true;
+      const driver = drivers.find((d) => d.id === j.assigned_driver_id);
+      if (driver?.name.toLowerCase().includes(q)) return true;
+      return false;
+    });
+  }, [jobs, stopsMap, warehouses, drivers, search, statusFilter]);
+
   return (
     <div className="h-full flex flex-col">
       <PageHeader
@@ -343,6 +366,37 @@ function JobsPage() {
               </button>
             </div>
           ) : (
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by reference, route (warehouse code/name), driver, status…"
+                  className="flex-1 rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as "ALL" | JobStatus)}
+                  className="rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="ALL">All statuses</option>
+                  {JOB_STATUSES.map((s) => (
+                    <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
+                  ))}
+                </select>
+                {(search || statusFilter !== "ALL") && (
+                  <button
+                    onClick={() => { setSearch(""); setStatusFilter("ALL"); }}
+                    className="rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-2"
+                  >
+                    Clear
+                  </button>
+                )}
+                <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">
+                  {filteredJobs.length} / {jobs.length}
+                </span>
+              </div>
             <div className="rounded-lg border border-border bg-surface overflow-hidden">
               {/* Table header */}
               <div className="grid grid-cols-12 gap-3 px-4 py-2.5 bg-background border-b border-border text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -353,7 +407,7 @@ function JobsPage() {
                 <div className="col-span-2">Scheduled / ETA</div>
               </div>
               {/* Rows */}
-              {jobs.map((j) => {
+              {filteredJobs.map((j) => {
                 const stops = stopsMap[j.id] ?? [];
                 const planned = plannedByJob.get(j.id);
                 return (
@@ -444,6 +498,7 @@ function JobsPage() {
                   </div>
                 );
               })}
+            </div>
             </div>
           )}
         </div>
