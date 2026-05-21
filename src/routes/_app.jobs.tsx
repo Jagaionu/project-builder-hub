@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { useJobs, useWarehouses, useDrivers, useCompliance } from "@/lib/hooks";
 import type { Compliance } from "@/lib/compliance";
 
@@ -378,23 +379,47 @@ function JobsPage() {
 function usePopover() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) return;
+    const update = () => {
+      const r = btnRef.current!.getBoundingClientRect();
+      setCoords({ top: r.bottom + 6, left: r.left });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (popRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
-  return { open, setOpen, ref };
+
+  return { open, setOpen, ref, btnRef, popRef, coords };
 }
 
 function StatusPill({ status, onChange }: { status: string; onChange: (s: string) => void }) {
-  const { open, setOpen, ref } = usePopover();
+  const { open, setOpen, btnRef, popRef, coords } = usePopover();
   const cfg = STATUS_CONFIG[status as JobStatus] ?? STATUS_CONFIG.PENDING;
   return (
-    <div ref={ref} className="relative">
+    <div className="relative inline-block">
       <button
+        ref={btnRef}
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-opacity hover:opacity-80 select-none ${cfg.badge}`}
@@ -402,10 +427,12 @@ function StatusPill({ status, onChange }: { status: string; onChange: (s: string
         <span className={`size-1.5 rounded-full shrink-0 ${cfg.dot}`} />
         {cfg.label}
       </button>
-      {open && (
+      {open && coords && typeof document !== "undefined" && createPortal(
         <div
+          ref={popRef}
           onClick={(e) => e.stopPropagation()}
-          className="absolute left-0 top-full mt-1.5 z-30 w-48 rounded-xl border border-border bg-popover shadow-xl py-1.5"
+          style={{ position: "fixed", top: coords.top, left: coords.left }}
+          className="z-[1000] w-48 rounded-xl border border-border bg-popover shadow-xl py-1.5"
         >
           {JOB_STATUSES.map((s) => {
             const c = STATUS_CONFIG[s];
@@ -425,7 +452,8 @@ function StatusPill({ status, onChange }: { status: string; onChange: (s: string
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -437,12 +465,13 @@ function DriverPicker({ driverId, drivers, compliance, onChange }: {
   compliance?: Record<string, Compliance>;
   onChange: (id: string) => void;
 }) {
-  const { open, setOpen, ref } = usePopover();
+  const { open, setOpen, btnRef, popRef, coords } = usePopover();
   const driver = drivers.find((d) => d.id === driverId);
   const activeC = driver ? compliance?.[driver.id] : undefined;
   return (
-    <div ref={ref} className="relative">
+    <div className="relative inline-block">
       <button
+        ref={btnRef}
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -465,10 +494,12 @@ function DriverPicker({ driverId, drivers, compliance, onChange }: {
           </>
         )}
       </button>
-      {open && (
+      {open && coords && typeof document !== "undefined" && createPortal(
         <div
+          ref={popRef}
           onClick={(e) => e.stopPropagation()}
-          className="absolute left-0 top-full mt-1.5 z-30 w-52 rounded-xl border border-border bg-popover shadow-xl py-1.5"
+          style={{ position: "fixed", top: coords.top, left: coords.left }}
+          className="z-[1000] w-52 rounded-xl border border-border bg-popover shadow-xl py-1.5 max-h-[60vh] overflow-y-auto"
         >
           <button
             type="button"
@@ -514,7 +545,8 @@ function DriverPicker({ driverId, drivers, compliance, onChange }: {
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
