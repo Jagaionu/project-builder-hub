@@ -346,7 +346,7 @@ function JobsPage() {
   const filteredJobs = useMemo(() => {
     const q = search.trim().toLowerCase();
     return jobs.filter((j) => {
-      if (statusFilter !== "ALL" && j.status !== statusFilter) return false;
+      if (hiddenStatuses.has(j.status as JobStatus)) return false;
       if (!q) return true;
       if (j.reference.toLowerCase().includes(q)) return true;
       if (j.status.toLowerCase().replace(/_/g, " ").includes(q)) return true;
