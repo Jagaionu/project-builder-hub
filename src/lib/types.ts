@@ -47,6 +47,7 @@ export interface Job {
   planned_driver_id?: string | null;
   planned_sequence?: number | null;
   planned_start_at?: string | null;
+  for_date?: string | null;
 }
 
 
