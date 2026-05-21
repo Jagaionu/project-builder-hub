@@ -366,7 +366,7 @@ function JobsPage() {
               </button>
             </div>
           ) : (
-            <>
+            <div>
               <div className="mb-3 flex items-center gap-2">
                 <input
                   type="text"
