@@ -66,6 +66,74 @@ export const notifyDriverJobUpdate = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const notifyDriverTomorrowRoutes = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ driverId: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const { data: driver } = await supabaseAdmin
+      .from("drivers")
+      .select("id,telegram_id,tomorrow_start_lat,tomorrow_start_lon")
+      .eq("id", data.driverId)
+      .maybeSingle();
+    if (!driver) return { skipped: "no_driver" };
+    if (!driver.telegram_id) return { skipped: "no_telegram" };
+
+    const t = new Date();
+    t.setUTCDate(t.getUTCDate() + 1);
+    const tomorrow = t.toISOString().slice(0, 10);
+
+    const { data: jobs } = await supabaseAdmin
+      .from("jobs")
+      .select("id,reference,planned_sequence,destination_warehouse_id")
+      .eq("planned_driver_id", data.driverId)
+      .eq("for_date", tomorrow)
+      .order("planned_sequence", { ascending: true });
+
+    const list = (jobs ?? []) as Array<{ id: string; reference: string; planned_sequence: number | null; destination_warehouse_id: string | null }>;
+    if (list.length === 0) return { skipped: "no_jobs" };
+
+    await sendMessage(
+      driver.telegram_id,
+      `🗓 <b>Your routes for tomorrow (${tomorrow}):</b>\n${list.length} route(s) assigned.`,
+    );
+
+    let prevLat: number | null = driver.tomorrow_start_lat ?? null;
+    let prevLon: number | null = driver.tomorrow_start_lon ?? null;
+
+    for (const j of list) {
+      const card = await buildJobCard(
+        j.id,
+        data.driverId,
+        prevLat ?? undefined,
+        prevLon ?? undefined,
+      );
+      if (!card) continue;
+      await sendMessage(driver.telegram_id, card.text, jobInlineKeyboard(j.id, "OFFER"));
+      await supabaseAdmin.from("driver_events").insert({
+        driver_id: data.driverId,
+        type: "JOB_CARD_SENT" as never,
+        payload: { job_id: j.id, tomorrow: true } as never,
+      });
+      // Advance start position to this job's last drop
+      if (j.destination_warehouse_id) {
+        const { data: wh } = await supabaseAdmin
+          .from("warehouses")
+          .select("latitude,longitude")
+          .eq("id", j.destination_warehouse_id)
+          .maybeSingle();
+        if (wh) {
+          prevLat = wh.latitude;
+          prevLon = wh.longitude;
+        }
+      }
+    }
+
+    await sendMessage(
+      driver.telegram_id,
+      `✅ All routes sent. Reply ACCEPT on each to confirm.\nSee you tomorrow! 🚚`,
+    );
+    return { ok: true, count: list.length };
+  });
+
 export const generatePairingCode = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ driverId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
