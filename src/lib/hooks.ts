@@ -5,12 +5,13 @@ import { computeCompliance, type Compliance, type ComplianceEvent } from "@/lib/
 
 export function useDrivers(initialDrivers: Driver[] = []) {
   const [drivers, setDrivers] = useState<Driver[]>(initialDrivers);
+  const channelNameRef = useRef(`rt-drivers-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     let mounted = true;
     supabase.from("drivers").select("*").order("name").then(({ data }) => {
       if (mounted && data) setDrivers(data as Driver[]);
     });
-    const ch = supabase.channel("rt-drivers")
+    const ch = supabase.channel(channelNameRef.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, (payload) => {
         setDrivers((prev) => {
           if (payload.eventType === "INSERT") return [...prev, payload.new as Driver];
@@ -39,12 +40,13 @@ export function useWarehouses() {
 
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>([]);
+  const channelNameRef = useRef(`rt-jobs-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     let mounted = true;
     supabase.from("jobs").select("*").order("created_at", { ascending: false }).then(({ data }) => {
       if (mounted && data) setJobs(data as Job[]);
     });
-    const ch = supabase.channel("rt-jobs")
+    const ch = supabase.channel(channelNameRef.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, (payload) => {
         setJobs((prev) => {
           if (payload.eventType === "INSERT") return [payload.new as Job, ...prev];
@@ -63,6 +65,7 @@ export function useJobs() {
 
 export function useDriverEventsByDriver(): Record<string, ComplianceEvent[]> {
   const [map, setMap] = useState<Record<string, ComplianceEvent[]>>({});
+  const channelNameRef = useRef(`rt-driver-events-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     let mounted = true;
     const since = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
@@ -82,7 +85,7 @@ export function useDriverEventsByDriver(): Record<string, ComplianceEvent[]> {
     };
     load();
     const ch = supabase
-      .channel("rt-driver-events")
+      .channel(channelNameRef.current)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "driver_events" }, load)
       .subscribe();
     return () => {
@@ -102,6 +105,7 @@ export type RecentDelay = {
 
 export function useRecentDelays(): RecentDelay[] {
   const [rows, setRows] = useState<RecentDelay[]>([]);
+  const channelNameRef = useRef(`rt-delay-events-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -126,7 +130,7 @@ export function useRecentDelays(): RecentDelay[] {
     };
     load();
     const ch = supabase
-      .channel("rt-delay-events")
+      .channel(channelNameRef.current)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "driver_events" }, load)
       .subscribe();
     return () => {
