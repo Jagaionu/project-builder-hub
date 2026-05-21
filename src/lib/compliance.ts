@@ -84,11 +84,17 @@ function sumDrivingInWindow(segs: Seg[], fromMs: number, toMs: number): number {
   return total;
 }
 
-export function computeCompliance(events: ComplianceEvent[], nowMs: number = Date.now()): Compliance {
+export type LedgerTotals = { daily?: number; weekly?: number; twoWeek?: number };
+
+export function computeCompliance(
+  events: ComplianceEvent[],
+  nowMs: number = Date.now(),
+  ledger?: LedgerTotals,
+): Compliance {
   const segs = buildSegments(events, nowMs);
-  const daily = sumDrivingInWindow(segs, nowMs - 24 * H, nowMs);
-  const weekly = sumDrivingInWindow(segs, nowMs - 7 * 24 * H, nowMs);
-  const twoWeek = sumDrivingInWindow(segs, nowMs - 14 * 24 * H, nowMs);
+  const daily = ledger?.daily ?? sumDrivingInWindow(segs, nowMs - 24 * H, nowMs);
+  const weekly = ledger?.weekly ?? sumDrivingInWindow(segs, nowMs - 7 * 24 * H, nowMs);
+  const twoWeek = ledger?.twoWeek ?? sumDrivingInWindow(segs, nowMs - 14 * 24 * H, nowMs);
 
   const openSeg = segs.find((s) => s.open);
   const onShift = !!openSeg;
