@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Activity, Map, Truck, Warehouse, ClipboardList, AlertTriangle, Webhook } from "lucide-react";
-import { useAlertCount } from "@/lib/use-alerts";
+import { useAlertCount, useUnassignedJobCount } from "@/lib/use-alerts";
 
 const nav = [
   { to: "/", label: "Live Map", icon: Map },
@@ -15,6 +15,7 @@ const nav = [
 export function Sidebar() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const alertCount = useAlertCount();
+  const unassignedCount = useUnassignedJobCount();
   return (
     <aside className="w-56 shrink-0 border-r border-border bg-surface flex flex-col">
       <div className="px-4 py-4 border-b border-border">
@@ -30,7 +31,9 @@ export function Sidebar() {
         {nav.map((n) => {
           const Icon = n.icon;
           const active = path === n.to;
-          const showBadge = n.to === "/alerts" && alertCount > 0;
+          const badgeCount =
+            n.to === "/alerts" ? alertCount : n.to === "/dispatch" ? unassignedCount : 0;
+          const showBadge = badgeCount > 0;
           return (
             <Link
               key={n.to}
@@ -46,9 +49,9 @@ export function Sidebar() {
               {showBadge && (
                 <span
                   className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-mono font-bold tabular-nums animate-pulse"
-                  aria-label={`${alertCount} active alerts`}
+                  aria-label={`${badgeCount} ${n.to === "/alerts" ? "active alerts" : "unassigned routes"}`}
                 >
-                  {alertCount > 99 ? "99+" : alertCount}
+                  {badgeCount > 99 ? "99+" : badgeCount}
                 </span>
               )}
             </Link>
