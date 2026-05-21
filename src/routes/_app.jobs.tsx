@@ -511,7 +511,12 @@ function JobsPage() {
                       mode="range"
                       selected={dateRange}
                       onSelect={setDateRange}
-                      numberOfMonths={2}
+                      numberOfMonths={1}
+                      startMonth={monthStart}
+                      endMonth={monthEnd}
+                      disabled={(d) => d < monthStart || d > monthEnd || !hasJobsOn(d)}
+                      modifiers={{ hasJobs: (d) => hasJobsOn(d) }}
+                      modifiersClassNames={{ hasJobs: "font-semibold text-primary" }}
                       className={cn("p-3 pointer-events-auto")}
                     />
                   </PopoverContent>
