@@ -21,6 +21,34 @@ export const Route = createFileRoute("/_app/drivers")({
 
 type DriverForm = { name: string; phone: string; telegram_id: string };
 
+function formatStableTime(iso: string | null): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  const hh = String(date.getUTCHours()).padStart(2, "0");
+  const mm = String(date.getUTCMinutes()).padStart(2, "0");
+  const ss = String(date.getUTCSeconds()).padStart(2, "0");
+  return `${hh}:${mm}:${ss} UTC`;
+}
+
+function formatStableDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  const yyyy = date.getUTCFullYear();
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${formatStableTime(iso)}`;
+}
+
+function formatLedgerDay(day: string): string {
+  const [year, month, date] = day.split("-").map(Number);
+  const utcDate = new Date(Date.UTC(year, month - 1, date));
+  const weekday = utcDate.toLocaleDateString("en-GB", {
+    weekday: "short",
+    timeZone: "UTC",
+  });
+  return `${weekday} ${String(date).padStart(2, "0")}/${String(month).padStart(2, "0")}`;
+}
+
 function DriversPage() {
   const { drivers: initialDrivers } = Route.useLoaderData();
   const drivers = useDrivers(initialDrivers);
@@ -166,7 +194,7 @@ function DriversPage() {
                       <ComplianceCell c={compliance[d.id]} driverId={d.id} />
                     </td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                      {d.last_update_time ? new Date(d.last_update_time).toLocaleTimeString() : "—"}
+                      {formatStableTime(d.last_update_time)}
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs">
                       {d.current_lat != null ? `${d.current_lat.toFixed(3)}, ${d.current_lon?.toFixed(3)}` : "—"}
@@ -359,7 +387,7 @@ function PendingRegistrations() {
               <td className="px-3 py-2.5 font-mono text-xs">{r.phone ?? "—"}</td>
               <td className="px-3 py-2.5 font-mono text-xs">{r.telegram_id}</td>
               <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                {new Date(r.created_at).toLocaleString()}
+                {formatStableDateTime(r.created_at)}
               </td>
               <td className="px-3 py-2.5">
                 <div className="flex items-center justify-end gap-1.5">
@@ -572,12 +600,7 @@ function DayHoursTable({ rows }: { rows: DriverDayHours[] }) {
           </thead>
           <tbody>
             {last14.map((r) => {
-              const d = new Date(r.day + "T00:00:00");
-              const label = d.toLocaleDateString("en-GB", {
-                weekday: "short",
-                day: "2-digit",
-                month: "2-digit",
-              });
+              const label = formatLedgerDay(r.day);
               return (
                 <tr key={r.day} className="border-t border-border/40">
                   <td className="py-1">{label}</td>
