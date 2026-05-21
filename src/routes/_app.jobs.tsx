@@ -687,6 +687,16 @@ function JobsPage() {
                     </div>
                     {expanded && stops.length > 0 && (
                       <div className="px-4 pb-3 pt-1 bg-background/50">
+                        <div className="flex justify-end mb-1.5">
+                          <button
+                            onClick={() => setEditJobId(j.id)}
+                            className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground hover:text-foreground hover:bg-surface-2"
+                            aria-label="Edit route"
+                            title="Edit route"
+                          >
+                            <Pencil className="size-3" />
+                          </button>
+                        </div>
                         <div className="rounded border border-border overflow-hidden">
                           <div className="grid grid-cols-12 gap-2 px-3 py-1.5 bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
                             <div className="col-span-1">#</div>
