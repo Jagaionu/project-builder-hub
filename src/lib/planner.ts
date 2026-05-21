@@ -242,3 +242,126 @@ export function computePlan(
 
   return out;
 }
+
+// ----- Tomorrow planner -----
+// Plans jobs that are scheduled for tomorrow against drivers who opted in via
+// Telegram (`available_tomorrow = true` + start lat/lon). Each driver gets a
+// daily budget (9h base, capped by weekly/fortnight headroom) and is chained
+// — the next job starts from where the last one dropped.
+
+export function computeTomorrowPlan(
+  tomorrowJobs: Job[],
+  stopsMap: StopsMap,
+  drivers: Driver[],
+  warehouses: Warehouse[],
+  compliance: Record<string, Compliance>,
+): PlanResult {
+  const out: PlanResult = { immediate: [], planned: [], unassignable: [] };
+
+  type TForecast = { lat: number; lon: number; hoursLeft: number; sequence: number };
+  const forecast: Record<string, TForecast> = {};
+  const driverById: Record<string, Driver> = {};
+
+  for (const d of drivers) {
+    const dd = d as Driver & {
+      available_tomorrow?: boolean;
+      tomorrow_start_lat?: number | null;
+      tomorrow_start_lon?: number | null;
+    };
+    if (!dd.available_tomorrow) continue;
+    if (dd.tomorrow_start_lat == null || dd.tomorrow_start_lon == null) continue;
+    const c = compliance[d.id];
+    if (c?.blockAssignment) continue;
+    let cap = 9;
+    if (c) {
+      if (c.weekly >= 47) cap = Math.min(cap, 56 - c.weekly);
+      if (c.twoWeek >= 81) cap = Math.min(cap, 90 - c.twoWeek);
+    }
+    if (cap <= 0) continue;
+    forecast[d.id] = {
+      lat: dd.tomorrow_start_lat,
+      lon: dd.tomorrow_start_lon,
+      hoursLeft: cap,
+      sequence: 0,
+    };
+    driverById[d.id] = d;
+  }
+
+  const eligibleIds = Object.keys(forecast);
+
+  // Nominal tomorrow 06:00 UTC start
+  const t = new Date();
+  t.setUTCDate(t.getUTCDate() + 1);
+  t.setUTCHours(6, 0, 0, 0);
+  const baseStartMs = t.getTime();
+  const driverElapsed: Record<string, number> = {};
+
+  // Longest-first
+  const sorted = [...tomorrowJobs].sort((a, b) => {
+    const ha = jobDriveHours(stopsMap[a.id] ?? [], warehouses);
+    const hb = jobDriveHours(stopsMap[b.id] ?? [], warehouses);
+    return hb - ha;
+  });
+
+  for (const job of sorted) {
+    const stops = stopsMap[job.id] ?? [];
+    const fp = firstPickupWh(stops, warehouses);
+    if (!fp || stops.length === 0) {
+      out.unassignable.push({ jobId: job.id, reason: "No stops / pickup configured" });
+      continue;
+    }
+    const jobH = jobDriveHours(stops, warehouses);
+
+    let best: { id: string; dist: number; total: number; transit: number } | null = null;
+    let nearMiss: { name: string; dist: number; reason: string } | null = null;
+
+    for (const did of eligibleIds) {
+      const f = forecast[did];
+      const dist = haversineKm(f.lat, f.lon, fp.latitude, fp.longitude);
+      const transit = transitTimeHours(dist);
+      const total = transit + jobH;
+      if (f.hoursLeft < total) {
+        const reason = `needs ${total.toFixed(1)}h, ${f.hoursLeft.toFixed(1)}h left`;
+        if (!nearMiss || dist < nearMiss.dist) nearMiss = { name: driverById[did].name, dist, reason };
+        continue;
+      }
+      if (!best || dist < best.dist) best = { id: did, dist, total, transit };
+    }
+
+    if (!best) {
+      const reason = nearMiss
+        ? `Closest: ${nearMiss.name} — ${nearMiss.reason}`
+        : eligibleIds.length === 0
+          ? "No drivers available for tomorrow"
+          : "No eligible driver";
+      out.unassignable.push({ jobId: job.id, reason });
+      continue;
+    }
+
+    const f = forecast[best.id];
+    const seq = ++f.sequence;
+    const elapsedH = driverElapsed[best.id] ?? 0;
+    const startMs = baseStartMs + elapsedH * 3_600_000;
+    driverElapsed[best.id] = elapsedH + best.total;
+
+    const c = compliance[best.id];
+    const weeklyBase = c?.weekly ?? 0;
+
+    out.planned.push({
+      jobId: job.id,
+      driverId: best.id,
+      sequence: seq,
+      startAt: new Date(startMs).toISOString(),
+      distKm: best.dist,
+      dailyHoursLeft: Math.max(0, f.hoursLeft - best.total),
+      weeklyHoursLeft: Math.max(0, 56 - weeklyBase - best.total),
+    });
+
+    const ld = lastDropWh(stops, warehouses);
+    f.lat = ld?.latitude ?? f.lat;
+    f.lon = ld?.longitude ?? f.lon;
+    f.hoursLeft -= best.total;
+  }
+
+  return out;
+}
