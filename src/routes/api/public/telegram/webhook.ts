@@ -418,6 +418,11 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
     await logEvent(driver.id, "END_SHIFT", {});
     await clearJobCardsFromChat(driver.id, chatId);
     await sendMessage(chatId, "🛑 <b>Shift ended.</b> Have a good rest!", mainMenu);
+    await sendMessage(
+      chatId,
+      `⏹ Shift ended. Are you available for tomorrow's routes?\nReply <b>YES</b> or <b>NO</b>.`,
+    );
+    pendingTomorrowState.set(String(chatId), "awaiting_answer");
     return;
   }
 
