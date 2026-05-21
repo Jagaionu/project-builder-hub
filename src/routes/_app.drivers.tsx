@@ -160,7 +160,7 @@ function DriversPage() {
                       <StatusBadge status={d.status} kind="driver" />
                     </td>
                     <td className="px-3 py-2.5">
-                      <ComplianceCell c={compliance[d.id]} />
+                      <ComplianceCell c={compliance[d.id]} driverId={d.id} />
                     </td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">
                       {d.last_update_time ? new Date(d.last_update_time).toLocaleTimeString() : "—"}
