@@ -110,7 +110,7 @@ function AlertsPage() {
     });
 
     return out;
-  }, [drivers, jobs, compliance]);
+  }, [drivers, jobs, compliance, recentDelays]);
 
   const colors = {
     critical: "border-destructive/40 bg-destructive/10 text-destructive",
