@@ -46,8 +46,20 @@ export const planTomorrow = createServerFn({ method: "POST" }).handler(async () 
   }
   const compliance: Record<string, ReturnType<typeof computeCompliance>> = {};
   const now = Date.now();
+  const today = new Date(now).toISOString().slice(0, 10);
+  const weekAgo = new Date(now - 6 * 86400_000).toISOString().slice(0, 10);
+  const fortnightAgo = new Date(now - 13 * 86400_000).toISOString().slice(0, 10);
   for (const d of driverList) {
-    compliance[d.id] = computeCompliance(eventsByDriver[d.id] ?? [], now, ledgerByDriver[d.id] ?? []);
+    const rows = ledgerByDriver[d.id] ?? [];
+    const todayRow = rows.find((r) => r.day === today);
+    const weekRows = rows.filter((r) => r.day >= weekAgo && r.day <= today);
+    const fortRows = rows.filter((r) => r.day >= fortnightAgo && r.day <= today);
+    const totals = {
+      daily: todayRow ? todayRow.drive_minutes / 60 : undefined,
+      weekly: weekRows.length ? weekRows.reduce((s, r) => s + r.drive_minutes, 0) / 60 : undefined,
+      twoWeek: fortRows.length ? fortRows.reduce((s, r) => s + r.drive_minutes, 0) / 60 : undefined,
+    };
+    compliance[d.id] = computeCompliance(eventsByDriver[d.id] ?? [], now, totals);
   }
 
   const plan = computeTomorrowPlan(jobList, stopsMap, driverList, whList, compliance);
