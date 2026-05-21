@@ -22,10 +22,31 @@ function AlertsPage() {
   const drivers = useDrivers();
   const jobs = useJobs();
   const compliance = useCompliance();
+  const recentDelays = useRecentDelays();
 
   const alerts = useMemo<Alert[]>(() => {
     const out: Alert[] = [];
     const now = Date.now();
+
+    // Surface delay reports from the last few hours so they don't disappear
+    // when the driver's status flips back to AVAILABLE/ON_ROUTE.
+    const driversById = new Map(drivers.map((d) => [d.id, d]));
+    const jobsById = new Map(jobs.map((j) => [j.id, j]));
+    recentDelays.forEach((dr) => {
+      const d = driversById.get(dr.driver_id);
+      const name = d?.name ?? "Driver";
+      const job = dr.job_id ? jobsById.get(dr.job_id) : null;
+      const jobRef = job ? ` on ${job.reference}` : "";
+      const ageMin = Math.round((now - new Date(dr.timestamp).getTime()) / 60000);
+      out.push({
+        id: `delay-${dr.driver_id}-${dr.timestamp}`,
+        level: "critical",
+        type: "Delay reported",
+        icon: AlertTriangle,
+        message: `${name}${jobRef}: ${dr.reason} (${ageMin}m ago)`,
+      });
+    });
+
 
     drivers.forEach((d) => {
       if (d.status === "DELAYED") {
