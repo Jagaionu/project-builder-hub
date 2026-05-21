@@ -144,6 +144,7 @@ function DriversPage() {
                 <th className="px-3 py-2 text-left">Phone</th>
                 <th className="px-3 py-2 text-left">Telegram</th>
                 <th className="px-3 py-2 text-left">Status</th>
+                <th className="px-3 py-2 text-left">Tomorrow</th>
                 <th className="px-3 py-2 text-left">Compliance (UK HGV)</th>
                 <th className="px-3 py-2 text-left">Last Update</th>
                 <th className="px-3 py-2 text-right">Coords</th>
@@ -190,6 +191,13 @@ function DriversPage() {
                     </td>
                     <td className="px-3 py-2.5">
                       <StatusBadge status={d.status} kind="driver" />
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <TomorrowCell
+                        available={(d as { available_tomorrow?: boolean }).available_tomorrow === true}
+                        hasLocation={(d as { tomorrow_start_lat?: number | null }).tomorrow_start_lat != null}
+                        updatedAt={(d as { tomorrow_start_updated_at?: string | null }).tomorrow_start_updated_at ?? null}
+                      />
                     </td>
                     <td className="px-3 py-2.5">
                       <ComplianceCell c={compliance[d.id]} rows={driverDayHours[d.id] ?? []} />
@@ -274,6 +282,21 @@ export function Field({
     </label>
   );
 }
+
+function TomorrowCell({ available, hasLocation, updatedAt }: { available: boolean; hasLocation: boolean; updatedAt: string | null }) {
+  if (!available) {
+    return <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/60"><span className="size-1.5 rounded-full bg-muted-foreground/40" />Not set</span>;
+  }
+  const tone = hasLocation ? "text-success" : "text-warning";
+  const dot = hasLocation ? "bg-success" : "bg-warning";
+  const label = hasLocation ? "Available" : "Needs location";
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-[11px] ${tone}`} title={updatedAt ? `Updated ${new Date(updatedAt).toLocaleString()}` : undefined}>
+      <span className={`size-1.5 rounded-full ${dot}`} /> {label}
+    </span>
+  );
+}
+
 
 
 function PairButton({ driverId, hasTelegram }: { driverId: string; hasTelegram: boolean }) {

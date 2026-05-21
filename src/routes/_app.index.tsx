@@ -46,17 +46,21 @@ function LiveDashboard() {
     available: drivers.filter((d) => d.status === "AVAILABLE").length,
     delayed: drivers.filter((d) => d.status === "DELAYED").length,
     pending: jobs.filter((j) => j.status === "PENDING").length,
+    availableTomorrow: drivers.filter(
+      (d) => (d as { available_tomorrow?: boolean }).available_tomorrow === true,
+    ).length,
   };
 
   return (
     <div className="h-full flex flex-col">
       <PageHeader title="Live Operations" subtitle="Real-time driver and fleet visibility across UK network" />
 
-      <div className="grid grid-cols-4 gap-3 px-5 py-3 border-b border-border bg-surface/40">
+      <div className="grid grid-cols-5 gap-3 px-5 py-3 border-b border-border bg-surface/40">
         <Stat label="ACTIVE DRIVERS" value={stats.active} accent="primary" />
         <Stat label="AVAILABLE" value={stats.available} accent="success" />
         <Stat label="DELAYED" value={stats.delayed} accent="destructive" />
         <Stat label="PENDING JOBS" value={stats.pending} accent="warning" />
+        <Stat label="AVAIL. TOMORROW" value={stats.availableTomorrow} accent="primary" />
       </div>
 
       <div className="flex-1 min-h-0 grid grid-cols-[1fr_320px]">

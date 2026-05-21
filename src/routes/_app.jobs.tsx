@@ -9,8 +9,9 @@ import { PageHeader } from "./_app.index";
 import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User, Upload, Calendar as CalendarIcon, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { notifyDriverOfJob, notifyDriverTomorrowRoutes } from "@/lib/telegram-notify.functions";
-import { computePlan, computeTomorrowPlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
+import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
+import { computePlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
+import { planTomorrow } from "@/lib/tomorrow.functions";
 import { computeStopSchedule, stopDwellMinutes } from "@/lib/geo";
 import { importJobsCsv } from "@/lib/jobs-import.functions";
 import { csvToImportRows } from "@/lib/csv-import";
@@ -463,6 +464,35 @@ function JobsPage() {
   const monthStart = startOfDay(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const monthEnd = startOfDay(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
 
+  // Tomorrow stats — used for the "Plan Tomorrow" button and coverage banner
+  const tomorrowStats = useMemo(() => {
+    const tm = startOfDay(new Date(Date.now() + 86400000));
+    const tmJobs = jobs.filter((j) => sameDay(jobDate(j, stopsMap[j.id] ?? []), tm));
+    const assigned = tmJobs.filter((j) => j.planned_driver_id || j.assigned_driver_id);
+    const availableDrivers = drivers.filter(
+      (d) => (d as { available_tomorrow?: boolean }).available_tomorrow === true,
+    );
+    const isTomorrowView = !!dateRange?.from && sameDay(dateRange.from, tm) && sameDay(dateRange.to ?? dateRange.from, tm);
+    return { total: tmJobs.length, assigned: assigned.length, availableDrivers, isTomorrowView };
+  }, [jobs, stopsMap, drivers, dateRange]);
+
+  const [planningTomorrow, setPlanningTomorrow] = useState(false);
+  const runPlanTomorrow = useServerFn(planTomorrow);
+  async function onPlanTomorrow() {
+    if (planningTomorrow) return;
+    setPlanningTomorrow(true);
+    try {
+      const r = await runPlanTomorrow();
+      const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversNotified} drivers notified`;
+      if (r.unassignable.length) toast.warning(`${msg} · ${r.unassignable.length} unassignable`);
+      else toast.success(msg);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setPlanningTomorrow(false);
+    }
+  }
+
   return (
     <div className="h-full flex flex-col">
       <PageHeader
@@ -470,6 +500,14 @@ function JobsPage() {
         subtitle="Multi-stop routes — expand a row and click the pen to edit"
         right={
           <div className="flex items-center gap-2">
+            <button
+              onClick={onPlanTomorrow}
+              disabled={planningTomorrow || tomorrowStats.total === 0}
+              title={tomorrowStats.total === 0 ? "No jobs scheduled for tomorrow" : "Auto-assign tomorrow's routes and notify drivers"}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-2 disabled:opacity-50"
+            >
+              <CalendarIcon className="size-3.5" /> {planningTomorrow ? "Planning…" : "Plan Tomorrow"}
+            </button>
             <ImportCsvButton />
             <button
               onClick={() => setCreateOpen(true)}
@@ -481,6 +519,30 @@ function JobsPage() {
         }
       />
         <div className="flex-1 overflow-y-auto p-5">
+          {tomorrowStats.isTomorrowView && tomorrowStats.total > 0 && (
+            <div className="mb-3 rounded-md border border-border bg-surface px-3 py-2 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Tomorrow coverage</span>
+                <span className="font-mono">
+                  <span className={tomorrowStats.assigned === tomorrowStats.total ? "text-success" : "text-warning"}>
+                    {tomorrowStats.assigned}
+                  </span>
+                  <span className="text-muted-foreground"> / {tomorrowStats.total} routes assigned</span>
+                </span>
+                <span className="text-muted-foreground">·</span>
+                <span className="font-mono text-muted-foreground">
+                  {tomorrowStats.availableDrivers.length} driver{tomorrowStats.availableDrivers.length === 1 ? "" : "s"} available
+                </span>
+              </div>
+              <button
+                onClick={onPlanTomorrow}
+                disabled={planningTomorrow}
+                className="text-primary hover:underline disabled:opacity-50"
+              >
+                {planningTomorrow ? "Planning…" : "Re-run planner"}
+              </button>
+            </div>
+          )}
           {jobs.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border p-12 text-center">
               <MapPin className="size-8 mx-auto text-muted-foreground/50 mb-3" />
