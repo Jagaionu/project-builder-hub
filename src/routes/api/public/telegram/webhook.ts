@@ -12,6 +12,7 @@ import {
   jobInlineKeyboard,
   delayReasonsKeyboard,
   emptyInlineKeyboard,
+  deleteMessage,
 } from "@/lib/telegram.server";
 import { recomputeRecent } from "@/lib/shift-ledger.server";
 
@@ -76,9 +77,10 @@ async function logEvent(driver_id: string, type: string, payload: Record<string,
 async function listAssignedJobs(driverId: string) {
   const { data } = await supabaseAdmin
     .from("jobs")
-    .select("id,reference,status,scheduled_at")
-    .eq("assigned_driver_id", driverId)
-    .in("status", ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"])
+    .select("id,reference,status,scheduled_at,planned_start_at")
+    .or(`assigned_driver_id.eq.${driverId},planned_driver_id.eq.${driverId}`)
+    .in("status", ["PENDING", "ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"])
+    .order("planned_start_at", { ascending: true, nullsFirst: false })
     .order("scheduled_at", { ascending: true, nullsFirst: false });
   return data ?? [];
 }
@@ -100,17 +102,49 @@ async function jobCardAlreadySent(driverId: string, jobId: string): Promise<bool
 async function pushAllAssignedJobs(driverId: string, chatId: number) {
   const jobs = await listAssignedJobs(driverId);
   let sent = 0;
-  for (const j of jobs) {
+  // Show at most the current job (active) + the next planned one.
+  const active = jobs.filter((j) =>
+    ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
+  );
+  const planned = jobs.filter((j) => j.status === "PENDING").slice(0, 1);
+  const visible = [...active, ...planned];
+  for (const j of visible) {
     if (await jobCardAlreadySent(driverId, j.id)) continue;
     const card = await buildJobCard(j.id, driverId);
     if (!card) continue;
-    // Only show Accept/Reject for jobs the driver hasn't acted on yet.
-    const mode = j.status === "ASSIGNED" ? "OFFER" : "ACCEPTED";
-    await sendMessage(chatId, card.text, jobInlineKeyboard(j.id, mode));
-    await logEvent(driverId, "JOB_CARD_SENT", { job_id: j.id });
+    let mode: "OFFER" | "ACCEPTED" | "NONE";
+    if (j.status === "PENDING") mode = "NONE"; // planned/next — informational only
+    else if (j.status === "ASSIGNED") mode = "OFFER";
+    else mode = "ACCEPTED";
+    const prefix = j.status === "PENDING" ? "🔜 <b>Next planned job</b>\n\n" : "";
+    const resp = await sendMessage(chatId, prefix + card.text, jobInlineKeyboard(j.id, mode));
+    const messageId = resp?.result?.message_id ?? null;
+    await logEvent(driverId, "JOB_CARD_SENT", { job_id: j.id, message_id: messageId, chat_id: chatId });
     sent++;
   }
   return sent;
+}
+
+async function clearJobCardsFromChat(driverId: string, chatId: number) {
+  // Delete all JOB_CARD_SENT messages we sent to this driver in the last 24h
+  // so the chat is clean when the shift ends.
+  const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const { data } = await supabaseAdmin
+    .from("driver_events")
+    .select("payload")
+    .eq("driver_id", driverId)
+    .eq("type", "JOB_CARD_SENT" as never)
+    .gte("timestamp", since);
+  for (const row of (data ?? []) as Array<{ payload: { message_id?: number; chat_id?: number } }>) {
+    const mid = row.payload?.message_id;
+    if (mid) await deleteMessage(chatId, mid);
+  }
+  // Wipe the JOB_CARD_SENT log so cards can be re-sent on next shift.
+  await supabaseAdmin
+    .from("driver_events")
+    .delete()
+    .eq("driver_id", driverId)
+    .eq("type", "JOB_CARD_SENT" as never);
 }
 
 async function hasActiveRoute(driverId: string): Promise<boolean> {
@@ -319,6 +353,28 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
 
 
   if (t === "▶️ Start Shift" || t === "/start_shift") {
+    if (driver.status !== "OFF_SHIFT") {
+      // Already on shift — don't double-log or reset the clock.
+      const { data: lastStart } = await supabaseAdmin
+        .from("driver_events")
+        .select("timestamp")
+        .eq("driver_id", driver.id)
+        .eq("type", "START_SHIFT" as never)
+        .order("timestamp", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const since = lastStart
+        ? new Date(lastStart.timestamp as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        : null;
+      await sendMessage(
+        chatId,
+        since
+          ? `ℹ️ You're already <b>on shift</b> since ${since}. Tap ⏹ End Shift when you're done.`
+          : `ℹ️ You're already <b>on shift</b>. Tap ⏹ End Shift when you're done.`,
+        mainMenu,
+      );
+      return;
+    }
     await supabaseAdmin
       .from("drivers")
       .update({ status: "AVAILABLE", last_update_time: new Date().toISOString() })
@@ -347,6 +403,7 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
       .update({ status: "OFF_SHIFT", last_update_time: new Date().toISOString() })
       .eq("id", driver.id);
     await logEvent(driver.id, "END_SHIFT", {});
+    await clearJobCardsFromChat(driver.id, chatId);
     await sendMessage(chatId, "🛑 <b>Shift ended.</b> Have a good rest!", mainMenu);
     return;
   }
@@ -429,6 +486,19 @@ async function handleCallback(
     );
     return;
   }
+  if (action === "ISSUE" && arg) {
+    // Driver flags an issue but keeps the job. Marks driver DELAYED so the
+    // alert surfaces on the Alerts tab without releasing the route.
+    await supabaseAdmin.from("drivers").update({ status: "DELAYED" }).eq("id", driver.id);
+    await logEvent(driver.id, "DELAY_REPORT", { job_id: arg, reason: "Driver flagged issue on job card" });
+    await answerCallbackQuery(callbackId, "Dispatch alerted");
+    await sendMessage(
+      chatId,
+      `⚠️ Dispatch has been alerted about an issue with this job. You still hold the route — continue if you can, or use 🚫 Can't complete to release it.`,
+      mainMenu,
+    );
+    return;
+  }
   if (action === "END_SHIFT_CONFIRM") {
     // Release any active jobs so they can be re-planned.
     await supabaseAdmin
@@ -445,6 +515,7 @@ async function handleCallback(
     if (messageId) {
       try { await editMessageReplyMarkup(chatId, messageId, emptyInlineKeyboard); } catch { /* ignore */ }
     }
+    await clearJobCardsFromChat(driver.id, chatId);
     await sendMessage(chatId, "🛑 Shift ended. Dispatch will re-plan your route.", mainMenu);
     return;
   }

@@ -52,9 +52,10 @@ export function jobInlineKeyboard(jobId: string, mode: JobKeyboardMode = "OFFER"
   }
   if (mode === "ACCEPTED") {
     return {
-      inline_keyboard: [[
-        { text: "🚫 Can't complete — notify dispatch", callback_data: `CANT:${jobId}` },
-      ]],
+      inline_keyboard: [
+        [{ text: "⚠️ Issue with this job — alert dispatch", callback_data: `ISSUE:${jobId}` }],
+        [{ text: "🚫 Can't complete — release job", callback_data: `CANT:${jobId}` }],
+      ],
     };
   }
   return { inline_keyboard: [] };
@@ -95,6 +96,14 @@ export async function editMessageReplyMarkup(
     message_id: messageId,
     reply_markup: replyMarkup,
   });
+}
+
+export async function deleteMessage(chatId: number | string, messageId: number) {
+  try {
+    await tg("deleteMessage", { chat_id: chatId, message_id: messageId });
+  } catch {
+    // Telegram only allows deleting messages <48h old; ignore failures.
+  }
 }
 
 export async function setWebhook(url: string) {
