@@ -102,17 +102,49 @@ async function jobCardAlreadySent(driverId: string, jobId: string): Promise<bool
 async function pushAllAssignedJobs(driverId: string, chatId: number) {
   const jobs = await listAssignedJobs(driverId);
   let sent = 0;
-  for (const j of jobs) {
+  // Show at most the current job (active) + the next planned one.
+  const active = jobs.filter((j) =>
+    ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
+  );
+  const planned = jobs.filter((j) => j.status === "PENDING").slice(0, 1);
+  const visible = [...active, ...planned];
+  for (const j of visible) {
     if (await jobCardAlreadySent(driverId, j.id)) continue;
     const card = await buildJobCard(j.id, driverId);
     if (!card) continue;
-    // Only show Accept/Reject for jobs the driver hasn't acted on yet.
-    const mode = j.status === "ASSIGNED" ? "OFFER" : "ACCEPTED";
-    await sendMessage(chatId, card.text, jobInlineKeyboard(j.id, mode));
-    await logEvent(driverId, "JOB_CARD_SENT", { job_id: j.id });
+    let mode: "OFFER" | "ACCEPTED" | "NONE";
+    if (j.status === "PENDING") mode = "NONE"; // planned/next — informational only
+    else if (j.status === "ASSIGNED") mode = "OFFER";
+    else mode = "ACCEPTED";
+    const prefix = j.status === "PENDING" ? "🔜 <b>Next planned job</b>\n\n" : "";
+    const resp = await sendMessage(chatId, prefix + card.text, jobInlineKeyboard(j.id, mode));
+    const messageId = resp?.result?.message_id ?? null;
+    await logEvent(driverId, "JOB_CARD_SENT", { job_id: j.id, message_id: messageId, chat_id: chatId });
     sent++;
   }
   return sent;
+}
+
+async function clearJobCardsFromChat(driverId: string, chatId: number) {
+  // Delete all JOB_CARD_SENT messages we sent to this driver in the last 24h
+  // so the chat is clean when the shift ends.
+  const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const { data } = await supabaseAdmin
+    .from("driver_events")
+    .select("payload")
+    .eq("driver_id", driverId)
+    .eq("type", "JOB_CARD_SENT" as never)
+    .gte("timestamp", since);
+  for (const row of (data ?? []) as Array<{ payload: { message_id?: number; chat_id?: number } }>) {
+    const mid = row.payload?.message_id;
+    if (mid) await deleteMessage(chatId, mid);
+  }
+  // Wipe the JOB_CARD_SENT log so cards can be re-sent on next shift.
+  await supabaseAdmin
+    .from("driver_events")
+    .delete()
+    .eq("driver_id", driverId)
+    .eq("type", "JOB_CARD_SENT" as never);
 }
 
 async function hasActiveRoute(driverId: string): Promise<boolean> {
