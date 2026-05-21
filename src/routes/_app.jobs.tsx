@@ -174,6 +174,29 @@ const STATUS_CONFIG: Record<JobStatus, { label: string; dot: string; badge: stri
   CANCELLED:         { label: "Cancelled",         dot: "bg-zinc-400",    badge: "text-zinc-400 bg-zinc-500/10" },
 };
 
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+function endOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(23, 59, 59, 999);
+  return x;
+}
+function sameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+function fmtDateShort(d: Date): string {
+  return d.toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+}
+function jobDate(j: { scheduled_at: string | null; planned_start_at?: string | null; created_at: string }, stops: { scheduled_at: string | null }[]): Date {
+  const firstStop = stops.find((s) => s.scheduled_at)?.scheduled_at;
+  const iso = j.scheduled_at ?? j.planned_start_at ?? firstStop ?? j.created_at;
+  return new Date(iso);
+}
+
+
 function JobsPage() {
   const jobs = useJobs();
   const warehouses = useWarehouses();
