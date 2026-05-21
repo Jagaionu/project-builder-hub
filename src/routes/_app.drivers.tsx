@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useDrivers, useCompliance } from "@/lib/hooks";
+import { useDrivers, useCompliance, useDriverDayHours, type DriverDayHours } from "@/lib/hooks";
 import type { Compliance } from "@/lib/compliance";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "./_app.index";
