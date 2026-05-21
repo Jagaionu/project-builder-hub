@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { useDrivers, useJobs, useCompliance } from "@/lib/hooks";
+import { useDrivers, useJobs, useCompliance, useRecentDelays } from "@/lib/hooks";
 import { PageHeader } from "./_app.index";
 import { AlertTriangle, Clock, WifiOff, Timer, Gauge } from "lucide-react";
 
