@@ -419,7 +419,7 @@ function JobsPage() {
                 <div className="col-span-2">Scheduled / ETA</div>
               </div>
               {/* Rows */}
-              {jobs.map((j) => {
+              {filteredJobs.map((j) => {
                 const stops = stopsMap[j.id] ?? [];
                 const planned = plannedByJob.get(j.id);
                 return (
