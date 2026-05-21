@@ -440,7 +440,12 @@ function JobsPage() {
               <div className="col-span-2">Scheduled / ETA</div>
             </div>
             {/* Rows */}
-            {jobs.map((j, idx) => {
+            {visibleJobs.length === 0 ? (
+              <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+                All {jobs.length} job{jobs.length === 1 ? "" : "s"} are hidden by the status filter.
+              </div>
+            ) : null}
+            {visibleJobs.map((j, idx) => {
               const stops = stopsMap[j.id] ?? [];
               const planned = plannedByJob.get(j.id);
               return (
@@ -448,7 +453,7 @@ function JobsPage() {
                   key={j.id}
                   onClick={() => setEditJobId(j.id)}
                   className={`grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-surface-2/50 cursor-pointer transition-colors group ${
-                    idx !== jobs.length - 1 ? "border-b border-border/60" : ""
+                    idx !== visibleJobs.length - 1 ? "border-b border-border/60" : ""
                   }`}
                 >
                   <div className="col-span-2">
