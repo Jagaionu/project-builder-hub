@@ -467,7 +467,7 @@ function JobsPage() {
     <div className="h-full flex flex-col">
       <PageHeader
         title="Jobs"
-        subtitle="Multi-stop routes — click a row to edit or delete"
+        subtitle="Multi-stop routes — expand a row and click the pen to edit"
         right={
           <div className="flex items-center gap-2">
             <ImportCsvButton />
