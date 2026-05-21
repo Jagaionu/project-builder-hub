@@ -82,18 +82,27 @@ function WarehousesPage() {
     const lat = parseFloat(editForm.latitude),
       lon = parseFloat(editForm.longitude);
     if (isNaN(lat) || isNaN(lon)) return toast.error("Invalid coordinates");
+    const code = editForm.code.toUpperCase().trim();
+    if (warehouses.some((w) => w.id !== editingId && w.code.toUpperCase() === code)) {
+      return toast.error(`A warehouse with code "${code}" already exists`);
+    }
     const { error } = await supabase
       .from("warehouses")
       .update({
-        code: editForm.code.toUpperCase(),
+        code,
         name: editForm.name,
         latitude: lat,
         longitude: lon,
         address: editForm.address || null,
       })
       .eq("id", editingId);
-    if (error) toast.error(error.message);
-    else {
+    if (error) {
+      if (error.code === "23505" || /duplicate|unique/i.test(error.message)) {
+        toast.error(`A warehouse with code "${code}" already exists`);
+      } else {
+        toast.error(error.message);
+      }
+    } else {
       toast.success("Warehouse updated");
       setEditingId(null);
       window.location.reload();
