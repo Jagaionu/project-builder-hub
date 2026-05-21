@@ -107,26 +107,45 @@ export function useDriverDayHours(): Record<string, DriverDayHours[]> {
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      const since = new Date(Date.now() - 21 * 24 * 3600 * 1000)
-        .toISOString()
-        .slice(0, 10);
-      const { data } = await supabase
-        .from("driver_day_hours")
-        .select("driver_id,day,shift_minutes,drive_minutes,off_minutes,week_start")
-        .gte("day", since)
-        .order("day", { ascending: false });
-      if (!mounted || !data) return;
-      const m: Record<string, DriverDayHours[]> = {};
-      for (const r of data as DriverDayHours[]) {
-        (m[r.driver_id] ||= []).push(r);
+      try {
+        const since = new Date(Date.now() - 21 * 24 * 3600 * 1000)
+          .toISOString()
+          .slice(0, 10);
+        const { data, error } = await supabase
+          .from("driver_day_hours")
+          .select("driver_id,day,shift_minutes,drive_minutes,off_minutes,week_start")
+          .gte("day", since)
+          .order("day", { ascending: false });
+
+        if (error) {
+          console.error("[drivers][day-hours] failed to load", {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+          });
+          return;
+        }
+
+        if (!mounted || !data) return;
+        const m: Record<string, DriverDayHours[]> = {};
+        for (const r of data as DriverDayHours[]) {
+          (m[r.driver_id] ||= []).push(r);
+        }
+        setMap(m);
+      } catch (error) {
+        console.error("[drivers][day-hours] unexpected hook error", error);
       }
-      setMap(m);
     };
     load();
+
     const ch = supabase
       .channel("rt-driver-day-hours")
-      .on("postgres_changes", { event: "*", schema: "public", table: "driver_day_hours" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_day_hours" }, () => {
+        console.info("[drivers][day-hours] realtime change detected");
+        void load();
+      })
       .subscribe();
+
     return () => {
       mounted = false;
       supabase.removeChannel(ch);
