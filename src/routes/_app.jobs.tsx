@@ -355,6 +355,7 @@ function JobsPage() {
               {/* Rows */}
               {jobs.map((j) => {
                 const stops = stopsMap[j.id] ?? [];
+                const planned = plannedByJob.get(j.id);
                 return (
                   <div
                     key={j.id}
@@ -409,12 +410,13 @@ function JobsPage() {
                       compliance={compliance}
                       onChange={(id) => assignDriver(j.id, id)}
                     />
-                    {!j.assigned_driver_id && j.planned_driver_id && (
+                    {!j.assigned_driver_id && (planned || j.planned_driver_id) && (
                       <PlannedChip
-                        driverName={drivers.find((d) => d.id === j.planned_driver_id)?.name ?? "?"}
-                        sequence={j.planned_sequence ?? undefined}
-                        startAt={j.planned_start_at ?? undefined}
-                        job={j}
+                        driverName={drivers.find((d) => d.id === (planned?.driverId ?? j.planned_driver_id))?.name ?? "?"}
+                        sequence={planned?.sequence ?? j.planned_sequence ?? undefined}
+                        startAt={planned?.startAt ?? j.planned_start_at ?? undefined}
+                        distanceKm={planned?.distKm}
+                        dailyHoursLeft={planned?.dailyHoursLeft}
                       />
                     )}
                   </div>
