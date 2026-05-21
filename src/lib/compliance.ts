@@ -126,10 +126,27 @@ export function computeCompliance(
   if (daily > 10) issues.push({ level: "breach", msg: `Daily cap exceeded (${daily.toFixed(1)}/10h)` });
   else if (daily > 9) issues.push({ level: "warn", msg: `Over 9h today (${daily.toFixed(1)}h, 10h max 2×/wk)` });
 
-  if (onShift && restHours < 9) {
-    issues.push({ level: "breach", msg: `Insufficient rest (${restHours.toFixed(1)}h < 9h)` });
-  } else if (onShift && restHours < 11) {
-    issues.push({ level: "warn", msg: `Reduced rest (${restHours.toFixed(1)}h, 3×/wk max)` });
+  // Daily rest rule (UK HGV): need 9h+ (reduced) rest in every rolling 24h.
+  // Only flag once accumulated driving in the last 24h is meaningful (>=9h);
+  // a short toggle between two tiny shifts must NOT trigger this.
+  if (onShift && daily >= 9) {
+    const windowStart = nowMs - 24 * H;
+    const segsInWindow = segs
+      .filter((s) => s.end > windowStart)
+      .map((s) => ({ start: Math.max(s.start, windowStart), end: s.end }))
+      .sort((a, b) => a.start - b.start);
+    let longestRestMs = 0;
+    let cursor = windowStart;
+    for (const s of segsInWindow) {
+      if (s.start > cursor) longestRestMs = Math.max(longestRestMs, s.start - cursor);
+      cursor = Math.max(cursor, s.end);
+    }
+    const longestRestH = longestRestMs / H;
+    if (longestRestH < 9) {
+      issues.push({ level: "breach", msg: `Insufficient rest (${longestRestH.toFixed(1)}h < 9h in last 24h)` });
+    } else if (longestRestH < 11) {
+      issues.push({ level: "warn", msg: `Reduced rest (${longestRestH.toFixed(1)}h, 3×/wk max)` });
+    }
   }
 
   if (onShift && continuousDrive >= 4.5) {
