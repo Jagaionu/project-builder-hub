@@ -554,9 +554,9 @@ function JobsPage() {
                     </div>
                   )}
                 </div>
-                {(search || hiddenStatuses.size !== 2 || !hiddenStatuses.has("COMPLETED") || !hiddenStatuses.has("CANCELLED")) && (
+                {(search || hiddenStatuses.size !== 2 || !hiddenStatuses.has("COMPLETED") || !hiddenStatuses.has("CANCELLED") || !dateRange || !dateRange.from || !sameDay(dateRange.from, startOfDay(new Date())) || !sameDay(dateRange.to ?? dateRange.from, startOfDay(new Date()))) && (
                   <button
-                    onClick={() => { setSearch(""); setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"])); }}
+                    onClick={() => { const t = startOfDay(new Date()); setSearch(""); setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"])); setDateRange({ from: t, to: t }); }}
                     className="rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-2"
                   >
                     Reset
