@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useRef, useState, useLayoutEffect, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useLayoutEffect, type ChangeEvent } from "react";
 import { createPortal } from "react-dom";
 import { useJobs, useWarehouses, useDrivers, useCompliance } from "@/lib/hooks";
 import type { Compliance } from "@/lib/compliance";
@@ -120,7 +120,7 @@ function useJobStops(): JobStopsMap {
     const load = async () => {
       const { data } = await supabase
         .from("job_stops")
-        .select("id,job_id,kind,warehouse_id,scheduled_at,seq")
+        .select("id,job_id,kind,warehouse_id,scheduled_at,arrived_at,seq")
         .order("seq", { ascending: true });
       if (!mounted) return;
       const m: JobStopsMap = {};
@@ -179,6 +179,25 @@ function JobsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const notify = useServerFn(notifyDriverOfJob);
+  const plan = useMemo(
+    () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
+    [jobs, stopsMap, drivers, warehouses, compliance],
+  );
+  const plannedByJob = useMemo(
+    () => new Map(plan.planned.map((item) => [item.jobId, item] as const)),
+    [plan],
+  );
+
+  useEffect(() => {
+    const inconsistent = jobs.filter((j) => !j.assigned_driver_id && ACTIVE_JOB_STATUSES.has(j.status));
+    if (inconsistent.length === 0) return;
+    void (async () => {
+      for (const job of inconsistent) {
+        const { error } = await supabase.from("jobs").update({ status: "PENDING" as never }).eq("id", job.id);
+        if (error) console.error("[jobs] failed to normalize unassigned active job", job.id, error.message);
+      }
+    })();
+  }, [jobs]);
 
   async function assignDriver(jobId: string, driverId: string) {
     if (driverId) {
