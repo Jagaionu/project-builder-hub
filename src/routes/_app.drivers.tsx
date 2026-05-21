@@ -454,8 +454,17 @@ function ComplianceCell({ c, rows }: { c: Compliance | undefined; rows: DriverDa
         : "border-success/30 text-success hover:bg-success/5";
 
   const tightest = Math.min(c.dailyHeadroom, c.weeklyHeadroom);
-  const label =
-    c.status === "breach" ? "Breach" : c.status === "warn" ? "Warning" : `${tightest.toFixed(1)}h left`;
+  // Live pill label: when on shift, count DOWN to next break; when off, count UP rest.
+  const liveLabel = c.onShift ? (
+    c.continuousDrive >= 4.5 ? (
+      <span>break overdue</span>
+    ) : (
+      <>break in <LiveTimer baseHours={4.5 - c.continuousDrive} dir="down" /></>
+    )
+  ) : (
+    <>rest <LiveTimer baseHours={Math.min(c.restHours, 99)} dir="up" /></>
+  );
+  const label = c.status === "breach" ? "Breach" : c.status === "warn" ? "Warning" : `${tightest.toFixed(1)}h left`;
 
   return (
     <div className="relative">
