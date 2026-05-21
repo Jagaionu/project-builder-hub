@@ -9,8 +9,8 @@ import { PageHeader } from "./_app.index";
 import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User, Upload, Calendar as CalendarIcon, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
-import { computePlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
+import { notifyDriverOfJob, notifyDriverTomorrowRoutes } from "@/lib/telegram-notify.functions";
+import { computePlan, computeTomorrowPlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
 import { computeStopSchedule, stopDwellMinutes } from "@/lib/geo";
 import { importJobsCsv } from "@/lib/jobs-import.functions";
 import { csvToImportRows } from "@/lib/csv-import";
@@ -518,6 +518,10 @@ function JobsPage() {
                         onClick={() => { const y = startOfDay(new Date(Date.now() - 86400000)); setDateRange({ from: y, to: y }); }}
                         className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
                       >Yesterday</button>
+                      <button
+                        onClick={() => { const tm = startOfDay(new Date(Date.now() + 86400000)); setDateRange({ from: tm, to: tm }); }}
+                        className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                      >Tomorrow</button>
                       <button
                         onClick={() => { const to = startOfDay(new Date()); const from = startOfDay(new Date(Date.now() - 6 * 86400000)); setDateRange({ from, to }); }}
                         className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"

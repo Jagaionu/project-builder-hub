@@ -122,6 +122,7 @@ export type Database = {
       }
       drivers: {
         Row: {
+          available_tomorrow: boolean
           created_at: string
           current_lat: number | null
           current_lon: number | null
@@ -133,8 +134,12 @@ export type Database = {
           phone: string | null
           status: Database["public"]["Enums"]["driver_status"]
           telegram_id: string | null
+          tomorrow_start_lat: number | null
+          tomorrow_start_lon: number | null
+          tomorrow_start_updated_at: string | null
         }
         Insert: {
+          available_tomorrow?: boolean
           created_at?: string
           current_lat?: number | null
           current_lon?: number | null
@@ -146,8 +151,12 @@ export type Database = {
           phone?: string | null
           status?: Database["public"]["Enums"]["driver_status"]
           telegram_id?: string | null
+          tomorrow_start_lat?: number | null
+          tomorrow_start_lon?: number | null
+          tomorrow_start_updated_at?: string | null
         }
         Update: {
+          available_tomorrow?: boolean
           created_at?: string
           current_lat?: number | null
           current_lon?: number | null
@@ -159,6 +168,9 @@ export type Database = {
           phone?: string | null
           status?: Database["public"]["Enums"]["driver_status"]
           telegram_id?: string | null
+          tomorrow_start_lat?: number | null
+          tomorrow_start_lon?: number | null
+          tomorrow_start_updated_at?: string | null
         }
         Relationships: []
       }
@@ -217,6 +229,7 @@ export type Database = {
           destination_warehouse_id: string | null
           equipment_type: string | null
           eta_minutes: number | null
+          for_date: string | null
           id: string
           origin_warehouse_id: string | null
           planned_driver_id: string | null
@@ -233,6 +246,7 @@ export type Database = {
           destination_warehouse_id?: string | null
           equipment_type?: string | null
           eta_minutes?: number | null
+          for_date?: string | null
           id?: string
           origin_warehouse_id?: string | null
           planned_driver_id?: string | null
@@ -249,6 +263,7 @@ export type Database = {
           destination_warehouse_id?: string | null
           equipment_type?: string | null
           eta_minutes?: number | null
+          for_date?: string | null
           id?: string
           origin_warehouse_id?: string | null
           planned_driver_id?: string | null

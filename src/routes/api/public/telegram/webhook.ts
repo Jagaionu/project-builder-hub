@@ -22,6 +22,19 @@ function safeEqual(a: string, b: string) {
   return A.length === B.length && timingSafeEqual(A, B);
 }
 
+// Multi-step state for the END_SHIFT → availability → location flow.
+// Module-scoped Map; entries cleared once flow completes.
+const pendingTomorrowState = new Map<
+  string,
+  "awaiting_answer" | "awaiting_location"
+>();
+
+const tomorrowLocationKeyboard = {
+  keyboard: [[{ text: "📍 Share my location", request_location: true }]],
+  resize_keyboard: true,
+  one_time_keyboard: true,
+};
+
 type Driver = {
   id: string;
   name: string;
@@ -341,6 +354,40 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
 
   // (t already trimmed above)
 
+  // Tomorrow availability flow — YES/NO after END_SHIFT
+  if (pendingTomorrowState.get(String(chatId)) === "awaiting_answer") {
+    const up = t.toUpperCase();
+    if (up === "YES" || up === "Y") {
+      await supabaseAdmin
+        .from("drivers")
+        .update({ available_tomorrow: true })
+        .eq("telegram_id", String(chatId));
+      await sendMessage(
+        chatId,
+        `📍 Great! Please share your location so we know your pickup point for tomorrow.`,
+        tomorrowLocationKeyboard,
+      );
+      pendingTomorrowState.set(String(chatId), "awaiting_location");
+      return;
+    }
+    if (up === "NO" || up === "N") {
+      await supabaseAdmin
+        .from("drivers")
+        .update({
+          available_tomorrow: false,
+          tomorrow_start_lat: null,
+          tomorrow_start_lon: null,
+        })
+        .eq("telegram_id", String(chatId));
+      await sendMessage(chatId, `👍 Noted. Rest well! See you next time. 🚚`, mainMenu);
+      pendingTomorrowState.delete(String(chatId));
+      return;
+    }
+    await sendMessage(chatId, `Please reply <b>YES</b> or <b>NO</b> — are you available for tomorrow?`);
+    return;
+  }
+
+
   if (t === "/register" || t.toLowerCase() === "register") {
     await sendMessage(chatId, `You're already registered as <b>${driver.name}</b>. Use the menu below.`, mainMenu);
     return;
@@ -382,7 +429,7 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
     await logEvent(driver.id, "START_SHIFT", {});
     await sendMessage(
       chatId,
-      `✅ <b>Shift started.</b>\n\nTap 📍 <b>Share Location</b> once so dispatch can match you to the closest route. Drive safe. 🚚`,
+      `▶️ <b>Shift started!</b> Your routes were sent yesterday evening.\nUse 📦 My Jobs to review them. Safe driving! 🚚`,
       mainMenu,
     );
     return;
@@ -405,6 +452,11 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
     await logEvent(driver.id, "END_SHIFT", {});
     await clearJobCardsFromChat(driver.id, chatId);
     await sendMessage(chatId, "🛑 <b>Shift ended.</b> Have a good rest!", mainMenu);
+    await sendMessage(
+      chatId,
+      `⏹ Shift ended. Are you available for tomorrow's routes?\nReply <b>YES</b> or <b>NO</b>.`,
+    );
+    pendingTomorrowState.set(String(chatId), "awaiting_answer");
     return;
   }
 
@@ -579,6 +631,64 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             if (chatId) {
               const driver = await findDriver(chatId);
               if (msg.location && driver) {
+                // Tomorrow start-location capture takes precedence over live-tracking
+                if (pendingTomorrowState.get(String(chatId)) === "awaiting_location") {
+                  await supabaseAdmin
+                    .from("drivers")
+                    .update({
+                      tomorrow_start_lat: msg.location.latitude,
+                      tomorrow_start_lon: msg.location.longitude,
+                      tomorrow_start_updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", driver.id);
+                  pendingTomorrowState.delete(String(chatId));
+                  await sendMessage(
+                    chatId,
+                    `✅ Location saved! We'll plan your routes for tomorrow and send them to you shortly. 🗺`,
+                    mainMenu,
+                  );
+                  // Best-effort: trigger tomorrow planning + notify for this driver.
+                  try {
+                    const { computeTomorrowPlan } = await import("@/lib/planner");
+                    const { notifyDriverTomorrowRoutes } = await import("@/lib/telegram-notify.functions");
+                    const t = new Date();
+                    t.setUTCDate(t.getUTCDate() + 1);
+                    const tomorrow = t.toISOString().slice(0, 10);
+                    const [{ data: tJobs }, { data: dList }, { data: whs }, { data: stops }] = await Promise.all([
+                      supabaseAdmin.from("jobs").select("*").eq("for_date", tomorrow),
+                      supabaseAdmin.from("drivers").select("*"),
+                      supabaseAdmin.from("warehouses").select("*"),
+                      supabaseAdmin.from("job_stops").select("id,job_id,kind,warehouse_id,arrived_at,seq").order("seq"),
+                    ]);
+                    const stopsMap: Record<string, Array<{ kind: "PICKUP"|"DROP"; warehouse_id: string; arrived_at: string | null }>> = {};
+                    for (const s of (stops ?? []) as Array<{ job_id: string; kind: "PICKUP"|"DROP"; warehouse_id: string; arrived_at: string | null }>) {
+                      (stopsMap[s.job_id] ||= []).push({ kind: s.kind, warehouse_id: s.warehouse_id, arrived_at: s.arrived_at });
+                    }
+                    const plan = computeTomorrowPlan(
+                      (tJobs ?? []) as never,
+                      stopsMap as never,
+                      (dList ?? []) as never,
+                      (whs ?? []) as never,
+                      {},
+                    );
+                    for (const p of plan.planned) {
+                      await supabaseAdmin
+                        .from("jobs")
+                        .update({
+                          planned_driver_id: p.driverId,
+                          planned_sequence: p.sequence,
+                          planned_start_at: p.startAt,
+                        })
+                        .eq("id", p.jobId);
+                    }
+                    if (plan.planned.some((p) => p.driverId === driver.id)) {
+                      await notifyDriverTomorrowRoutes({ data: { driverId: driver.id } });
+                    }
+                  } catch (err) {
+                    console.error("tomorrow plan trigger failed", err);
+                  }
+                  return Response.json({ ok: true });
+                }
                 const reply = await handleLocation(driver, msg.location.latitude, msg.location.longitude);
                 // Process live-location edits silently. Only chat back on first
                 // share or on a meaningful state change (arrival / completion).
