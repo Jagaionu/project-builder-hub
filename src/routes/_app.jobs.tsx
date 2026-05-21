@@ -414,11 +414,12 @@ function usePopover() {
 }
 
 function StatusPill({ status, onChange }: { status: string; onChange: (s: string) => void }) {
-  const { open, setOpen, ref } = usePopover();
+  const { open, setOpen, btnRef, popRef, coords } = usePopover();
   const cfg = STATUS_CONFIG[status as JobStatus] ?? STATUS_CONFIG.PENDING;
   return (
-    <div ref={ref} className="relative">
+    <div className="relative inline-block">
       <button
+        ref={btnRef}
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-opacity hover:opacity-80 select-none ${cfg.badge}`}
@@ -426,10 +427,12 @@ function StatusPill({ status, onChange }: { status: string; onChange: (s: string
         <span className={`size-1.5 rounded-full shrink-0 ${cfg.dot}`} />
         {cfg.label}
       </button>
-      {open && (
+      {open && coords && typeof document !== "undefined" && createPortal(
         <div
+          ref={popRef}
           onClick={(e) => e.stopPropagation()}
-          className="absolute left-0 top-full mt-1.5 z-30 w-48 rounded-xl border border-border bg-popover shadow-xl py-1.5"
+          style={{ position: "fixed", top: coords.top, left: coords.left }}
+          className="z-[1000] w-48 rounded-xl border border-border bg-popover shadow-xl py-1.5"
         >
           {JOB_STATUSES.map((s) => {
             const c = STATUS_CONFIG[s];
@@ -449,7 +452,8 @@ function StatusPill({ status, onChange }: { status: string; onChange: (s: string
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
