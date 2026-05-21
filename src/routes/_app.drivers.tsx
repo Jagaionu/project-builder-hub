@@ -193,6 +193,13 @@ function DriversPage() {
                       <StatusBadge status={d.status} kind="driver" />
                     </td>
                     <td className="px-3 py-2.5">
+                      <TomorrowCell
+                        available={(d as { available_tomorrow?: boolean }).available_tomorrow === true}
+                        hasLocation={(d as { tomorrow_start_lat?: number | null }).tomorrow_start_lat != null}
+                        updatedAt={(d as { tomorrow_start_updated_at?: string | null }).tomorrow_start_updated_at ?? null}
+                      />
+                    </td>
+                    <td className="px-3 py-2.5">
                       <ComplianceCell c={compliance[d.id]} rows={driverDayHours[d.id] ?? []} />
                     </td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">
