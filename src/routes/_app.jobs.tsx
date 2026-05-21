@@ -178,6 +178,8 @@ function JobsPage() {
   const compliance = useCompliance();
   const [createOpen, setCreateOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | JobStatus>("ALL");
   const notify = useServerFn(notifyDriverOfJob);
   const plan = useMemo(
     () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
