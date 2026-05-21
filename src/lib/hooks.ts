@@ -165,9 +165,10 @@ function ukDayStringLocal(d: Date): string {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
-export function useCompliance(): Record<string, Compliance> {
+export function useCompliance(ledgerOverride?: Record<string, DriverDayHours[]>): Record<string, Compliance> {
   const events = useDriverEventsByDriver();
-  const ledger = useDriverDayHours();
+  const internalLedger = useDriverDayHours();
+  const ledger = ledgerOverride ?? internalLedger;
   // Tick every minute so headroom / break timers stay current.
   const [tick, setTick] = useState(0);
   useEffect(() => {
