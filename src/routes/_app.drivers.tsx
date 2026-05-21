@@ -503,13 +503,13 @@ function ComplianceCell({ c, rows }: { c: Compliance | undefined; rows: DriverDa
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <Metric label="Today (24h)" value={c.daily} cap={10} unit="h" hint="Max 9h, 10h up to 2×/wk" />
-              <Metric label="This week" value={c.weekly} cap={56} unit="h" hint="56h rolling 7 days" />
+              <Metric label="Today (24h)" value={c.daily} cap={10} unit="h" hint="Max 9h, 10h up to 2×/wk" live={c.onShift ? "up" : undefined} />
+              <Metric label="This week" value={c.weekly} cap={56} unit="h" hint="56h rolling 7 days" live={c.onShift ? "up" : undefined} />
               <Metric label="Fortnight" value={c.twoWeek} cap={90} unit="h" hint="90h rolling 14 days" />
               {c.onShift ? (
-                <Metric label="Drive cycle" value={c.continuousDrive} cap={4.5} unit="h" hint="45min break after 4.5h" />
+                <Metric label="Drive cycle" value={c.continuousDrive} cap={4.5} unit="h" hint="45min break after 4.5h" live="up" />
               ) : (
-                <Metric label="Rest taken" value={Math.min(c.restHours, 24)} cap={11} unit="h" hint="11h normal, 9h reduced" />
+                <Metric label="Rest taken" value={Math.min(c.restHours, 24)} cap={11} unit="h" hint="11h normal, 9h reduced" live="up" />
               )}
             </div>
 
