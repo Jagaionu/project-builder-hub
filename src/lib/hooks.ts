@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Driver, Warehouse, Job } from "@/lib/types";
 import { computeCompliance, type Compliance, type ComplianceEvent } from "@/lib/compliance";
@@ -104,6 +104,7 @@ export type DriverDayHours = {
 
 export function useDriverDayHours(): Record<string, DriverDayHours[]> {
   const [map, setMap] = useState<Record<string, DriverDayHours[]>>({});
+  const channelNameRef = useRef(`rt-driver-day-hours-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -139,7 +140,7 @@ export function useDriverDayHours(): Record<string, DriverDayHours[]> {
     load();
 
     const ch = supabase
-      .channel("rt-driver-day-hours")
+      .channel(channelNameRef.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "driver_day_hours" }, () => {
         console.info("[drivers][day-hours] realtime change detected");
         void load();
