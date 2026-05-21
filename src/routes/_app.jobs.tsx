@@ -362,7 +362,7 @@ function JobsPage() {
       if (driver?.name.toLowerCase().includes(q)) return true;
       return false;
     });
-  }, [jobs, stopsMap, warehouses, drivers, search, statusFilter]);
+  }, [jobs, stopsMap, warehouses, drivers, search, hiddenStatuses]);
 
   return (
     <div className="h-full flex flex-col">
