@@ -19,9 +19,11 @@ import { recomputeAllRecent } from "@/lib/shift-ledger.server";
 export const Route = createFileRoute("/api/public/cron/shift-rollover")({
   server: {
     handlers: {
-      POST: async () => {
-        const result = await recomputeAllRecent(2);
-        return new Response(JSON.stringify({ ok: true, ...result }), {
+      POST: async ({ request }) => {
+        const url = new URL(request.url);
+        const days = Math.max(1, Math.min(60, Number(url.searchParams.get("days")) || 2));
+        const result = await recomputeAllRecent(days);
+        return new Response(JSON.stringify({ ok: true, days, ...result }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
