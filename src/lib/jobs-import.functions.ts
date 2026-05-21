@@ -83,6 +83,7 @@ export const importJobsCsv = createServerFn({ method: "POST" })
             origin_warehouse_id: stopWhIds[0],
             destination_warehouse_id: stopWhIds[stopWhIds.length - 1],
             scheduled_at: firstScheduled,
+            for_date: firstScheduled ? firstScheduled.slice(0, 10) : null,
             equipment_type: row.equipmentType,
           })
           .select("id")
