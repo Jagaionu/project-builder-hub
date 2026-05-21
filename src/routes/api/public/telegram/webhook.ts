@@ -395,7 +395,7 @@ async function handleText(chatId: number, driver: Driver | null, text: string) {
     await logEvent(driver.id, "START_SHIFT", {});
     await sendMessage(
       chatId,
-      `✅ <b>Shift started.</b>\n\nTap 📍 <b>Share Location</b> once so dispatch can match you to the closest route. Drive safe. 🚚`,
+      `▶️ <b>Shift started!</b> Your routes were sent yesterday evening.\nUse 📦 My Jobs to review them. Safe driving! 🚚`,
       mainMenu,
     );
     return;
