@@ -43,7 +43,7 @@ export type PlanResult = {
 
 // Total hours a job consumes once the driver is at the first stop:
 // dwell at every stop (load/unload + checks) + transit (with buffer) between stops.
-function jobDriveHours(stops: PlannerStop[], warehouses: Warehouse[]): number {
+export function jobDriveHours(stops: PlannerStop[], warehouses: Warehouse[]): number {
   if (stops.length === 0) return 0;
   let minutes = 0;
   for (let i = 0; i < stops.length - 1; i++) {
