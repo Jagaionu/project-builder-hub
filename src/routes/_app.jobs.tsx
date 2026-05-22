@@ -333,7 +333,9 @@ function JobsPage() {
     const pending = jobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id);
     if (pending.some((j) => !stopsMap[j.id])) return;
 
-    const plan = computePlan(jobs, stopsMap, drivers, warehouses, compliance);
+    // Exclude manually-overridden jobs from auto-planning entirely.
+    const jobsForPlanner = jobs.filter((j) => !(j as { manual_override?: boolean }).manual_override);
+    const plan = computePlan(jobsForPlanner, stopsMap, drivers, warehouses, compliance);
 
     // Stable signature to avoid loops if the same plan is recomputed.
     const sig = JSON.stringify({
@@ -349,6 +351,7 @@ function JobsPage() {
         const job = jobs.find((j) => j.id === a.jobId);
         const driver = drivers.find((d) => d.id === a.driverId);
         if (!job || !driver) continue;
+        if ((job as { manual_override?: boolean }).manual_override) continue;
         await assignDriver(a.jobId, a.driverId);
         toast.message(`Auto-assigned ${driver.name} → ${job.reference} (${a.distKm.toFixed(1)} km)`);
         // Auto-fill stop times starting from job.scheduled_at or now
@@ -360,6 +363,7 @@ function JobsPage() {
         plan.planned.map((p) => [p.jobId, { d: p.driverId, s: p.sequence, t: p.startAt }] as const),
       );
       for (const job of jobs) {
+        if ((job as { manual_override?: boolean }).manual_override) continue;
         const want = desired.get(job.id);
         const have = {
           d: job.planned_driver_id ?? null,
