@@ -480,7 +480,7 @@ function JobsPage() {
     setPlanningTomorrow(true);
     try {
       const r = await runPlanTomorrow();
-      const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversNotified} drivers notified`;
+      const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversPlanned} drivers`;
       if (r.unassignable.length) toast.warning(`${msg} · ${r.unassignable.length} unassignable`);
       else toast.success(msg);
     } catch (e) {
