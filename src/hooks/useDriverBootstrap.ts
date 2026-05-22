@@ -59,6 +59,10 @@ export function useDriverBootstrap() {
       setGpsPosition(p);
       const driver = useDriverStore.getState().driver;
       if (!driver) return;
+
+      // Auto-confirm arrival when within geofence of the next pending stop.
+      autoArriveNearby(driver.id, p);
+
       const prev = lastSent.current;
       const movedEnough = !prev || haversineKm(prev.lat, prev.lon, p.lat, p.lon) >= MIN_MOVE_KM;
       const timeEnough = !prev || p.ts - prev.ts >= MIN_INTERVAL_MS;
