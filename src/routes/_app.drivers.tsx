@@ -118,20 +118,14 @@ function DriversPage() {
       />
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
         {open && (
-          <div className="rounded-md border border-border bg-surface p-4 grid grid-cols-4 gap-3 items-end">
+          <div className="rounded-md border border-border bg-surface p-4 grid grid-cols-3 gap-3 items-end">
             <Field label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
             <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
-            <Field
-              label="Telegram ID"
-              value={form.telegram_id}
-              onChange={(v) => setForm({ ...form, telegram_id: v })}
-            />
             <button onClick={add} className="h-9 px-3 rounded bg-primary text-primary-foreground text-sm">
               Create
             </button>
           </div>
         )}
-        <PendingRegistrations />
 
         <div className="rounded-md border border-border overflow-hidden">
           <table className="w-full text-sm">
@@ -139,7 +133,6 @@ function DriversPage() {
               <tr>
                 <th className="px-3 py-2 text-left">Name</th>
                 <th className="px-3 py-2 text-left">Phone</th>
-                <th className="px-3 py-2 text-left">Telegram</th>
                 <th className="px-3 py-2 text-left">Status</th>
                 <th className="px-3 py-2 text-left">Tomorrow</th>
                 <th className="px-3 py-2 text-left">Compliance (UK HGV)</th>
