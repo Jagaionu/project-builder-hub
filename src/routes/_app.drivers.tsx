@@ -10,7 +10,7 @@ import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Check, X, KeyRound, Copy } from "lucide-react";
-import { generateDriverPairingCode, getActiveDriverPairingCodes } from "@/lib/pairing.functions";
+import { rotateDriverLoginCode } from "@/lib/pairing.functions";
 
 export const Route = createFileRoute("/_app/drivers")({
   loader: () => getDriversSnapshot(),
@@ -40,7 +40,7 @@ function formatLedgerDay(day: string): string {
   return `${weekday} ${String(date).padStart(2, "0")}/${String(month).padStart(2, "0")}`;
 }
 
-type ActiveCode = { code: string; expires_at: string | null };
+
 
 function DriversPage() {
   const { drivers: initialDrivers } = Route.useLoaderData();
@@ -51,32 +51,13 @@ function DriversPage() {
   const [form, setForm] = useState<DriverForm>({ name: "", phone: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "" });
-  const [codes, setCodes] = useState<Record<string, ActiveCode>>({});
-  const genCode = useServerFn(generateDriverPairingCode);
-  const fetchCodes = useServerFn(getActiveDriverPairingCodes);
+  const rotateCode = useServerFn(rotateDriverLoginCode);
 
-  // Load existing active codes using the server fn (bypasses RLS on pairing_codes)
-  async function refreshCodes() {
+  async function regenerate(driverId: string) {
     try {
-      const rows = await fetchCodes();
-      const map: Record<string, ActiveCode> = {};
-      for (const r of rows) map[r.driver_id] = { code: r.code, expires_at: r.expires_at };
-      setCodes(map);
-    } catch {
-      // Non-critical — codes will still appear after generate
-    }
-  }
-
-  useEffect(() => {
-    refreshCodes();
-  }, [drivers.length]);
-
-  async function issueCode(driverId: string) {
-    try {
-      const r = await genCode({ data: { driverId } });
-      setCodes((c) => ({ ...c, [driverId]: { code: r.code, expires_at: r.expires } }));
+      const r = await rotateCode({ data: { driverId } });
       await navigator.clipboard?.writeText(r.code).catch(() => {});
-      toast.success(`Code ${r.code} copied — valid 24 hours`);
+      toast.success(`New code ${r.code} — copied to clipboard`);
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -88,9 +69,15 @@ function DriversPage() {
       name: form.name,
       phone: form.phone || null,
       status: "OFF_SHIFT",
-    }).select("id").single();
+    }).select("id, login_code").single();
     if (error || !data) { toast.error(error?.message ?? "Failed to add driver"); return; }
-    await issueCode(data.id);
+    const code = (data as { login_code?: string | null }).login_code;
+    if (code) {
+      await navigator.clipboard?.writeText(code).catch(() => {});
+      toast.success(`Driver added — code ${code} copied to clipboard`);
+    } else {
+      toast.success("Driver added");
+    }
     setOpen(false);
     setForm({ name: "", phone: "" });
   }
@@ -168,7 +155,7 @@ function DriversPage() {
             <tbody className="divide-y divide-border">
               {drivers.map((d) => {
                 const isEditing = editingId === d.id;
-                const activeCode = codes[d.id];
+                const code = (d as { login_code?: string | null }).login_code ?? null;
                 return (
                   <tr key={d.id} className="hover:bg-surface-2/40">
                     <td className="px-3 py-2.5">
@@ -194,19 +181,19 @@ function DriversPage() {
                       )}
                     </td>
                     <td className="px-3 py-2.5">
-                      {activeCode ? (
+                      {code ? (
                         <CodeCell
-                          code={activeCode.code}
-                          expiresAt={activeCode.expires_at}
+                          code={code}
+                          expiresAt={null}
                           onCopy={() => {
-                            navigator.clipboard?.writeText(activeCode.code);
-                            toast.success(`${activeCode.code} copied`);
+                            navigator.clipboard?.writeText(code);
+                            toast.success(`${code} copied`);
                           }}
-                          onRegenerate={() => issueCode(d.id)}
+                          onRegenerate={() => regenerate(d.id)}
                         />
                       ) : (
                         <button
-                          onClick={() => issueCode(d.id)}
+                          onClick={() => regenerate(d.id)}
                           className="text-[11px] text-muted-foreground hover:text-primary underline"
                         >
                           Generate
@@ -253,7 +240,7 @@ function DriversPage() {
                           </>
                         ) : (
                           <>
-                            <button onClick={() => issueCode(d.id)} title="Regenerate pairing code" className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary"><KeyRound className="size-3.5" /></button>
+                            <button onClick={() => regenerate(d.id)} title="Regenerate pairing code" className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary"><KeyRound className="size-3.5" /></button>
                             <button
                               onClick={() => startEdit(d)}
                               className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-foreground"
