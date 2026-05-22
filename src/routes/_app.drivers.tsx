@@ -29,14 +29,6 @@ function formatStableTime(iso: string | null): string {
   return `${hh}:${mm}:${ss} UTC`;
 }
 
-function formatStableDateTime(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  const yyyy = date.getUTCFullYear();
-  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(date.getUTCDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd} ${formatStableTime(iso)}`;
-}
 
 function formatLedgerDay(day: string): string {
   const [year, month, date] = day.split("-").map(Number);
