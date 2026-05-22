@@ -31,9 +31,10 @@ export async function registerPwa() {
 
   try {
     // Module is provided by vite-plugin-pwa virtual import; only exists in built bundle.
-    const mod = (await import(/* @vite-ignore */ "virtual:pwa-register")) as {
+    const dynImport = new Function("p", "return import(p)") as (p: string) => Promise<{
       registerSW: (opts?: { immediate?: boolean }) => void;
-    };
+    }>;
+    const mod = await dynImport("virtual:pwa-register");
     mod.registerSW({ immediate: true });
   } catch {
     /* virtual module only exists in built bundles */
