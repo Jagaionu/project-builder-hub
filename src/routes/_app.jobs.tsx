@@ -296,7 +296,7 @@ function JobsPage() {
     })();
   }, [jobs]);
 
-  async function assignDriver(jobId: string, driverId: string) {
+  async function assignDriver(jobId: string, driverId: string, opts?: { manual?: boolean }) {
     if (driverId) {
       const c = compliance[driverId];
       if (c?.blockAssignment) {
@@ -304,13 +304,23 @@ function JobsPage() {
         return toast.error(`Cannot assign: ${reason}`);
       }
     }
-    const payload = driverId
+    const job = jobs.find((j) => j.id === jobId);
+    const wasActive = job ? ACTIVE_JOB_STATUSES.has(job.status) : false;
+    if (!driverId && opts?.manual && wasActive) {
+      if (typeof window !== "undefined" && !window.confirm("Remove driver from this active job? It will go back to Pending.")) {
+        return;
+      }
+    }
+    const base = driverId
       ? { assigned_driver_id: driverId, status: "ASSIGNED" as never }
-      : { assigned_driver_id: null, status: "PENDING" as never };
-    const { error } = await supabase.from("jobs").update(payload).eq("id", jobId);
+      : { assigned_driver_id: null, status: "PENDING" as never, planned_driver_id: null, planned_sequence: null, planned_start_at: null };
+    const payload = opts?.manual ? { ...base, manual_override: true } : base;
+    const { error } = await supabase.from("jobs").update(payload as never).eq("id", jobId);
     if (error) return toast.error(error.message);
     if (driverId) {
-      toast.success("Driver assigned");
+      toast.success(opts?.manual ? "Driver assigned (manual)" : "Driver assigned");
+    } else if (opts?.manual) {
+      toast.success("Driver removed — auto-planner paused for this job");
     }
   }
 
