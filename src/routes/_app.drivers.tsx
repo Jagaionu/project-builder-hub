@@ -112,18 +112,41 @@ function DriversPage() {
     else toast.success("Driver deleted");
   }
 
+  const driverLoginUrl = (typeof window !== "undefined" ? window.location.origin : "") + "/d/login";
+
+  async function copyDriverLink() {
+    await navigator.clipboard?.writeText(driverLoginUrl).catch(() => {});
+    toast.success("Driver login link copied");
+  }
+
+  async function copyInvite(name: string, code: string | null) {
+    if (!code) return toast.error("No code yet — click Generate");
+    const msg = `Hi ${name}, your driver app:\n${driverLoginUrl}\nCode: ${code}`;
+    await navigator.clipboard?.writeText(msg).catch(() => {});
+    toast.success("Invite message copied — paste into WhatsApp/SMS");
+  }
+
   return (
     <div className="h-full flex flex-col">
       <PageHeader
         title="Drivers"
         subtitle={`${drivers.length} drivers in roster`}
         right={
-          <button
-            onClick={() => setOpen((o) => !o)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
-          >
-            <Plus className="size-3.5" /> New Driver
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={copyDriverLink}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface hover:bg-surface-2 text-xs font-medium"
+              title={driverLoginUrl}
+            >
+              <LinkIcon className="size-3.5" /> Copy driver link
+            </button>
+            <button
+              onClick={() => setOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
+            >
+              <Plus className="size-3.5" /> New Driver
+            </button>
+          </div>
         }
       />
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
