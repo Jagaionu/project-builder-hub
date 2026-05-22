@@ -115,6 +115,7 @@ export function useDriverEventsByDriver(): Record<string, ComplianceEvent[]> {
       for (const e of data as Array<{ driver_id: string; type: string; timestamp: string }>) {
         (m[e.driver_id] ||= []).push({ type: e.type, timestamp: e.timestamp });
       }
+      cache.driverEvents = m;
       setMap(m);
     };
     load();
