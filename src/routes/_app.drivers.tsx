@@ -153,6 +153,7 @@ function DriversPage() {
               <tr>
                 <th className="px-3 py-2 text-left">Name</th>
                 <th className="px-3 py-2 text-left">Phone</th>
+                <th className="px-3 py-2 text-left">App Code</th>
                 <th className="px-3 py-2 text-left">Status</th>
                 <th className="px-3 py-2 text-left">Tomorrow</th>
                 <th className="px-3 py-2 text-left">Compliance (UK HGV)</th>
