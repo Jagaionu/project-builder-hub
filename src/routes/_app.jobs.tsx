@@ -790,8 +790,8 @@ function JobsPage() {
                                     {s.kind === "PICKUP" ? "Pickup" : "Drop"}
                                   </span>
                                 </div>
-                                <div className="col-span-3 font-mono text-muted-foreground">{fmt(arr)}</div>
-                                <div className="col-span-3 font-mono text-muted-foreground">{fmt(dep)}</div>
+                                <div className="col-span-3 font-mono text-muted-foreground text-zinc-50 border-0 text-sm">{fmt(arr)}</div>
+                                <div className="col-span-3 font-mono text-muted-foreground text-zinc-50 border-0 text-sm">{fmt(dep)}</div>
                                 <div className="col-span-1 font-mono text-muted-foreground">
                                   {s.arrived_at ? new Date(s.arrived_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
                                 </div>
