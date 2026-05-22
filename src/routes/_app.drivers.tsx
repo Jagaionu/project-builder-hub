@@ -110,10 +110,13 @@ function DriversPage() {
   }
 
   async function remove(id: string, name: string) {
-    if (!confirm(`Delete driver "${name}"?`)) return;
-    const { error } = await supabase.from("drivers").delete().eq("id", id);
-    if (error) toast.error(error.message);
-    else toast.success("Driver deleted");
+    if (!confirm(`Delete driver "${name}"?\n\nThis removes the driver, their login, GPS history, events and shift records.`)) return;
+    try {
+      await removeDriver({ data: { driverId: id } });
+      toast.success("Driver deleted");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Delete failed");
+    }
   }
 
   const driverLoginUrl = (typeof window !== "undefined" ? window.location.origin : "") + "/d/login";
