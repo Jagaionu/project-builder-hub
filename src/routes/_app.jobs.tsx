@@ -310,11 +310,7 @@ function JobsPage() {
     const { error } = await supabase.from("jobs").update(payload).eq("id", jobId);
     if (error) return toast.error(error.message);
     if (driverId) {
-      try {
-        const r = await notify({ data: { jobId } });
-        if ((r as { skipped?: string }).skipped === "driver_no_telegram") toast.warning("Driver has no Telegram linked");
-        else toast.success("Driver notified on Telegram");
-      } catch (e) { toast.error(`Notify failed: ${(e as Error).message}`); }
+      toast.success("Driver assigned");
     }
   }
 
