@@ -22,6 +22,7 @@ export interface Driver {
   tomorrow_start_lat?: number | null;
   tomorrow_start_lon?: number | null;
   tomorrow_start_updated_at?: string | null;
+  login_code?: string | null;
 }
 
 export interface Warehouse {
