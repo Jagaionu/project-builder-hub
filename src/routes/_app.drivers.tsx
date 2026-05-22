@@ -207,24 +207,27 @@ function DriversPage() {
                     </td>
                     <td className="px-3 py-2.5">
                       {code ? (
-                        <CodeCell
-                          code={code}
-                          expiresAt={null}
-                          onCopy={() => {
+                        <button
+                          onClick={() => {
                             navigator.clipboard?.writeText(code);
                             toast.success(`${code} copied`);
                           }}
-                          onRegenerate={() => regenerate(d.id)}
-                        />
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary font-mono text-xs tracking-widest"
+                          title="Click to copy"
+                        >
+                          {code}
+                          <Copy className="size-2.5 opacity-60" />
+                        </button>
                       ) : (
                         <button
-                          onClick={() => regenerate(d.id)}
+                          onClick={() => regenerate(d.id, d.name)}
                           className="text-[11px] text-muted-foreground hover:text-primary underline"
                         >
                           Generate
                         </button>
                       )}
                     </td>
+
                     <td className="px-3 py-2.5">
                       <StatusBadge status={d.status} kind="driver" />
                     </td>
