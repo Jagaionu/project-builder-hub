@@ -738,10 +738,10 @@ function JobsPage() {
                       <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
                         <DriverPicker
                           driverId={j.assigned_driver_id}
-                          allowUnassign={!ACTIVE_JOB_STATUSES.has(j.status)}
+                          allowUnassign={true}
                           drivers={drivers}
                           compliance={compliance}
-                          onChange={(id) => assignDriver(j.id, id)}
+                          onChange={(id) => assignDriver(j.id, id, { manual: true })}
                         />
                         {!j.assigned_driver_id && (planned || j.planned_driver_id) && (
                           <PlannedChip
