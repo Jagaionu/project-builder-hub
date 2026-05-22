@@ -9,7 +9,7 @@ import { PageHeader } from "./_app.index";
 import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User, Upload, Calendar as CalendarIcon, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
+
 import { computePlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
 import { planTomorrow } from "@/lib/tomorrow.functions";
 import { computeStopSchedule, stopDwellMinutes } from "@/lib/geo";
