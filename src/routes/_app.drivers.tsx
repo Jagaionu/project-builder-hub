@@ -51,32 +51,13 @@ function DriversPage() {
   const [form, setForm] = useState<DriverForm>({ name: "", phone: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "" });
-  const [codes, setCodes] = useState<Record<string, ActiveCode>>({});
-  const genCode = useServerFn(generateDriverPairingCode);
-  const fetchCodes = useServerFn(getActiveDriverPairingCodes);
+  const rotateCode = useServerFn(rotateDriverLoginCode);
 
-  // Load existing active codes using the server fn (bypasses RLS on pairing_codes)
-  async function refreshCodes() {
+  async function regenerate(driverId: string) {
     try {
-      const rows = await fetchCodes();
-      const map: Record<string, ActiveCode> = {};
-      for (const r of rows) map[r.driver_id] = { code: r.code, expires_at: r.expires_at };
-      setCodes(map);
-    } catch {
-      // Non-critical — codes will still appear after generate
-    }
-  }
-
-  useEffect(() => {
-    refreshCodes();
-  }, [drivers.length]);
-
-  async function issueCode(driverId: string) {
-    try {
-      const r = await genCode({ data: { driverId } });
-      setCodes((c) => ({ ...c, [driverId]: { code: r.code, expires_at: r.expires } }));
+      const r = await rotateCode({ data: { driverId } });
       await navigator.clipboard?.writeText(r.code).catch(() => {});
-      toast.success(`Code ${r.code} copied — valid 24 hours`);
+      toast.success(`New code ${r.code} — copied to clipboard`);
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -88,9 +69,15 @@ function DriversPage() {
       name: form.name,
       phone: form.phone || null,
       status: "OFF_SHIFT",
-    }).select("id").single();
+    }).select("id, login_code").single();
     if (error || !data) { toast.error(error?.message ?? "Failed to add driver"); return; }
-    await issueCode(data.id);
+    const code = (data as { login_code?: string | null }).login_code;
+    if (code) {
+      await navigator.clipboard?.writeText(code).catch(() => {});
+      toast.success(`Driver added — code ${code} copied to clipboard`);
+    } else {
+      toast.success("Driver added");
+    }
     setOpen(false);
     setForm({ name: "", phone: "" });
   }
