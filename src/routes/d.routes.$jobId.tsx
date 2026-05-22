@@ -29,14 +29,6 @@ function JobDetail() {
     );
   }
 
-  const onArrive = async (stopId: string) => {
-    const now = new Date().toISOString();
-    await supabase.from("job_stops").update({ arrived_at: now } as never).eq("id", stopId);
-    if (driver) await supabase.from("driver_events").insert({ driver_id: driver.id, type: "ARRIVED", payload: { stop_id: stopId } } as never);
-    useDriverStore.getState().setJobs(useDriverStore.getState().jobs.map((j) =>
-      j.id !== job.id ? j : { ...j, stops: j.stops.map((s) => s.id === stopId ? { ...s, arrived_at: now } : s) }
-    ));
-  };
 
   const sortedStops = [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq);
   const allDone = sortedStops.length > 0 && sortedStops.every((s) => s.arrived_at);
@@ -250,7 +242,11 @@ function JobDetail() {
         )}
       </div>
 
-      <DriverStopTimeline job={{ ...job, stops: sortedStops }} driverPosition={gps} onArrive={onArrive} />
+      <DriverStopTimeline job={{ ...job, stops: sortedStops }} driverPosition={gps} />
+
+      <p className="mt-2 text-xs text-muted-foreground text-center">
+        Arrivals are confirmed automatically when you reach each stop.
+      </p>
 
       {allDone && job.status !== "COMPLETED" && (
         <button onClick={complete}
