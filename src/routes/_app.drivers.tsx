@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Check, X, KeyRound, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, KeyRound, Copy, Link as LinkIcon } from "lucide-react";
 import { rotateDriverLoginCode } from "@/lib/pairing.functions";
 
 export const Route = createFileRoute("/_app/drivers")({
@@ -112,18 +112,41 @@ function DriversPage() {
     else toast.success("Driver deleted");
   }
 
+  const driverLoginUrl = (typeof window !== "undefined" ? window.location.origin : "") + "/d/login";
+
+  async function copyDriverLink() {
+    await navigator.clipboard?.writeText(driverLoginUrl).catch(() => {});
+    toast.success("Driver login link copied");
+  }
+
+  async function copyInvite(name: string, code: string | null) {
+    if (!code) return toast.error("No code yet — click Generate");
+    const msg = `Hi ${name}, your driver app:\n${driverLoginUrl}\nCode: ${code}`;
+    await navigator.clipboard?.writeText(msg).catch(() => {});
+    toast.success("Invite message copied — paste into WhatsApp/SMS");
+  }
+
   return (
     <div className="h-full flex flex-col">
       <PageHeader
         title="Drivers"
         subtitle={`${drivers.length} drivers in roster`}
         right={
-          <button
-            onClick={() => setOpen((o) => !o)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
-          >
-            <Plus className="size-3.5" /> New Driver
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={copyDriverLink}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface hover:bg-surface-2 text-xs font-medium"
+              title={driverLoginUrl}
+            >
+              <LinkIcon className="size-3.5" /> Copy driver link
+            </button>
+            <button
+              onClick={() => setOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
+            >
+              <Plus className="size-3.5" /> New Driver
+            </button>
+          </div>
         }
       />
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -240,6 +263,7 @@ function DriversPage() {
                           </>
                         ) : (
                           <>
+                            <button onClick={() => copyInvite(d.name, code)} title="Copy login link + code for this driver" className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary"><LinkIcon className="size-3.5" /></button>
                             <button onClick={() => regenerate(d.id)} title="Regenerate pairing code" className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary"><KeyRound className="size-3.5" /></button>
                             <button
                               onClick={() => startEdit(d)}
