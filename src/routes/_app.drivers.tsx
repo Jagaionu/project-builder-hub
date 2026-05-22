@@ -53,6 +53,7 @@ function DriversPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "" });
   const rotateCode = useServerFn(rotateDriverLoginCode);
+  const removeDriver = useServerFn(deleteDriver);
 
   async function regenerate(driverId: string, driverName: string) {
     if (!confirm(`Regenerate login code for "${driverName}"?\n\nThe old code will stop working immediately. The driver will need the new code to log in.`)) return;
