@@ -186,7 +186,7 @@ export type DriverDayHours = {
 };
 
 export function useDriverDayHours(): Record<string, DriverDayHours[]> {
-  const [map, setMap] = useState<Record<string, DriverDayHours[]>>({});
+  const [map, setMap] = useState<Record<string, DriverDayHours[]>>(cache.driverDayHours);
   const channelNameRef = useRef(`rt-driver-day-hours-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     let mounted = true;
