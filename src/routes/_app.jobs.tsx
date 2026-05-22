@@ -276,7 +276,6 @@ function JobsPage() {
       else localStorage.removeItem("jobs.dateRange");
     } catch { /* noop */ }
   }, [dateRange]);
-  const notify = useServerFn(notifyDriverOfJob);
   const plan = useMemo(
     () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
     [jobs, stopsMap, drivers, warehouses, compliance],
