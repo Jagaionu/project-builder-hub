@@ -92,6 +92,6 @@ export const planTomorrow = createServerFn({ method: "POST" }).handler(async () 
     totalJobs: jobList.length,
     assigned: plan.planned.length,
     unassignable: plan.unassignable,
-    driversNotified: driverIds.length,
+    driversPlanned: new Set(plan.planned.map((p) => p.driverId)).size,
   };
 });
