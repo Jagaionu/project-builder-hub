@@ -30,6 +30,49 @@ async function refreshJobs(driverId: string) {
 const MIN_INTERVAL_MS = 30_000;
 const MIN_MOVE_KM = 0.05;
 
+// Geofence radius for automatic arrival confirmation (~120 m).
+const ARRIVAL_RADIUS_KM = 0.12;
+const arrivingStops = new Set<string>();
+
+async function autoArriveNearby(driverId: string, p: GPSPosition) {
+  const jobs = useDriverStore.getState().jobs;
+  const candidates: { jobId: string; stopId: string }[] = [];
+  for (const job of jobs) {
+    if (["COMPLETED", "CANCELLED", "PENDING"].includes(job.status)) continue;
+    const sorted = [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq);
+    const nextStop = sorted.find((s) => !s.arrived_at);
+    if (!nextStop?.warehouse) continue;
+    const wh = nextStop.warehouse;
+    const dist = haversineKm(p.lat, p.lon, wh.latitude, wh.longitude);
+    if (dist <= ARRIVAL_RADIUS_KM && !arrivingStops.has(nextStop.id)) {
+      candidates.push({ jobId: job.id, stopId: nextStop.id });
+    }
+  }
+  for (const c of candidates) {
+    arrivingStops.add(c.stopId);
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("job_stops")
+      .update({ arrived_at: now } as never)
+      .eq("id", c.stopId)
+      .is("arrived_at", null);
+    if (error) {
+      arrivingStops.delete(c.stopId);
+      continue;
+    }
+    await supabase
+      .from("driver_events")
+      .insert({ driver_id: driverId, type: "ARRIVED", payload: { stop_id: c.stopId, auto: true } } as never);
+    useDriverStore.getState().setJobs(
+      useDriverStore.getState().jobs.map((j) =>
+        j.id !== c.jobId
+          ? j
+          : { ...j, stops: j.stops.map((s) => (s.id === c.stopId ? { ...s, arrived_at: now } : s)) },
+      ),
+    );
+  }
+}
+
 export function useDriverBootstrap() {
   const setSession = useDriverStore((s) => s.setSession);
   const setOnline = useDriverStore((s) => s.setOnline);
