@@ -1,60 +1,43 @@
 
-# Permanent driver pairing codes
+# Use the in-project driver app
 
-Right now the code is single-use and expires after 15 minutes, so the second time the driver tries to log in the endpoint returns "Code not found / already used". We'll change it to a permanent, reusable code that lives on the driver row and never expires.
+You picked option 1: drivers log in inside **this** project at `/d/login`. Nothing more to build server-side — that flow already exists and the permanent code we just shipped already works on it. Two small things to do:
 
-## 1. Schema (one migration)
+## 1. Publish the app (one click, by you)
 
-- Add `login_code text UNIQUE` directly on `drivers`.
-- Backfill: every existing driver gets a fresh 6-digit `login_code` (unique).
-- New drivers: a trigger auto-generates a 6-digit `login_code` on insert if not provided.
-- Keep `pairing_codes` table around but stop relying on it for login. (Optional cleanup later.)
-
-The code lives on `drivers.login_code` — one code per driver, forever, until you click "Regenerate".
-
-## 2. Login endpoint — `/api/public/pairing-login`
-
-Rewrite the handler to:
-1. Read the 6-digit `code` from the request body.
-2. Look up `drivers` by `login_code`. If not found → 404 "Code not found".
-3. Ensure a hidden `auth.users` row exists for that driver (`driver-<id>@driver.local`), rotate its password.
-4. Return `{ email, password }` — the client signs in with that.
-5. No "consumed_at", no "expires_at" check. Same code works every time.
-
-CORS: add permissive `Access-Control-Allow-Origin: *` + OPTIONS handler so the separate `build-my-dream-app` frontend can call it cross-origin.
-
-## 3. Dispatch UI — Drivers page
-
-- "App Code" column now shows `drivers.login_code` directly (always present, never blank).
-- "Regenerate" button rotates `drivers.login_code` to a new unique 6-digit number (server fn).
-- Remove the toast-only flow and the dependency on `pairing_codes` rows for display.
-- "Add driver" no longer needs to call `generateDriverPairingCode` — the DB trigger fills it in automatically; we just refetch.
-
-## 4. Driver app (`build-my-dream-app`)
-
-The driver app must POST to **this** project's endpoint:
+The `/d/*` routes work in preview, but to send the link to drivers it needs to be on the published URL. Click **Publish** (top right) → **Update**. After that the live driver URL is:
 
 ```
-POST https://assemble-joy-maker.lovable.app/api/public/pairing-login
-Content-Type: application/json
-{ "code": "123456" }
+https://assemble-joy-maker.lovable.app/d/login
 ```
 
-…and then call `supabase.auth.signInWithPassword({ email, password })` against **this** project's Supabase URL + publishable key (same Lovable Cloud DB). I'll give you the exact 3-line change for that repo's `driver-auth.ts` (swap the base URL + the Supabase client env vars) — no other change needed there.
+That's the link you send each driver — same URL for everyone. Each driver enters their own 6‑digit code from the **App Code** column on the Drivers page.
 
-If you'd rather skip the separate repo entirely, the `/d/login` route already in this project does the exact same thing on `<this-app>/d/login`.
+## 2. Add a "Copy driver link" helper on the Drivers page
 
-## 5. What I'm NOT touching
+Small UI polish so you don't have to remember/type the URL. On the Drivers page:
 
-- The dispatch UI (jobs, calendar, live map).
-- `pairing_codes` table stays (in case of historical references); it's just no longer the source of truth for login.
-- RLS, planner, shift-ledger logic.
+- A new button near "New Driver": **Copy driver link** → copies `https://<this-app>/d/login` to clipboard.
+- On each row, a small 🔗 icon next to the App Code → copies a one-shot message like:
+  ```
+  Driver login: https://assemble-joy-maker.lovable.app/d/login
+  Your code: 482913
+  ```
+  ready to paste into WhatsApp / SMS.
 
-## Technical details
+That's it for code changes. ~10 lines in `src/routes/_app.drivers.tsx`, no schema, no server changes.
 
-- Migration: `ALTER TABLE drivers ADD COLUMN login_code text UNIQUE;` + a `gen_driver_login_code()` plpgsql function (loops on collision) + `BEFORE INSERT` trigger + a one-shot UPDATE for existing rows.
-- New server fn `rotateDriverLoginCode({ driverId })` for the Regenerate button.
-- `pairing-login.ts` handler: replace `pairing_codes` lookup with `drivers.select('id, user_id, name').eq('login_code', code).maybeSingle()`. Drop consumed/expired branches. Add CORS headers + `OPTIONS` handler.
-- `_app.drivers.tsx`: read `login_code` from the driver row; remove `codes` state + `pairing_codes` fetch; call `rotateDriverLoginCode` from the key-icon button.
+## What to do with the other project
 
-Reply "go" and I'll run the migration and ship the changes.
+`build-my-dream-app` is no longer needed. You can either ignore it or delete it from the Lovable dashboard — drivers will never touch it. Ignore everything its AI told you about `.env` and Supabase URLs; that was its own database, irrelevant to us now.
+
+## How it works end-to-end (recap)
+
+1. You add a driver on the Drivers page → a permanent 6‑digit code is created and copied to your clipboard.
+2. You click **Copy driver link** (after this change) and paste the message into WhatsApp/SMS.
+3. The driver opens the link on their phone, types their 6 digits, lands on `/d` personalised with their name.
+4. From `/d` they can: see today's & tomorrow's jobs, start/end shift, mark "available tomorrow", share live GPS, accept/arrive/depart on stops, report delays.
+5. When you assign a job in dispatch, it appears on their phone in real time (Realtime subscription on `jobs`).
+6. The same 6‑digit code keeps working forever. If a driver loses their phone, click the 🔑 icon next to them to rotate it.
+
+Reply "go" and I'll add the Copy-link buttons. Or "skip" if you'd rather just publish and send the URL manually.
