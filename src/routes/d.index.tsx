@@ -82,6 +82,9 @@ function DriverHome() {
           <p className="text-xs text-muted-foreground">
             {gps ? `Live · ${gps.lat.toFixed(4)}, ${gps.lon.toFixed(4)}` : "Waiting for GPS permission…"}
           </p>
+          <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
+            Keep this app installed and open on your phone for the most reliable background tracking.
+          </p>
         </div>
         <span className={`w-2.5 h-2.5 rounded-full ${gps ? "bg-success" : "bg-warning"}`} />
       </div>

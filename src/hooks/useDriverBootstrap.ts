@@ -78,6 +78,9 @@ export function useDriverBootstrap() {
   const setOnline = useDriverStore((s) => s.setOnline);
   const setGpsPosition = useDriverStore((s) => s.setGpsPosition);
   const lastSent = useRef<GPSPosition | null>(null);
+  const stopWatchRef = useRef<(() => void) | null>(null);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
@@ -98,7 +101,7 @@ export function useDriverBootstrap() {
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
 
-    const stopWatch = watchPosition((p) => {
+    const onPosition = (p: GPSPosition) => {
       setGpsPosition(p);
       const driver = useDriverStore.getState().driver;
       if (!driver) return;
@@ -114,13 +117,91 @@ export function useDriverBootstrap() {
       const now = new Date().toISOString();
       supabase.from("driver_positions").insert({ driver_id: driver.id, lat: p.lat, lon: p.lon }).then(() => {});
       supabase.from("drivers").update({ current_lat: p.lat, current_lon: p.lon, last_update_time: now }).eq("id", driver.id).then(() => {});
-    });
+    };
+
+    const startWatch = () => {
+      if (stopWatchRef.current) return;
+      stopWatchRef.current = watchPosition(onPosition);
+    };
+    const restartWatch = () => {
+      stopWatchRef.current?.();
+      stopWatchRef.current = null;
+      startWatch();
+    };
+    startWatch();
+
+    // Wake Lock — keep the screen from sleeping while the driver is on shift.
+    // Browsers throttle GPS aggressively when the screen is off, so this is
+    // the most reliable way to keep updates flowing in the background.
+    const acquireWakeLock = async () => {
+      try {
+        const nav = navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<WakeLockSentinel> } };
+        if (!nav.wakeLock) return;
+        const driver = useDriverStore.getState().driver;
+        if (!driver || driver.status === "OFF_SHIFT") return;
+        if (wakeLockRef.current) return;
+        wakeLockRef.current = await nav.wakeLock.request("screen");
+        wakeLockRef.current.addEventListener("release", () => {
+          wakeLockRef.current = null;
+        });
+      } catch {
+        // Permission/policy denied — silently ignore, GPS will still work
+        // while the tab is visible.
+      }
+    };
+    acquireWakeLock();
+
+    // When the user returns to the tab, the browser may have paused GPS.
+    // Force a fresh position and re-establish the watch.
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      acquireWakeLock();
+      restartWatch();
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) =>
+            onPosition({
+              lat: pos.coords.latitude,
+              lon: pos.coords.longitude,
+              accuracy: pos.coords.accuracy,
+              ts: pos.timestamp,
+            }),
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+        );
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    // Heartbeat — force a fresh position every 60 s. Re-runs even when the
+    // page is in the background on browsers that still allow it (most
+    // mobile Chrome installs do, iOS Safari throttles harder).
+    heartbeatRef.current = setInterval(() => {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) =>
+          onPosition({
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+            ts: pos.timestamp,
+          }),
+        () => {},
+        { enableHighAccuracy: false, maximumAge: 30_000, timeout: 15_000 },
+      );
+    }, 60_000);
 
     return () => {
       sub.subscription.unsubscribe();
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
-      stopWatch();
+      document.removeEventListener("visibilitychange", onVisibility);
+      stopWatchRef.current?.();
+      stopWatchRef.current = null;
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+      wakeLockRef.current?.release().catch(() => {});
+      wakeLockRef.current = null;
     };
   }, [setSession, setOnline, setGpsPosition]);
 
