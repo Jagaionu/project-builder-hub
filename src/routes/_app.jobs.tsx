@@ -987,7 +987,7 @@ function DriverPicker({ driverId, allowUnassign = true, drivers, compliance, onC
                 </span>
                 <span className={`flex-1 text-left ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
                   {d.name}
-                  {!d.telegram_id && <span className="ml-1 text-[9px] text-muted-foreground/50">no TG</span>}
+                  
                   {dc && (
                     <span className="ml-1 text-[9px] font-mono text-muted-foreground/70">
                       {dc.weekly.toFixed(0)}/56 · {dc.dailyHeadroom.toFixed(1)}h left
