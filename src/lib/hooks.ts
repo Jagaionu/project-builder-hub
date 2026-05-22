@@ -139,7 +139,7 @@ export type RecentDelay = {
 };
 
 export function useRecentDelays(): RecentDelay[] {
-  const [rows, setRows] = useState<RecentDelay[]>([]);
+  const [rows, setRows] = useState<RecentDelay[]>(cache.recentDelays);
   const channelNameRef = useRef(`rt-delay-events-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     let mounted = true;
