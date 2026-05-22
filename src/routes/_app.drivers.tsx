@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_app/drivers")({
   head: () => ({ meta: [{ title: "Drivers — Planning System" }] }),
 });
 
-type DriverForm = { name: string; phone: string; telegram_id: string };
+type DriverForm = { name: string; phone: string };
 
 function formatStableTime(iso: string | null): string {
   if (!iso) return "—";
