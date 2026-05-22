@@ -40,7 +40,7 @@ function formatLedgerDay(day: string): string {
   return `${weekday} ${String(date).padStart(2, "0")}/${String(month).padStart(2, "0")}`;
 }
 
-type ActiveCode = { code: string; expires_at: string | null };
+
 
 function DriversPage() {
   const { drivers: initialDrivers } = Route.useLoaderData();
