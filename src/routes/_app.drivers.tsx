@@ -40,6 +40,8 @@ function formatLedgerDay(day: string): string {
   return `${weekday} ${String(date).padStart(2, "0")}/${String(month).padStart(2, "0")}`;
 }
 
+type ActiveCode = { code: string; expires_at: string | null };
+
 function DriversPage() {
   const { drivers: initialDrivers } = Route.useLoaderData();
   const drivers = useDrivers(initialDrivers);
@@ -49,7 +51,33 @@ function DriversPage() {
   const [form, setForm] = useState<DriverForm>({ name: "", phone: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "" });
+  const [codes, setCodes] = useState<Record<string, ActiveCode>>({});
   const genCode = useServerFn(generateDriverPairingCode);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("pairing_codes")
+        .select("code, driver_id, expires_at")
+        .is("consumed_at", null)
+        .gt("expires_at", new Date().toISOString());
+      if (!data) return;
+      const map: Record<string, ActiveCode> = {};
+      for (const r of data) map[r.driver_id] = { code: r.code, expires_at: r.expires_at };
+      setCodes(map);
+    })();
+  }, [drivers.length]);
+
+  async function issueCode(driverId: string) {
+    try {
+      const r = await genCode({ data: { driverId } });
+      setCodes((c) => ({ ...c, [driverId]: { code: r.code, expires_at: r.expires } }));
+      await navigator.clipboard?.writeText(r.code).catch(() => {});
+      toast.success(`Code ${r.code} copied — valid 15 min`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
 
   async function add() {
     if (!form.name) return toast.error("Name required");
@@ -59,16 +87,11 @@ function DriversPage() {
       status: "OFF_SHIFT",
     }).select("id").single();
     if (error || !data) { toast.error(error?.message ?? "Failed to add driver"); return; }
-    try {
-      const r = await genCode({ data: { driverId: data.id } });
-      await navigator.clipboard?.writeText(r.code).catch(() => {});
-      toast.success(`Driver added — pairing code ${r.code} (copied, valid 15 min)`, { duration: 15000 });
-    } catch (e) {
-      toast.warning(`Driver added. Code generation failed: ${(e as Error).message}`);
-    }
+    await issueCode(data.id);
     setOpen(false);
     setForm({ name: "", phone: "" });
   }
+
 
   function startEdit(d: { id: string; name: string; phone: string | null }) {
     setEditingId(d.id);
