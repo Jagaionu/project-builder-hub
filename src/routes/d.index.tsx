@@ -36,6 +36,15 @@ function DriverHome() {
   const todayJobs = jobs.filter((j) => j.for_date === today);
   const tomorrowJobs = jobs.filter((j) => j.for_date === tomorrow);
   const activeJobs = todayJobs.filter((j) => !["COMPLETED", "CANCELLED"].includes(j.status));
+  const STATUS_ORDER = ["ARRIVED_PICKUP", "EN_ROUTE_DELIVERY", "IN_PROGRESS", "ASSIGNED", "PENDING"];
+  const nextJob = [...activeJobs].sort((a, b) => {
+    const sa = STATUS_ORDER.indexOf(a.status);
+    const sb = STATUS_ORDER.indexOf(b.status);
+    if (sa !== sb) return (sa === -1 ? 99 : sa) - (sb === -1 ? 99 : sb);
+    const ta = a.planned_start_at ?? a.scheduled_at ?? "";
+    const tb = b.planned_start_at ?? b.scheduled_at ?? "";
+    return ta.localeCompare(tb);
+  })[0];
 
   const toggleShift = async () => {
     setShiftLoading(true);
