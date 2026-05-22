@@ -98,7 +98,7 @@ export function useJobs() {
 }
 
 export function useDriverEventsByDriver(): Record<string, ComplianceEvent[]> {
-  const [map, setMap] = useState<Record<string, ComplianceEvent[]>>({});
+  const [map, setMap] = useState<Record<string, ComplianceEvent[]>>(cache.driverEvents);
   const channelNameRef = useRef(`rt-driver-events-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     let mounted = true;
