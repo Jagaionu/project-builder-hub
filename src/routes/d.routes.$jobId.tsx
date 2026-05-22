@@ -250,7 +250,11 @@ function JobDetail() {
         )}
       </div>
 
-      <DriverStopTimeline job={{ ...job, stops: sortedStops }} driverPosition={gps} onArrive={onArrive} />
+      <DriverStopTimeline job={{ ...job, stops: sortedStops }} driverPosition={gps} />
+
+      <p className="mt-2 text-xs text-muted-foreground text-center">
+        Arrivals are confirmed automatically when you reach each stop.
+      </p>
 
       {allDone && job.status !== "COMPLETED" && (
         <button onClick={complete}
