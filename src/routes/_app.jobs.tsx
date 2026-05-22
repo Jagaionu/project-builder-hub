@@ -910,7 +910,7 @@ function StatusPill({ status, onChange }: { status: string; onChange: (s: string
 function DriverPicker({ driverId, allowUnassign = true, drivers, compliance, onChange }: {
   driverId: string | null | undefined;
   allowUnassign?: boolean;
-  drivers: { id: string; name: string; telegram_id?: string | null; status?: string }[];
+  drivers: { id: string; name: string; status?: string }[];
   compliance?: Record<string, Compliance>;
   onChange: (id: string) => void;
 }) {
