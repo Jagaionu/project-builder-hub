@@ -247,7 +247,7 @@ function DriversPage() {
                           </>
                         ) : (
                           <>
-                            <PairButton driverId={d.id} />
+                            <button onClick={() => issueCode(d.id)} title="Regenerate pairing code" className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary"><KeyRound className="size-3.5" /></button>
                             <button
                               onClick={() => startEdit(d)}
                               className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-foreground"
