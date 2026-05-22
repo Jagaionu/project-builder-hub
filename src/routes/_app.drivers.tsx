@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Check, X, KeyRound, Copy, Link as LinkIcon } from "lucide-react";
 import { rotateDriverLoginCode } from "@/lib/pairing.functions";
+import { deleteDriver } from "@/lib/drivers-delete.functions";
 
 export const Route = createFileRoute("/_app/drivers")({
   loader: () => getDriversSnapshot(),
@@ -52,6 +53,7 @@ function DriversPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "" });
   const rotateCode = useServerFn(rotateDriverLoginCode);
+  const removeDriver = useServerFn(deleteDriver);
 
   async function regenerate(driverId: string, driverName: string) {
     if (!confirm(`Regenerate login code for "${driverName}"?\n\nThe old code will stop working immediately. The driver will need the new code to log in.`)) return;
@@ -108,10 +110,13 @@ function DriversPage() {
   }
 
   async function remove(id: string, name: string) {
-    if (!confirm(`Delete driver "${name}"?`)) return;
-    const { error } = await supabase.from("drivers").delete().eq("id", id);
-    if (error) toast.error(error.message);
-    else toast.success("Driver deleted");
+    if (!confirm(`Delete driver "${name}"?\n\nThis removes the driver, their login, GPS history, events and shift records.`)) return;
+    try {
+      await removeDriver({ data: { driverId: id } });
+      toast.success("Driver deleted");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Delete failed");
+    }
   }
 
   const driverLoginUrl = (typeof window !== "undefined" ? window.location.origin : "") + "/d/login";
