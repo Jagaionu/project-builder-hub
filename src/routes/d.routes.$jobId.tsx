@@ -1,7 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useDriverStore } from "@/lib/driver-store";
 import { DriverStopTimeline } from "@/components/driver/DriverStopTimeline";
+import { STATUS_CONFIG } from "@/components/driver/DriverJobCard";
 import { haversineKm, transitTimeHours, jobTotalMinutes, stopDwellMinutes, ARRIVAL_BUFFER_MINUTES } from "@/lib/geo";
 
 export const Route = createFileRoute("/d/routes/$jobId")({
@@ -86,17 +89,134 @@ function JobDetail() {
     : null;
   const chain = sortedStops.map((s) => s.warehouse?.code ?? "?").join(" → ");
 
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  const statusCfg = STATUS_CONFIG[job.status] ?? STATUS_CONFIG.PENDING;
+
+  const refreshJob = (patch: Partial<typeof job>) => {
+    useDriverStore.getState().setJobs(
+      useDriverStore.getState().jobs.map((j) => (j.id === job.id ? { ...j, ...patch } : j)),
+    );
+  };
+
+  const acceptJob = async () => {
+    if (!driver) return;
+    setBusy(true);
+    try {
+      const { error: jErr } = await supabase.from("jobs").update({ status: "IN_PROGRESS" } as never).eq("id", job.id);
+      if (jErr) throw jErr;
+      await supabase.from("drivers").update({ status: "ON_ROUTE" } as never).eq("id", driver.id);
+      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "ACCEPT_JOB", payload: { job_id: job.id } } as never);
+      refreshJob({ status: "IN_PROGRESS" });
+      toast.success("Route accepted");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to accept");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const rejectJob = async () => {
+    if (!driver) return;
+    if (typeof window !== "undefined" && !window.confirm("Reject this route?")) return;
+    setBusy(true);
+    try {
+      await supabase.from("jobs").update({ status: "PENDING", assigned_driver_id: null, planned_driver_id: null } as never).eq("id", job.id);
+      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "REJECT_JOB", payload: { job_id: job.id } } as never);
+      toast.success("Route rejected");
+      navigate({ to: "/d/routes" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to reject");
+      setBusy(false);
+    }
+  };
+
+  const cantComplete = async () => {
+    if (!driver) return;
+    if (typeof window !== "undefined" && !window.confirm("Mark this route as can't complete?")) return;
+    setBusy(true);
+    try {
+      await supabase.from("jobs").update({ status: "PENDING", assigned_driver_id: null, planned_driver_id: null } as never).eq("id", job.id);
+      await supabase.from("drivers").update({ status: "AVAILABLE" } as never).eq("id", driver.id);
+      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "CANT_COMPLETE", payload: { job_id: job.id } } as never);
+      toast.success("Reported — dispatcher notified");
+      navigate({ to: "/d/routes" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+      setBusy(false);
+    }
+  };
+
+  const saveNote = async () => {
+    if (!driver || !note.trim()) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("driver_events").insert({
+        driver_id: driver.id,
+        type: "DRIVER_NOTE",
+        payload: { job_id: job.id, note: note.trim() },
+      } as never);
+      if (error) throw error;
+      setNote("");
+      toast.success("Note saved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save note");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const complete = async () => {
     await supabase.from("jobs").update({ status: "COMPLETED" } as never).eq("id", job.id);
     if (driver) await supabase.from("drivers").update({ status: "AVAILABLE" } as never).eq("id", driver.id);
     navigate({ to: "/d" });
   };
 
+  const showAcceptReject = job.status === "ASSIGNED";
+  const showCantComplete = job.status === "IN_PROGRESS" || job.status === "ARRIVED_PICKUP" || job.status === "EN_ROUTE_DELIVERY";
+
   return (
-    <div className="pt-6 px-4">
+    <div className="pt-6 px-4 max-w-md mx-auto pb-12">
       <button onClick={() => navigate({ to: "/d/routes" })} className="text-primary text-sm mb-4">← Routes</button>
-      <h1 className="text-2xl font-bold text-foreground">{job.reference}</h1>
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <h1 className="text-2xl font-bold text-foreground">{job.reference}</h1>
+        <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${statusCfg.bg} ${statusCfg.color}`}>
+          {statusCfg.label}
+        </span>
+      </div>
       <p className="text-sm text-muted-foreground mb-4">{sortedStops.length} stops</p>
+
+      {(showAcceptReject || showCantComplete) && (
+        <div className="mb-4 flex gap-2">
+          {showAcceptReject && (
+            <>
+              <button
+                onClick={acceptJob}
+                disabled={busy}
+                className="flex-1 bg-success/20 text-success font-bold py-3 rounded-xl active:scale-[0.99] transition disabled:opacity-50"
+              >
+                ✅ Accept
+              </button>
+              <button
+                onClick={rejectJob}
+                disabled={busy}
+                className="flex-1 bg-destructive/10 text-destructive font-bold py-3 rounded-xl active:scale-[0.99] transition disabled:opacity-50"
+              >
+                ❌ Reject
+              </button>
+            </>
+          )}
+          {showCantComplete && (
+            <button
+              onClick={cantComplete}
+              disabled={busy}
+              className="flex-1 bg-muted text-muted-foreground font-semibold py-3 rounded-xl active:scale-[0.99] transition disabled:opacity-50"
+            >
+              🚫 Can't complete
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="mb-6 bg-card border border-border rounded-2xl p-4 space-y-2 text-sm">
         {dateStr && (
@@ -138,6 +258,24 @@ function JobDetail() {
           Complete route
         </button>
       )}
+
+      <div className="mt-6 bg-card border border-border rounded-2xl p-4">
+        <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Notes</label>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Add a note for the dispatcher…"
+          rows={3}
+          className="w-full bg-background border border-border rounded-lg p-2 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <button
+          onClick={saveNote}
+          disabled={busy || !note.trim()}
+          className="mt-2 w-full bg-primary text-primary-foreground font-semibold text-sm py-2.5 rounded-lg active:scale-[0.99] transition disabled:opacity-40"
+        >
+          Save note
+        </button>
+      </div>
     </div>
   );
 }

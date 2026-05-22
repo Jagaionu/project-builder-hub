@@ -6,7 +6,7 @@ interface Props {
   showTomorrow?: boolean;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+export const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   PENDING:           { label: "Planned",     color: "text-muted-foreground", bg: "bg-muted" },
   ASSIGNED:          { label: "Assigned",    color: "text-primary",          bg: "bg-primary/15" },
   IN_PROGRESS:       { label: "In Progress", color: "text-success",          bg: "bg-success/15" },
