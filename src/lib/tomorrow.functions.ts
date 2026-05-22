@@ -85,16 +85,7 @@ export const planTomorrow = createServerFn({ method: "POST" }).handler(async () 
     }
   }
 
-  // Notify each driver who got jobs
-  const driverIds = Array.from(new Set(plan.planned.map((p) => p.driverId)));
-  const { notifyDriverTomorrowRoutes } = await import("@/lib/telegram-notify.functions");
-  for (const did of driverIds) {
-    try {
-      await notifyDriverTomorrowRoutes({ data: { driverId: did } });
-    } catch (err) {
-      console.error("notify tomorrow failed", did, err);
-    }
-  }
+  // Drivers see tomorrow's plan in the driver app via Realtime subscriptions.
 
   return {
     tomorrow,
