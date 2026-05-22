@@ -569,6 +569,11 @@ async function handleCallback(
     }
     await clearJobCardsFromChat(driver.id, chatId);
     await sendMessage(chatId, "🛑 Shift ended. Dispatch will re-plan your route.", mainMenu);
+    await sendMessage(
+      chatId,
+      `⏹ Shift ended. Are you available for tomorrow's routes?\nReply <b>YES</b> or <b>NO</b>.`,
+    );
+    pendingTomorrowState.set(String(chatId), "awaiting_answer");
     return;
   }
   if (action === "END_SHIFT_CANCEL") {
@@ -647,43 +652,11 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                     `✅ Location saved! We'll plan your routes for tomorrow and send them to you shortly. 🗺`,
                     mainMenu,
                   );
-                  // Best-effort: trigger tomorrow planning + notify for this driver.
+                  // Best-effort: trigger tomorrow planning + notify drivers.
+                  // planTomorrow loads compliance + notifies all assigned drivers internally.
                   try {
-                    const { computeTomorrowPlan } = await import("@/lib/planner");
-                    const { notifyDriverTomorrowRoutes } = await import("@/lib/telegram-notify.functions");
-                    const t = new Date();
-                    t.setUTCDate(t.getUTCDate() + 1);
-                    const tomorrow = t.toISOString().slice(0, 10);
-                    const [{ data: tJobs }, { data: dList }, { data: whs }, { data: stops }] = await Promise.all([
-                      supabaseAdmin.from("jobs").select("*").eq("for_date", tomorrow),
-                      supabaseAdmin.from("drivers").select("*"),
-                      supabaseAdmin.from("warehouses").select("*"),
-                      supabaseAdmin.from("job_stops").select("id,job_id,kind,warehouse_id,arrived_at,seq").order("seq"),
-                    ]);
-                    const stopsMap: Record<string, Array<{ kind: "PICKUP"|"DROP"; warehouse_id: string; arrived_at: string | null }>> = {};
-                    for (const s of (stops ?? []) as Array<{ job_id: string; kind: "PICKUP"|"DROP"; warehouse_id: string; arrived_at: string | null }>) {
-                      (stopsMap[s.job_id] ||= []).push({ kind: s.kind, warehouse_id: s.warehouse_id, arrived_at: s.arrived_at });
-                    }
-                    const plan = computeTomorrowPlan(
-                      (tJobs ?? []) as never,
-                      stopsMap as never,
-                      (dList ?? []) as never,
-                      (whs ?? []) as never,
-                      {},
-                    );
-                    for (const p of plan.planned) {
-                      await supabaseAdmin
-                        .from("jobs")
-                        .update({
-                          planned_driver_id: p.driverId,
-                          planned_sequence: p.sequence,
-                          planned_start_at: p.startAt,
-                        })
-                        .eq("id", p.jobId);
-                    }
-                    if (plan.planned.some((p) => p.driverId === driver.id)) {
-                      await notifyDriverTomorrowRoutes({ data: { driverId: driver.id } });
-                    }
+                    const { planTomorrow } = await import("@/lib/tomorrow.functions");
+                    await planTomorrow();
                   } catch (err) {
                     console.error("tomorrow plan trigger failed", err);
                   }
