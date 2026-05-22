@@ -54,29 +54,28 @@ function DriversPage() {
   const driverDayHours = useDriverDayHours();
   const compliance = useComplianceWithLedger(driverDayHours);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<DriverForm>({ name: "", phone: "", telegram_id: "" });
+  const [form, setForm] = useState<DriverForm>({ name: "", phone: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "", telegram_id: "" });
+  const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "" });
 
   async function add() {
     if (!form.name) return toast.error("Name required");
     const { error } = await supabase.from("drivers").insert({
       name: form.name,
       phone: form.phone || null,
-      telegram_id: form.telegram_id || null,
       status: "OFF_SHIFT",
     });
     if (error) toast.error(error.message);
     else {
       toast.success("Driver added");
       setOpen(false);
-      setForm({ name: "", phone: "", telegram_id: "" });
+      setForm({ name: "", phone: "" });
     }
   }
 
-  function startEdit(d: { id: string; name: string; phone: string | null; telegram_id: string | null }) {
+  function startEdit(d: { id: string; name: string; phone: string | null }) {
     setEditingId(d.id);
-    setEditForm({ name: d.name, phone: d.phone ?? "", telegram_id: d.telegram_id ?? "" });
+    setEditForm({ name: d.name, phone: d.phone ?? "" });
   }
 
   async function saveEdit() {
@@ -87,7 +86,6 @@ function DriversPage() {
       .update({
         name: editForm.name,
         phone: editForm.phone || null,
-        telegram_id: editForm.telegram_id || null,
       })
       .eq("id", editingId);
     if (error) toast.error(error.message);
