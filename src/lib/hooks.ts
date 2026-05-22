@@ -215,6 +215,7 @@ export function useDriverDayHours(): Record<string, DriverDayHours[]> {
         for (const r of data as DriverDayHours[]) {
           (m[r.driver_id] ||= []).push(r);
         }
+        cache.driverDayHours = m;
         setMap(m);
       } catch (error) {
         console.error("[drivers][day-hours] unexpected hook error", error);
