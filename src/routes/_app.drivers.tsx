@@ -53,7 +53,8 @@ function DriversPage() {
   const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "" });
   const rotateCode = useServerFn(rotateDriverLoginCode);
 
-  async function regenerate(driverId: string) {
+  async function regenerate(driverId: string, driverName: string) {
+    if (!confirm(`Regenerate login code for "${driverName}"?\n\nThe old code will stop working immediately. The driver will need the new code to log in.`)) return;
     try {
       const r = await rotateCode({ data: { driverId } });
       await navigator.clipboard?.writeText(r.code).catch(() => {});
@@ -62,6 +63,7 @@ function DriversPage() {
       toast.error((e as Error).message);
     }
   }
+
 
   async function add() {
     if (!form.name) return toast.error("Name required");
@@ -205,24 +207,27 @@ function DriversPage() {
                     </td>
                     <td className="px-3 py-2.5">
                       {code ? (
-                        <CodeCell
-                          code={code}
-                          expiresAt={null}
-                          onCopy={() => {
+                        <button
+                          onClick={() => {
                             navigator.clipboard?.writeText(code);
                             toast.success(`${code} copied`);
                           }}
-                          onRegenerate={() => regenerate(d.id)}
-                        />
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary font-mono text-xs tracking-widest"
+                          title="Click to copy"
+                        >
+                          {code}
+                          <Copy className="size-2.5 opacity-60" />
+                        </button>
                       ) : (
                         <button
-                          onClick={() => regenerate(d.id)}
+                          onClick={() => regenerate(d.id, d.name)}
                           className="text-[11px] text-muted-foreground hover:text-primary underline"
                         >
                           Generate
                         </button>
                       )}
                     </td>
+
                     <td className="px-3 py-2.5">
                       <StatusBadge status={d.status} kind="driver" />
                     </td>
@@ -247,6 +252,13 @@ function DriversPage() {
                         {isEditing ? (
                           <>
                             <button
+                              onClick={() => regenerate(d.id, d.name)}
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-warning text-[11px]"
+                              title="Regenerate login code (asks for confirmation)"
+                            >
+                              <KeyRound className="size-3.5" /> Regen code
+                            </button>
+                            <button
                               onClick={saveEdit}
                               className="p-1.5 rounded hover:bg-surface-2 text-primary"
                               title="Save"
@@ -264,7 +276,7 @@ function DriversPage() {
                         ) : (
                           <>
                             <button onClick={() => copyInvite(d.name, code)} title="Copy login link + code for this driver" className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary"><LinkIcon className="size-3.5" /></button>
-                            <button onClick={() => regenerate(d.id)} title="Regenerate pairing code" className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary"><KeyRound className="size-3.5" /></button>
+
                             <button
                               onClick={() => startEdit(d)}
                               className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-foreground"
