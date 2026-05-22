@@ -168,17 +168,6 @@ function DriversPage() {
                         (d.phone ?? "—")
                       )}
                     </td>
-                    <td className="px-3 py-2.5 font-mono text-xs">
-                      {isEditing ? (
-                        <input
-                          value={editForm.telegram_id}
-                          onChange={(e) => setEditForm({ ...editForm, telegram_id: e.target.value })}
-                          className="h-8 px-2 rounded bg-background border border-border text-xs w-full focus:outline-none focus:border-primary"
-                        />
-                      ) : (
-                        (d.telegram_id ?? "—")
-                      )}
-                    </td>
                     <td className="px-3 py-2.5">
                       <StatusBadge status={d.status} kind="driver" />
                     </td>
