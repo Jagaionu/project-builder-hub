@@ -49,15 +49,21 @@ export function DriverJobCard({ job, showTomorrow }: Props) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-start gap-2 text-sm">
         <div className="flex-1 min-w-0">
           <p className="text-muted-foreground truncate">📦 {startWh?.code ?? "—"}</p>
           <p className="text-foreground truncate font-medium">{startWh?.name ?? "Pickup"}</p>
+          {startWh?.address && (
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{startWh.address}</p>
+          )}
         </div>
-        <span className="text-muted-foreground">→</span>
+        <span className="text-muted-foreground mt-1">→</span>
         <div className="flex-1 min-w-0 text-right">
           <p className="text-muted-foreground truncate">🏁 {endWh?.code ?? "—"}</p>
           <p className="text-foreground truncate font-medium">{endWh?.name ?? "Drop-off"}</p>
+          {endWh?.address && (
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{endWh.address}</p>
+          )}
         </div>
       </div>
 
