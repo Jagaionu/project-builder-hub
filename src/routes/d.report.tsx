@@ -49,7 +49,7 @@ function ReportPage() {
         placeholder="Describe what happened…"
         className="w-full bg-card border border-border rounded-xl p-3 text-sm text-foreground focus:outline-none focus:border-primary mb-4" />
 
-      <button onClick={submit} disabled={loading || !notes.trim()}
+      <button onClick={submit} disabled={loading}
         className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl disabled:opacity-40 active:scale-[0.99] transition">
         {loading ? "Sending…" : sent ? "✓ Sent" : "Submit report"}
       </button>
