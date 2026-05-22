@@ -3,23 +3,49 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Driver, Warehouse, Job } from "@/lib/types";
 import { computeCompliance, type Compliance, type ComplianceEvent } from "@/lib/compliance";
 
+// Module-level caches so navigating between routes doesn't briefly flash
+// empty state while data re-loads. Each hook seeds initial state from cache
+// and writes back on every update.
+const cache: {
+  drivers: Driver[];
+  warehouses: Warehouse[];
+  jobs: Job[];
+  driverEvents: Record<string, ComplianceEvent[]>;
+  recentDelays: RecentDelay[];
+  driverDayHours: Record<string, DriverDayHours[]>;
+} = {
+  drivers: [],
+  warehouses: [],
+  jobs: [],
+  driverEvents: {},
+  recentDelays: [],
+  driverDayHours: {},
+};
+
 export function useDrivers(initialDrivers: Driver[] = []) {
-  const [drivers, setDrivers] = useState<Driver[]>(initialDrivers);
+  const [drivers, setDrivers] = useState<Driver[]>(
+    cache.drivers.length ? cache.drivers : initialDrivers,
+  );
   const channelNameRef = useRef(`rt-drivers-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     let mounted = true;
     supabase.from("drivers").select("*").order("name").then(({ data }) => {
-      if (mounted && data) setDrivers(data as Driver[]);
+      if (mounted && data) {
+        cache.drivers = data as Driver[];
+        setDrivers(cache.drivers);
+      }
     });
     const ch = supabase.channel(channelNameRef.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, (payload) => {
         setDrivers((prev) => {
-          if (payload.eventType === "INSERT") return [...prev, payload.new as Driver];
-          if (payload.eventType === "UPDATE")
-            return prev.map((d) => (d.id === (payload.new as Driver).id ? (payload.new as Driver) : d));
-          if (payload.eventType === "DELETE")
-            return prev.filter((d) => d.id !== (payload.old as Driver).id);
-          return prev;
+          let next = prev;
+          if (payload.eventType === "INSERT") next = [...prev, payload.new as Driver];
+          else if (payload.eventType === "UPDATE")
+            next = prev.map((d) => (d.id === (payload.new as Driver).id ? (payload.new as Driver) : d));
+          else if (payload.eventType === "DELETE")
+            next = prev.filter((d) => d.id !== (payload.old as Driver).id);
+          cache.drivers = next;
+          return next;
         });
       })
       .subscribe();
@@ -29,32 +55,40 @@ export function useDrivers(initialDrivers: Driver[] = []) {
 }
 
 export function useWarehouses() {
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>(cache.warehouses);
   useEffect(() => {
     supabase.from("warehouses").select("*").order("code").then(({ data }) => {
-      if (data) setWarehouses(data as Warehouse[]);
+      if (data) {
+        cache.warehouses = data as Warehouse[];
+        setWarehouses(cache.warehouses);
+      }
     });
   }, []);
   return warehouses;
 }
 
 export function useJobs() {
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<Job[]>(cache.jobs);
   const channelNameRef = useRef(`rt-jobs-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     let mounted = true;
     supabase.from("jobs").select("*").order("created_at", { ascending: false }).then(({ data }) => {
-      if (mounted && data) setJobs(data as Job[]);
+      if (mounted && data) {
+        cache.jobs = data as Job[];
+        setJobs(cache.jobs);
+      }
     });
     const ch = supabase.channel(channelNameRef.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, (payload) => {
         setJobs((prev) => {
-          if (payload.eventType === "INSERT") return [payload.new as Job, ...prev];
-          if (payload.eventType === "UPDATE")
-            return prev.map((j) => (j.id === (payload.new as Job).id ? (payload.new as Job) : j));
-          if (payload.eventType === "DELETE")
-            return prev.filter((j) => j.id !== (payload.old as Job).id);
-          return prev;
+          let next = prev;
+          if (payload.eventType === "INSERT") next = [payload.new as Job, ...prev];
+          else if (payload.eventType === "UPDATE")
+            next = prev.map((j) => (j.id === (payload.new as Job).id ? (payload.new as Job) : j));
+          else if (payload.eventType === "DELETE")
+            next = prev.filter((j) => j.id !== (payload.old as Job).id);
+          cache.jobs = next;
+          return next;
         });
       })
       .subscribe();
