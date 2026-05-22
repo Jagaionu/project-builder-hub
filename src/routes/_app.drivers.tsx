@@ -190,6 +190,24 @@ function DriversPage() {
                       )}
                     </td>
                     <td className="px-3 py-2.5">
+                      {codes[d.id] ? (
+                        <button
+                          onClick={() => { navigator.clipboard?.writeText(codes[d.id].code); toast.success(`${codes[d.id].code} copied`); }}
+                          className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary font-mono text-xs tracking-widest"
+                          title="Click to copy"
+                        >
+                          {codes[d.id].code}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => issueCode(d.id)}
+                          className="text-[11px] text-muted-foreground hover:text-primary underline"
+                        >
+                          Generate
+                        </button>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5">
                       <StatusBadge status={d.status} kind="driver" />
                     </td>
                     <td className="px-3 py-2.5">
