@@ -160,6 +160,7 @@ export type Database = {
           current_lon: number | null
           id: string
           last_update_time: string | null
+          login_code: string | null
           name: string
           pairing_code: string | null
           pairing_expires_at: string | null
@@ -178,6 +179,7 @@ export type Database = {
           current_lon?: number | null
           id?: string
           last_update_time?: string | null
+          login_code?: string | null
           name: string
           pairing_code?: string | null
           pairing_expires_at?: string | null
@@ -196,6 +198,7 @@ export type Database = {
           current_lon?: number | null
           id?: string
           last_update_time?: string | null
+          login_code?: string | null
           name?: string
           pairing_code?: string | null
           pairing_expires_at?: string | null
@@ -401,6 +404,7 @@ export type Database = {
     }
     Functions: {
       current_driver_id: { Args: never; Returns: string }
+      gen_driver_login_code: { Args: never; Returns: string }
     }
     Enums: {
       driver_event_type:
