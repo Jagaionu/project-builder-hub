@@ -9,9 +9,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Check, X, KeyRound, UserPlus } from "lucide-react";
-import { generatePairingCode } from "@/lib/telegram-notify.functions";
-import { approveRegistration, rejectRegistration } from "@/lib/registrations.functions";
+import { Plus, Pencil, Trash2, Check, X, KeyRound } from "lucide-react";
+import { generateDriverPairingCode } from "@/lib/pairing.functions";
 
 export const Route = createFileRoute("/_app/drivers")({
   loader: () => getDriversSnapshot(),
