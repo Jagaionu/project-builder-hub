@@ -9,7 +9,7 @@ import { PageHeader } from "./_app.index";
 import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User, Upload, Calendar as CalendarIcon, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { notifyDriverOfJob } from "@/lib/telegram-notify.functions";
+
 import { computePlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
 import { planTomorrow } from "@/lib/tomorrow.functions";
 import { computeStopSchedule, stopDwellMinutes } from "@/lib/geo";
@@ -276,7 +276,6 @@ function JobsPage() {
       else localStorage.removeItem("jobs.dateRange");
     } catch { /* noop */ }
   }, [dateRange]);
-  const notify = useServerFn(notifyDriverOfJob);
   const plan = useMemo(
     () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
     [jobs, stopsMap, drivers, warehouses, compliance],
@@ -311,11 +310,7 @@ function JobsPage() {
     const { error } = await supabase.from("jobs").update(payload).eq("id", jobId);
     if (error) return toast.error(error.message);
     if (driverId) {
-      try {
-        const r = await notify({ data: { jobId } });
-        if ((r as { skipped?: string }).skipped === "driver_no_telegram") toast.warning("Driver has no Telegram linked");
-        else toast.success("Driver notified on Telegram");
-      } catch (e) { toast.error(`Notify failed: ${(e as Error).message}`); }
+      toast.success("Driver assigned");
     }
   }
 
@@ -480,7 +475,7 @@ function JobsPage() {
     setPlanningTomorrow(true);
     try {
       const r = await runPlanTomorrow();
-      const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversNotified} drivers notified`;
+      const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversPlanned} drivers`;
       if (r.unassignable.length) toast.warning(`${msg} · ${r.unassignable.length} unassignable`);
       else toast.success(msg);
     } catch (e) {
@@ -915,7 +910,7 @@ function StatusPill({ status, onChange }: { status: string; onChange: (s: string
 function DriverPicker({ driverId, allowUnassign = true, drivers, compliance, onChange }: {
   driverId: string | null | undefined;
   allowUnassign?: boolean;
-  drivers: { id: string; name: string; telegram_id?: string | null; status?: string }[];
+  drivers: { id: string; name: string; status?: string }[];
   compliance?: Record<string, Compliance>;
   onChange: (id: string) => void;
 }) {
@@ -938,7 +933,7 @@ function DriverPicker({ driverId, allowUnassign = true, drivers, compliance, onC
             </span>
             <span className="text-xs text-foreground font-medium truncate max-w-[90px]">{driver.name}</span>
             {activeC && <ComplianceDot c={activeC} driverStatus={driver.status} />}
-            {!driver.telegram_id && <span className="text-[9px] text-muted-foreground/60 font-mono">no TG</span>}
+            
           </>
         ) : (
           <>
@@ -992,7 +987,7 @@ function DriverPicker({ driverId, allowUnassign = true, drivers, compliance, onC
                 </span>
                 <span className={`flex-1 text-left ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
                   {d.name}
-                  {!d.telegram_id && <span className="ml-1 text-[9px] text-muted-foreground/50">no TG</span>}
+                  
                   {dc && (
                     <span className="ml-1 text-[9px] font-mono text-muted-foreground/70">
                       {dc.weekly.toFixed(0)}/56 · {dc.dailyHeadroom.toFixed(1)}h left

@@ -101,7 +101,7 @@ function EventLog() {
 
         {grouped.length === 0 ? (
           <div className="rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
-            No events yet. The Telegram webhook will populate this stream.
+            No events yet. Driver actions in the app will populate this stream.
           </div>
         ) : (
           grouped.map(({ driverId, events: evs }) => {

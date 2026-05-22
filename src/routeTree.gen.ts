@@ -26,7 +26,6 @@ import { Route as AppDispatchRouteImport } from './routes/_app.dispatch'
 import { Route as AppAlertsRouteImport } from './routes/_app.alerts'
 import { Route as DRoutesJobIdRouteImport } from './routes/d.routes.$jobId'
 import { Route as ApiPublicPairingLoginRouteImport } from './routes/api/public/pairing-login'
-import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicCronShiftRolloverRouteImport } from './routes/api/public/cron/shift-rollover'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -113,12 +112,6 @@ const ApiPublicPairingLoginRoute = ApiPublicPairingLoginRouteImport.update({
   path: '/api/public/pairing-login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicTelegramWebhookRoute =
-  ApiPublicTelegramWebhookRouteImport.update({
-    id: '/api/public/telegram/webhook',
-    path: '/api/public/telegram/webhook',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiPublicCronShiftRolloverRoute =
   ApiPublicCronShiftRolloverRouteImport.update({
     id: '/api/public/cron/shift-rollover',
@@ -144,7 +137,6 @@ export interface FileRoutesByFullPath {
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
   '/d/routes/$jobId': typeof DRoutesJobIdRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
-  '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -163,7 +155,6 @@ export interface FileRoutesByTo {
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
   '/d/routes/$jobId': typeof DRoutesJobIdRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
-  '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -185,7 +176,6 @@ export interface FileRoutesById {
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
   '/d/routes/$jobId': typeof DRoutesJobIdRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
-  '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -207,7 +197,6 @@ export interface FileRouteTypes {
     | '/api/public/pairing-login'
     | '/d/routes/$jobId'
     | '/api/public/cron/shift-rollover'
-    | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/sitemap.xml'
@@ -226,7 +215,6 @@ export interface FileRouteTypes {
     | '/api/public/pairing-login'
     | '/d/routes/$jobId'
     | '/api/public/cron/shift-rollover'
-    | '/api/public/telegram/webhook'
   id:
     | '__root__'
     | '/_app'
@@ -247,7 +235,6 @@ export interface FileRouteTypes {
     | '/api/public/pairing-login'
     | '/d/routes/$jobId'
     | '/api/public/cron/shift-rollover'
-    | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -256,7 +243,6 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiPublicPairingLoginRoute: typeof ApiPublicPairingLoginRoute
   ApiPublicCronShiftRolloverRoute: typeof ApiPublicCronShiftRolloverRoute
-  ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -380,13 +366,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPairingLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/telegram/webhook': {
-      id: '/api/public/telegram/webhook'
-      path: '/api/public/telegram/webhook'
-      fullPath: '/api/public/telegram/webhook'
-      preLoaderRoute: typeof ApiPublicTelegramWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/cron/shift-rollover': {
       id: '/api/public/cron/shift-rollover'
       path: '/api/public/cron/shift-rollover'
@@ -454,8 +433,17 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiPublicPairingLoginRoute: ApiPublicPairingLoginRoute,
   ApiPublicCronShiftRolloverRoute: ApiPublicCronShiftRolloverRoute,
-  ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

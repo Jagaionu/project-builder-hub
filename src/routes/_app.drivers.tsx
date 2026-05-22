@@ -9,9 +9,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Check, X, KeyRound, UserPlus } from "lucide-react";
-import { generatePairingCode } from "@/lib/telegram-notify.functions";
-import { approveRegistration, rejectRegistration } from "@/lib/registrations.functions";
+import { Plus, Pencil, Trash2, Check, X, KeyRound } from "lucide-react";
+import { generateDriverPairingCode } from "@/lib/pairing.functions";
 
 export const Route = createFileRoute("/_app/drivers")({
   loader: () => getDriversSnapshot(),
@@ -19,7 +18,7 @@ export const Route = createFileRoute("/_app/drivers")({
   head: () => ({ meta: [{ title: "Drivers — Planning System" }] }),
 });
 
-type DriverForm = { name: string; phone: string; telegram_id: string };
+type DriverForm = { name: string; phone: string };
 
 function formatStableTime(iso: string | null): string {
   if (!iso) return "—";
@@ -30,14 +29,6 @@ function formatStableTime(iso: string | null): string {
   return `${hh}:${mm}:${ss} UTC`;
 }
 
-function formatStableDateTime(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  const yyyy = date.getUTCFullYear();
-  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(date.getUTCDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd} ${formatStableTime(iso)}`;
-}
 
 function formatLedgerDay(day: string): string {
   const [year, month, date] = day.split("-").map(Number);
@@ -55,29 +46,28 @@ function DriversPage() {
   const driverDayHours = useDriverDayHours();
   const compliance = useComplianceWithLedger(driverDayHours);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<DriverForm>({ name: "", phone: "", telegram_id: "" });
+  const [form, setForm] = useState<DriverForm>({ name: "", phone: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "", telegram_id: "" });
+  const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "" });
 
   async function add() {
     if (!form.name) return toast.error("Name required");
     const { error } = await supabase.from("drivers").insert({
       name: form.name,
       phone: form.phone || null,
-      telegram_id: form.telegram_id || null,
       status: "OFF_SHIFT",
     });
     if (error) toast.error(error.message);
     else {
       toast.success("Driver added");
       setOpen(false);
-      setForm({ name: "", phone: "", telegram_id: "" });
+      setForm({ name: "", phone: "" });
     }
   }
 
-  function startEdit(d: { id: string; name: string; phone: string | null; telegram_id: string | null }) {
+  function startEdit(d: { id: string; name: string; phone: string | null }) {
     setEditingId(d.id);
-    setEditForm({ name: d.name, phone: d.phone ?? "", telegram_id: d.telegram_id ?? "" });
+    setEditForm({ name: d.name, phone: d.phone ?? "" });
   }
 
   async function saveEdit() {
@@ -88,7 +78,6 @@ function DriversPage() {
       .update({
         name: editForm.name,
         phone: editForm.phone || null,
-        telegram_id: editForm.telegram_id || null,
       })
       .eq("id", editingId);
     if (error) toast.error(error.message);
@@ -121,20 +110,14 @@ function DriversPage() {
       />
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
         {open && (
-          <div className="rounded-md border border-border bg-surface p-4 grid grid-cols-4 gap-3 items-end">
+          <div className="rounded-md border border-border bg-surface p-4 grid grid-cols-3 gap-3 items-end">
             <Field label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
             <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
-            <Field
-              label="Telegram ID"
-              value={form.telegram_id}
-              onChange={(v) => setForm({ ...form, telegram_id: v })}
-            />
             <button onClick={add} className="h-9 px-3 rounded bg-primary text-primary-foreground text-sm">
               Create
             </button>
           </div>
         )}
-        <PendingRegistrations />
 
         <div className="rounded-md border border-border overflow-hidden">
           <table className="w-full text-sm">
@@ -142,7 +125,6 @@ function DriversPage() {
               <tr>
                 <th className="px-3 py-2 text-left">Name</th>
                 <th className="px-3 py-2 text-left">Phone</th>
-                <th className="px-3 py-2 text-left">Telegram</th>
                 <th className="px-3 py-2 text-left">Status</th>
                 <th className="px-3 py-2 text-left">Tomorrow</th>
                 <th className="px-3 py-2 text-left">Compliance (UK HGV)</th>
@@ -176,17 +158,6 @@ function DriversPage() {
                         />
                       ) : (
                         (d.phone ?? "—")
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-xs">
-                      {isEditing ? (
-                        <input
-                          value={editForm.telegram_id}
-                          onChange={(e) => setEditForm({ ...editForm, telegram_id: e.target.value })}
-                          className="h-8 px-2 rounded bg-background border border-border text-xs w-full focus:outline-none focus:border-primary"
-                        />
-                      ) : (
-                        (d.telegram_id ?? "—")
                       )}
                     </td>
                     <td className="px-3 py-2.5">
@@ -229,7 +200,7 @@ function DriversPage() {
                           </>
                         ) : (
                           <>
-                            <PairButton driverId={d.id} hasTelegram={!!d.telegram_id} />
+                            <PairButton driverId={d.id} />
                             <button
                               onClick={() => startEdit(d)}
                               className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-foreground"
@@ -299,8 +270,8 @@ function TomorrowCell({ available, hasLocation, updatedAt }: { available: boolea
 
 
 
-function PairButton({ driverId, hasTelegram }: { driverId: string; hasTelegram: boolean }) {
-  const gen = useServerFn(generatePairingCode);
+function PairButton({ driverId }: { driverId: string }) {
+  const gen = useServerFn(generateDriverPairingCode);
   const [busy, setBusy] = useState(false);
   async function run() {
     setBusy(true);
@@ -318,7 +289,7 @@ function PairButton({ driverId, hasTelegram }: { driverId: string; hasTelegram: 
     <button
       onClick={run}
       disabled={busy}
-      title={hasTelegram ? "Re-pair Telegram" : "Generate pairing code"}
+      title="Generate driver app pairing code"
       className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary disabled:opacity-50"
     >
       <KeyRound className="size-3.5" />
@@ -326,118 +297,6 @@ function PairButton({ driverId, hasTelegram }: { driverId: string; hasTelegram: 
   );
 }
 
-type Registration = {
-  id: string;
-  telegram_id: string;
-  name: string | null;
-  phone: string | null;
-  status: "AWAITING_NAME" | "AWAITING_PHONE" | "PENDING" | "APPROVED" | "REJECTED";
-  created_at: string;
-};
-
-function PendingRegistrations() {
-  const [regs, setRegs] = useState<Registration[]>([]);
-  const approve = useServerFn(approveRegistration);
-  const reject = useServerFn(rejectRegistration);
-  const [busyId, setBusyId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    const load = () =>
-      supabase
-        .from("driver_registrations")
-        .select("*")
-        .eq("status", "PENDING")
-        .order("created_at", { ascending: false })
-        .then(({ data }) => {
-          if (mounted && data) setRegs(data as Registration[]);
-        });
-    load();
-    const ch = supabase
-      .channel("rt-registrations")
-      .on("postgres_changes", { event: "*", schema: "public", table: "driver_registrations" }, load)
-      .subscribe();
-    return () => {
-      mounted = false;
-      supabase.removeChannel(ch);
-    };
-  }, []);
-
-  async function onApprove(id: string) {
-    setBusyId(id);
-    try {
-      await approve({ data: { registrationId: id } });
-      toast.success("Driver approved & notified");
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function onReject(id: string) {
-    const reason = prompt("Optional reason for rejection?") ?? undefined;
-    setBusyId(id);
-    try {
-      await reject({ data: { registrationId: id, reason: reason || undefined } });
-      toast.success("Registration rejected");
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  if (regs.length === 0) return null;
-  return (
-    <div className="rounded-md border border-warning/40 bg-warning/5 overflow-hidden">
-      <div className="px-3 py-2 bg-warning/10 text-[10px] font-mono uppercase tracking-widest text-warning flex items-center gap-1.5">
-        <UserPlus className="size-3.5" /> Pending registrations · {regs.length}
-      </div>
-      <table className="w-full text-sm">
-        <thead className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          <tr>
-            <th className="px-3 py-2 text-left">Name</th>
-            <th className="px-3 py-2 text-left">Phone</th>
-            <th className="px-3 py-2 text-left">Telegram ID</th>
-            <th className="px-3 py-2 text-left">Submitted</th>
-            <th className="px-3 py-2 text-right w-40">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {regs.map((r) => (
-            <tr key={r.id}>
-              <td className="px-3 py-2.5">{r.name ?? "—"}</td>
-              <td className="px-3 py-2.5 font-mono text-xs">{r.phone ?? "—"}</td>
-              <td className="px-3 py-2.5 font-mono text-xs">{r.telegram_id}</td>
-              <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                {formatStableDateTime(r.created_at)}
-              </td>
-              <td className="px-3 py-2.5">
-                <div className="flex items-center justify-end gap-1.5">
-                  <button
-                    disabled={busyId === r.id}
-                    onClick={() => onApprove(r.id)}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-primary text-primary-foreground text-xs disabled:opacity-50"
-                  >
-                    <Check className="size-3" /> Approve
-                  </button>
-                  <button
-                    disabled={busyId === r.id}
-                    onClick={() => onReject(r.id)}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border text-xs hover:bg-surface-2 disabled:opacity-50"
-                  >
-                    <X className="size-3" /> Reject
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 
 function ComplianceCell({ c, rows }: { c: Compliance | undefined; rows: DriverDayHours[] }) {
