@@ -569,6 +569,11 @@ async function handleCallback(
     }
     await clearJobCardsFromChat(driver.id, chatId);
     await sendMessage(chatId, "🛑 Shift ended. Dispatch will re-plan your route.", mainMenu);
+    await sendMessage(
+      chatId,
+      `⏹ Shift ended. Are you available for tomorrow's routes?\nReply <b>YES</b> or <b>NO</b>.`,
+    );
+    pendingTomorrowState.set(String(chatId), "awaiting_answer");
     return;
   }
   if (action === "END_SHIFT_CANCEL") {
