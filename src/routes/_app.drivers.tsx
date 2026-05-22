@@ -252,6 +252,13 @@ function DriversPage() {
                         {isEditing ? (
                           <>
                             <button
+                              onClick={() => regenerate(d.id, d.name)}
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-warning text-[11px]"
+                              title="Regenerate login code (asks for confirmation)"
+                            >
+                              <KeyRound className="size-3.5" /> Regen code
+                            </button>
+                            <button
                               onClick={saveEdit}
                               className="p-1.5 rounded hover:bg-surface-2 text-primary"
                               title="Save"
@@ -269,7 +276,7 @@ function DriversPage() {
                         ) : (
                           <>
                             <button onClick={() => copyInvite(d.name, code)} title="Copy login link + code for this driver" className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary"><LinkIcon className="size-3.5" /></button>
-                            <button onClick={() => regenerate(d.id)} title="Regenerate pairing code" className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary"><KeyRound className="size-3.5" /></button>
+
                             <button
                               onClick={() => startEdit(d)}
                               className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-foreground"
