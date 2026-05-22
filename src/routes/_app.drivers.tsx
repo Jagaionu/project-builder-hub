@@ -9,8 +9,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Check, X, KeyRound } from "lucide-react";
-import { generateDriverPairingCode } from "@/lib/pairing.functions";
+import { Plus, Pencil, Trash2, Check, X, KeyRound, Copy } from "lucide-react";
+import { generateDriverPairingCode, getActiveDriverPairingCodes } from "@/lib/pairing.functions";
 
 export const Route = createFileRoute("/_app/drivers")({
   loader: () => getDriversSnapshot(),
@@ -53,19 +53,22 @@ function DriversPage() {
   const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "" });
   const [codes, setCodes] = useState<Record<string, ActiveCode>>({});
   const genCode = useServerFn(generateDriverPairingCode);
+  const fetchCodes = useServerFn(getActiveDriverPairingCodes);
+
+  // Load existing active codes using the server fn (bypasses RLS on pairing_codes)
+  async function refreshCodes() {
+    try {
+      const rows = await fetchCodes();
+      const map: Record<string, ActiveCode> = {};
+      for (const r of rows) map[r.driver_id] = { code: r.code, expires_at: r.expires_at };
+      setCodes(map);
+    } catch {
+      // Non-critical — codes will still appear after generate
+    }
+  }
 
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("pairing_codes")
-        .select("code, driver_id, expires_at")
-        .is("consumed_at", null)
-        .gt("expires_at", new Date().toISOString());
-      if (!data) return;
-      const map: Record<string, ActiveCode> = {};
-      for (const r of data) map[r.driver_id] = { code: r.code, expires_at: r.expires_at };
-      setCodes(map);
-    })();
+    refreshCodes();
   }, [drivers.length]);
 
   async function issueCode(driverId: string) {
@@ -73,7 +76,7 @@ function DriversPage() {
       const r = await genCode({ data: { driverId } });
       setCodes((c) => ({ ...c, [driverId]: { code: r.code, expires_at: r.expires } }));
       await navigator.clipboard?.writeText(r.code).catch(() => {});
-      toast.success(`Code ${r.code} copied — valid 15 min`);
+      toast.success(`Code ${r.code} copied — valid 24 hours`);
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -165,6 +168,7 @@ function DriversPage() {
             <tbody className="divide-y divide-border">
               {drivers.map((d) => {
                 const isEditing = editingId === d.id;
+                const activeCode = codes[d.id];
                 return (
                   <tr key={d.id} className="hover:bg-surface-2/40">
                     <td className="px-3 py-2.5">
@@ -190,14 +194,16 @@ function DriversPage() {
                       )}
                     </td>
                     <td className="px-3 py-2.5">
-                      {codes[d.id] ? (
-                        <button
-                          onClick={() => { navigator.clipboard?.writeText(codes[d.id].code); toast.success(`${codes[d.id].code} copied`); }}
-                          className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary font-mono text-xs tracking-widest"
-                          title="Click to copy"
-                        >
-                          {codes[d.id].code}
-                        </button>
+                      {activeCode ? (
+                        <CodeCell
+                          code={activeCode.code}
+                          expiresAt={activeCode.expires_at}
+                          onCopy={() => {
+                            navigator.clipboard?.writeText(activeCode.code);
+                            toast.success(`${activeCode.code} copied`);
+                          }}
+                          onRegenerate={() => issueCode(d.id)}
+                        />
                       ) : (
                         <button
                           onClick={() => issueCode(d.id)}
@@ -277,6 +283,47 @@ function DriversPage() {
   );
 }
 
+// Shows the active code persistently with expiry time and a copy button.
+// A small "↻" link lets the dispatcher regenerate without leaving the row.
+function CodeCell({
+  code,
+  expiresAt,
+  onCopy,
+  onRegenerate,
+}: {
+  code: string;
+  expiresAt: string | null;
+  onCopy: () => void;
+  onRegenerate: () => void;
+}) {
+  const expiryLabel = expiresAt
+    ? `exp ${new Date(expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+    : null;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        onClick={onCopy}
+        className="inline-flex items-center gap-1 px-2 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary font-mono text-xs tracking-widest"
+        title="Click to copy"
+      >
+        {code}
+        <Copy className="size-2.5 opacity-60" />
+      </button>
+      {expiryLabel && (
+        <span className="text-[10px] text-muted-foreground font-mono">{expiryLabel}</span>
+      )}
+      <button
+        onClick={onRegenerate}
+        className="text-[10px] text-muted-foreground hover:text-primary"
+        title="Regenerate code"
+      >
+        ↻
+      </button>
+    </div>
+  );
+}
+
 export function Field({
   label,
   value,
@@ -315,37 +362,6 @@ function TomorrowCell({ available, hasLocation, updatedAt }: { available: boolea
   );
 }
 
-
-
-function PairButton({ driverId }: { driverId: string }) {
-  const gen = useServerFn(generateDriverPairingCode);
-  const [busy, setBusy] = useState(false);
-  async function run() {
-    setBusy(true);
-    try {
-      const r = await gen({ data: { driverId } });
-      await navigator.clipboard?.writeText(r.code).catch(() => {});
-      toast.success(`Code ${r.code} — valid 15 min (copied)`);
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <button
-      onClick={run}
-      disabled={busy}
-      title="Generate driver app pairing code"
-      className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary disabled:opacity-50"
-    >
-      <KeyRound className="size-3.5" />
-    </button>
-  );
-}
-
-
-
 function ComplianceCell({ c, rows }: { c: Compliance | undefined; rows: DriverDayHours[] }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -383,7 +399,6 @@ function ComplianceCell({ c, rows }: { c: Compliance | undefined; rows: DriverDa
         : "border-success/30 text-success hover:bg-success/5";
 
   const tightest = Math.min(c.dailyHeadroom, c.weeklyHeadroom);
-  // Live pill label: when on shift, count DOWN to next break; when off, count UP rest.
   const liveLabel = c.onShift ? (
     c.continuousDrive >= 4.5 ? (
       <span>break overdue</span>
@@ -513,15 +528,9 @@ function Metric({
   );
 }
 
-// Live ticking timer. Anchors at the baseline value (hours) the moment the
-// component receives that value, then ticks every second. When the parent
-// re-renders with a refreshed baseline (compliance recomputes every minute),
-// the anchor resets so the displayed time stays consistent with the source
-// of truth.
 function LiveTimer({ baseHours, dir }: { baseHours: number; dir: "up" | "down" }) {
   const anchorRef = useRef<{ base: number; at: number }>({ base: baseHours, at: Date.now() });
   const [, force] = useState(0);
-  // Reset anchor when baseHours changes (>1s drift from interpolation).
   useEffect(() => {
     anchorRef.current = { base: baseHours, at: Date.now() };
     force((n) => n + 1);
