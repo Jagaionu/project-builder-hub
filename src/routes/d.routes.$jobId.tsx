@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useDriverStore } from "@/lib/driver-store";
 import { DriverStopTimeline } from "@/components/driver/DriverStopTimeline";
+import { haversineKm, transitTimeHours, jobTotalMinutes, stopDwellMinutes, ARRIVAL_BUFFER_MINUTES } from "@/lib/geo";
 
 export const Route = createFileRoute("/d/routes/$jobId")({
   head: () => ({ meta: [{ title: "Route — Driver" }] }),
