@@ -36,6 +36,15 @@ function DriverHome() {
   const todayJobs = jobs.filter((j) => j.for_date === today);
   const tomorrowJobs = jobs.filter((j) => j.for_date === tomorrow);
   const activeJobs = todayJobs.filter((j) => !["COMPLETED", "CANCELLED"].includes(j.status));
+  const STATUS_ORDER = ["ARRIVED_PICKUP", "EN_ROUTE_DELIVERY", "IN_PROGRESS", "ASSIGNED", "PENDING"];
+  const nextJob = [...activeJobs].sort((a, b) => {
+    const sa = STATUS_ORDER.indexOf(a.status);
+    const sb = STATUS_ORDER.indexOf(b.status);
+    if (sa !== sb) return (sa === -1 ? 99 : sa) - (sb === -1 ? 99 : sb);
+    const ta = a.planned_start_at ?? a.scheduled_at ?? "";
+    const tb = b.planned_start_at ?? b.scheduled_at ?? "";
+    return ta.localeCompare(tb);
+  })[0];
 
   const toggleShift = async () => {
     setShiftLoading(true);
@@ -90,15 +99,17 @@ function DriverHome() {
 
       <section className="px-4 mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Today</h2>
-          <span className="text-xs text-muted-foreground">{activeJobs.length} active</span>
+          <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Next job</h2>
+          {activeJobs.length > 1 && (
+            <span className="text-xs text-muted-foreground">+{activeJobs.length - 1} more in Routes</span>
+          )}
         </div>
-        {todayJobs.length === 0 ? (
+        {!nextJob ? (
           <div className="bg-card border border-border rounded-xl p-6 text-center">
             <p className="text-sm text-muted-foreground">No jobs assigned today.</p>
           </div>
         ) : (
-          <div className="space-y-3">{todayJobs.map((j) => <DriverJobCard key={j.id} job={j} />)}</div>
+          <DriverJobCard job={nextJob} />
         )}
       </section>
 
