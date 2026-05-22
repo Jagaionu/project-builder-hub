@@ -44,9 +44,16 @@ export function DriverStopTimeline({ job, driverPosition, onArrive }: Props) {
             <div className="pb-5 flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-semibold text-sm text-foreground">{kindIcon} {kindLabel}</p>
+                  <p className="font-semibold text-sm text-foreground">
+                    {kindIcon} Stop {i + 1} — {kindLabel}
+                  </p>
                   <p className="text-base font-bold text-foreground mt-0.5">{wh?.code} — {wh?.name}</p>
                   {wh?.address && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{wh.address}</p>}
+                  {stop.scheduled_at && (
+                    <p className="text-xs text-muted-foreground mt-1 font-mono">
+                      Planned {new Date(stop.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  )}
                 </div>
                 <div className="shrink-0 text-right">
                   {arrived ? (

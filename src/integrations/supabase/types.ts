@@ -150,7 +150,15 @@ export type Database = {
           telegram_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "driver_registrations_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       drivers: {
         Row: {
@@ -334,34 +342,9 @@ export type Database = {
             referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      pairing_codes: {
-        Row: {
-          code: string
-          consumed_at: string | null
-          created_at: string
-          driver_id: string
-          expires_at: string | null
-        }
-        Insert: {
-          code: string
-          consumed_at?: string | null
-          created_at?: string
-          driver_id: string
-          expires_at?: string | null
-        }
-        Update: {
-          code?: string
-          consumed_at?: string | null
-          created_at?: string
-          driver_id?: string
-          expires_at?: string | null
-        }
-        Relationships: [
           {
-            foreignKeyName: "pairing_codes_driver_id_fkey"
-            columns: ["driver_id"]
+            foreignKeyName: "jobs_planned_driver_id_fkey"
+            columns: ["planned_driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
             referencedColumns: ["id"]
