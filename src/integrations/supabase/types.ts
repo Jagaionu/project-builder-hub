@@ -87,6 +87,38 @@ export type Database = {
           },
         ]
       }
+      driver_positions: {
+        Row: {
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_positions_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_registrations: {
         Row: {
           created_at: string
@@ -137,6 +169,7 @@ export type Database = {
           tomorrow_start_lat: number | null
           tomorrow_start_lon: number | null
           tomorrow_start_updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           available_tomorrow?: boolean
@@ -154,6 +187,7 @@ export type Database = {
           tomorrow_start_lat?: number | null
           tomorrow_start_lon?: number | null
           tomorrow_start_updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           available_tomorrow?: boolean
@@ -171,6 +205,7 @@ export type Database = {
           tomorrow_start_lat?: number | null
           tomorrow_start_lon?: number | null
           tomorrow_start_updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -298,6 +333,38 @@ export type Database = {
           },
         ]
       }
+      pairing_codes: {
+        Row: {
+          code: string
+          consumed_at: string | null
+          created_at: string
+          driver_id: string
+          expires_at: string | null
+        }
+        Insert: {
+          code: string
+          consumed_at?: string | null
+          created_at?: string
+          driver_id: string
+          expires_at?: string | null
+        }
+        Update: {
+          code?: string
+          consumed_at?: string | null
+          created_at?: string
+          driver_id?: string
+          expires_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pairing_codes_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       warehouses: {
         Row: {
           address: string | null
@@ -333,7 +400,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      current_driver_id: { Args: never; Returns: string }
     }
     Enums: {
       driver_event_type:

@@ -10,14 +10,22 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as DRouteImport } from './routes/d'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as DIndexRouteImport } from './routes/d.index'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as DRoutesRouteImport } from './routes/d.routes'
+import { Route as DReportRouteImport } from './routes/d.report'
+import { Route as DProfileRouteImport } from './routes/d.profile'
+import { Route as DLoginRouteImport } from './routes/d.login'
 import { Route as AppWarehousesRouteImport } from './routes/_app.warehouses'
 import { Route as AppJobsRouteImport } from './routes/_app.jobs'
 import { Route as AppEventsRouteImport } from './routes/_app.events'
 import { Route as AppDriversRouteImport } from './routes/_app.drivers'
 import { Route as AppDispatchRouteImport } from './routes/_app.dispatch'
 import { Route as AppAlertsRouteImport } from './routes/_app.alerts'
+import { Route as DRoutesJobIdRouteImport } from './routes/d.routes.$jobId'
+import { Route as ApiPublicPairingLoginRouteImport } from './routes/api/public/pairing-login'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicCronShiftRolloverRouteImport } from './routes/api/public/cron/shift-rollover'
 
@@ -26,14 +34,44 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DRoute = DRouteImport.update({
+  id: '/d',
+  path: '/d',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DIndexRoute = DIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DRoute,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
+} as any)
+const DRoutesRoute = DRoutesRouteImport.update({
+  id: '/routes',
+  path: '/routes',
+  getParentRoute: () => DRoute,
+} as any)
+const DReportRoute = DReportRouteImport.update({
+  id: '/report',
+  path: '/report',
+  getParentRoute: () => DRoute,
+} as any)
+const DProfileRoute = DProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => DRoute,
+} as any)
+const DLoginRoute = DLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => DRoute,
 } as any)
 const AppWarehousesRoute = AppWarehousesRouteImport.update({
   id: '/warehouses',
@@ -65,6 +103,16 @@ const AppAlertsRoute = AppAlertsRouteImport.update({
   path: '/alerts',
   getParentRoute: () => AppRoute,
 } as any)
+const DRoutesJobIdRoute = DRoutesJobIdRouteImport.update({
+  id: '/$jobId',
+  path: '/$jobId',
+  getParentRoute: () => DRoutesRoute,
+} as any)
+const ApiPublicPairingLoginRoute = ApiPublicPairingLoginRouteImport.update({
+  id: '/api/public/pairing-login',
+  path: '/api/public/pairing-login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicTelegramWebhookRoute =
   ApiPublicTelegramWebhookRouteImport.update({
     id: '/api/public/telegram/webhook',
@@ -80,6 +128,7 @@ const ApiPublicCronShiftRolloverRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/d': typeof DRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/alerts': typeof AppAlertsRoute
   '/dispatch': typeof AppDispatchRoute
@@ -87,6 +136,13 @@ export interface FileRoutesByFullPath {
   '/events': typeof AppEventsRoute
   '/jobs': typeof AppJobsRoute
   '/warehouses': typeof AppWarehousesRoute
+  '/d/login': typeof DLoginRoute
+  '/d/profile': typeof DProfileRoute
+  '/d/report': typeof DReportRoute
+  '/d/routes': typeof DRoutesRouteWithChildren
+  '/d/': typeof DIndexRoute
+  '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
+  '/d/routes/$jobId': typeof DRoutesJobIdRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -98,13 +154,21 @@ export interface FileRoutesByTo {
   '/events': typeof AppEventsRoute
   '/jobs': typeof AppJobsRoute
   '/warehouses': typeof AppWarehousesRoute
+  '/d/login': typeof DLoginRoute
+  '/d/profile': typeof DProfileRoute
+  '/d/report': typeof DReportRoute
+  '/d/routes': typeof DRoutesRouteWithChildren
   '/': typeof AppIndexRoute
+  '/d': typeof DIndexRoute
+  '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
+  '/d/routes/$jobId': typeof DRoutesJobIdRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/d': typeof DRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_app/alerts': typeof AppAlertsRoute
   '/_app/dispatch': typeof AppDispatchRoute
@@ -112,7 +176,14 @@ export interface FileRoutesById {
   '/_app/events': typeof AppEventsRoute
   '/_app/jobs': typeof AppJobsRoute
   '/_app/warehouses': typeof AppWarehousesRoute
+  '/d/login': typeof DLoginRoute
+  '/d/profile': typeof DProfileRoute
+  '/d/report': typeof DReportRoute
+  '/d/routes': typeof DRoutesRouteWithChildren
   '/_app/': typeof AppIndexRoute
+  '/d/': typeof DIndexRoute
+  '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
+  '/d/routes/$jobId': typeof DRoutesJobIdRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -120,6 +191,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/d'
     | '/sitemap.xml'
     | '/alerts'
     | '/dispatch'
@@ -127,6 +199,13 @@ export interface FileRouteTypes {
     | '/events'
     | '/jobs'
     | '/warehouses'
+    | '/d/login'
+    | '/d/profile'
+    | '/d/report'
+    | '/d/routes'
+    | '/d/'
+    | '/api/public/pairing-login'
+    | '/d/routes/$jobId'
     | '/api/public/cron/shift-rollover'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -138,12 +217,20 @@ export interface FileRouteTypes {
     | '/events'
     | '/jobs'
     | '/warehouses'
+    | '/d/login'
+    | '/d/profile'
+    | '/d/report'
+    | '/d/routes'
     | '/'
+    | '/d'
+    | '/api/public/pairing-login'
+    | '/d/routes/$jobId'
     | '/api/public/cron/shift-rollover'
     | '/api/public/telegram/webhook'
   id:
     | '__root__'
     | '/_app'
+    | '/d'
     | '/sitemap.xml'
     | '/_app/alerts'
     | '/_app/dispatch'
@@ -151,14 +238,23 @@ export interface FileRouteTypes {
     | '/_app/events'
     | '/_app/jobs'
     | '/_app/warehouses'
+    | '/d/login'
+    | '/d/profile'
+    | '/d/report'
+    | '/d/routes'
     | '/_app/'
+    | '/d/'
+    | '/api/public/pairing-login'
+    | '/d/routes/$jobId'
     | '/api/public/cron/shift-rollover'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  DRoute: typeof DRouteWithChildren
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiPublicPairingLoginRoute: typeof ApiPublicPairingLoginRoute
   ApiPublicCronShiftRolloverRoute: typeof ApiPublicCronShiftRolloverRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
@@ -172,6 +268,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/d': {
+      id: '/d'
+      path: '/d'
+      fullPath: '/d'
+      preLoaderRoute: typeof DRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
       id: '/_app'
       path: ''
@@ -179,12 +282,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/d/': {
+      id: '/d/'
+      path: '/'
+      fullPath: '/d/'
+      preLoaderRoute: typeof DIndexRouteImport
+      parentRoute: typeof DRoute
+    }
     '/_app/': {
       id: '/_app/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/d/routes': {
+      id: '/d/routes'
+      path: '/routes'
+      fullPath: '/d/routes'
+      preLoaderRoute: typeof DRoutesRouteImport
+      parentRoute: typeof DRoute
+    }
+    '/d/report': {
+      id: '/d/report'
+      path: '/report'
+      fullPath: '/d/report'
+      preLoaderRoute: typeof DReportRouteImport
+      parentRoute: typeof DRoute
+    }
+    '/d/profile': {
+      id: '/d/profile'
+      path: '/profile'
+      fullPath: '/d/profile'
+      preLoaderRoute: typeof DProfileRouteImport
+      parentRoute: typeof DRoute
+    }
+    '/d/login': {
+      id: '/d/login'
+      path: '/login'
+      fullPath: '/d/login'
+      preLoaderRoute: typeof DLoginRouteImport
+      parentRoute: typeof DRoute
     }
     '/_app/warehouses': {
       id: '/_app/warehouses'
@@ -228,6 +366,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAlertsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/d/routes/$jobId': {
+      id: '/d/routes/$jobId'
+      path: '/$jobId'
+      fullPath: '/d/routes/$jobId'
+      preLoaderRoute: typeof DRoutesJobIdRouteImport
+      parentRoute: typeof DRoutesRoute
+    }
+    '/api/public/pairing-login': {
+      id: '/api/public/pairing-login'
+      path: '/api/public/pairing-login'
+      fullPath: '/api/public/pairing-login'
+      preLoaderRoute: typeof ApiPublicPairingLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/telegram/webhook': {
       id: '/api/public/telegram/webhook'
       path: '/api/public/telegram/webhook'
@@ -267,9 +419,40 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface DRoutesRouteChildren {
+  DRoutesJobIdRoute: typeof DRoutesJobIdRoute
+}
+
+const DRoutesRouteChildren: DRoutesRouteChildren = {
+  DRoutesJobIdRoute: DRoutesJobIdRoute,
+}
+
+const DRoutesRouteWithChildren =
+  DRoutesRoute._addFileChildren(DRoutesRouteChildren)
+
+interface DRouteChildren {
+  DLoginRoute: typeof DLoginRoute
+  DProfileRoute: typeof DProfileRoute
+  DReportRoute: typeof DReportRoute
+  DRoutesRoute: typeof DRoutesRouteWithChildren
+  DIndexRoute: typeof DIndexRoute
+}
+
+const DRouteChildren: DRouteChildren = {
+  DLoginRoute: DLoginRoute,
+  DProfileRoute: DProfileRoute,
+  DReportRoute: DReportRoute,
+  DRoutesRoute: DRoutesRouteWithChildren,
+  DIndexRoute: DIndexRoute,
+}
+
+const DRouteWithChildren = DRoute._addFileChildren(DRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  DRoute: DRouteWithChildren,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiPublicPairingLoginRoute: ApiPublicPairingLoginRoute,
   ApiPublicCronShiftRolloverRoute: ApiPublicCronShiftRolloverRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
