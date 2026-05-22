@@ -49,20 +49,25 @@ function DriversPage() {
   const [form, setForm] = useState<DriverForm>({ name: "", phone: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "" });
+  const genCode = useServerFn(generateDriverPairingCode);
 
   async function add() {
     if (!form.name) return toast.error("Name required");
-    const { error } = await supabase.from("drivers").insert({
+    const { data, error } = await supabase.from("drivers").insert({
       name: form.name,
       phone: form.phone || null,
       status: "OFF_SHIFT",
-    });
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Driver added");
-      setOpen(false);
-      setForm({ name: "", phone: "" });
+    }).select("id").single();
+    if (error || !data) { toast.error(error?.message ?? "Failed to add driver"); return; }
+    try {
+      const r = await genCode({ data: { driverId: data.id } });
+      await navigator.clipboard?.writeText(r.code).catch(() => {});
+      toast.success(`Driver added — pairing code ${r.code} (copied, valid 15 min)`, { duration: 15000 });
+    } catch (e) {
+      toast.warning(`Driver added. Code generation failed: ${(e as Error).message}`);
     }
+    setOpen(false);
+    setForm({ name: "", phone: "" });
   }
 
   function startEdit(d: { id: string; name: string; phone: string | null }) {
