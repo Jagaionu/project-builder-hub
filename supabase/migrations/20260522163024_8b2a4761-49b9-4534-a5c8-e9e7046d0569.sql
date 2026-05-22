@@ -1,0 +1,1 @@
+ALTER TYPE driver_event_type ADD VALUE IF NOT EXISTS 'DRIVER_NOTE';

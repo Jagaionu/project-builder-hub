@@ -405,6 +405,7 @@ export type Database = {
         | "JOB_CARD_SENT"
         | "CANT_COMPLETE"
         | "END_SHIFT_BLOCKED"
+        | "DRIVER_NOTE"
       driver_status:
         | "AVAILABLE"
         | "ON_SHIFT"
@@ -565,6 +566,7 @@ export const Constants = {
         "JOB_CARD_SENT",
         "CANT_COMPLETE",
         "END_SHIFT_BLOCKED",
+        "DRIVER_NOTE",
       ],
       driver_status: [
         "AVAILABLE",
