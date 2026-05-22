@@ -155,7 +155,7 @@ function DriversPage() {
             <tbody className="divide-y divide-border">
               {drivers.map((d) => {
                 const isEditing = editingId === d.id;
-                const activeCode = codes[d.id];
+                const code = (d as { login_code?: string | null }).login_code ?? null;
                 return (
                   <tr key={d.id} className="hover:bg-surface-2/40">
                     <td className="px-3 py-2.5">
@@ -181,19 +181,19 @@ function DriversPage() {
                       )}
                     </td>
                     <td className="px-3 py-2.5">
-                      {activeCode ? (
+                      {code ? (
                         <CodeCell
-                          code={activeCode.code}
-                          expiresAt={activeCode.expires_at}
+                          code={code}
+                          expiresAt={null}
                           onCopy={() => {
-                            navigator.clipboard?.writeText(activeCode.code);
-                            toast.success(`${activeCode.code} copied`);
+                            navigator.clipboard?.writeText(code);
+                            toast.success(`${code} copied`);
                           }}
-                          onRegenerate={() => issueCode(d.id)}
+                          onRegenerate={() => regenerate(d.id)}
                         />
                       ) : (
                         <button
-                          onClick={() => issueCode(d.id)}
+                          onClick={() => regenerate(d.id)}
                           className="text-[11px] text-muted-foreground hover:text-primary underline"
                         >
                           Generate
