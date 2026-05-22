@@ -296,7 +296,7 @@ function JobsPage() {
     })();
   }, [jobs]);
 
-  async function assignDriver(jobId: string, driverId: string) {
+  async function assignDriver(jobId: string, driverId: string, opts?: { manual?: boolean }) {
     if (driverId) {
       const c = compliance[driverId];
       if (c?.blockAssignment) {
@@ -304,13 +304,23 @@ function JobsPage() {
         return toast.error(`Cannot assign: ${reason}`);
       }
     }
-    const payload = driverId
+    const job = jobs.find((j) => j.id === jobId);
+    const wasActive = job ? ACTIVE_JOB_STATUSES.has(job.status) : false;
+    if (!driverId && opts?.manual && wasActive) {
+      if (typeof window !== "undefined" && !window.confirm("Remove driver from this active job? It will go back to Pending.")) {
+        return;
+      }
+    }
+    const base = driverId
       ? { assigned_driver_id: driverId, status: "ASSIGNED" as never }
-      : { assigned_driver_id: null, status: "PENDING" as never };
-    const { error } = await supabase.from("jobs").update(payload).eq("id", jobId);
+      : { assigned_driver_id: null, status: "PENDING" as never, planned_driver_id: null, planned_sequence: null, planned_start_at: null };
+    const payload = opts?.manual ? { ...base, manual_override: true } : base;
+    const { error } = await supabase.from("jobs").update(payload as never).eq("id", jobId);
     if (error) return toast.error(error.message);
     if (driverId) {
-      toast.success("Driver assigned");
+      toast.success(opts?.manual ? "Driver assigned (manual)" : "Driver assigned");
+    } else if (opts?.manual) {
+      toast.success("Driver removed — auto-planner paused for this job");
     }
   }
 
@@ -323,7 +333,9 @@ function JobsPage() {
     const pending = jobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id);
     if (pending.some((j) => !stopsMap[j.id])) return;
 
-    const plan = computePlan(jobs, stopsMap, drivers, warehouses, compliance);
+    // Exclude manually-overridden jobs from auto-planning entirely.
+    const jobsForPlanner = jobs.filter((j) => !(j as { manual_override?: boolean }).manual_override);
+    const plan = computePlan(jobsForPlanner, stopsMap, drivers, warehouses, compliance);
 
     // Stable signature to avoid loops if the same plan is recomputed.
     const sig = JSON.stringify({
@@ -339,6 +351,7 @@ function JobsPage() {
         const job = jobs.find((j) => j.id === a.jobId);
         const driver = drivers.find((d) => d.id === a.driverId);
         if (!job || !driver) continue;
+        if ((job as { manual_override?: boolean }).manual_override) continue;
         await assignDriver(a.jobId, a.driverId);
         toast.message(`Auto-assigned ${driver.name} → ${job.reference} (${a.distKm.toFixed(1)} km)`);
         // Auto-fill stop times starting from job.scheduled_at or now
@@ -350,6 +363,7 @@ function JobsPage() {
         plan.planned.map((p) => [p.jobId, { d: p.driverId, s: p.sequence, t: p.startAt }] as const),
       );
       for (const job of jobs) {
+        if ((job as { manual_override?: boolean }).manual_override) continue;
         const want = desired.get(job.id);
         const have = {
           d: job.planned_driver_id ?? null,
@@ -724,10 +738,10 @@ function JobsPage() {
                       <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
                         <DriverPicker
                           driverId={j.assigned_driver_id}
-                          allowUnassign={!ACTIVE_JOB_STATUSES.has(j.status)}
+                          allowUnassign={true}
                           drivers={drivers}
                           compliance={compliance}
-                          onChange={(id) => assignDriver(j.id, id)}
+                          onChange={(id) => assignDriver(j.id, id, { manual: true })}
                         />
                         {!j.assigned_driver_id && (planned || j.planned_driver_id) && (
                           <PlannedChip

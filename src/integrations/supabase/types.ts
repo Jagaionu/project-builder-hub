@@ -277,6 +277,7 @@ export type Database = {
           eta_minutes: number | null
           for_date: string | null
           id: string
+          manual_override: boolean
           origin_warehouse_id: string | null
           planned_driver_id: string | null
           planned_sequence: number | null
@@ -294,6 +295,7 @@ export type Database = {
           eta_minutes?: number | null
           for_date?: string | null
           id?: string
+          manual_override?: boolean
           origin_warehouse_id?: string | null
           planned_driver_id?: string | null
           planned_sequence?: number | null
@@ -311,6 +313,7 @@ export type Database = {
           eta_minutes?: number | null
           for_date?: string | null
           id?: string
+          manual_override?: boolean
           origin_warehouse_id?: string | null
           planned_driver_id?: string | null
           planned_sequence?: number | null
