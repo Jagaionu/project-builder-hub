@@ -53,7 +53,8 @@ function DriversPage() {
   const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "" });
   const rotateCode = useServerFn(rotateDriverLoginCode);
 
-  async function regenerate(driverId: string) {
+  async function regenerate(driverId: string, driverName: string) {
+    if (!confirm(`Regenerate login code for "${driverName}"?\n\nThe old code will stop working immediately. The driver will need the new code to log in.`)) return;
     try {
       const r = await rotateCode({ data: { driverId } });
       await navigator.clipboard?.writeText(r.code).catch(() => {});
@@ -62,6 +63,7 @@ function DriversPage() {
       toast.error((e as Error).message);
     }
   }
+
 
   async function add() {
     if (!form.name) return toast.error("Name required");
