@@ -152,16 +152,16 @@ export function useRecentDelays(): RecentDelay[] {
         .gte("timestamp", since)
         .order("timestamp", { ascending: false });
       if (!mounted || !data) return;
-      setRows(
-        (data as Array<{ driver_id: string; timestamp: string; payload: { reason?: string; job_id?: string } }>).map(
-          (r) => ({
-            driver_id: r.driver_id,
-            timestamp: r.timestamp,
-            reason: r.payload?.reason ?? "Delay reported",
-            job_id: r.payload?.job_id,
-          }),
-        ),
+      const next = (data as Array<{ driver_id: string; timestamp: string; payload: { reason?: string; job_id?: string } }>).map(
+        (r) => ({
+          driver_id: r.driver_id,
+          timestamp: r.timestamp,
+          reason: r.payload?.reason ?? "Delay reported",
+          job_id: r.payload?.job_id,
+        }),
       );
+      cache.recentDelays = next;
+      setRows(next);
     };
     load();
     const ch = supabase
