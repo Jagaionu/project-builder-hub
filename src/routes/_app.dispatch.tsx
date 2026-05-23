@@ -870,10 +870,29 @@ function JobDetailPanel({
               </span>
             )}
           </div>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight flex items-center gap-3 font-mono">
-            {origin?.code ?? "?"} <ArrowRight className="size-4 text-muted-foreground" /> {dest?.code ?? "?"}
+          <h2 className="mt-2 text-xl font-semibold tracking-tight flex flex-wrap items-center gap-x-2 gap-y-1 font-mono">
+            {stops.length === 0 ? (
+              <span className="text-muted-foreground">No stops</span>
+            ) : (
+              stops.map((s, i) => {
+                const wh = warehouses.find((w) => w.id === s.warehouse_id);
+                return (
+                  <span key={i} className="flex items-center gap-2">
+                    <span className={s.kind === "PICKUP" ? "text-blue-500" : "text-emerald-600"}>
+                      {wh?.code ?? "?"}
+                    </span>
+                    {i < stops.length - 1 && <ArrowRight className="size-4 text-muted-foreground" />}
+                  </span>
+                );
+              })
+            )}
           </h2>
-          <p className="text-xs text-muted-foreground mt-1">{origin?.name} → {dest?.name}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {stops.map((s, i) => {
+              const wh = warehouses.find((w) => w.id === s.warehouse_id);
+              return `${s.kind === "PICKUP" ? "📦" : "🏁"} ${wh?.name ?? "?"}`;
+            }).join(" → ")}
+          </p>
         </div>
         <button
           onClick={onEdit}
