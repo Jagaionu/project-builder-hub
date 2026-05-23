@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { AuthContext, Company, MemberRole } from "@/lib/types";
 
 export const Route = createFileRoute("/_app")({
+  ssr: false,
   // ── AUTH & SUBSCRIPTION GATE ──────────────────────────────────────────────
   beforeLoad: async ({ location }): Promise<AuthContext> => {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
