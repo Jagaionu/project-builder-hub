@@ -505,6 +505,7 @@ function DispatchPage() {
   const today = startOfDay(new Date());
   const isDefaultFilters =
     !search &&
+    !statusFilter &&
     hiddenStatuses.size === 2 &&
     hiddenStatuses.has("COMPLETED") &&
     hiddenStatuses.has("CANCELLED") &&
@@ -512,30 +513,59 @@ function DispatchPage() {
     sameDay(dateRange.from, today) &&
     sameDay(dateRange.to ?? dateRange.from, today);
 
-  const pendingCount = jobs.filter((j) => j.status === "PENDING").length;
+  const STATUS_BOX_KEYS: JobStatus[] = ["PENDING", "ASSIGNED", "COMPLETED", "CANCELLED"];
 
   return (
     <div className="h-full flex flex-col">
-      <PageHeader
-        title="Dispatch"
-        subtitle={`${pendingCount} pending · ${filteredJobs.length} shown of ${jobs.length} total`}
-        right={
-          <div className="flex items-center gap-2">
-            <ToolbarButton
-              onClick={onPlanTomorrow}
-              disabled={planningTomorrow || tomorrowStats.total === 0}
-              title={tomorrowStats.total === 0 ? "No jobs scheduled for tomorrow" : "Auto-assign tomorrow's routes and notify drivers"}
-              icon={<Sparkles className="size-3.5" />}
-            >
-              {planningTomorrow ? "Planning…" : "Plan Tomorrow"}
-            </ToolbarButton>
-            <ImportCsvButton />
-            <ToolbarButton onClick={() => setCreateOpen(true)} primary icon={<Plus className="size-3.5" />}>
-              Create route
-            </ToolbarButton>
+      <header className="px-5 py-3 border-b border-border flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="shrink-0">
+            <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {filteredJobs.length} shown of {jobs.length} total
+            </p>
           </div>
-        }
-      />
+          <div className="flex items-center gap-1.5">
+            {STATUS_BOX_KEYS.map((s) => {
+              const active = statusFilter === s;
+              const cfg = STATUS_CONFIG[s];
+              return (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(active ? null : s)}
+                  title={`Filter by ${cfg.label}`}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors",
+                    active
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-border bg-surface text-muted-foreground hover:bg-surface-2 hover:text-foreground",
+                  )}
+                >
+                  <span className={`size-1.5 rounded-full ${cfg.dot}`} />
+                  <span className="uppercase tracking-wide text-[9px] font-mono">{cfg.label}</span>
+                  <span className="font-mono font-semibold text-foreground tabular-nums">
+                    {statusCounts[s] ?? 0}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <ToolbarButton
+            onClick={onPlanTomorrow}
+            disabled={planningTomorrow || tomorrowStats.total === 0}
+            title={tomorrowStats.total === 0 ? "No jobs scheduled for tomorrow" : "Auto-assign tomorrow's routes and notify drivers"}
+            icon={<Sparkles className="size-3.5" />}
+          >
+            {planningTomorrow ? "Planning…" : "Plan Tomorrow"}
+          </ToolbarButton>
+          <ImportCsvButton />
+          <ToolbarButton onClick={() => setCreateOpen(true)} primary icon={<Plus className="size-3.5" />}>
+            Create route
+          </ToolbarButton>
+        </div>
+      </header>
 
       {/* Filter bar */}
       <div className="px-5 py-3 border-b border-border bg-background/40 flex items-center gap-2">
