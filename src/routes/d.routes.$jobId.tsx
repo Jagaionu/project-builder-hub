@@ -20,6 +20,8 @@ function JobDetail() {
   const driver = useDriverStore((s) => s.driver);
   const gps = useDriverStore((s) => s.gpsPosition);
   const job = jobs.find((j) => j.id === jobId);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
 
   if (!job) {
     return (
@@ -30,8 +32,8 @@ function JobDetail() {
     );
   }
 
-
   const sortedStops = [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq);
+
   const allDone = sortedStops.length > 0 && sortedStops.every((s) => s.arrived_at);
 
   // Build warehouse + stop arrays for geo helpers
@@ -82,9 +84,8 @@ function JobDetail() {
     : null;
   const chain = sortedStops.map((s) => s.warehouse?.code ?? "?").join(" → ");
 
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState("");
   const statusCfg = STATUS_CONFIG[job.status] ?? STATUS_CONFIG.PENDING;
+
 
   const refreshJob = (patch: Partial<typeof job>) => {
     useDriverStore.getState().setJobs(
