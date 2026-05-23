@@ -759,7 +759,16 @@ function JobsPage() {
                         <StatusPill
                           status={
                             isJobScheduledFuture(
-                              { ...j, stops: stops.map((s) => ({ seq: s.seq, kind: s.kind, warehouse_id: s.warehouse_id, scheduled_at: s.scheduled_at, arrived_at: s.arrived_at })) },
+                              {
+                                ...j,
+                                stops: stops.map((s, idx) => ({
+                                  seq: idx,
+                                  kind: s.kind,
+                                  warehouse_id: s.warehouse_id,
+                                  scheduled_at: s.scheduled_at,
+                                  arrived_at: s.arrived_at ?? null,
+                                })),
+                              },
                               Date.now(),
                             )
                               ? "SCHEDULED"
