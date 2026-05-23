@@ -563,15 +563,10 @@ function Metric({
       <div className="h-1 rounded-full bg-surface-2 overflow-hidden">
         <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      {live && (
-        <div className="text-[10px] font-mono text-muted-foreground text-right">
-          {live === "down" ? "−" : "+"}
-          <LiveTimer baseHours={live === "down" ? Math.max(0, cap - value) : value} dir={live} />
-        </div>
-      )}
     </div>
   );
 }
+
 
 function LiveTimer({ baseHours, dir }: { baseHours: number; dir: "up" | "down" }) {
   const anchorRef = useRef<{ base: number; at: number }>({ base: baseHours, at: Date.now() });
@@ -715,9 +710,39 @@ function ProjectedRoutePanel({
                 {fmtHm(totalWithBreaksMin)} total
               </span>
             </div>
-            {breaksNeeded > 0 && (
-              <div className="mt-0.5 text-[10px] text-warning">
-                Requires {breaksNeeded}× 45-min break during route (+{fmtHm(breakMin)})
+            {breaksNeeded > 0 && startMs && (() => {
+              // Schedule each 45-min break at the next 4.5h continuous-drive
+              // boundary, measured from route start.
+              const fmtClock = (ms: number) =>
+                new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+              const breaks: { startMs: number; endMs: number }[] = [];
+              let driven = cycleStartH; // hours driven in current cycle at route start
+              let cursor = startMs;
+              for (let i = 0; i < breaksNeeded; i++) {
+                const toNextBreakH = 4.5 - driven;
+                const bStart = cursor + toNextBreakH * 3_600_000;
+                const bEnd = bStart + 45 * 60_000;
+                breaks.push({ startMs: bStart, endMs: bEnd });
+                cursor = bEnd;
+                driven = 0; // cycle resets after break
+              }
+              const routeEndMs = startMs + totalWithBreaksMin * 60_000;
+              return (
+                <div className="mt-1 space-y-0.5 text-[10px] text-warning">
+                  {breaks.map((b, i) => (
+                    <div key={i}>
+                      Break {i + 1}: {fmtClock(b.startMs)} → {fmtClock(b.endMs)} (45 min)
+                    </div>
+                  ))}
+                  <div className="text-muted-foreground">
+                    Route finishes ~{fmtClock(routeEndMs)} (without breaks {fmtClock(startMs + proj.totalMin * 60_000)})
+                  </div>
+                </div>
+              );
+            })()}
+            {breaksNeeded === 0 && startMs && (
+              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                Route finishes ~{new Date(startMs + proj.totalMin * 60_000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · no break required
               </div>
             )}
             {wouldExceed && (
