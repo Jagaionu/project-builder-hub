@@ -269,7 +269,11 @@ export function computeTomorrowPlan(
       tomorrow_start_lon?: number | null;
     };
     if (!dd.available_tomorrow) continue;
-    if (dd.tomorrow_start_lat == null || dd.tomorrow_start_lon == null) continue;
+    // Prefer the driver-reported tomorrow start location; fall back to their
+    // last known GPS so an opt-in without a pinned start point still plans.
+    const startLat = dd.tomorrow_start_lat ?? d.current_lat ?? null;
+    const startLon = dd.tomorrow_start_lon ?? d.current_lon ?? null;
+    if (startLat == null || startLon == null) continue;
     const c = compliance[d.id];
     if (c?.blockAssignment) continue;
     let cap = 9;
@@ -279,8 +283,8 @@ export function computeTomorrowPlan(
     }
     if (cap <= 0) continue;
     forecast[d.id] = {
-      lat: dd.tomorrow_start_lat,
-      lon: dd.tomorrow_start_lon,
+      lat: startLat,
+      lon: startLon,
       hoursLeft: cap,
       sequence: 0,
     };
