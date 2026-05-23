@@ -16,7 +16,6 @@ const ALL_NAV: ReadonlyArray<{
 }> = [
   { to: "/",           label: "Live Map",   icon: Map,           module: null },
   { to: "/dispatch",   label: "Dispatch",   icon: ClipboardList, module: "dispatch" },
-  { to: "/jobs",       label: "Jobs",       icon: Activity,      module: "jobs" },
   { to: "/drivers",    label: "Drivers",    icon: Truck,         module: "drivers" },
   { to: "/warehouses", label: "Warehouses", icon: Warehouse,     module: "warehouses" },
   { to: "/alerts",     label: "Alerts",     icon: AlertTriangle, module: "alerts" },
