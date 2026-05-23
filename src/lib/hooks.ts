@@ -152,14 +152,19 @@ export function useRecentDelays(): RecentDelay[] {
         .gte("timestamp", since)
         .order("timestamp", { ascending: false });
       if (!mounted || !data) return;
-      const next = (data as Array<{ driver_id: string; timestamp: string; payload: { reason?: string; job_id?: string } }>).map(
-        (r) => ({
-          driver_id: r.driver_id,
-          timestamp: r.timestamp,
-          reason: r.payload?.reason ?? "Delay reported",
-          job_id: r.payload?.job_id,
-        }),
+      const next = (data as Array<{ driver_id: string; timestamp: string; payload: { reason?: string; category?: string; notes?: string; note?: string; job_id?: string } }>).map(
+        (r) => {
+          const headline = r.payload?.reason ?? r.payload?.category ?? "Delay reported";
+          const extra = (r.payload?.notes ?? r.payload?.note ?? "").trim();
+          return {
+            driver_id: r.driver_id,
+            timestamp: r.timestamp,
+            reason: extra ? `${headline} — ${extra}` : headline,
+            job_id: r.payload?.job_id,
+          };
+        },
       );
+
       cache.recentDelays = next;
       setRows(next);
     };
