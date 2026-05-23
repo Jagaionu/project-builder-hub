@@ -404,12 +404,12 @@ function DispatchPage() {
 
   const editingJob = editJobId ? jobs.find((j) => j.id === editJobId) : null;
 
-  const filteredJobs = useMemo(() => {
+  // Jobs filtered by date range + search only (used to compute status box counts).
+  const jobsInRange = useMemo(() => {
     const q = search.trim().toLowerCase();
     const from = dateRange?.from ? startOfDay(dateRange.from).getTime() : null;
     const to = dateRange ? endOfDay(dateRange.to ?? dateRange.from ?? new Date()).getTime() : null;
     return jobs.filter((j) => {
-      if (hiddenStatuses.has(j.status as JobStatus)) return false;
       if (from !== null && to !== null) {
         const t = jobDate(j, stopsMap[j.id] ?? []).getTime();
         if (t < from || t > to) return false;
@@ -428,7 +428,23 @@ function DispatchPage() {
       if (driver?.name.toLowerCase().includes(q)) return true;
       return false;
     });
-  }, [jobs, stopsMap, warehouses, drivers, search, hiddenStatuses, dateRange]);
+  }, [jobs, stopsMap, warehouses, drivers, search, dateRange]);
+
+  const filteredJobs = useMemo(() => {
+    return jobsInRange.filter((j) => {
+      if (statusFilter) return j.status === statusFilter;
+      return !hiddenStatuses.has(j.status as JobStatus);
+    });
+  }, [jobsInRange, hiddenStatuses, statusFilter]);
+
+  const statusCounts = useMemo(() => {
+    const c: Record<JobStatus, number> = {
+      PENDING: 0, ASSIGNED: 0, IN_PROGRESS: 0, ARRIVED_PICKUP: 0,
+      EN_ROUTE_DELIVERY: 0, COMPLETED: 0, CANCELLED: 0,
+    };
+    for (const j of jobsInRange) c[j.status as JobStatus] = (c[j.status as JobStatus] ?? 0) + 1;
+    return c;
+  }, [jobsInRange]);
 
   // Keep selection valid; default to first filtered job
   useEffect(() => {
