@@ -52,7 +52,7 @@ function DriverHome() {
     try {
       const newStatus = isOnShift ? "OFF_SHIFT" : "AVAILABLE";
       await supabase.from("drivers").update({ status: newStatus, last_update_time: new Date().toISOString() } as never).eq("id", driver.id);
-      await supabase.from("driver_events").insert({ driver_id: driver.id, type: isOnShift ? "END_SHIFT" : "START_SHIFT" } as never);
+      await supabase.from("driver_events").insert({ driver_id: driver.id, type: isOnShift ? "END_SHIFT" : "START_SHIFT", tenant_id: await getTenantId() } as never);
       setDriver({ ...driver, status: newStatus });
     } finally { setShiftLoading(false); }
   };
