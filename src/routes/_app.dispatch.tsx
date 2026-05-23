@@ -1003,6 +1003,10 @@ function JobDetailPanel({
               const dep = arr ? new Date(new Date(arr).getTime() + stopDwellMinutes(s.kind) * 60_000).toISOString() : null;
               const fmt = (iso: string | null | undefined) =>
                 iso ? new Date(iso).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+              const delayMin = s.arrived_at && arr
+                ? Math.round((new Date(s.arrived_at).getTime() - new Date(arr).getTime()) / 60_000)
+                : null;
+              const isDelayed = delayMin != null && delayMin > 5;
               return (
                 <div key={idx} className="grid grid-cols-12 gap-2 px-3 py-2 text-[11px] border-t border-border items-center">
                   <div className="col-span-1 font-mono text-muted-foreground">{idx + 1}</div>
@@ -1017,8 +1021,17 @@ function JobDetailPanel({
                   </div>
                   <div className="col-span-3 font-mono text-foreground text-sm">{fmt(arr)}</div>
                   <div className="col-span-2 font-mono text-foreground text-sm">{fmt(dep)}</div>
-                  <div className="col-span-1 font-mono text-muted-foreground">
-                    {s.arrived_at ? new Date(s.arrived_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+                  <div className="col-span-1 font-mono">
+                    {s.arrived_at ? (
+                      <div className="flex flex-col items-start">
+                        <span className={isDelayed ? "text-amber-600" : "text-emerald-600"}>
+                          {new Date(s.arrived_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                        {isDelayed && (
+                          <span className="text-[9px] text-amber-600">+{delayMin}m late</span>
+                        )}
+                      </div>
+                    ) : "—"}
                   </div>
                 </div>
               );
