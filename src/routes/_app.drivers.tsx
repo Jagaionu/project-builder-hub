@@ -8,6 +8,7 @@ import type { Compliance } from "@/lib/compliance";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
+import { getTenantId } from "@/lib/tenant-insert";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Check, X, KeyRound, Copy, Link as LinkIcon } from "lucide-react";
 import { rotateDriverLoginCode } from "@/lib/pairing.functions";
@@ -69,10 +70,12 @@ function DriversPage() {
 
   async function add() {
     if (!form.name) return toast.error("Name required");
+    const tenant_id = await getTenantId();
     const { data, error } = await supabase.from("drivers").insert({
       name: form.name,
       phone: form.phone || null,
       status: "OFF_SHIFT",
+      tenant_id,
     }).select("id, login_code").single();
     if (error || !data) { toast.error(error?.message ?? "Failed to add driver"); return; }
     const code = (data as { login_code?: string | null }).login_code;

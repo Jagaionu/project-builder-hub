@@ -13,8 +13,10 @@ import { Route as SuspendedRouteImport } from './routes/suspended'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DRouteImport } from './routes/d'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as DIndexRouteImport } from './routes/d.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as DRoutesRouteImport } from './routes/d.routes'
 import { Route as DReportRouteImport } from './routes/d.report'
@@ -50,6 +52,11 @@ const DRoute = DRouteImport.update({
   path: '/d',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
@@ -58,6 +65,11 @@ const DIndexRoute = DIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => DRoute,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
@@ -133,6 +145,7 @@ const ApiPublicCronShiftRolloverRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/d': typeof DRouteWithChildren
   '/login': typeof LoginRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -147,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/d/profile': typeof DProfileRoute
   '/d/report': typeof DReportRoute
   '/d/routes': typeof DRoutesRouteWithChildren
+  '/admin/': typeof AdminIndexRoute
   '/d/': typeof DIndexRoute
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
   '/d/routes/$jobId': typeof DRoutesJobIdRoute
@@ -167,6 +181,7 @@ export interface FileRoutesByTo {
   '/d/report': typeof DReportRoute
   '/d/routes': typeof DRoutesRouteWithChildren
   '/': typeof AppIndexRoute
+  '/admin': typeof AdminIndexRoute
   '/d': typeof DIndexRoute
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
   '/d/routes/$jobId': typeof DRoutesJobIdRoute
@@ -175,6 +190,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/admin': typeof AdminRouteWithChildren
   '/d': typeof DRouteWithChildren
   '/login': typeof LoginRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -190,6 +206,7 @@ export interface FileRoutesById {
   '/d/report': typeof DReportRoute
   '/d/routes': typeof DRoutesRouteWithChildren
   '/_app/': typeof AppIndexRoute
+  '/admin/': typeof AdminIndexRoute
   '/d/': typeof DIndexRoute
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
   '/d/routes/$jobId': typeof DRoutesJobIdRoute
@@ -199,6 +216,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/d'
     | '/login'
     | '/sitemap.xml'
@@ -213,6 +231,7 @@ export interface FileRouteTypes {
     | '/d/profile'
     | '/d/report'
     | '/d/routes'
+    | '/admin/'
     | '/d/'
     | '/api/public/pairing-login'
     | '/d/routes/$jobId'
@@ -233,6 +252,7 @@ export interface FileRouteTypes {
     | '/d/report'
     | '/d/routes'
     | '/'
+    | '/admin'
     | '/d'
     | '/api/public/pairing-login'
     | '/d/routes/$jobId'
@@ -240,6 +260,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
+    | '/admin'
     | '/d'
     | '/login'
     | '/sitemap.xml'
@@ -255,6 +276,7 @@ export interface FileRouteTypes {
     | '/d/report'
     | '/d/routes'
     | '/_app/'
+    | '/admin/'
     | '/d/'
     | '/api/public/pairing-login'
     | '/d/routes/$jobId'
@@ -263,6 +285,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  AdminRoute: typeof AdminRouteWithChildren
   DRoute: typeof DRouteWithChildren
   LoginRoute: typeof LoginRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -301,6 +324,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
       id: '/_app'
       path: ''
@@ -314,6 +344,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/d/'
       preLoaderRoute: typeof DIndexRouteImport
       parentRoute: typeof DRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/_app/': {
       id: '/_app/'
@@ -438,6 +475,16 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface AdminRouteChildren {
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 interface DRoutesRouteChildren {
   DRoutesJobIdRoute: typeof DRoutesJobIdRoute
 }
@@ -469,6 +516,7 @@ const DRouteWithChildren = DRoute._addFileChildren(DRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  AdminRoute: AdminRouteWithChildren,
   DRoute: DRouteWithChildren,
   LoginRoute: LoginRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,

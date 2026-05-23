@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getTenantId } from "@/lib/tenant-insert";
 import { useDriverStore } from "@/lib/driver-store";
 import { DriverStopTimeline } from "@/components/driver/DriverStopTimeline";
 import { STATUS_CONFIG } from "@/components/driver/DriverJobCard";
@@ -98,7 +99,7 @@ function JobDetail() {
       const { error: jErr } = await supabase.from("jobs").update({ status: "IN_PROGRESS" } as never).eq("id", job.id);
       if (jErr) throw jErr;
       await supabase.from("drivers").update({ status: "ON_ROUTE" } as never).eq("id", driver.id);
-      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "ACCEPT_JOB", payload: { job_id: job.id } } as never);
+      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "ACCEPT_JOB", payload: { job_id: job.id }, tenant_id: await getTenantId() } as never);
       refreshJob({ status: "IN_PROGRESS" });
       toast.success("Route accepted");
     } catch (e) {
@@ -114,7 +115,7 @@ function JobDetail() {
     setBusy(true);
     try {
       await supabase.from("jobs").update({ status: "PENDING", assigned_driver_id: null, planned_driver_id: null } as never).eq("id", job.id);
-      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "REJECT_JOB", payload: { job_id: job.id } } as never);
+      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "REJECT_JOB", payload: { job_id: job.id }, tenant_id: await getTenantId() } as never);
       toast.success("Route rejected");
       navigate({ to: "/d/routes" });
     } catch (e) {
@@ -130,7 +131,7 @@ function JobDetail() {
     try {
       await supabase.from("jobs").update({ status: "PENDING", assigned_driver_id: null, planned_driver_id: null } as never).eq("id", job.id);
       await supabase.from("drivers").update({ status: "AVAILABLE" } as never).eq("id", driver.id);
-      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "CANT_COMPLETE", payload: { job_id: job.id } } as never);
+      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "CANT_COMPLETE", payload: { job_id: job.id }, tenant_id: await getTenantId() } as never);
       toast.success("Reported — dispatcher notified");
       navigate({ to: "/d/routes" });
     } catch (e) {
@@ -147,6 +148,7 @@ function JobDetail() {
         driver_id: driver.id,
         type: "DRIVER_NOTE",
         payload: { job_id: job.id, note: note.trim() },
+        tenant_id: await getTenantId(),
       } as never);
       if (error) throw error;
       setNote("");

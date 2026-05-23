@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getTenantId } from "@/lib/tenant-insert";
 import { useDriverStore } from "@/lib/driver-store";
 
 export const Route = createFileRoute("/d/report")({
@@ -21,8 +22,9 @@ function ReportPage() {
     if (!driver) return;
     setLoading(true);
     try {
+      const tenant_id = await getTenantId();
       await supabase.from("driver_events").insert({
-        driver_id: driver.id, type: "DELAY_REPORT", payload: { category: cat, notes },
+        driver_id: driver.id, type: "DELAY_REPORT", payload: { category: cat, notes }, tenant_id,
       } as never);
       setSent(true); setNotes("");
       setTimeout(() => setSent(false), 3000);

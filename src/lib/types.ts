@@ -23,6 +23,7 @@ export interface Driver {
   tomorrow_start_lon?: number | null;
   tomorrow_start_updated_at?: string | null;
   login_code?: string | null;
+  tenant_id?: string | null;
 }
 
 export interface Warehouse {
