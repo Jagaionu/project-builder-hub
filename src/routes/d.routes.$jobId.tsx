@@ -84,9 +84,8 @@ function JobDetail() {
     : null;
   const chain = sortedStops.map((s) => s.warehouse?.code ?? "?").join(" → ");
 
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState("");
   const statusCfg = STATUS_CONFIG[job.status] ?? STATUS_CONFIG.PENDING;
+
 
   const refreshJob = (patch: Partial<typeof job>) => {
     useDriverStore.getState().setJobs(
