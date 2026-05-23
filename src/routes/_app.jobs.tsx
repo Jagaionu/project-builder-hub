@@ -1075,8 +1075,9 @@ function RouteDialog({
     if (stops.some((s) => !s.warehouse_id)) return toast.error("Every stop needs a warehouse");
     setSaving(true);
 
-    const jobStartIso = scheduledAt ? new Date(scheduledAt).toISOString() : new Date().toISOString();
+    const jobStartIso = startIso;
     const autoTimes = computeStopSchedule(stops, jobStartIso, warehouses);
+
 
     const tenant_id = await getTenantId();
     const jobPayload = {
