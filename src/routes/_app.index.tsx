@@ -24,9 +24,11 @@ function LiveDashboard() {
   const drivers = useDrivers();
   const warehouses = useWarehouses();
   const jobs = useJobs();
+  const activeJobsByDriver = useActiveJobsByDriver();
   const [selected, setSelected] = useState<string | null>(null);
 
   const selectedDriver = drivers.find((d) => d.id === selected) ?? null;
+  const selectedDriverActiveJobs = selected ? activeJobsByDriver[selected] ?? [] : [];
   const selectedJob = useMemo(
     () => jobs.find((j) => j.assigned_driver_id === selected && ["ASSIGNED","IN_PROGRESS","ARRIVED_PICKUP","EN_ROUTE_DELIVERY"].includes(j.status)),
     [jobs, selected]
@@ -43,8 +45,12 @@ function LiveDashboard() {
     ? haversineKm(selectedDriver.current_lat, selectedDriver.current_lon, destWh.latitude, destWh.longitude)
     : null;
 
+  const nowMs = Date.now();
   const stats = {
-    active: drivers.filter((d) => d.status === "ON_ROUTE" || d.status === "ON_SHIFT").length,
+    active: drivers.filter((d) => {
+      const eff = effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs);
+      return eff === "ON_ROUTE" || eff === "ON_SHIFT";
+    }).length,
     available: drivers.filter((d) => d.status === "AVAILABLE").length,
     delayed: drivers.filter((d) => d.status === "DELAYED").length,
     pending: jobs.filter((j) => j.status === "PENDING").length,
