@@ -240,7 +240,10 @@ function DriversPage() {
                     </td>
 
                     <td className="px-3 py-2.5">
-                      <StatusBadge status={d.status} kind="driver" />
+                      <StatusBadge
+                        status={effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [])}
+                        kind="driver"
+                      />
                     </td>
                     <td className="px-3 py-2.5">
                       <TomorrowCell
@@ -250,7 +253,13 @@ function DriversPage() {
                       />
                     </td>
                     <td className="px-3 py-2.5">
-                      <ComplianceCell c={compliance[d.id]} rows={driverDayHours[d.id] ?? []} />
+                      <ComplianceCell
+                        c={compliance[d.id]}
+                        rows={driverDayHours[d.id] ?? []}
+                        activeJobs={activeJobsByDriver[d.id] ?? []}
+                        driverLat={d.current_lat}
+                        driverLon={d.current_lon}
+                      />
                     </td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">
                       {formatStableTime(d.last_update_time)}
