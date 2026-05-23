@@ -92,6 +92,12 @@ export const createCompanyAdmin = createServerFn({ method: "POST" })
       throw new Error(`Failed to link user to company: ${mErr.message}`);
     }
 
+    // Persist credentials so super admins can re-view the password later.
+    await supabaseAdmin.from("admin_credentials").upsert(
+      { user_id: userIdToLink, email: data.email, password: data.password, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" },
+    );
+
     return { userId: userIdToLink, email: data.email };
   });
 
