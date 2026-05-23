@@ -431,11 +431,17 @@ function DispatchPage() {
   }, [jobs, stopsMap, warehouses, drivers, search, dateRange]);
 
   const filteredJobs = useMemo(() => {
-    return jobsInRange.filter((j) => {
-      if (statusFilter) return j.status === statusFilter;
-      return !hiddenStatuses.has(j.status as JobStatus);
-    });
-  }, [jobsInRange, hiddenStatuses, statusFilter]);
+    return jobsInRange
+      .filter((j) => {
+        if (statusFilter) return j.status === statusFilter;
+        return !hiddenStatuses.has(j.status as JobStatus);
+      })
+      .sort((a, b) => {
+        const ta = jobDate(a, stopsMap[a.id] ?? []).getTime();
+        const tb = jobDate(b, stopsMap[b.id] ?? []).getTime();
+        return ta - tb;
+      });
+  }, [jobsInRange, hiddenStatuses, statusFilter, stopsMap]);
 
   const statusCounts = useMemo(() => {
     const c: Record<JobStatus, number> = {
@@ -857,6 +863,24 @@ function JobDetailPanel({
       .sort((a, b) => a.distKm - b.distKm);
   }, [driver, drivers, origin]);
 
+  // Auto-complete: all stops arrived, no significant delays, and not already terminal.
+  useEffect(() => {
+    if (stops.length === 0) return;
+    if (job.status === "COMPLETED" || job.status === "CANCELLED") return;
+    const allArrived = stops.every((s) => !!s.arrived_at);
+    if (!allArrived) return;
+    const anyDelayed = stops.some((s) => {
+      const planned = s.scheduled_at;
+      if (!planned || !s.arrived_at) return false;
+      const delayMin = (new Date(s.arrived_at).getTime() - new Date(planned).getTime()) / 60_000;
+      return delayMin > 5;
+    });
+    if (anyDelayed) return;
+    onSetStatus("COMPLETED");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.id, job.status, stops]);
+
+
   return (
     <div className="p-6 max-w-4xl">
       <div className="flex items-start justify-between gap-4">
@@ -870,10 +894,29 @@ function JobDetailPanel({
               </span>
             )}
           </div>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight flex items-center gap-3 font-mono">
-            {origin?.code ?? "?"} <ArrowRight className="size-4 text-muted-foreground" /> {dest?.code ?? "?"}
+          <h2 className="mt-2 text-xl font-semibold tracking-tight flex flex-wrap items-center gap-x-2 gap-y-1 font-mono">
+            {stops.length === 0 ? (
+              <span className="text-muted-foreground">No stops</span>
+            ) : (
+              stops.map((s, i) => {
+                const wh = warehouses.find((w) => w.id === s.warehouse_id);
+                return (
+                  <span key={i} className="flex items-center gap-2">
+                    <span className={s.kind === "PICKUP" ? "text-blue-500" : "text-emerald-600"}>
+                      {wh?.code ?? "?"}
+                    </span>
+                    {i < stops.length - 1 && <ArrowRight className="size-4 text-muted-foreground" />}
+                  </span>
+                );
+              })
+            )}
           </h2>
-          <p className="text-xs text-muted-foreground mt-1">{origin?.name} → {dest?.name}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {stops.map((s, i) => {
+              const wh = warehouses.find((w) => w.id === s.warehouse_id);
+              return `${s.kind === "PICKUP" ? "📦" : "🏁"} ${wh?.name ?? "?"}`;
+            }).join(" → ")}
+          </p>
         </div>
         <button
           onClick={onEdit}
@@ -978,6 +1021,10 @@ function JobDetailPanel({
               const dep = arr ? new Date(new Date(arr).getTime() + stopDwellMinutes(s.kind) * 60_000).toISOString() : null;
               const fmt = (iso: string | null | undefined) =>
                 iso ? new Date(iso).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+              const delayMin = s.arrived_at && arr
+                ? Math.round((new Date(s.arrived_at).getTime() - new Date(arr).getTime()) / 60_000)
+                : null;
+              const isDelayed = delayMin != null && delayMin > 5;
               return (
                 <div key={idx} className="grid grid-cols-12 gap-2 px-3 py-2 text-[11px] border-t border-border items-center">
                   <div className="col-span-1 font-mono text-muted-foreground">{idx + 1}</div>
@@ -992,8 +1039,17 @@ function JobDetailPanel({
                   </div>
                   <div className="col-span-3 font-mono text-foreground text-sm">{fmt(arr)}</div>
                   <div className="col-span-2 font-mono text-foreground text-sm">{fmt(dep)}</div>
-                  <div className="col-span-1 font-mono text-muted-foreground">
-                    {s.arrived_at ? new Date(s.arrived_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+                  <div className="col-span-1 font-mono">
+                    {s.arrived_at ? (
+                      <div className="flex flex-col items-start">
+                        <span className={isDelayed ? "text-amber-600" : "text-emerald-600"}>
+                          {new Date(s.arrived_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                        {isDelayed && (
+                          <span className="text-[9px] text-amber-600">+{delayMin}m late</span>
+                        )}
+                      </div>
+                    ) : "—"}
                   </div>
                 </div>
               );
