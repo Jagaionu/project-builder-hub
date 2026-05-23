@@ -32,29 +32,67 @@ export const createCompanyAdmin = createServerFn({ method: "POST" })
     if (cErr) throw new Error(cErr.message);
     if (!company) throw new Error("Company not found");
 
-    // Create the auth user (email auto-confirmed)
+    // Try to create the auth user (email auto-confirmed).
+    // If the email is already registered, reuse the existing user.
+    let userIdToLink: string | null = null;
     const { data: created, error: uErr } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.password,
       email_confirm: true,
     });
-    if (uErr || !created.user) {
-      throw new Error(uErr?.message ?? "Failed to create user");
+    if (created?.user) {
+      userIdToLink = created.user.id;
+    } else if (uErr) {
+      const msg = uErr.message?.toLowerCase() ?? "";
+      const isDuplicate =
+        msg.includes("already been registered") ||
+        msg.includes("already registered") ||
+        msg.includes("already exists") ||
+        (uErr as { code?: string }).code === "email_exists";
+      if (!isDuplicate) throw new Error(uErr.message);
+
+      // Find the existing user by email (paginate auth.users list).
+      let page = 1;
+      const perPage = 200;
+      while (!userIdToLink) {
+        const { data: list, error: lErr } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+        if (lErr) throw new Error(lErr.message);
+        const match = list.users.find((u) => u.email?.toLowerCase() === data.email);
+        if (match) { userIdToLink = match.id; break; }
+        if (list.users.length < perPage) break;
+        page += 1;
+      }
+      if (!userIdToLink) throw new Error("Email already registered but user lookup failed");
+    } else {
+      throw new Error("Failed to create user");
+    }
+
+    // Check if already a member of this company
+    const { data: existingMember } = await supabaseAdmin
+      .from("company_members")
+      .select("id")
+      .eq("user_id", userIdToLink)
+      .eq("company_id", data.companyId)
+      .maybeSingle();
+    if (existingMember) {
+      return { userId: userIdToLink, email: data.email };
     }
 
     // Link to company as admin
     const { error: mErr } = await supabaseAdmin.from("company_members").insert({
-      user_id: created.user.id,
+      user_id: userIdToLink,
       company_id: data.companyId,
       role: "admin",
     });
     if (mErr) {
-      // Roll back the user to avoid orphans
-      await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+      // Only roll back if we just created the user
+      if (created?.user) {
+        await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+      }
       throw new Error(`Failed to link user to company: ${mErr.message}`);
     }
 
-    return { userId: created.user.id, email: data.email };
+    return { userId: userIdToLink, email: data.email };
   });
 
 const ListInput = z.object({ companyId: z.string().uuid() });
