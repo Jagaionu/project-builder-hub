@@ -363,28 +363,90 @@ function CompanyRow({
           </button>
 
           <div className="border-t border-border pt-4">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Invite User to Company</div>
-            <form onSubmit={handleInvite} className="flex gap-2">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Create Admin User</div>
+            <form onSubmit={handleCreateAdmin} className="space-y-2">
               <input
                 type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="user@company.com"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="admin@company.com"
                 required
-                className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                autoComplete="off"
+                className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               />
-              <button
-                type="submit"
-                disabled={inviting}
-                className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2 transition-colors disabled:opacity-50"
-              >
-                <UserPlus className="size-4" /> Invite
-              </button>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type={showPw ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Password (min 8 chars)"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    className="w-full rounded-md border border-border bg-background px-3 py-1.5 pr-9 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                  >
+                    {showPw ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setNewPassword(generatePassword()); setShowPw(true); }}
+                  className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2 transition-colors"
+                  title="Generate strong password"
+                >
+                  <RefreshCw className="size-3.5" /> Generate
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  <UserPlus className="size-4" /> {creating ? "Creating…" : "Create"}
+                </button>
+              </div>
             </form>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
-              After inviting, copy the user's id from Auth → Users and add a row to <code className="font-mono">company_members</code> with their user_id and this company_id.
-            </p>
+
+            {lastCreated && (
+              <div className="mt-3 rounded-md border border-success/30 bg-success/5 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-success">User Created — Share These Credentials</div>
+                  <button
+                    onClick={copyCreds}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <Copy className="size-3.5" /> Copy
+                  </button>
+                </div>
+                <div className="font-mono text-xs space-y-1">
+                  <div><span className="text-muted-foreground">Email:</span> <span className="select-all">{lastCreated.email}</span></div>
+                  <div><span className="text-muted-foreground">Password:</span> <span className="select-all">{lastCreated.password}</span></div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">This password won't be shown again. Copy it now.</p>
+              </div>
+            )}
+
+            {members.length > 0 && (
+              <div className="mt-3">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">Existing Members ({members.length})</div>
+                <div className="space-y-1">
+                  {members.map((m) => (
+                    <div key={m.id} className="flex items-center justify-between text-xs font-mono py-1 px-2 rounded bg-surface-2/50">
+                      <span>{m.email ?? m.user_id}</span>
+                      <span className="text-muted-foreground">{m.role}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+
 
           <div className="border-t border-border pt-3">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Company ID</div>
