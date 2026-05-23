@@ -7,7 +7,7 @@ import { DEFAULT_TENANT_CONFIG } from "@/lib/types";
 import { createCompanyAdmin, listCompanyMembers } from "@/lib/admin-users.functions";
 import {
   CheckCircle, XCircle, Clock, Ban,
-  Plus, ChevronDown, ChevronUp, Save, UserPlus, Copy, Eye, EyeOff, RefreshCw,
+  Plus, ChevronDown, ChevronUp, Save, UserPlus, Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -124,14 +124,13 @@ function CompanyRow({
   const status = STATUS_CONFIG[company.subscription_status];
   const StatusIcon = status.icon;
   const [config, setConfig] = useState<TenantConfig>({ ...DEFAULT_TENANT_CONFIG, ...company.config });
-  const [newEmail, setNewEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
   const [creating, setCreating] = useState(false);
   const [lastCreated, setLastCreated] = useState<{ email: string; password: string } | null>(null);
   const [members, setMembers] = useState<Array<{ id: string; user_id: string; role: string; email: string | null }>>([]);
   const createAdmin = useServerFn(createCompanyAdmin);
   const fetchMembers = useServerFn(listCompanyMembers);
+
+  const derivedEmail = `${company.slug}@admin.local`;
 
   useEffect(() => {
     if (!expanded) return;
@@ -149,19 +148,13 @@ function CompanyRow({
     }));
   }
 
-  async function handleCreateAdmin(e: React.FormEvent) {
-    e.preventDefault();
-    if (newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters");
-      return;
-    }
+  async function handleGenerateCredentials() {
     setCreating(true);
+    const password = generatePassword();
     try {
-      await createAdmin({ data: { companyId: company.id, email: newEmail, password: newPassword } });
-      toast.success(`Admin user created for ${newEmail}`);
-      setLastCreated({ email: newEmail, password: newPassword });
-      setNewEmail("");
-      setNewPassword("");
+      await createAdmin({ data: { companyId: company.id, email: derivedEmail, password } });
+      toast.success(`Admin credentials generated for ${company.name}`);
+      setLastCreated({ email: derivedEmail, password });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create user");
     } finally {
@@ -364,54 +357,24 @@ function CompanyRow({
 
           <div className="border-t border-border pt-4">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Create Admin User</div>
-            <form onSubmit={handleCreateAdmin} className="space-y-2">
-              <input
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="admin@company.com"
-                required
-                autoComplete="off"
-                className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type={showPw ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Password (min 8 chars)"
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                    className="w-full rounded-md border border-border bg-background px-3 py-1.5 pr-9 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    tabIndex={-1}
-                  >
-                    {showPw ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setNewPassword(generatePassword()); setShowPw(true); }}
-                  className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2 transition-colors"
-                  title="Generate strong password"
-                >
-                  <RefreshCw className="size-3.5" /> Generate
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
-                  <UserPlus className="size-4" /> {creating ? "Creating…" : "Create"}
-                </button>
+            <div className="rounded-md border border-border bg-surface-2/30 p-3 space-y-2">
+              <div className="text-xs">
+                <span className="text-muted-foreground">Login email:</span>{" "}
+                <span className="font-mono select-all">{derivedEmail}</span>
               </div>
-            </form>
+              <p className="text-[11px] text-muted-foreground">
+                A strong random password will be generated and shown once. Share it with the customer.
+              </p>
+              <button
+                type="button"
+                onClick={handleGenerateCredentials}
+                disabled={creating}
+                className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                <UserPlus className="size-4" /> {creating ? "Generating…" : "Generate credentials"}
+              </button>
+            </div>
+
 
             {lastCreated && (
               <div className="mt-3 rounded-md border border-success/30 bg-success/5 p-3 space-y-2">
