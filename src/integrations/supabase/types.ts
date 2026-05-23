@@ -84,31 +84,40 @@ export type Database = {
       }
       driver_day_hours: {
         Row: {
+          actual_driving_minutes: number
           day: string
+          deadhead_minutes: number
           drive_minutes: number
           driver_id: string
           id: string
           off_minutes: number
+          other_work_minutes: number
           shift_minutes: number
           updated_at: string
           week_start: string | null
         }
         Insert: {
+          actual_driving_minutes?: number
           day: string
+          deadhead_minutes?: number
           drive_minutes?: number
           driver_id: string
           id?: string
           off_minutes?: number
+          other_work_minutes?: number
           shift_minutes?: number
           updated_at?: string
           week_start?: string | null
         }
         Update: {
+          actual_driving_minutes?: number
           day?: string
+          deadhead_minutes?: number
           drive_minutes?: number
           driver_id?: string
           id?: string
           off_minutes?: number
+          other_work_minutes?: number
           shift_minutes?: number
           updated_at?: string
           week_start?: string | null
@@ -309,6 +318,101 @@ export type Database = {
           },
         ]
       }
+      driving_legs: {
+        Row: {
+          arrived_at: string | null
+          created_at: string
+          departed_at: string | null
+          distance_km: number | null
+          driver_id: string
+          driving_minutes: number | null
+          from_label: string | null
+          from_lat: number | null
+          from_lon: number | null
+          from_warehouse_id: string | null
+          id: string
+          job_id: string | null
+          leg_date: string
+          planned_minutes: number | null
+          source: string
+          to_label: string | null
+          to_lat: number | null
+          to_lon: number | null
+          to_warehouse_id: string | null
+        }
+        Insert: {
+          arrived_at?: string | null
+          created_at?: string
+          departed_at?: string | null
+          distance_km?: number | null
+          driver_id: string
+          driving_minutes?: number | null
+          from_label?: string | null
+          from_lat?: number | null
+          from_lon?: number | null
+          from_warehouse_id?: string | null
+          id?: string
+          job_id?: string | null
+          leg_date: string
+          planned_minutes?: number | null
+          source?: string
+          to_label?: string | null
+          to_lat?: number | null
+          to_lon?: number | null
+          to_warehouse_id?: string | null
+        }
+        Update: {
+          arrived_at?: string | null
+          created_at?: string
+          departed_at?: string | null
+          distance_km?: number | null
+          driver_id?: string
+          driving_minutes?: number | null
+          from_label?: string | null
+          from_lat?: number | null
+          from_lon?: number | null
+          from_warehouse_id?: string | null
+          id?: string
+          job_id?: string | null
+          leg_date?: string
+          planned_minutes?: number | null
+          source?: string
+          to_label?: string | null
+          to_lat?: number | null
+          to_lon?: number | null
+          to_warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driving_legs_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driving_legs_from_warehouse_id_fkey"
+            columns: ["from_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driving_legs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driving_legs_to_warehouse_id_fkey"
+            columns: ["to_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_stops: {
         Row: {
           arrived_at: string | null
@@ -449,6 +553,77 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stop_dwells: {
+        Row: {
+          arrived_at: string | null
+          created_at: string
+          departed_at: string | null
+          driver_id: string
+          dwell_date: string
+          dwell_minutes: number | null
+          id: string
+          job_id: string | null
+          job_stop_id: string | null
+          kind: string
+          warehouse_id: string | null
+        }
+        Insert: {
+          arrived_at?: string | null
+          created_at?: string
+          departed_at?: string | null
+          driver_id: string
+          dwell_date: string
+          dwell_minutes?: number | null
+          id?: string
+          job_id?: string | null
+          job_stop_id?: string | null
+          kind: string
+          warehouse_id?: string | null
+        }
+        Update: {
+          arrived_at?: string | null
+          created_at?: string
+          departed_at?: string | null
+          driver_id?: string
+          dwell_date?: string
+          dwell_minutes?: number | null
+          id?: string
+          job_id?: string | null
+          job_stop_id?: string | null
+          kind?: string
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stop_dwells_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stop_dwells_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stop_dwells_job_stop_id_fkey"
+            columns: ["job_stop_id"]
+            isOneToOne: false
+            referencedRelation: "job_stops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stop_dwells_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
         ]
