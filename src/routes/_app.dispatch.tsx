@@ -515,43 +515,55 @@ function DispatchPage() {
 
   const STATUS_BOX_KEYS: JobStatus[] = ["PENDING", "ASSIGNED", "COMPLETED", "CANCELLED"];
 
+  const statusBoxesRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!statusFilter) return;
+    const h = (e: MouseEvent) => {
+      if (statusBoxesRef.current && !statusBoxesRef.current.contains(e.target as Node)) {
+        setStatusFilter(null);
+      }
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [statusFilter]);
+
   return (
     <div className="h-full flex flex-col">
-      <header className="px-5 py-3 border-b border-border flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 min-w-0">
-          <div className="shrink-0">
-            <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {filteredJobs.length} shown of {jobs.length} total
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {STATUS_BOX_KEYS.map((s) => {
-              const active = statusFilter === s;
-              const cfg = STATUS_CONFIG[s];
-              return (
-                <button
-                  key={s}
-                  onClick={() => setStatusFilter(active ? null : s)}
-                  title={`Filter by ${cfg.label}`}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors",
-                    active
-                      ? "border-primary bg-primary/10 text-foreground"
-                      : "border-border bg-surface text-muted-foreground hover:bg-surface-2 hover:text-foreground",
-                  )}
-                >
-                  <span className={`size-1.5 rounded-full ${cfg.dot}`} />
-                  <span className="uppercase tracking-wide text-[9px] font-mono">{cfg.label}</span>
-                  <span className="font-mono font-semibold text-foreground tabular-nums">
-                    {statusCounts[s] ?? 0}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+      <header className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+        <div className="min-w-0">
+          <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {filteredJobs.length} shown of {jobs.length} total
+          </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div ref={statusBoxesRef} className="flex items-center gap-2 justify-self-center">
+          {STATUS_BOX_KEYS.map((s) => {
+            const active = statusFilter === s;
+            const cfg = STATUS_CONFIG[s];
+            return (
+              <button
+                key={s}
+                onClick={(e) => { e.stopPropagation(); setStatusFilter(active ? null : s); }}
+                title={`Filter by ${cfg.label}`}
+                className={cn(
+                  "size-14 shrink-0 flex flex-col items-center justify-center gap-0.5 rounded-md border transition-colors",
+                  active
+                    ? "border-primary bg-primary/10 text-foreground"
+                    : "border-border bg-surface text-muted-foreground hover:bg-surface-2 hover:text-foreground",
+                )}
+              >
+                <span className="font-mono font-semibold text-base text-foreground tabular-nums leading-none">
+                  {statusCounts[s] ?? 0}
+                </span>
+                <span className="flex items-center gap-1 uppercase tracking-wide text-[8px] font-mono leading-none">
+                  <span className={`size-1.5 rounded-full ${cfg.dot}`} />
+                  {cfg.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-2 justify-self-end">
           <ToolbarButton
             onClick={onPlanTomorrow}
             disabled={planningTomorrow || tomorrowStats.total === 0}
