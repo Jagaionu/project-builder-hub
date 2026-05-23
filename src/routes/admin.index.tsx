@@ -126,7 +126,7 @@ function CompanyRow({
   const [config, setConfig] = useState<TenantConfig>({ ...DEFAULT_TENANT_CONFIG, ...company.config });
   const [creating, setCreating] = useState(false);
   const [lastCreated, setLastCreated] = useState<{ email: string; password: string } | null>(null);
-  const [members, setMembers] = useState<Array<{ id: string; user_id: string; role: string; email: string | null }>>([]);
+  const [members, setMembers] = useState<Array<{ id: string; user_id: string; role: string; email: string | null; password: string | null }>>([]);
   const createAdmin = useServerFn(createCompanyAdmin);
   const fetchMembers = useServerFn(listCompanyMembers);
 
@@ -400,9 +400,16 @@ function CompanyRow({
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">Existing Members ({members.length})</div>
                 <div className="space-y-1">
                   {members.map((m) => (
-                    <div key={m.id} className="flex items-center justify-between text-xs font-mono py-1 px-2 rounded bg-surface-2/50">
-                      <span>{m.email ?? m.user_id}</span>
-                      <span className="text-muted-foreground">{m.role}</span>
+                    <div key={m.id} className="flex items-center justify-between gap-3 text-xs font-mono py-1.5 px-2 rounded bg-surface-2/50">
+                      <span className="truncate">{m.email ?? m.user_id}</span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        {m.password ? (
+                          <span className="select-all text-foreground/90" title="Password">{m.password}</span>
+                        ) : (
+                          <span className="text-muted-foreground/60 italic">no password on file</span>
+                        )}
+                        <span className="text-muted-foreground">{m.role}</span>
+                      </span>
                     </div>
                   ))}
                 </div>
