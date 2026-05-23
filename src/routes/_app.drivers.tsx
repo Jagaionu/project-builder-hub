@@ -657,11 +657,15 @@ function ProjectedRoutePanel({
   driverLat,
   driverLon,
   dailyHeadroomH,
+  continuousDriveH,
+  onShift,
 }: {
   jobs: ActiveJob[];
   driverLat: number | null;
   driverLon: number | null;
   dailyHeadroomH: number;
+  continuousDriveH: number;
+  onShift: boolean;
 }) {
   if (!jobs.length) return null;
   const now = Date.now();
@@ -677,8 +681,17 @@ function ProjectedRoutePanel({
         const startLabel = startMs
           ? new Date(startMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           : "—";
+        // 45-min break required after each 4.5h continuous driving.
+        // If already on shift, fold in the current continuous-drive cycle.
+        const cycleStartH = onShift ? continuousDriveH : 0;
         const totalH = proj.totalMin / 60;
-        const wouldExceed = totalH > dailyHeadroomH;
+        const breaksNeeded = Math.max(
+          0,
+          Math.floor((cycleStartH + totalH) / 4.5) - Math.floor(cycleStartH / 4.5),
+        );
+        const breakMin = breaksNeeded * 45;
+        const totalWithBreaksMin = proj.totalMin + breakMin;
+        const wouldExceed = totalWithBreaksMin / 60 > dailyHeadroomH;
         const chain = [...(j.stops ?? [])]
           .sort((a, b) => a.seq - b.seq)
           .map((s) => s.warehouse?.code ?? "?")
@@ -699,9 +712,14 @@ function ProjectedRoutePanel({
                 deadhead {fmtHm(proj.deadheadMin)} · transit {fmtHm(proj.transitMin)}
               </span>
               <span className={wouldExceed ? "text-destructive font-semibold" : ""}>
-                {fmtHm(proj.totalMin)} drive
+                {fmtHm(totalWithBreaksMin)} total
               </span>
             </div>
+            {breaksNeeded > 0 && (
+              <div className="mt-0.5 text-[10px] text-warning">
+                Requires {breaksNeeded}× 45-min break during route (+{fmtHm(breakMin)})
+              </div>
+            )}
             {wouldExceed && (
               <div className="mt-0.5 text-[10px] text-destructive">
                 Exceeds remaining daily headroom ({dailyHeadroomH.toFixed(1)}h left)
