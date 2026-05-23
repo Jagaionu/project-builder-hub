@@ -59,3 +59,61 @@ export interface DriverEvent {
   payload: Record<string, unknown>;
   timestamp: string;
 }
+
+// ── Tenant / Auth types ──────────────────────────────────────────────────────
+
+export type SubscriptionStatus = "active" | "trial" | "suspended" | "cancelled";
+export type CompanyPlan = "starter" | "pro" | "enterprise";
+export type MemberRole = "admin" | "member";
+export type TenantModule = "dispatch" | "jobs" | "drivers" | "warehouses" | "alerts" | "events";
+
+export interface TenantConfig {
+  modules: TenantModule[];
+  maxDrivers: number;
+  maxWarehouses: number;
+  showTelegramAlerts: boolean;
+  showComplianceModule: boolean;
+  customBranding: boolean;
+  brandName: string | null;
+  brandColor: string | null;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  slug: string;
+  subscription_status: SubscriptionStatus;
+  subscription_ends_at: string | null;
+  plan: CompanyPlan;
+  config: TenantConfig;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompanyMember {
+  id: string;
+  company_id: string;
+  user_id: string;
+  role: MemberRole;
+  created_at: string;
+}
+
+export interface AuthContext {
+  userId: string;
+  email: string;
+  company: Company;
+  role: MemberRole;
+  isSuperAdmin: boolean;
+}
+
+export const DEFAULT_TENANT_CONFIG: TenantConfig = {
+  modules: ["dispatch", "jobs", "drivers", "warehouses", "alerts", "events"],
+  maxDrivers: 20,
+  maxWarehouses: 5,
+  showTelegramAlerts: true,
+  showComplianceModule: true,
+  customBranding: false,
+  brandName: null,
+  brandColor: null,
+};
+
