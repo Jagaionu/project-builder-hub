@@ -567,10 +567,6 @@ function Metric({
   );
 }
 
-// (live timer removed — values shown for reference only)
-function _UnusedLiveTimerSlot() {
-  return null;
-}
 
 function LiveTimer({ baseHours, dir }: { baseHours: number; dir: "up" | "down" }) {
   const anchorRef = useRef<{ base: number; at: number }>({ base: baseHours, at: Date.now() });
