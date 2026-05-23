@@ -14,6 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
+      companies: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          name: string
+          plan: string
+          slug: string
+          subscription_ends_at: string | null
+          subscription_status: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name: string
+          plan?: string
+          slug: string
+          subscription_ends_at?: string | null
+          subscription_status?: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          plan?: string
+          slug?: string
+          subscription_ends_at?: string | null
+          subscription_status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      company_members: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_day_hours: {
         Row: {
           day: string
@@ -60,6 +128,7 @@ export type Database = {
           driver_id: string
           id: string
           payload: Json
+          tenant_id: string | null
           timestamp: string
           type: Database["public"]["Enums"]["driver_event_type"]
         }
@@ -67,6 +136,7 @@ export type Database = {
           driver_id: string
           id?: string
           payload?: Json
+          tenant_id?: string | null
           timestamp?: string
           type: Database["public"]["Enums"]["driver_event_type"]
         }
@@ -74,6 +144,7 @@ export type Database = {
           driver_id?: string
           id?: string
           payload?: Json
+          tenant_id?: string | null
           timestamp?: string
           type?: Database["public"]["Enums"]["driver_event_type"]
         }
@@ -83,6 +154,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -175,6 +253,7 @@ export type Database = {
           phone: string | null
           status: Database["public"]["Enums"]["driver_status"]
           telegram_id: string | null
+          tenant_id: string | null
           tomorrow_start_lat: number | null
           tomorrow_start_lon: number | null
           tomorrow_start_updated_at: string | null
@@ -194,6 +273,7 @@ export type Database = {
           phone?: string | null
           status?: Database["public"]["Enums"]["driver_status"]
           telegram_id?: string | null
+          tenant_id?: string | null
           tomorrow_start_lat?: number | null
           tomorrow_start_lon?: number | null
           tomorrow_start_updated_at?: string | null
@@ -213,12 +293,21 @@ export type Database = {
           phone?: string | null
           status?: Database["public"]["Enums"]["driver_status"]
           telegram_id?: string | null
+          tenant_id?: string | null
           tomorrow_start_lat?: number | null
           tomorrow_start_lon?: number | null
           tomorrow_start_updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "drivers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       job_stops: {
         Row: {
@@ -285,6 +374,7 @@ export type Database = {
           reference: string
           scheduled_at: string | null
           status: Database["public"]["Enums"]["job_status"]
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -303,6 +393,7 @@ export type Database = {
           reference?: string
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["job_status"]
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -321,6 +412,7 @@ export type Database = {
           reference?: string
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["job_status"]
+          tenant_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -352,7 +444,29 @@ export type Database = {
             referencedRelation: "drivers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      super_admins: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       warehouses: {
         Row: {
@@ -363,6 +477,7 @@ export type Database = {
           latitude: number
           longitude: number
           name: string
+          tenant_id: string | null
         }
         Insert: {
           address?: string | null
@@ -372,6 +487,7 @@ export type Database = {
           latitude: number
           longitude: number
           name: string
+          tenant_id?: string | null
         }
         Update: {
           address?: string | null
@@ -381,8 +497,17 @@ export type Database = {
           latitude?: number
           longitude?: number
           name?: string
+          tenant_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "warehouses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -390,7 +515,10 @@ export type Database = {
     }
     Functions: {
       current_driver_id: { Args: never; Returns: string }
+      current_subscription_status: { Args: never; Returns: string }
+      current_tenant_id: { Args: never; Returns: string }
       gen_driver_login_code: { Args: never; Returns: string }
+      is_super_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       driver_event_type:
