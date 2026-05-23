@@ -1034,28 +1034,21 @@ function RouteDialog({
   onClose: () => void;
   warehouses: ReturnType<typeof useWarehouses>;
 }) {
-  // Default scheduled time to "now" on create so the planner can compute ETAs immediately
-  const [scheduledAt, setScheduledAt] = useState(
-    initial?.scheduled_at
-      ? toLocalInput(initial.scheduled_at)
-      : mode === "create"
-        ? toLocalInput(new Date().toISOString())
-        : "",
-  );
   const [stops, setStops] = useState<Stop[]>(
     initial?.stops?.length
       ? initial.stops.map((s) => ({ ...s, scheduled_at: s.scheduled_at }))
       : [
-          { kind: "PICKUP", warehouse_id: "", scheduled_at: null },
+          { kind: "PICKUP", warehouse_id: "", scheduled_at: new Date().toISOString() },
           { kind: "DROP", warehouse_id: "", scheduled_at: null },
         ],
   );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Auto-compute each stop's scheduled_at from jobStart + transit + loading
-  const startIso = scheduledAt ? new Date(scheduledAt).toISOString() : null;
+  // First pickup's scheduled_at is the anchor; subsequent stops auto-compute from transit + loading
+  const startIso = stops[0]?.scheduled_at ?? initial?.scheduled_at ?? new Date().toISOString();
   const computedTimes = computeStopSchedule(stops, startIso, warehouses);
+
 
   function update(i: number, patch: Partial<Stop>) {
     setStops((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
