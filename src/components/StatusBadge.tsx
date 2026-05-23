@@ -1,14 +1,17 @@
 import type { DriverStatus, JobStatus } from "@/lib/types";
 
-const driverMap: Record<DriverStatus, string> = {
+const SCHEDULED_CLS = "bg-info/10 text-info border-info/30";
+
+const driverMap: Record<DriverStatus | "SCHEDULED", string> = {
   AVAILABLE: "bg-success/15 text-success border-success/30",
   ON_SHIFT: "bg-info/15 text-info border-info/30",
   ON_ROUTE: "bg-primary/15 text-primary border-primary/30",
   DELAYED: "bg-destructive/15 text-destructive border-destructive/30",
   OFF_SHIFT: "bg-muted text-muted-foreground border-border",
+  SCHEDULED: SCHEDULED_CLS,
 };
 
-const jobMap: Record<JobStatus, string> = {
+const jobMap: Record<JobStatus | "SCHEDULED", string> = {
   PENDING: "bg-warning/15 text-warning border-warning/30",
   ASSIGNED: "bg-info/15 text-info border-info/30",
   IN_PROGRESS: "bg-primary/15 text-primary border-primary/30",
@@ -16,10 +19,13 @@ const jobMap: Record<JobStatus, string> = {
   EN_ROUTE_DELIVERY: "bg-primary/15 text-primary border-primary/30",
   COMPLETED: "bg-success/15 text-success border-success/30",
   CANCELLED: "bg-muted text-muted-foreground border-border",
+  SCHEDULED: SCHEDULED_CLS,
 };
 
 export function StatusBadge({ status, kind }: { status: string; kind: "driver" | "job" }) {
-  const cls = kind === "driver" ? driverMap[status as DriverStatus] : jobMap[status as JobStatus];
+  const cls = kind === "driver"
+    ? driverMap[status as DriverStatus | "SCHEDULED"]
+    : jobMap[status as JobStatus | "SCHEDULED"];
   return (
     <span className={`inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded border text-[10px] font-mono uppercase tracking-wider ${cls ?? ""}`}>
       <span className="size-1.5 rounded-full bg-current" />
