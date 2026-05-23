@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Check, X, KeyRound, Copy, Link as LinkIcon } from "lucide-react";
 import { rotateDriverLoginCode } from "@/lib/pairing.functions";
 import { deleteDriver } from "@/lib/drivers-delete.functions";
+import { useActiveJobsByDriver, type ActiveJob } from "@/lib/use-driver-routes";
+import { effectiveDriverStatus, projectedRouteDriveMinutes, jobStartMs, isJobScheduledFuture } from "@/lib/effective-status";
 
 export const Route = createFileRoute("/_app/drivers")({
   loader: () => getDriversSnapshot(),
