@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect, Link } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/admin")({
@@ -28,9 +28,15 @@ function AdminLayout() {
         <span className="text-sm font-semibold">Super Admin</span>
         <span className="text-xs text-muted-foreground font-mono">— Full platform control</span>
         <div className="ml-auto">
-          <Link to="/" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-            ← Back to app
-          </Link>
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              window.location.href = "/login";
+            }}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Back to login
+          </button>
         </div>
       </header>
       <Outlet />
