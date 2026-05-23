@@ -143,7 +143,7 @@ function LiveDashboard() {
                       <Truck className="size-3.5 text-muted-foreground shrink-0" />
                       <span className="text-sm truncate">{d.name}</span>
                     </div>
-                    <StatusBadge status={d.status} kind="driver" />
+                    <StatusBadge status={effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs)} kind="driver" />
                   </div>
                 </button>
               </li>
