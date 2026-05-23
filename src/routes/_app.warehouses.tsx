@@ -125,6 +125,112 @@ function WarehousesPage() {
     }
   }
 
+  function csvEscape(v: string) {
+    if (v == null) return "";
+    const s = String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }
+
+  function exportCsv() {
+    const header = ["Code", "Name", "Address", "Coordinates"];
+    const rows = warehouses.map((w) => [
+      w.code,
+      w.name,
+      w.address ?? "",
+      `${w.latitude}, ${w.longitude}`,
+    ]);
+    const csv = [header, ...rows].map((r) => r.map(csvEscape).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `warehouses-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function parseCsv(text: string): string[][] {
+    const rows: string[][] = [];
+    let cur: string[] = [];
+    let field = "";
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; } else { inQuotes = false; }
+        } else field += c;
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ",") { cur.push(field); field = ""; }
+        else if (c === "\n" || c === "\r") {
+          if (c === "\r" && text[i + 1] === "\n") i++;
+          cur.push(field); field = "";
+          if (cur.some((v) => v.length > 0)) rows.push(cur);
+          cur = [];
+        } else field += c;
+      }
+    }
+    if (field.length > 0 || cur.length > 0) { cur.push(field); if (cur.some((v) => v.length > 0)) rows.push(cur); }
+    return rows;
+  }
+
+  async function importCsv(file: File) {
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const rows = parseCsv(text);
+      if (rows.length < 2) { toast.error("CSV is empty"); return; }
+      const header = rows[0].map((h) => h.trim().toLowerCase());
+      const idx = {
+        code: header.indexOf("code"),
+        name: header.indexOf("name"),
+        address: header.indexOf("address"),
+        coords: header.indexOf("coordinates"),
+      };
+      if (idx.code < 0 || idx.name < 0 || idx.coords < 0) {
+        toast.error("Expected headers: Code, Name, Address, Coordinates");
+        return;
+      }
+      const tenant_id = await getTenantId();
+      const existingCodes = new Set(warehouses.map((w) => w.code.toUpperCase()));
+      const inserts: Array<{ code: string; name: string; address: string | null; latitude: number; longitude: number; tenant_id: string | null }> = [];
+      const skipped: string[] = [];
+      const invalid: string[] = [];
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        const code = (r[idx.code] ?? "").trim().toUpperCase();
+        const name = (r[idx.name] ?? "").trim();
+        const address = idx.address >= 0 ? (r[idx.address] ?? "").trim() : "";
+        const coords = (r[idx.coords] ?? "").trim();
+        if (!code || !name) { invalid.push(`Row ${i + 1}: missing code/name`); continue; }
+        const m = coords.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,;]\s*(-?\d+(?:\.\d+)?)\s*$/);
+        if (!m) { invalid.push(`Row ${i + 1} (${code}): invalid coordinates "${coords}"`); continue; }
+        const lat = parseFloat(m[1]); const lon = parseFloat(m[2]);
+        if (existingCodes.has(code)) { skipped.push(code); continue; }
+        existingCodes.add(code);
+        inserts.push({ code, name, address: address || null, latitude: lat, longitude: lon, tenant_id });
+      }
+      if (inserts.length === 0) {
+        toast.error(`Nothing imported. ${skipped.length} duplicates, ${invalid.length} invalid.`);
+        if (invalid.length) console.warn("Invalid rows:", invalid);
+        return;
+      }
+      const { error } = await supabase.from("warehouses").insert(inserts);
+      if (error) { toast.error(error.message); return; }
+      toast.success(`Imported ${inserts.length} warehouses. Skipped ${skipped.length} duplicates, ${invalid.length} invalid.`);
+      if (invalid.length) console.warn("Invalid rows:", invalid);
+      window.location.reload();
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+
+
   return (
     <div className="h-full flex flex-col">
       <PageHeader
