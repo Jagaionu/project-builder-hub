@@ -357,54 +357,24 @@ function CompanyRow({
 
           <div className="border-t border-border pt-4">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Create Admin User</div>
-            <form onSubmit={handleCreateAdmin} className="space-y-2">
-              <input
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="admin@company.com"
-                required
-                autoComplete="off"
-                className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type={showPw ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Password (min 8 chars)"
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                    className="w-full rounded-md border border-border bg-background px-3 py-1.5 pr-9 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    tabIndex={-1}
-                  >
-                    {showPw ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setNewPassword(generatePassword()); setShowPw(true); }}
-                  className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2 transition-colors"
-                  title="Generate strong password"
-                >
-                  <RefreshCw className="size-3.5" /> Generate
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
-                  <UserPlus className="size-4" /> {creating ? "Creating…" : "Create"}
-                </button>
+            <div className="rounded-md border border-border bg-surface-2/30 p-3 space-y-2">
+              <div className="text-xs">
+                <span className="text-muted-foreground">Login email:</span>{" "}
+                <span className="font-mono select-all">{derivedEmail}</span>
               </div>
-            </form>
+              <p className="text-[11px] text-muted-foreground">
+                A strong random password will be generated and shown once. Share it with the customer.
+              </p>
+              <button
+                type="button"
+                onClick={handleGenerateCredentials}
+                disabled={creating}
+                className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                <UserPlus className="size-4" /> {creating ? "Generating…" : "Generate credentials"}
+              </button>
+            </div>
+
 
             {lastCreated && (
               <div className="mt-3 rounded-md border border-success/30 bg-success/5 p-3 space-y-2">
