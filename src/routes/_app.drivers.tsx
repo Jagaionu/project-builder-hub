@@ -405,7 +405,7 @@ function TomorrowCell({ available, hasLocation, updatedAt }: { available: boolea
   );
 }
 
-function ComplianceCell({ c, rows }: { c: Compliance | undefined; rows: DriverDayHours[] }) {
+function ComplianceCell({ c, rows, activeJobs, driverLat, driverLon }: { c: Compliance | undefined; rows: DriverDayHours[]; activeJobs: ActiveJob[]; driverLat: number | null; driverLon: number | null }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
