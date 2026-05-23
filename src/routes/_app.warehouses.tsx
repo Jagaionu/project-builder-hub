@@ -4,6 +4,7 @@ import { useWarehouses } from "@/lib/hooks";
 import { PageHeader } from "./_app.index";
 import { Field } from "./_app.drivers";
 import { supabase } from "@/integrations/supabase/client";
+import { getTenantId } from "@/lib/tenant-insert";
 import { toast } from "sonner";
 import { Plus, MoreHorizontal, Pencil, Trash2, Search } from "lucide-react";
 
