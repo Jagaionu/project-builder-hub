@@ -12,6 +12,17 @@ export const Route = createFileRoute("/_app")({
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
 
+    // Super admins don't belong to a company — send them to the admin console
+    // instead of signing them out for missing company_members.
+    const { data: superAdminEarly } = await supabase
+      .from("super_admins" as never)
+      .select("user_id")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    if (superAdminEarly) {
+      throw redirect({ to: "/admin" });
+    }
+
     const { data: memberRow, error: memberError } = await supabase
       .from("company_members" as never)
       .select("role, company_id")
