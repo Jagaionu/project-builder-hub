@@ -167,7 +167,7 @@ const JOB_STATUSES = [
 
 type JobStatus = (typeof JOB_STATUSES)[number];
 
-const STATUS_CONFIG: Record<JobStatus, { label: string; dot: string; badge: string }> = {
+const STATUS_CONFIG: Record<JobStatus | "SCHEDULED", { label: string; dot: string; badge: string }> = {
   PENDING:           { label: "Pending",          dot: "bg-amber-400",   badge: "text-amber-500 bg-amber-500/10" },
   ASSIGNED:          { label: "Assigned",          dot: "bg-blue-400",    badge: "text-blue-500 bg-blue-500/10" },
   IN_PROGRESS:       { label: "In Progress",       dot: "bg-violet-400",  badge: "text-violet-500 bg-violet-500/10" },
@@ -175,6 +175,7 @@ const STATUS_CONFIG: Record<JobStatus, { label: string; dot: string; badge: stri
   EN_ROUTE_DELIVERY: { label: "En Route Delivery", dot: "bg-indigo-400",  badge: "text-indigo-500 bg-indigo-500/10" },
   COMPLETED:         { label: "Completed",         dot: "bg-emerald-400", badge: "text-emerald-600 bg-emerald-500/10" },
   CANCELLED:         { label: "Cancelled",         dot: "bg-zinc-400",    badge: "text-zinc-400 bg-zinc-500/10" },
+  SCHEDULED:         { label: "Scheduled",         dot: "bg-sky-400",     badge: "text-sky-500 bg-sky-500/10" },
 };
 
 function startOfDay(d: Date): Date {
