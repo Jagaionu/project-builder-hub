@@ -6,7 +6,7 @@ import { Field } from "./_app.drivers";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { toast } from "sonner";
-import { Plus, MoreHorizontal, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Search, Download, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/_app/warehouses")({
   component: WarehousesPage,
@@ -24,6 +24,9 @@ function WarehousesPage() {
   const [editForm, setEditForm] = useState<WForm>(empty);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+
   const q = query.trim().toLowerCase();
   const filtered = q
     ? warehouses.filter((w) => [w.code, w.name, w.address ?? ""].some((f) => f.toLowerCase().includes(q)))
@@ -122,19 +125,149 @@ function WarehousesPage() {
     }
   }
 
+  function csvEscape(v: string) {
+    if (v == null) return "";
+    const s = String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }
+
+  function exportCsv() {
+    const header = ["Code", "Name", "Address", "Coordinates"];
+    const rows = warehouses.map((w) => [
+      w.code,
+      w.name,
+      w.address ?? "",
+      `${w.latitude}, ${w.longitude}`,
+    ]);
+    const csv = [header, ...rows].map((r) => r.map(csvEscape).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `warehouses-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function parseCsv(text: string): string[][] {
+    const rows: string[][] = [];
+    let cur: string[] = [];
+    let field = "";
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; } else { inQuotes = false; }
+        } else field += c;
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ",") { cur.push(field); field = ""; }
+        else if (c === "\n" || c === "\r") {
+          if (c === "\r" && text[i + 1] === "\n") i++;
+          cur.push(field); field = "";
+          if (cur.some((v) => v.length > 0)) rows.push(cur);
+          cur = [];
+        } else field += c;
+      }
+    }
+    if (field.length > 0 || cur.length > 0) { cur.push(field); if (cur.some((v) => v.length > 0)) rows.push(cur); }
+    return rows;
+  }
+
+  async function importCsv(file: File) {
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const rows = parseCsv(text);
+      if (rows.length < 2) { toast.error("CSV is empty"); return; }
+      const header = rows[0].map((h) => h.trim().toLowerCase());
+      const idx = {
+        code: header.indexOf("code"),
+        name: header.indexOf("name"),
+        address: header.indexOf("address"),
+        coords: header.indexOf("coordinates"),
+      };
+      if (idx.code < 0 || idx.name < 0 || idx.coords < 0) {
+        toast.error("Expected headers: Code, Name, Address, Coordinates");
+        return;
+      }
+      const tenant_id = await getTenantId();
+      const existingCodes = new Set(warehouses.map((w) => w.code.toUpperCase()));
+      const inserts: Array<{ code: string; name: string; address: string | null; latitude: number; longitude: number; tenant_id: string | null }> = [];
+      const skipped: string[] = [];
+      const invalid: string[] = [];
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        const code = (r[idx.code] ?? "").trim().toUpperCase();
+        const name = (r[idx.name] ?? "").trim();
+        const address = idx.address >= 0 ? (r[idx.address] ?? "").trim() : "";
+        const coords = (r[idx.coords] ?? "").trim();
+        if (!code || !name) { invalid.push(`Row ${i + 1}: missing code/name`); continue; }
+        const m = coords.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,;]\s*(-?\d+(?:\.\d+)?)\s*$/);
+        if (!m) { invalid.push(`Row ${i + 1} (${code}): invalid coordinates "${coords}"`); continue; }
+        const lat = parseFloat(m[1]); const lon = parseFloat(m[2]);
+        if (existingCodes.has(code)) { skipped.push(code); continue; }
+        existingCodes.add(code);
+        inserts.push({ code, name, address: address || null, latitude: lat, longitude: lon, tenant_id });
+      }
+      if (inserts.length === 0) {
+        toast.error(`Nothing imported. ${skipped.length} duplicates, ${invalid.length} invalid.`);
+        if (invalid.length) console.warn("Invalid rows:", invalid);
+        return;
+      }
+      const { error } = await supabase.from("warehouses").insert(inserts);
+      if (error) { toast.error(error.message); return; }
+      toast.success(`Imported ${inserts.length} warehouses. Skipped ${skipped.length} duplicates, ${invalid.length} invalid.`);
+      if (invalid.length) console.warn("Invalid rows:", invalid);
+      window.location.reload();
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+
+
   return (
     <div className="h-full flex flex-col">
       <PageHeader
         title="Warehouses"
         subtitle={q ? `${filtered.length} of ${warehouses.length} sites` : `${warehouses.length} sites in network`}
         right={
-          <button
-            onClick={() => setOpen((o) => !o)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
-          >
-            <Plus className="size-3.5" /> New Warehouse
-          </button>
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) importCsv(f); }}
+            />
+            <button
+              onClick={exportCsv}
+              disabled={warehouses.length === 0}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface text-xs font-medium hover:bg-surface-2 disabled:opacity-50"
+            >
+              <Download className="size-3.5" /> Export CSV
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface text-xs font-medium hover:bg-surface-2 disabled:opacity-50"
+            >
+              <Upload className="size-3.5" /> {importing ? "Importing…" : "Import CSV"}
+            </button>
+            <button
+              onClick={() => setOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
+            >
+              <Plus className="size-3.5" /> New Warehouse
+            </button>
+          </div>
         }
+
       />
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
         <div className="relative max-w-md">
