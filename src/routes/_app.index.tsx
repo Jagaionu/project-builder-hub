@@ -4,7 +4,7 @@ import { useDrivers, useJobs, useWarehouses } from "@/lib/hooks";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ClientOnly } from "@/components/ClientOnly";
 import { haversineKm, etaMinutes } from "@/lib/geo";
-import { Truck, Navigation, Clock } from "lucide-react";
+import { Truck, Navigation, Clock, Radio } from "lucide-react";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
 import { effectiveDriverStatus } from "@/lib/effective-status";
 
@@ -15,66 +15,80 @@ export const Route = createFileRoute("/_app/")({
   head: () => ({
     meta: [
       { title: "Live Map — Planning System" },
-      { name: "description", content: "Real-time driver tracking across UK Amazon warehouses." },
+      { name: "description", content: "Real-time driver tracking across UK network." },
     ],
   }),
 });
 
 function LiveDashboard() {
-  const drivers = useDrivers();
-  const warehouses = useWarehouses();
-  const jobs = useJobs();
+  const drivers          = useDrivers();
+  const warehouses       = useWarehouses();
+  const jobs             = useJobs();
   const activeJobsByDriver = useActiveJobsByDriver();
   const [selected, setSelected] = useState<string | null>(null);
+  const nowMs = Date.now();
 
   const selectedDriver = drivers.find((d) => d.id === selected) ?? null;
   const selectedDriverActiveJobs = selected ? activeJobsByDriver[selected] ?? [] : [];
   const selectedJob = useMemo(
-    () => jobs.find((j) => j.assigned_driver_id === selected && ["ASSIGNED","IN_PROGRESS","ARRIVED_PICKUP","EN_ROUTE_DELIVERY"].includes(j.status)),
-    [jobs, selected]
+    () => jobs.find((j) => j.assigned_driver_id === selected &&
+      ["ASSIGNED","IN_PROGRESS","ARRIVED_PICKUP","EN_ROUTE_DELIVERY"].includes(j.status)),
+    [jobs, selected],
   );
   const destWh = selectedJob
     ? warehouses.find((w) =>
         selectedJob.status === "ASSIGNED" || selectedJob.status === "IN_PROGRESS"
           ? w.id === selectedJob.origin_warehouse_id
-          : w.id === selectedJob.destination_warehouse_id
+          : w.id === selectedJob.destination_warehouse_id,
       )
     : null;
-
   const distKm = selectedDriver && destWh && selectedDriver.current_lat && selectedDriver.current_lon
     ? haversineKm(selectedDriver.current_lat, selectedDriver.current_lon, destWh.latitude, destWh.longitude)
     : null;
 
-  const nowMs = Date.now();
   const stats = {
-    active: drivers.filter((d) => {
+    active:   drivers.filter((d) => {
       const eff = effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs);
       return eff === "ON_ROUTE" || eff === "ON_SHIFT";
     }).length,
     available: drivers.filter((d) => d.status === "AVAILABLE").length,
-    delayed: drivers.filter((d) => d.status === "DELAYED").length,
-    pending: jobs.filter((j) => j.status === "PENDING").length,
-    availableTomorrow: drivers.filter(
-      (d) => (d as { available_tomorrow?: boolean }).available_tomorrow === true,
-    ).length,
+    delayed:   drivers.filter((d) => d.status === "DELAYED").length,
+    pending:   jobs.filter((j) => j.status === "PENDING").length,
+    tomorrow:  drivers.filter((d) => (d as { available_tomorrow?: boolean }).available_tomorrow === true).length,
   };
 
   return (
     <div className="h-full flex flex-col">
-      <PageHeader title="Live Operations" subtitle="Real-time driver and fleet visibility across UK network" />
+      <PageHeader
+        title="Live Operations"
+        subtitle="Real-time fleet visibility"
+        right={
+          <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
+            <Radio className="size-3 text-success" />
+            <span>Live</span>
+            <span className="size-1.5 rounded-full bg-success animate-pulse" />
+          </div>
+        }
+      />
 
-      <div className="grid grid-cols-5 gap-3 px-5 py-3 border-b border-border bg-surface/40">
-        <Stat label="ACTIVE DRIVERS" value={stats.active} accent="primary" />
-        <Stat label="AVAILABLE" value={stats.available} accent="success" />
-        <Stat label="DELAYED" value={stats.delayed} accent="destructive" />
-        <Stat label="PENDING JOBS" value={stats.pending} accent="warning" />
-        <Stat label="AVAIL. TOMORROW" value={stats.availableTomorrow} accent="primary" />
+      {/* KPI strip */}
+      <div
+        className="grid grid-cols-5 gap-2.5 px-5 py-3 border-b border-border"
+        style={{ background: "oklch(0.15 0.018 245 / 0.6)" }}
+      >
+        <Stat label="Active"     value={stats.active}    color="oklch(0.62 0.22 245)" />
+        <Stat label="Available"  value={stats.available} color="oklch(0.73 0.17 150)" />
+        <Stat label="Delayed"    value={stats.delayed}   color="oklch(0.63 0.22 20)"  />
+        <Stat label="Pending"    value={stats.pending}   color="oklch(0.80 0.18 72)"  />
+        <Stat label="Tomorrow"   value={stats.tomorrow}  color="oklch(0.68 0.16 230)" />
       </div>
 
-      <div className="flex-1 min-h-0 grid grid-cols-[1fr_320px]">
+      {/* Map + sidebar */}
+      <div className="flex-1 min-h-0 grid grid-cols-[1fr_300px]">
+        {/* Map */}
         <div className="relative scanline">
-          <ClientOnly fallback={<div className="absolute inset-0 grid place-items-center text-muted-foreground text-sm">Loading map…</div>}>
-            <Suspense fallback={<div className="absolute inset-0 grid place-items-center text-muted-foreground text-sm">Loading map…</div>}>
+          <ClientOnly fallback={<MapPlaceholder />}>
+            <Suspense fallback={<MapPlaceholder />}>
               <LiveMap
                 drivers={drivers}
                 warehouses={warehouses}
@@ -86,68 +100,116 @@ function LiveDashboard() {
           </ClientOnly>
         </div>
 
-        <aside className="border-l border-border bg-surface overflow-y-auto">
-          <div className="px-4 py-3 border-b border-border">
+        {/* Fleet panel */}
+        <aside
+          className="flex flex-col overflow-hidden"
+          style={{ borderLeft: "1px solid oklch(0.22 0.018 245)" }}
+        >
+          {/* Panel header */}
+          <div
+            className="px-4 py-3 shrink-0"
+            style={{ borderBottom: "1px solid oklch(0.20 0.016 245)" }}
+          >
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Fleet</div>
             <div className="text-sm font-semibold mt-0.5">{drivers.length} drivers</div>
           </div>
 
+          {/* Selected driver detail */}
           {selectedDriver && (
-            <div className="p-4 border-b border-border bg-surface-2">
-              <div className="flex items-start justify-between">
+            <div
+              className="p-4 shrink-0"
+              style={{
+                background: "oklch(0.17 0.018 245)",
+                borderBottom: "1px solid oklch(0.22 0.018 245)",
+              }}
+            >
+              <div className="flex items-start justify-between mb-3">
                 <div>
-                  <div className="text-xs text-muted-foreground font-mono">SELECTED</div>
-                  <div className="text-sm font-semibold mt-0.5">{selectedDriver.name}</div>
-                </div>
-                <StatusBadge status={effectiveDriverStatus(selectedDriver.status, selectedDriverActiveJobs, nowMs)} kind="driver" />
-              </div>
-              {selectedJob && destWh && (
-                <div className="mt-3 space-y-2">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Active Job</div>
-                  <div className="font-mono text-xs">{selectedJob.reference}</div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Navigation className="size-3.5 text-primary" />
-                    <span className="font-mono">→ {destWh.code}</span>
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-0.5">
+                    Selected driver
                   </div>
-                  {distKm != null && (
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="rounded border border-border bg-surface p-2">
-                        <div className="text-[10px] text-muted-foreground font-mono">DIST</div>
-                        <div className="font-mono text-sm mt-0.5">{distKm.toFixed(1)} km</div>
-                      </div>
-                      <div className="rounded border border-border bg-surface p-2">
-                        <div className="text-[10px] text-muted-foreground font-mono">ETA</div>
-                        <div className="font-mono text-sm mt-0.5">{etaMinutes(distKm)} min</div>
-                      </div>
+                  <div className="text-sm font-semibold">{selectedDriver.name}</div>
+                </div>
+                <StatusBadge
+                  status={effectiveDriverStatus(selectedDriver.status, selectedDriverActiveJobs, nowMs)}
+                  kind="driver"
+                />
+              </div>
+
+              {selectedJob && destWh && (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                    Active job
+                  </div>
+                  <div
+                    className="rounded-lg px-3 py-2 space-y-2"
+                    style={{
+                      background: "oklch(0.20 0.020 245)",
+                      border: "1px solid oklch(0.26 0.018 245)",
+                    }}
+                  >
+                    <div className="font-mono text-xs text-foreground">{selectedJob.reference}</div>
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <Navigation className="size-3 text-primary" />
+                      <span className="font-mono text-muted-foreground">→ {destWh.code}</span>
+                      <span className="text-muted-foreground/60 truncate">{destWh.name}</span>
                     </div>
-                  )}
+                    {distKm != null && (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <MetricPill label="Dist" value={`${distKm.toFixed(1)} km`} />
+                        <MetricPill label="ETA"  value={`${etaMinutes(distKm)} min`} />
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
+
               {selectedDriver.last_update_time && (
-                <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono">
-                  <Clock className="size-3" /> last ping {new Date(selectedDriver.last_update_time).toLocaleTimeString()}
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono mt-2.5">
+                  <Clock className="size-3" />
+                  {new Date(selectedDriver.last_update_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                 </div>
               )}
             </div>
           )}
 
-          <ul className="divide-y divide-border">
-            {drivers.map((d) => (
-              <li key={d.id}>
-                <button
-                  onClick={() => setSelected(d.id)}
-                  className={`w-full text-left px-4 py-2.5 hover:bg-surface-2 transition-colors ${selected === d.id ? "bg-surface-2" : ""}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Truck className="size-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-sm truncate">{d.name}</span>
+          {/* Driver list */}
+          <ul className="flex-1 overflow-y-auto divide-y" style={{ borderColor: "oklch(0.20 0.016 245)" }}>
+            {drivers.map((d) => {
+              const eff = effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs);
+              const isSelected = selected === d.id;
+              return (
+                <li key={d.id}>
+                  <button
+                    onClick={() => setSelected(isSelected ? null : d.id)}
+                    className="w-full text-left px-4 py-2.5 transition-colors"
+                    style={{
+                      background: isSelected ? "oklch(0.62 0.22 245 / 0.08)" : "transparent",
+                      borderLeft: isSelected ? "2px solid oklch(0.62 0.22 245)" : "2px solid transparent",
+                    }}
+                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "oklch(0.17 0.018 245)"; }}
+                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className="size-6 rounded-md grid place-items-center text-[10px] font-mono font-bold shrink-0"
+                          style={{
+                            background: isSelected ? "oklch(0.62 0.22 245 / 0.15)" : "oklch(0.22 0.018 245)",
+                            color: isSelected ? "oklch(0.75 0.18 245)" : "oklch(0.52 0.012 245)",
+                            border: `1px solid ${isSelected ? "oklch(0.62 0.22 245 / 0.3)" : "oklch(0.26 0.018 245)"}`,
+                          }}
+                        >
+                          {d.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-sm truncate">{d.name}</span>
+                      </div>
+                      <StatusBadge status={eff} kind="driver" />
                     </div>
-                    <StatusBadge status={effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs)} kind="driver" />
-                  </div>
-                </button>
-              </li>
-            ))}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </aside>
       </div>
@@ -155,27 +217,70 @@ function LiveDashboard() {
   );
 }
 
-function Stat({ label, value, accent }: { label: string; value: number; accent: "primary" | "success" | "destructive" | "warning" }) {
-  const colorMap = {
-    primary: "text-primary",
-    success: "text-success",
-    destructive: "text-destructive",
-    warning: "text-warning",
-  };
+function MapPlaceholder() {
   return (
-    <div className="rounded-md border border-border bg-surface px-3 py-2.5">
-      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{label}</div>
-      <div className={`text-2xl font-mono font-semibold mt-0.5 ${colorMap[accent]}`}>{value}</div>
+    <div className="absolute inset-0 grid place-items-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="size-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+        <span className="text-sm text-muted-foreground">Loading map…</span>
+      </div>
     </div>
   );
 }
 
-export function PageHeader({ title, subtitle, right }: { title: string; subtitle?: string; right?: React.ReactNode }) {
+function MetricPill({ label, value }: { label: string; value: string }) {
   return (
-    <header className="px-5 py-3 border-b border-border flex items-center justify-between">
+    <div
+      className="rounded-md px-2 py-1.5"
+      style={{
+        background: "oklch(0.17 0.018 245)",
+        border: "1px solid oklch(0.24 0.018 245)",
+      }}
+    >
+      <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className="font-mono text-xs mt-0.5 text-foreground">{value}</div>
+    </div>
+  );
+}
+
+function Stat({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div
+      className="rounded-lg px-3 py-2.5 stat-card cursor-default"
+      style={{ borderLeft: `2px solid ${color}` }}
+    >
+      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground truncate">
+        {label}
+      </div>
+      <div
+        className="text-2xl font-mono font-bold mt-1 tabular-nums"
+        style={{ color }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+export function PageHeader({
+  title,
+  subtitle,
+  right,
+}: {
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+}) {
+  return (
+    <header
+      className="px-5 py-3 flex items-center justify-between shrink-0"
+      style={{ borderBottom: "1px solid oklch(0.20 0.016 245)" }}
+    >
       <div>
-        <h1 className="text-base font-semibold tracking-tight">{title}</h1>
-        {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+        <h1 className="text-sm font-semibold tracking-tight">{title}</h1>
+        {subtitle && (
+          <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>
+        )}
       </div>
       {right}
     </header>
