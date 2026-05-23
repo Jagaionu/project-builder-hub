@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDriverStore } from "@/lib/driver-store";
 import { watchPosition, haversineKm, type GPSPosition } from "@/lib/driver-gps";
+import { checkGeofences } from "@/lib/leg-tracker";
 import type { JobWithStops, DriverProfile } from "@/lib/driver-types";
 
 async function loadDriver(userId: string) {
@@ -106,7 +107,9 @@ export function useDriverBootstrap() {
       const driver = useDriverStore.getState().driver;
       if (!driver) return;
 
-      // Auto-confirm arrival when within geofence of the next pending stop.
+      // Leg-based geofence tracking (records driving_legs + stop_dwells)
+      checkGeofences(p, driver.id).catch((e) => console.error("[geofence]", e));
+      // Legacy fallback: also auto-confirm arrival on existing stops
       autoArriveNearby(driver.id, p);
 
       const prev = lastSent.current;
