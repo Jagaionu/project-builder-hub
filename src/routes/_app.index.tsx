@@ -5,6 +5,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { ClientOnly } from "@/components/ClientOnly";
 import { haversineKm, etaMinutes } from "@/lib/geo";
 import { Truck, Navigation, Clock } from "lucide-react";
+import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
+import { effectiveDriverStatus } from "@/lib/effective-status";
 
 const LiveMap = lazy(() => import("@/components/LiveMap").then((m) => ({ default: m.LiveMap })));
 
@@ -22,9 +24,11 @@ function LiveDashboard() {
   const drivers = useDrivers();
   const warehouses = useWarehouses();
   const jobs = useJobs();
+  const activeJobsByDriver = useActiveJobsByDriver();
   const [selected, setSelected] = useState<string | null>(null);
 
   const selectedDriver = drivers.find((d) => d.id === selected) ?? null;
+  const selectedDriverActiveJobs = selected ? activeJobsByDriver[selected] ?? [] : [];
   const selectedJob = useMemo(
     () => jobs.find((j) => j.assigned_driver_id === selected && ["ASSIGNED","IN_PROGRESS","ARRIVED_PICKUP","EN_ROUTE_DELIVERY"].includes(j.status)),
     [jobs, selected]
@@ -41,8 +45,12 @@ function LiveDashboard() {
     ? haversineKm(selectedDriver.current_lat, selectedDriver.current_lon, destWh.latitude, destWh.longitude)
     : null;
 
+  const nowMs = Date.now();
   const stats = {
-    active: drivers.filter((d) => d.status === "ON_ROUTE" || d.status === "ON_SHIFT").length,
+    active: drivers.filter((d) => {
+      const eff = effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs);
+      return eff === "ON_ROUTE" || eff === "ON_SHIFT";
+    }).length,
     available: drivers.filter((d) => d.status === "AVAILABLE").length,
     delayed: drivers.filter((d) => d.status === "DELAYED").length,
     pending: jobs.filter((j) => j.status === "PENDING").length,
@@ -91,7 +99,7 @@ function LiveDashboard() {
                   <div className="text-xs text-muted-foreground font-mono">SELECTED</div>
                   <div className="text-sm font-semibold mt-0.5">{selectedDriver.name}</div>
                 </div>
-                <StatusBadge status={selectedDriver.status} kind="driver" />
+                <StatusBadge status={effectiveDriverStatus(selectedDriver.status, selectedDriverActiveJobs, nowMs)} kind="driver" />
               </div>
               {selectedJob && destWh && (
                 <div className="mt-3 space-y-2">
@@ -135,7 +143,7 @@ function LiveDashboard() {
                       <Truck className="size-3.5 text-muted-foreground shrink-0" />
                       <span className="text-sm truncate">{d.name}</span>
                     </div>
-                    <StatusBadge status={d.status} kind="driver" />
+                    <StatusBadge status={effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs)} kind="driver" />
                   </div>
                 </button>
               </li>
