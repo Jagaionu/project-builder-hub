@@ -33,15 +33,28 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
     });
-    if (authError) {
-      setError(authError.message);
+    if (authError || !authData.session) {
+      setError(authError?.message ?? "Sign-in failed");
       setLoading(false);
       return;
     }
+
+    // Super admin → go to /admin (no company tenancy required)
+    const { data: superAdminRow } = await supabase
+      .from("super_admins" as never)
+      .select("user_id")
+      .eq("user_id", authData.session.user.id)
+      .maybeSingle();
+
+    if (superAdminRow) {
+      navigate({ to: "/admin", replace: true });
+      return;
+    }
+
     navigate({ to: redirectTo ?? "/", replace: true });
   }
 
