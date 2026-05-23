@@ -1185,17 +1185,25 @@ function RouteDialog({
                       {warehouses.map((w) => <option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}
                     </select>
                     <div className="flex flex-col items-end">
-                      <input
-                        type="datetime-local"
-                        value={s.scheduled_at ? toLocalInput(s.scheduled_at) : auto ? toLocalInput(auto) : ""}
-                        onChange={(e) => update(i, { scheduled_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                        className={`bg-surface border border-border rounded px-2 py-1 text-xs ${showAuto ? "text-muted-foreground italic" : ""}`}
-                        title={showAuto ? "Auto-calculated from previous stop + driving + loading" : "Time window for this stop"}
-                      />
-                      {showAuto && (
-                        <span className="text-[9px] font-mono text-muted-foreground/70 mt-0.5">auto</span>
+                      {i === 0 ? (
+                        <input
+                          type="datetime-local"
+                          required
+                          value={s.scheduled_at ? toLocalInput(s.scheduled_at) : ""}
+                          onChange={(e) => update(i, { scheduled_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                          className="bg-surface border border-border rounded px-2 py-1 text-xs"
+                          title="Pickup time — subsequent stops are auto-calculated from this"
+                        />
+                      ) : (
+                        <>
+                          <span className="text-xs font-mono text-muted-foreground italic px-2 py-1">
+                            {auto ? new Date(auto).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                          </span>
+                          <span className="text-[9px] font-mono text-muted-foreground/70 mt-0.5">auto</span>
+                        </>
                       )}
                     </div>
+
                     <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="p-1 hover:bg-surface-2 rounded disabled:opacity-30"><ChevronUp className="size-3.5" /></button>
                     <button type="button" onClick={() => move(i, 1)} disabled={i === stops.length - 1} className="p-1 hover:bg-surface-2 rounded disabled:opacity-30"><ChevronDown className="size-3.5" /></button>
                     <button type="button" onClick={() => removeStop(i)} disabled={stops.length <= 2} className="p-1 hover:bg-destructive/20 rounded disabled:opacity-30"><Trash2 className="size-3.5" /></button>
