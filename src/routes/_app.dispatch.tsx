@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useJobs, useWarehouses, useDrivers, useCompliance } from "@/lib/hooks";
 import type { Compliance } from "@/lib/compliance";
 
-import { PageHeader } from "./_app.index";
+
 import {
   Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock,
   Check, User, Upload, Calendar as CalendarIcon, Pencil, Sparkles, ArrowRight,
@@ -254,8 +254,13 @@ function DispatchPage() {
     try {
       const raw = localStorage.getItem("dispatch.dateRange");
       if (raw) {
-        const p = JSON.parse(raw) as { mode?: "all" };
+        const p = JSON.parse(raw) as { mode?: "all"; from?: string; to?: string };
         if (p.mode === "all") return undefined;
+        if (p.from) {
+          const from = new Date(p.from);
+          const to = p.to ? new Date(p.to) : from;
+          if (!isNaN(from.getTime()) && !isNaN(to.getTime())) return { from, to };
+        }
       }
     } catch { /* noop */ }
     return { from: today, to: today };
@@ -263,9 +268,32 @@ function DispatchPage() {
   useEffect(() => {
     try {
       if (!dateRange) localStorage.setItem("dispatch.dateRange", JSON.stringify({ mode: "all" }));
-      else localStorage.removeItem("dispatch.dateRange");
+      else if (dateRange.from) {
+        localStorage.setItem("dispatch.dateRange", JSON.stringify({
+          from: dateRange.from.toISOString(),
+          to: (dateRange.to ?? dateRange.from).toISOString(),
+        }));
+      }
     } catch { /* noop */ }
   }, [dateRange]);
+
+  const [statusFilter, setStatusFilter] = useState<JobStatus | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem("dispatch.statusFilter");
+      if (raw) {
+        const parsed = JSON.parse(raw) as JobStatus | null;
+        if (parsed && (JOB_STATUSES as readonly string[]).includes(parsed)) return parsed;
+      }
+    } catch { /* noop */ }
+    return null;
+  });
+  useEffect(() => {
+    try {
+      if (statusFilter) localStorage.setItem("dispatch.statusFilter", JSON.stringify(statusFilter));
+      else localStorage.removeItem("dispatch.statusFilter");
+    } catch { /* noop */ }
+  }, [statusFilter]);
 
   const plan = useMemo(
     () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
@@ -376,12 +404,12 @@ function DispatchPage() {
 
   const editingJob = editJobId ? jobs.find((j) => j.id === editJobId) : null;
 
-  const filteredJobs = useMemo(() => {
+  // Jobs filtered by date range + search only (used to compute status box counts).
+  const jobsInRange = useMemo(() => {
     const q = search.trim().toLowerCase();
     const from = dateRange?.from ? startOfDay(dateRange.from).getTime() : null;
     const to = dateRange ? endOfDay(dateRange.to ?? dateRange.from ?? new Date()).getTime() : null;
     return jobs.filter((j) => {
-      if (hiddenStatuses.has(j.status as JobStatus)) return false;
       if (from !== null && to !== null) {
         const t = jobDate(j, stopsMap[j.id] ?? []).getTime();
         if (t < from || t > to) return false;
@@ -400,7 +428,23 @@ function DispatchPage() {
       if (driver?.name.toLowerCase().includes(q)) return true;
       return false;
     });
-  }, [jobs, stopsMap, warehouses, drivers, search, hiddenStatuses, dateRange]);
+  }, [jobs, stopsMap, warehouses, drivers, search, dateRange]);
+
+  const filteredJobs = useMemo(() => {
+    return jobsInRange.filter((j) => {
+      if (statusFilter) return j.status === statusFilter;
+      return !hiddenStatuses.has(j.status as JobStatus);
+    });
+  }, [jobsInRange, hiddenStatuses, statusFilter]);
+
+  const statusCounts = useMemo(() => {
+    const c: Record<JobStatus, number> = {
+      PENDING: 0, ASSIGNED: 0, IN_PROGRESS: 0, ARRIVED_PICKUP: 0,
+      EN_ROUTE_DELIVERY: 0, COMPLETED: 0, CANCELLED: 0,
+    };
+    for (const j of jobsInRange) c[j.status as JobStatus] = (c[j.status as JobStatus] ?? 0) + 1;
+    return c;
+  }, [jobsInRange]);
 
   // Keep selection valid; default to first filtered job
   useEffect(() => {
@@ -461,6 +505,7 @@ function DispatchPage() {
   const today = startOfDay(new Date());
   const isDefaultFilters =
     !search &&
+    !statusFilter &&
     hiddenStatuses.size === 2 &&
     hiddenStatuses.has("COMPLETED") &&
     hiddenStatuses.has("CANCELLED") &&
@@ -468,30 +513,59 @@ function DispatchPage() {
     sameDay(dateRange.from, today) &&
     sameDay(dateRange.to ?? dateRange.from, today);
 
-  const pendingCount = jobs.filter((j) => j.status === "PENDING").length;
+  const STATUS_BOX_KEYS: JobStatus[] = ["PENDING", "ASSIGNED", "COMPLETED", "CANCELLED"];
 
   return (
     <div className="h-full flex flex-col">
-      <PageHeader
-        title="Dispatch"
-        subtitle={`${pendingCount} pending · ${filteredJobs.length} shown of ${jobs.length} total`}
-        right={
-          <div className="flex items-center gap-2">
-            <ToolbarButton
-              onClick={onPlanTomorrow}
-              disabled={planningTomorrow || tomorrowStats.total === 0}
-              title={tomorrowStats.total === 0 ? "No jobs scheduled for tomorrow" : "Auto-assign tomorrow's routes and notify drivers"}
-              icon={<Sparkles className="size-3.5" />}
-            >
-              {planningTomorrow ? "Planning…" : "Plan Tomorrow"}
-            </ToolbarButton>
-            <ImportCsvButton />
-            <ToolbarButton onClick={() => setCreateOpen(true)} primary icon={<Plus className="size-3.5" />}>
-              Create route
-            </ToolbarButton>
+      <header className="px-5 py-3 border-b border-border flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="shrink-0">
+            <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {filteredJobs.length} shown of {jobs.length} total
+            </p>
           </div>
-        }
-      />
+          <div className="flex items-center gap-1.5">
+            {STATUS_BOX_KEYS.map((s) => {
+              const active = statusFilter === s;
+              const cfg = STATUS_CONFIG[s];
+              return (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(active ? null : s)}
+                  title={`Filter by ${cfg.label}`}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors",
+                    active
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-border bg-surface text-muted-foreground hover:bg-surface-2 hover:text-foreground",
+                  )}
+                >
+                  <span className={`size-1.5 rounded-full ${cfg.dot}`} />
+                  <span className="uppercase tracking-wide text-[9px] font-mono">{cfg.label}</span>
+                  <span className="font-mono font-semibold text-foreground tabular-nums">
+                    {statusCounts[s] ?? 0}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <ToolbarButton
+            onClick={onPlanTomorrow}
+            disabled={planningTomorrow || tomorrowStats.total === 0}
+            title={tomorrowStats.total === 0 ? "No jobs scheduled for tomorrow" : "Auto-assign tomorrow's routes and notify drivers"}
+            icon={<Sparkles className="size-3.5" />}
+          >
+            {planningTomorrow ? "Planning…" : "Plan Tomorrow"}
+          </ToolbarButton>
+          <ImportCsvButton />
+          <ToolbarButton onClick={() => setCreateOpen(true)} primary icon={<Plus className="size-3.5" />}>
+            Create route
+          </ToolbarButton>
+        </div>
+      </header>
 
       {/* Filter bar */}
       <div className="px-5 py-3 border-b border-border bg-background/40 flex items-center gap-2">
@@ -578,7 +652,7 @@ function DispatchPage() {
 
         {!isDefaultFilters && (
           <button
-            onClick={() => { const t = startOfDay(new Date()); setSearch(""); setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"])); setDateRange({ from: t, to: t }); }}
+            onClick={() => { const t = startOfDay(new Date()); setSearch(""); setStatusFilter(null); setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"])); setDateRange({ from: t, to: t }); }}
             className="rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-2"
           >
             Reset
