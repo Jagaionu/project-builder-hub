@@ -431,11 +431,17 @@ function DispatchPage() {
   }, [jobs, stopsMap, warehouses, drivers, search, dateRange]);
 
   const filteredJobs = useMemo(() => {
-    return jobsInRange.filter((j) => {
-      if (statusFilter) return j.status === statusFilter;
-      return !hiddenStatuses.has(j.status as JobStatus);
-    });
-  }, [jobsInRange, hiddenStatuses, statusFilter]);
+    return jobsInRange
+      .filter((j) => {
+        if (statusFilter) return j.status === statusFilter;
+        return !hiddenStatuses.has(j.status as JobStatus);
+      })
+      .sort((a, b) => {
+        const ta = jobDate(a, stopsMap[a.id] ?? []).getTime();
+        const tb = jobDate(b, stopsMap[b.id] ?? []).getTime();
+        return ta - tb;
+      });
+  }, [jobsInRange, hiddenStatuses, statusFilter, stopsMap]);
 
   const statusCounts = useMemo(() => {
     const c: Record<JobStatus, number> = {
