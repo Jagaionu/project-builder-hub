@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getTenantId } from "@/lib/tenant-insert";
 import { useDriverStore } from "@/lib/driver-store";
 import { DriverJobCard } from "@/components/driver/DriverJobCard";
 
