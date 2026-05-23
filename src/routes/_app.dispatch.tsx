@@ -863,6 +863,24 @@ function JobDetailPanel({
       .sort((a, b) => a.distKm - b.distKm);
   }, [driver, drivers, origin]);
 
+  // Auto-complete: all stops arrived, no significant delays, and not already terminal.
+  useEffect(() => {
+    if (stops.length === 0) return;
+    if (job.status === "COMPLETED" || job.status === "CANCELLED") return;
+    const allArrived = stops.every((s) => !!s.arrived_at);
+    if (!allArrived) return;
+    const anyDelayed = stops.some((s) => {
+      const planned = s.scheduled_at;
+      if (!planned || !s.arrived_at) return false;
+      const delayMin = (new Date(s.arrived_at).getTime() - new Date(planned).getTime()) / 60_000;
+      return delayMin > 5;
+    });
+    if (anyDelayed) return;
+    onSetStatus("COMPLETED");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.id, job.status, stops]);
+
+
   return (
     <div className="p-6 max-w-4xl">
       <div className="flex items-start justify-between gap-4">
