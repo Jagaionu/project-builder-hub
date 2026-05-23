@@ -1085,10 +1085,12 @@ function RouteDialog({
     const jobStartIso = scheduledAt ? new Date(scheduledAt).toISOString() : new Date().toISOString();
     const autoTimes = computeStopSchedule(stops, jobStartIso, warehouses);
 
+    const tenant_id = await getTenantId();
     const jobPayload = {
       scheduled_at: jobStartIso,
       origin_warehouse_id: stops[0].warehouse_id,
       destination_warehouse_id: stops[stops.length - 1].warehouse_id,
+      tenant_id,
     };
 
     let targetJobId = jobId;
