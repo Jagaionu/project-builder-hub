@@ -126,7 +126,7 @@ function CompanyRow({
   const [config, setConfig] = useState<TenantConfig>({ ...DEFAULT_TENANT_CONFIG, ...company.config });
   const [creating, setCreating] = useState(false);
   const [lastCreated, setLastCreated] = useState<{ email: string; password: string } | null>(null);
-  const [members, setMembers] = useState<Array<{ id: string; user_id: string; role: string; email: string | null }>>([]);
+  const [members, setMembers] = useState<Array<{ id: string; user_id: string; role: string; email: string | null; password: string | null }>>([]);
   const createAdmin = useServerFn(createCompanyAdmin);
   const fetchMembers = useServerFn(listCompanyMembers);
 
