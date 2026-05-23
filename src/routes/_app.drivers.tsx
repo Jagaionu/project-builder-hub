@@ -648,3 +648,68 @@ function DayHoursTable({ rows }: { rows: DriverDayHours[] }) {
     </div>
   );
 }
+
+// Planner-facing view: for each ACTIVE job assigned to this driver, show the
+// projected driving time (deadhead from current GPS to first pickup +
+// inter-stop transit). Excludes loading/unloading/checks — pure wheel time.
+function ProjectedRoutePanel({
+  jobs,
+  driverLat,
+  driverLon,
+  dailyHeadroomH,
+}: {
+  jobs: ActiveJob[];
+  driverLat: number | null;
+  driverLon: number | null;
+  dailyHeadroomH: number;
+}) {
+  if (!jobs.length) return null;
+  const now = Date.now();
+  return (
+    <div className="border-t border-border pt-2 space-y-1.5">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+        Active routes (transit only)
+      </div>
+      {jobs.map((j) => {
+        const proj = projectedRouteDriveMinutes(j, driverLat, driverLon);
+        const startMs = jobStartMs(j);
+        const future = isJobScheduledFuture(j, now);
+        const startLabel = startMs
+          ? new Date(startMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "—";
+        const totalH = proj.totalMin / 60;
+        const wouldExceed = totalH > dailyHeadroomH;
+        const chain = [...(j.stops ?? [])]
+          .sort((a, b) => a.seq - b.seq)
+          .map((s) => s.warehouse?.code ?? "?")
+          .join(" → ");
+        return (
+          <div
+            key={j.id}
+            className={`rounded border px-2 py-1.5 text-[11px] ${wouldExceed ? "border-destructive/40 bg-destructive/5" : "border-border bg-surface-2/40"}`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-muted-foreground truncate">{chain || j.id.slice(0, 6)}</span>
+              <span className={`font-mono ${future ? "text-info" : "text-foreground"}`}>
+                {future ? "scheduled" : j.status.replace(/_/g, " ").toLowerCase()} · {startLabel}
+              </span>
+            </div>
+            <div className="mt-0.5 flex items-center justify-between gap-2 font-mono">
+              <span className="text-muted-foreground">
+                deadhead {fmtHm(proj.deadheadMin)} · transit {fmtHm(proj.transitMin)}
+              </span>
+              <span className={wouldExceed ? "text-destructive font-semibold" : ""}>
+                {fmtHm(proj.totalMin)} drive
+              </span>
+            </div>
+            {wouldExceed && (
+              <div className="mt-0.5 text-[10px] text-destructive">
+                Exceeds remaining daily headroom ({dailyHeadroomH.toFixed(1)}h left)
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
