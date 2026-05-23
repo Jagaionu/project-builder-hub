@@ -1,34 +1,49 @@
 import type { DriverStatus, JobStatus } from "@/lib/types";
 
-const SCHEDULED_CLS = "bg-info/10 text-info border-info/30";
-
-const driverMap: Record<DriverStatus | "SCHEDULED", string> = {
-  AVAILABLE: "bg-success/15 text-success border-success/30",
-  ON_SHIFT: "bg-info/15 text-info border-info/30",
-  ON_ROUTE: "bg-primary/15 text-primary border-primary/30",
-  DELAYED: "bg-destructive/15 text-destructive border-destructive/30",
-  OFF_SHIFT: "bg-muted text-muted-foreground border-border",
-  SCHEDULED: SCHEDULED_CLS,
+// All colours come from the design system CSS variables so they
+// automatically respect any theme changes in styles.css.
+const driverMap: Record<DriverStatus | "SCHEDULED", { bg: string; text: string; border: string }> = {
+  AVAILABLE:  { bg: "oklch(0.73 0.17 150 / 0.10)", text: "oklch(0.78 0.14 150)", border: "oklch(0.73 0.17 150 / 0.30)" },
+  ON_SHIFT:   { bg: "oklch(0.68 0.16 230 / 0.10)", text: "oklch(0.73 0.13 230)", border: "oklch(0.68 0.16 230 / 0.30)" },
+  ON_ROUTE:   { bg: "oklch(0.62 0.22 245 / 0.12)", text: "oklch(0.75 0.18 245)", border: "oklch(0.62 0.22 245 / 0.30)" },
+  DELAYED:    { bg: "oklch(0.63 0.22 20  / 0.10)", text: "oklch(0.72 0.18 20)",  border: "oklch(0.63 0.22 20  / 0.30)" },
+  OFF_SHIFT:  { bg: "oklch(0.22 0.018 245)",        text: "oklch(0.52 0.012 245)", border: "oklch(0.26 0.018 245)" },
+  SCHEDULED:  { bg: "oklch(0.62 0.22 245 / 0.08)", text: "oklch(0.68 0.16 230)", border: "oklch(0.68 0.16 230 / 0.25)" },
 };
 
-const jobMap: Record<JobStatus | "SCHEDULED", string> = {
-  PENDING: "bg-warning/15 text-warning border-warning/30",
-  ASSIGNED: "bg-info/15 text-info border-info/30",
-  IN_PROGRESS: "bg-primary/15 text-primary border-primary/30",
-  ARRIVED_PICKUP: "bg-accent/15 text-accent border-accent/30",
-  EN_ROUTE_DELIVERY: "bg-primary/15 text-primary border-primary/30",
-  COMPLETED: "bg-success/15 text-success border-success/30",
-  CANCELLED: "bg-muted text-muted-foreground border-border",
-  SCHEDULED: SCHEDULED_CLS,
+const jobMap: Record<JobStatus | "SCHEDULED", { bg: string; text: string; border: string }> = {
+  PENDING:           { bg: "oklch(0.80 0.18 72  / 0.10)", text: "oklch(0.80 0.16 72)",  border: "oklch(0.80 0.18 72  / 0.30)" },
+  ASSIGNED:          { bg: "oklch(0.68 0.16 230 / 0.10)", text: "oklch(0.73 0.13 230)", border: "oklch(0.68 0.16 230 / 0.30)" },
+  IN_PROGRESS:       { bg: "oklch(0.62 0.22 245 / 0.12)", text: "oklch(0.75 0.18 245)", border: "oklch(0.62 0.22 245 / 0.30)" },
+  ARRIVED_PICKUP:    { bg: "oklch(0.80 0.18 72  / 0.10)", text: "oklch(0.80 0.16 72)",  border: "oklch(0.80 0.18 72  / 0.30)" },
+  EN_ROUTE_DELIVERY: { bg: "oklch(0.62 0.22 245 / 0.12)", text: "oklch(0.75 0.18 245)", border: "oklch(0.62 0.22 245 / 0.30)" },
+  COMPLETED:         { bg: "oklch(0.73 0.17 150 / 0.10)", text: "oklch(0.78 0.14 150)", border: "oklch(0.73 0.17 150 / 0.30)" },
+  CANCELLED:         { bg: "oklch(0.22 0.018 245)",        text: "oklch(0.52 0.012 245)", border: "oklch(0.26 0.018 245)" },
+  SCHEDULED:         { bg: "oklch(0.62 0.22 245 / 0.08)", text: "oklch(0.68 0.16 230)", border: "oklch(0.68 0.16 230 / 0.25)" },
 };
 
 export function StatusBadge({ status, kind }: { status: string; kind: "driver" | "job" }) {
-  const cls = kind === "driver"
-    ? driverMap[status as DriverStatus | "SCHEDULED"]
-    : jobMap[status as JobStatus | "SCHEDULED"];
+  const map = kind === "driver" ? driverMap : jobMap;
+  const cfg = map[status as keyof typeof map];
+
+  if (!cfg) {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-mono uppercase tracking-wider bg-muted text-muted-foreground border-border">
+        <span className="size-1.5 rounded-full bg-current" />
+        {status.replace(/_/g, " ")}
+      </span>
+    );
+  }
+
   return (
-    <span className={`inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded border text-[10px] font-mono uppercase tracking-wider ${cls ?? ""}`}>
-      <span className="size-1.5 rounded-full bg-current" />
+    <span
+      className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded border text-[10px] font-mono uppercase tracking-wider"
+      style={{ background: cfg.bg, color: cfg.text, borderColor: cfg.border }}
+    >
+      <span
+        className="size-1.5 rounded-full shrink-0"
+        style={{ background: cfg.text }}
+      />
       {status.replace(/_/g, " ")}
     </span>
   );
