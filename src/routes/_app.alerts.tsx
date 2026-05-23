@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "./_app.index";
-import { Clock, Check } from "lucide-react";
+import { Clock, Check, AlertTriangle, Info, Zap } from "lucide-react";
 import { useAlerts } from "@/lib/use-alerts";
 
 export const Route = createFileRoute("/_app/alerts")({
@@ -8,45 +8,125 @@ export const Route = createFileRoute("/_app/alerts")({
   head: () => ({ meta: [{ title: "Alerts — Planning System" }] }),
 });
 
+const LEVEL_CONFIG = {
+  critical: {
+    bg:     "oklch(0.63 0.22 20 / 0.08)",
+    border: "oklch(0.63 0.22 20 / 0.35)",
+    text:   "oklch(0.72 0.18 20)",
+    bar:    "oklch(0.63 0.22 20)",
+    Icon:   Zap,
+  },
+  warning: {
+    bg:     "oklch(0.80 0.18 72 / 0.08)",
+    border: "oklch(0.80 0.18 72 / 0.35)",
+    text:   "oklch(0.80 0.16 72)",
+    bar:    "oklch(0.80 0.18 72)",
+    Icon:   AlertTriangle,
+  },
+  info: {
+    bg:     "oklch(0.68 0.16 230 / 0.08)",
+    border: "oklch(0.68 0.16 230 / 0.30)",
+    text:   "oklch(0.73 0.13 230)",
+    bar:    "oklch(0.68 0.16 230)",
+    Icon:   Info,
+  },
+} as const;
+
 function AlertsPage() {
   const { alerts, ack } = useAlerts();
 
-  const colors = {
-    critical: "border-destructive/40 bg-destructive/10 text-destructive",
-    warning: "border-warning/40 bg-warning/10 text-warning",
-    info: "border-info/40 bg-info/10 text-info",
-  };
-
   return (
     <div className="h-full flex flex-col">
-      <PageHeader title="Alerts" subtitle="Live operational anomalies" />
+      <PageHeader
+        title="Alerts"
+        subtitle={alerts.length === 0 ? "All clear — no active alerts" : `${alerts.length} active alert${alerts.length !== 1 ? "s" : ""}`}
+      />
+
       <div className="flex-1 overflow-y-auto p-5">
         {alerts.length === 0 ? (
-          <div className="rounded-md border border-border bg-surface p-8 text-center">
-            <div className="text-success text-sm font-mono">ALL CLEAR</div>
-            <p className="text-xs text-muted-foreground mt-1">No active alerts.</p>
+          <div
+            className="rounded-xl border p-10 text-center page-enter"
+            style={{
+              background: "oklch(0.73 0.17 150 / 0.05)",
+              borderColor: "oklch(0.73 0.17 150 / 0.20)",
+            }}
+          >
+            <div
+              className="size-12 rounded-full grid place-items-center mx-auto mb-4"
+              style={{ background: "oklch(0.73 0.17 150 / 0.12)" }}
+            >
+              <Check className="size-6" style={{ color: "oklch(0.78 0.14 150)" }} />
+            </div>
+            <div
+              className="text-sm font-semibold font-mono uppercase tracking-widest"
+              style={{ color: "oklch(0.78 0.14 150)" }}
+            >
+              All clear
+            </div>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              No operational alerts at this time.
+            </p>
           </div>
         ) : (
-          <ul className="space-y-2">
-            {alerts.map((a) => {
-              const Icon = a.icon;
+          <ul className="space-y-2.5 page-enter">
+            {alerts.map((a, i) => {
+              const cfg = LEVEL_CONFIG[a.level];
+              const { Icon } = cfg;
               return (
-                <li key={a.id} className={`rounded-md border px-3 py-2.5 flex items-center gap-3 ${colors[a.level]}`}>
-                  <Icon className="size-4 shrink-0" />
-                  <div className="flex-1">
-                    <div className="text-[10px] font-mono uppercase tracking-widest opacity-80">{a.type}</div>
-                    <div className="text-sm">{a.message}</div>
+                <li
+                  key={a.id}
+                  className="fade-up rounded-xl border overflow-hidden flex"
+                  style={{
+                    animationDelay: `${i * 50}ms`,
+                    background: cfg.bg,
+                    borderColor: cfg.border,
+                  }}
+                >
+                  {/* Left accent bar */}
+                  <div className="w-1 shrink-0" style={{ background: cfg.bar }} />
+
+                  <div className="flex items-center gap-3 px-4 py-3 flex-1 min-w-0">
+                    <div
+                      className="size-8 rounded-lg grid place-items-center shrink-0"
+                      style={{ background: `${cfg.bar} / 0.15` }}
+                    >
+                      <Icon className="size-4" style={{ color: cfg.text }} />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className="text-[10px] font-mono uppercase tracking-widest mb-0.5"
+                        style={{ color: `${cfg.text}` , opacity: 0.75 }}
+                      >
+                        {a.type}
+                      </div>
+                      <div className="text-sm" style={{ color: cfg.text }}>
+                        {a.message}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground">
+                        <Clock className="size-3" />
+                        <span>now</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => ack(a.id)}
+                        title="Acknowledge and clear"
+                        className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-wider transition-all"
+                        style={{
+                          borderColor: cfg.border,
+                          color: cfg.text,
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = `${cfg.bar} / 0.12`)}
+                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                      >
+                        <Check className="size-3" />
+                        Ack
+                      </button>
+                    </div>
                   </div>
-                  <Clock className="size-3.5 opacity-60" />
-                  <button
-                    type="button"
-                    onClick={() => ack(a.id)}
-                    className="ml-1 inline-flex items-center gap-1 rounded-md border border-current/30 px-2 py-1 text-[11px] font-mono uppercase tracking-wider hover:bg-current/10 transition-colors"
-                    title="Acknowledge and clear this alert"
-                  >
-                    <Check className="size-3" />
-                    Ack
-                  </button>
                 </li>
               );
             })}
