@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { computePlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
 import { planTomorrow } from "@/lib/tomorrow.functions";
 import { computeStopSchedule, stopDwellMinutes } from "@/lib/geo";
+import { isJobScheduledFuture } from "@/lib/effective-status";
 import { importJobsCsv } from "@/lib/jobs-import.functions";
 import { csvToImportRows } from "@/lib/csv-import";
 import { Calendar } from "@/components/ui/calendar";
