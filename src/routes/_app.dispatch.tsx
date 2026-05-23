@@ -254,8 +254,13 @@ function DispatchPage() {
     try {
       const raw = localStorage.getItem("dispatch.dateRange");
       if (raw) {
-        const p = JSON.parse(raw) as { mode?: "all" };
+        const p = JSON.parse(raw) as { mode?: "all"; from?: string; to?: string };
         if (p.mode === "all") return undefined;
+        if (p.from) {
+          const from = new Date(p.from);
+          const to = p.to ? new Date(p.to) : from;
+          if (!isNaN(from.getTime()) && !isNaN(to.getTime())) return { from, to };
+        }
       }
     } catch { /* noop */ }
     return { from: today, to: today };
@@ -263,9 +268,32 @@ function DispatchPage() {
   useEffect(() => {
     try {
       if (!dateRange) localStorage.setItem("dispatch.dateRange", JSON.stringify({ mode: "all" }));
-      else localStorage.removeItem("dispatch.dateRange");
+      else if (dateRange.from) {
+        localStorage.setItem("dispatch.dateRange", JSON.stringify({
+          from: dateRange.from.toISOString(),
+          to: (dateRange.to ?? dateRange.from).toISOString(),
+        }));
+      }
     } catch { /* noop */ }
   }, [dateRange]);
+
+  const [statusFilter, setStatusFilter] = useState<JobStatus | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem("dispatch.statusFilter");
+      if (raw) {
+        const parsed = JSON.parse(raw) as JobStatus | null;
+        if (parsed && (JOB_STATUSES as readonly string[]).includes(parsed)) return parsed;
+      }
+    } catch { /* noop */ }
+    return null;
+  });
+  useEffect(() => {
+    try {
+      if (statusFilter) localStorage.setItem("dispatch.statusFilter", JSON.stringify(statusFilter));
+      else localStorage.removeItem("dispatch.statusFilter");
+    } catch { /* noop */ }
+  }, [statusFilter]);
 
   const plan = useMemo(
     () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
