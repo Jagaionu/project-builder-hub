@@ -99,7 +99,7 @@ function LiveDashboard() {
                   <div className="text-xs text-muted-foreground font-mono">SELECTED</div>
                   <div className="text-sm font-semibold mt-0.5">{selectedDriver.name}</div>
                 </div>
-                <StatusBadge status={selectedDriver.status} kind="driver" />
+                <StatusBadge status={effectiveDriverStatus(selectedDriver.status, selectedDriverActiveJobs, nowMs)} kind="driver" />
               </div>
               {selectedJob && destWh && (
                 <div className="mt-3 space-y-2">
