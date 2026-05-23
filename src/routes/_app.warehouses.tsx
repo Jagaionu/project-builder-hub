@@ -38,12 +38,14 @@ function WarehousesPage() {
     if (warehouses.some((w) => w.code.toUpperCase() === code)) {
       return toast.error(`A warehouse with code "${code}" already exists`);
     }
+    const tenant_id = await getTenantId();
     const { error } = await supabase.from("warehouses").insert({
       code,
       name: form.name,
       latitude: lat,
       longitude: lon,
       address: form.address || null,
+      tenant_id,
     });
     if (error) {
       if (error.code === "23505" || /duplicate|unique/i.test(error.message)) {
