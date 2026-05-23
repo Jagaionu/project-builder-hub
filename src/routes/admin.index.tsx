@@ -124,14 +124,13 @@ function CompanyRow({
   const status = STATUS_CONFIG[company.subscription_status];
   const StatusIcon = status.icon;
   const [config, setConfig] = useState<TenantConfig>({ ...DEFAULT_TENANT_CONFIG, ...company.config });
-  const [newEmail, setNewEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
   const [creating, setCreating] = useState(false);
   const [lastCreated, setLastCreated] = useState<{ email: string; password: string } | null>(null);
   const [members, setMembers] = useState<Array<{ id: string; user_id: string; role: string; email: string | null }>>([]);
   const createAdmin = useServerFn(createCompanyAdmin);
   const fetchMembers = useServerFn(listCompanyMembers);
+
+  const derivedEmail = `${company.slug}@admin.local`;
 
   useEffect(() => {
     if (!expanded) return;
@@ -149,19 +148,13 @@ function CompanyRow({
     }));
   }
 
-  async function handleCreateAdmin(e: React.FormEvent) {
-    e.preventDefault();
-    if (newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters");
-      return;
-    }
+  async function handleGenerateCredentials() {
     setCreating(true);
+    const password = generatePassword();
     try {
-      await createAdmin({ data: { companyId: company.id, email: newEmail, password: newPassword } });
-      toast.success(`Admin user created for ${newEmail}`);
-      setLastCreated({ email: newEmail, password: newPassword });
-      setNewEmail("");
-      setNewPassword("");
+      await createAdmin({ data: { companyId: company.id, email: derivedEmail, password } });
+      toast.success(`Admin credentials generated for ${company.name}`);
+      setLastCreated({ email: derivedEmail, password });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create user");
     } finally {
