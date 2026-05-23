@@ -51,6 +51,7 @@ function DriversPage() {
   const drivers = useDrivers(initialDrivers);
   const driverDayHours = useDriverDayHours();
   const compliance = useComplianceWithLedger(driverDayHours);
+  const activeJobsByDriver = useActiveJobsByDriver();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<DriverForm>({ name: "", phone: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
