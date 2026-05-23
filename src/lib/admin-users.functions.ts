@@ -116,8 +116,15 @@ export const listCompanyMembers = createServerFn({ method: "POST" })
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
 
-    // Look up emails
-    const results: Array<{ id: string; user_id: string; role: string; email: string | null; created_at: string }> = [];
+    // Look up emails and stored passwords
+    const userIds = (members ?? []).map((m) => m.user_id);
+    const { data: creds } = await supabaseAdmin
+      .from("admin_credentials")
+      .select("user_id, password")
+      .in("user_id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]);
+    const credMap = new Map((creds ?? []).map((c) => [c.user_id, c.password as string]));
+
+    const results: Array<{ id: string; user_id: string; role: string; email: string | null; password: string | null; created_at: string }> = [];
     for (const m of members ?? []) {
       const { data: u } = await supabaseAdmin.auth.admin.getUserById(m.user_id);
       results.push({
@@ -125,6 +132,7 @@ export const listCompanyMembers = createServerFn({ method: "POST" })
         user_id: m.user_id,
         role: m.role,
         email: u.user?.email ?? null,
+        password: credMap.get(m.user_id) ?? null,
         created_at: m.created_at,
       });
     }
