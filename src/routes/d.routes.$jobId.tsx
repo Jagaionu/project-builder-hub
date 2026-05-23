@@ -20,6 +20,8 @@ function JobDetail() {
   const driver = useDriverStore((s) => s.driver);
   const gps = useDriverStore((s) => s.gpsPosition);
   const job = jobs.find((j) => j.id === jobId);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
 
   if (!job) {
     return (
@@ -30,8 +32,8 @@ function JobDetail() {
     );
   }
 
-
   const sortedStops = [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq);
+
   const allDone = sortedStops.length > 0 && sortedStops.every((s) => s.arrived_at);
 
   // Build warehouse + stop arrays for geo helpers
