@@ -1,13 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Company, SubscriptionStatus, CompanyPlan, TenantConfig, TenantModule } from "@/lib/types";
 import { DEFAULT_TENANT_CONFIG } from "@/lib/types";
+import { createCompanyAdmin, listCompanyMembers } from "@/lib/admin-users.functions";
 import {
   CheckCircle, XCircle, Clock, Ban,
-  Plus, ChevronDown, ChevronUp, Save, UserPlus,
+  Plus, ChevronDown, ChevronUp, Save, UserPlus, Copy, Eye, EyeOff, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
+
+function generatePassword(len = 16) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+  const arr = new Uint32Array(len);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (n) => chars[n % chars.length]).join("");
+}
 
 export const Route = createFileRoute("/admin/")({
   component: AdminDashboard,
@@ -115,8 +124,21 @@ function CompanyRow({
   const status = STATUS_CONFIG[company.subscription_status];
   const StatusIcon = status.icon;
   const [config, setConfig] = useState<TenantConfig>({ ...DEFAULT_TENANT_CONFIG, ...company.config });
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviting, setInviting] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [lastCreated, setLastCreated] = useState<{ email: string; password: string } | null>(null);
+  const [members, setMembers] = useState<Array<{ id: string; user_id: string; role: string; email: string | null }>>([]);
+  const createAdmin = useServerFn(createCompanyAdmin);
+  const fetchMembers = useServerFn(listCompanyMembers);
+
+  useEffect(() => {
+    if (!expanded) return;
+    fetchMembers({ data: { companyId: company.id } })
+      .then((r) => setMembers(r as typeof members))
+      .catch(() => {});
+  }, [expanded, company.id, fetchMembers, lastCreated]);
 
   function toggleModule(mod: TenantModule) {
     setConfig((prev) => ({
@@ -127,14 +149,30 @@ function CompanyRow({
     }));
   }
 
-  async function handleInvite(e: React.FormEvent) {
+  async function handleCreateAdmin(e: React.FormEvent) {
     e.preventDefault();
-    setInviting(true);
-    toast.info(
-      `To invite ${inviteEmail}: open Supabase → Auth → Users → Invite, then add their user_id to company_members for company ${company.id}.`,
-    );
-    setInviting(false);
-    setInviteEmail("");
+    if (newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+    setCreating(true);
+    try {
+      await createAdmin({ data: { companyId: company.id, email: newEmail, password: newPassword } });
+      toast.success(`Admin user created for ${newEmail}`);
+      setLastCreated({ email: newEmail, password: newPassword });
+      setNewEmail("");
+      setNewPassword("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create user");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function copyCreds() {
+    if (!lastCreated) return;
+    await navigator.clipboard.writeText(`Email: ${lastCreated.email}\nPassword: ${lastCreated.password}`);
+    toast.success("Credentials copied to clipboard");
   }
 
   return (
