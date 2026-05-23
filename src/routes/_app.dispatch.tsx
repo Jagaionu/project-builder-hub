@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useJobs, useWarehouses, useDrivers, useCompliance } from "@/lib/hooks";
 import type { Compliance } from "@/lib/compliance";
 
-import { PageHeader } from "./_app.index";
+
 import {
   Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock,
   Check, User, Upload, Calendar as CalendarIcon, Pencil, Sparkles, ArrowRight,
