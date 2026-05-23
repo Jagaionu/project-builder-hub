@@ -237,13 +237,37 @@ function WarehousesPage() {
         title="Warehouses"
         subtitle={q ? `${filtered.length} of ${warehouses.length} sites` : `${warehouses.length} sites in network`}
         right={
-          <button
-            onClick={() => setOpen((o) => !o)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
-          >
-            <Plus className="size-3.5" /> New Warehouse
-          </button>
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) importCsv(f); }}
+            />
+            <button
+              onClick={exportCsv}
+              disabled={warehouses.length === 0}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface text-xs font-medium hover:bg-surface-2 disabled:opacity-50"
+            >
+              <Download className="size-3.5" /> Export CSV
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface text-xs font-medium hover:bg-surface-2 disabled:opacity-50"
+            >
+              <Upload className="size-3.5" /> {importing ? "Importing…" : "Import CSV"}
+            </button>
+            <button
+              onClick={() => setOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
+            >
+              <Plus className="size-3.5" /> New Warehouse
+            </button>
+          </div>
         }
+
       />
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
         <div className="relative max-w-md">
