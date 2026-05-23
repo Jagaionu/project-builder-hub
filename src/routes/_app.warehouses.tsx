@@ -24,6 +24,9 @@ function WarehousesPage() {
   const [editForm, setEditForm] = useState<WForm>(empty);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+
   const q = query.trim().toLowerCase();
   const filtered = q
     ? warehouses.filter((w) => [w.code, w.name, w.address ?? ""].some((f) => f.toLowerCase().includes(q)))
