@@ -1,37 +1,52 @@
 import { Link, useLocation } from "@tanstack/react-router";
+import { Home, Map, AlertTriangle, User } from "lucide-react";
 
 const tabs = [
-  { id: "home", path: "/d", label: "Home", icon: "🏠" },
-  { id: "routes", path: "/d/routes", label: "Routes", icon: "📋" },
-  { id: "report", path: "/d/report", label: "Report", icon: "⚠️" },
-  { id: "profile", path: "/d/profile", label: "Me", icon: "👤" },
+  { id: "home",   path: "/d",        label: "Home",    Icon: Home },
+  { id: "routes", path: "/d/routes", label: "Routes",  Icon: Map },
+  { id: "report", path: "/d/report", label: "Report",  Icon: AlertTriangle },
+  { id: "profile",path: "/d/profile",label: "Profile", Icon: User },
 ] as const;
 
 export function DriverBottomNav() {
   const location = useLocation();
   const current = tabs.find((t) =>
-    t.path === "/d" ? location.pathname === "/d" : location.pathname.startsWith(t.path),
+    t.path === "/d"
+      ? location.pathname === "/d"
+      : location.pathname.startsWith(t.path),
   )?.id;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border pb-[env(safe-area-inset-bottom)]">
-      <div className="flex justify-around items-stretch h-16 max-w-md mx-auto">
-        {tabs.map((t) => {
-          const active = current === t.id;
-          return (
-            <Link
-              key={t.id}
-              to={t.path}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
-                active ? "text-primary" : "text-muted-foreground"
-              }`}
-            >
-              <span className="text-xl leading-none">{t.icon}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider">{t.label}</span>
-            </Link>
-          );
-        })}
-      </div>
+    <nav className="driver-bottom-nav">
+      {tabs.map((t) => {
+        const active = current === t.id;
+        const { Icon } = t;
+        return (
+          <Link
+            key={t.id}
+            to={t.path}
+            className={`driver-nav-item${active ? " active" : ""}`}
+          >
+            {/* Active indicator dot */}
+            {active && (
+              <span
+                className="absolute top-1.5 left-1/2 -translate-x-1/2 size-1 rounded-full"
+                style={{ background: "oklch(0.62 0.22 245)" }}
+              />
+            )}
+            <Icon
+              strokeWidth={active ? 2.5 : 1.8}
+              style={{
+                color: active ? "oklch(0.62 0.22 245)" : undefined,
+                filter: active ? "drop-shadow(0 0 6px oklch(0.62 0.22 245 / 0.5))" : undefined,
+              }}
+            />
+            <span style={{ fontSize: "10px", letterSpacing: "0.04em", fontWeight: active ? 600 : 500 }}>
+              {t.label}
+            </span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }
