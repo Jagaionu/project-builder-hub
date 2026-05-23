@@ -863,25 +863,28 @@ function JobDetailPanel({
       .sort((a, b) => a.distKm - b.distKm);
   }, [driver, drivers, origin]);
 
-  // Auto-validate arrivals when driver isn't reporting GPS.
-  // If the planned arrival time has passed and the driver's GPS has been stale
-  // for >15 min (or never reported), assume the driver isn't using the app and
-  // mark the stop as arrived on time (at its scheduled time).
+  // Auto-validate arrivals as a fallback to GPS geofencing.
+  // For each unarrived stop, if planned arrival has passed AND either
+  //   - the driver's GPS is stale (>15 min / never reported), OR
+  //   - a grace period (20 min) has elapsed since the planned time
+  // then assume the driver arrived on time and stamp arrived_at = planned.
   const autoValidatedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (stops.length === 0) return;
     if (job.status === "COMPLETED" || job.status === "CANCELLED") return;
     const STALE_MIN = 15;
+    const GRACE_MIN = 20;
     const now = Date.now();
     const lastGps = driver?.last_update_time ? new Date(driver.last_update_time).getTime() : 0;
     const gpsStale = !lastGps || (now - lastGps) / 60_000 > STALE_MIN;
-    if (!gpsStale) return;
     stops.forEach((s, i) => {
       if (!s.id || s.arrived_at) return;
       const planned = stopTimes[i];
       if (!planned) return;
       const plannedMs = new Date(planned).getTime();
       if (plannedMs > now) return;
+      const graceElapsed = (now - plannedMs) / 60_000 >= GRACE_MIN;
+      if (!gpsStale && !graceElapsed) return;
       if (autoValidatedRef.current.has(s.id)) return;
       autoValidatedRef.current.add(s.id);
       void supabase
@@ -895,6 +898,7 @@ function JobDetailPanel({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.id, job.status, stops, stopTimes, driver?.last_update_time]);
+
 
   // Auto-complete: all stops arrived, no significant delays, and not already terminal.
   useEffect(() => {
