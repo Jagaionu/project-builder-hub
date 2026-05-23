@@ -7,7 +7,7 @@ import { DEFAULT_TENANT_CONFIG } from "@/lib/types";
 import { createCompanyAdmin, listCompanyMembers } from "@/lib/admin-users.functions";
 import {
   CheckCircle, XCircle, Clock, Ban,
-  Plus, ChevronDown, ChevronUp, Save, UserPlus, Copy, Eye, EyeOff, RefreshCw,
+  Plus, ChevronDown, ChevronUp, Save, UserPlus, Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 
