@@ -563,14 +563,13 @@ function Metric({
       <div className="h-1 rounded-full bg-surface-2 overflow-hidden">
         <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      {live && (
-        <div className="text-[10px] font-mono text-muted-foreground text-right">
-          {live === "down" ? "−" : "+"}
-          <LiveTimer baseHours={live === "down" ? Math.max(0, cap - value) : value} dir={live} />
-        </div>
-      )}
     </div>
   );
+}
+
+// (live timer removed — values shown for reference only)
+function _UnusedLiveTimerSlot() {
+  return null;
 }
 
 function LiveTimer({ baseHours, dir }: { baseHours: number; dir: "up" | "down" }) {
