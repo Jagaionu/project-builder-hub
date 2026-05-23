@@ -521,7 +521,7 @@ function ComplianceCell({ c, rows, activeJobs, driverLat, driverLon }: { c: Comp
               </div>
             )}
 
-            <ProjectedRoutePanel jobs={activeJobs} driverLat={driverLat} driverLon={driverLon} dailyHeadroomH={c.dailyHeadroom} />
+            <ProjectedRoutePanel jobs={activeJobs} driverLat={driverLat} driverLon={driverLon} dailyHeadroomH={c.dailyHeadroom} continuousDriveH={c.continuousDrive} onShift={c.onShift} />
 
             <DayHoursTable rows={rows} />
           </div>
