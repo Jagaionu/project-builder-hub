@@ -115,7 +115,7 @@ function JobDetail() {
     setBusy(true);
     try {
       await supabase.from("jobs").update({ status: "PENDING", assigned_driver_id: null, planned_driver_id: null } as never).eq("id", job.id);
-      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "REJECT_JOB", payload: { job_id: job.id } } as never);
+      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "REJECT_JOB", payload: { job_id: job.id }, tenant_id: await getTenantId() } as never);
       toast.success("Route rejected");
       navigate({ to: "/d/routes" });
     } catch (e) {
