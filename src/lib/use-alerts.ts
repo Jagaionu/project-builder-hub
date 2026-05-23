@@ -39,8 +39,15 @@ function writeAcked(set: Set<string>) {
 }
 
 function useAcked() {
-  const [acked, setAcked] = useState<Set<string>>(() => readAcked());
+  // FIX: initialise with empty set to avoid SSR/client hydration mismatch.
+  // localStorage is read inside useEffect (client-only) instead of in the
+  // useState initialiser, which runs on the server with no window access.
+  const [acked, setAcked] = useState<Set<string>>(new Set());
+
   useEffect(() => {
+    // Populate from storage once mounted on the client.
+    setAcked(readAcked());
+
     const handler = () => setAcked(readAcked());
     window.addEventListener(ACK_EVENT, handler);
     window.addEventListener("storage", handler);
@@ -49,11 +56,13 @@ function useAcked() {
       window.removeEventListener("storage", handler);
     };
   }, []);
+
   const ack = useCallback((id: string) => {
     const next = new Set(readAcked());
     next.add(id);
     writeAcked(next);
   }, []);
+
   return { acked, ack };
 }
 
@@ -104,10 +113,6 @@ export function useAlerts() {
           });
         }
       }
-      // Stale-location alerts intentionally removed: drivers must not use
-      // their phone while driving, so missing pings are expected. Position
-      // is now projected from the job timeline (start + buffers + dwell +
-      // transit) instead of relying on live GPS.
       const c = compliance[d.id];
       if (c) {
         c.issues.forEach((iss, idx) => {
@@ -129,8 +134,6 @@ export function useAlerts() {
           out.push({ id: `j-${j.id}`, level: "warning", type: "Overdue ETA", icon: Timer, message: `${j.reference} overdue by ${Math.round(overdueMin)} min` });
         }
       }
-      // Unassigned jobs are surfaced as a count badge on the Dispatch nav
-      // item instead of an alert — dispatchers already work that queue.
     });
 
     return out;
