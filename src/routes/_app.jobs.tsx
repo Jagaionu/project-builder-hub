@@ -1107,7 +1107,7 @@ function RouteDialog({
       seq: i,
       kind: s.kind as never,
       warehouse_id: s.warehouse_id,
-      scheduled_at: s.scheduled_at ?? autoTimes[i] ?? null,
+      scheduled_at: i === 0 ? (s.scheduled_at ?? autoTimes[i] ?? null) : (autoTimes[i] ?? null),
     }));
     const { error: stopErr } = await supabase.from("job_stops").insert(rows as never);
     setSaving(false);
