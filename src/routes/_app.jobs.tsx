@@ -1156,12 +1156,7 @@ function RouteDialog({
           </button>
         </div>
         <div className="p-5 space-y-4 overflow-y-auto">
-          <div>
-            <Field label="Scheduled (optional)">
-              <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm" />
-            </Field>
-            <p className="mt-2 text-[11px] text-muted-foreground">Driver is assigned from the jobs list once the route is created.</p>
-          </div>
+
 
           <div>
             <div className="flex items-center justify-between mb-2">
