@@ -99,7 +99,7 @@ function JobDetail() {
       const { error: jErr } = await supabase.from("jobs").update({ status: "IN_PROGRESS" } as never).eq("id", job.id);
       if (jErr) throw jErr;
       await supabase.from("drivers").update({ status: "ON_ROUTE" } as never).eq("id", driver.id);
-      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "ACCEPT_JOB", payload: { job_id: job.id } } as never);
+      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "ACCEPT_JOB", payload: { job_id: job.id }, tenant_id: await getTenantId() } as never);
       refreshJob({ status: "IN_PROGRESS" });
       toast.success("Route accepted");
     } catch (e) {
