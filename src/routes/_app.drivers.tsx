@@ -8,6 +8,7 @@ import type { Compliance } from "@/lib/compliance";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
+import { getTenantId } from "@/lib/tenant-insert";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Check, X, KeyRound, Copy, Link as LinkIcon } from "lucide-react";
 import { rotateDriverLoginCode } from "@/lib/pairing.functions";
