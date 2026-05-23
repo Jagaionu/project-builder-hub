@@ -5,6 +5,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { ClientOnly } from "@/components/ClientOnly";
 import { haversineKm, etaMinutes } from "@/lib/geo";
 import { Truck, Navigation, Clock } from "lucide-react";
+import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
+import { effectiveDriverStatus, effectiveJobStatus, isJobScheduledFuture } from "@/lib/effective-status";
 
 const LiveMap = lazy(() => import("@/components/LiveMap").then((m) => ({ default: m.LiveMap })));
 
