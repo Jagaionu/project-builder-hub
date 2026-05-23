@@ -756,7 +756,17 @@ function JobsPage() {
                         )}
                       </div>
                       <div className="col-span-1" onClick={(e) => e.stopPropagation()}>
-                        <StatusPill status={j.status} onChange={(s) => setStatus(j.id, s)} />
+                        <StatusPill
+                          status={
+                            isJobScheduledFuture(
+                              { ...j, stops: stops.map((s) => ({ seq: s.seq, kind: s.kind, warehouse_id: s.warehouse_id, scheduled_at: s.scheduled_at, arrived_at: s.arrived_at })) },
+                              Date.now(),
+                            )
+                              ? "SCHEDULED"
+                              : j.status
+                          }
+                          onChange={(s) => setStatus(j.id, s)}
+                        />
                       </div>
                     </div>
                     {expanded && stops.length > 0 && (
