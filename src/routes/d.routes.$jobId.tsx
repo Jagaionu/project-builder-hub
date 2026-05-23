@@ -148,6 +148,7 @@ function JobDetail() {
         driver_id: driver.id,
         type: "DRIVER_NOTE",
         payload: { job_id: job.id, note: note.trim() },
+        tenant_id: await getTenantId(),
       } as never);
       if (error) throw error;
       setNote("");
