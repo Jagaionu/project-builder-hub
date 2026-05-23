@@ -6,7 +6,7 @@ import { Field } from "./_app.drivers";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { toast } from "sonner";
-import { Plus, MoreHorizontal, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Search, Download, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/_app/warehouses")({
   component: WarehousesPage,
