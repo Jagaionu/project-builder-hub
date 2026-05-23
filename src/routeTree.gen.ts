@@ -9,7 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SuspendedRouteImport } from './routes/suspended'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as DRouteImport } from './routes/d'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as DIndexRouteImport } from './routes/d.index'
@@ -28,9 +30,19 @@ import { Route as DRoutesJobIdRouteImport } from './routes/d.routes.$jobId'
 import { Route as ApiPublicPairingLoginRouteImport } from './routes/api/public/pairing-login'
 import { Route as ApiPublicCronShiftRolloverRouteImport } from './routes/api/public/cron/shift-rollover'
 
+const SuspendedRoute = SuspendedRouteImport.update({
+  id: '/suspended',
+  path: '/suspended',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DRoute = DRouteImport.update({
@@ -122,7 +134,9 @@ const ApiPublicCronShiftRolloverRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/d': typeof DRouteWithChildren
+  '/login': typeof LoginRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/suspended': typeof SuspendedRoute
   '/alerts': typeof AppAlertsRoute
   '/dispatch': typeof AppDispatchRoute
   '/drivers': typeof AppDriversRoute
@@ -139,7 +153,9 @@ export interface FileRoutesByFullPath {
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
 }
 export interface FileRoutesByTo {
+  '/login': typeof LoginRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/suspended': typeof SuspendedRoute
   '/alerts': typeof AppAlertsRoute
   '/dispatch': typeof AppDispatchRoute
   '/drivers': typeof AppDriversRoute
@@ -160,7 +176,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/d': typeof DRouteWithChildren
+  '/login': typeof LoginRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/suspended': typeof SuspendedRoute
   '/_app/alerts': typeof AppAlertsRoute
   '/_app/dispatch': typeof AppDispatchRoute
   '/_app/drivers': typeof AppDriversRoute
@@ -182,7 +200,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/d'
+    | '/login'
     | '/sitemap.xml'
+    | '/suspended'
     | '/alerts'
     | '/dispatch'
     | '/drivers'
@@ -199,7 +219,9 @@ export interface FileRouteTypes {
     | '/api/public/cron/shift-rollover'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/login'
     | '/sitemap.xml'
+    | '/suspended'
     | '/alerts'
     | '/dispatch'
     | '/drivers'
@@ -219,7 +241,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/d'
+    | '/login'
     | '/sitemap.xml'
+    | '/suspended'
     | '/_app/alerts'
     | '/_app/dispatch'
     | '/_app/drivers'
@@ -240,18 +264,34 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   DRoute: typeof DRouteWithChildren
+  LoginRoute: typeof LoginRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SuspendedRoute: typeof SuspendedRoute
   ApiPublicPairingLoginRoute: typeof ApiPublicPairingLoginRoute
   ApiPublicCronShiftRolloverRoute: typeof ApiPublicCronShiftRolloverRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/suspended': {
+      id: '/suspended'
+      path: '/suspended'
+      fullPath: '/suspended'
+      preLoaderRoute: typeof SuspendedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/d': {
@@ -430,7 +470,9 @@ const DRouteWithChildren = DRoute._addFileChildren(DRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   DRoute: DRouteWithChildren,
+  LoginRoute: LoginRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SuspendedRoute: SuspendedRoute,
   ApiPublicPairingLoginRoute: ApiPublicPairingLoginRoute,
   ApiPublicCronShiftRolloverRoute: ApiPublicCronShiftRolloverRoute,
 }
