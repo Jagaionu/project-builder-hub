@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  Activity, Map, Truck, Warehouse, ClipboardList,
+  Map, Truck, Warehouse, ClipboardList,
   AlertTriangle, Webhook, LogOut, Shield, Radio,
 } from "lucide-react";
 import { useAlertCount, useUnassignedJobCount } from "@/lib/use-alerts";
