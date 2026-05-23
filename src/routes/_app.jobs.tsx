@@ -8,6 +8,7 @@ import type { Compliance } from "@/lib/compliance";
 import { PageHeader } from "./_app.index";
 import { Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock, ChevronRight, Check, User, Upload, Calendar as CalendarIcon, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getTenantId } from "@/lib/tenant-insert";
 import { toast } from "sonner";
 
 import { computePlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
