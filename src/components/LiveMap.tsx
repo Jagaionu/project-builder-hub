@@ -1,9 +1,4 @@
-Here is the completely rewritten, production-ready `LiveMap.tsx` component.
-
-The base tile layer has been migrated from the illegible dark canvas to **CartoDB Voyager**, which features highly detailed street networks, legible labels, and clean pastel landuse layouts similar to modern navigation systems like Waze. The marker dynamics, map overlays, popups, and route lines have been updated to high-contrast styles that stand out clearly against a bright map background.
-
-```tsx
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Driver, Warehouse, Job } from "@/lib/types";
@@ -16,43 +11,40 @@ interface Props {
   onSelectDriver?: (id: string) => void;
 }
 
-// ── Waze-Inspired Status Colour Palette (Optimized for Light Street Maps) ──
-const S_COLOR: Record<string, { fill: string; text: string; glow: string }> = {
-  AVAILABLE:  { fill: "#10b981", text: "#ffffff", glow: "rgba(16,185,129,0.3)" },
-  ON_SHIFT:   { fill: "#2563eb", text: "#ffffff", glow: "rgba(37,99,235,0.3)" },
-  ON_ROUTE:   { fill: "#059669", text: "#ffffff", glow: "rgba(5,150,105,0.3)" },
-  DELAYED:    { fill: "#dc2626", text: "#ffffff", glow: "rgba(220,38,38,0.35)" },
-  OFF_SHIFT:  { fill: "#64748b", text: "#ffffff", glow: "rgba(100,116,139,0.15)" },
-  ON_BREAK:   { fill: "#d97706", text: "#ffffff", glow: "rgba(217,119,6,0.25)" },
+// ── Color palette for statuses (now tuned for light background) ─────────────
+const S_COLOR: Record<string, { fill: string; glow: string; text: string }> = {
+  AVAILABLE:   { fill: "#22c55e", glow: "rgba(34,197,94,0.3)", text: "#0f172a" },
+  ON_SHIFT:    { fill: "#3b82f6", glow: "rgba(59,130,246,0.3)", text: "#fff" },
+  ON_ROUTE:    { fill: "#22c55e", glow: "rgba(34,197,94,0.3)", text: "#0f172a" },
+  DELAYED:     { fill: "#f59e0b", glow: "rgba(245,158,11,0.3)", text: "#0f172a" },
+  OFF_SHIFT:   { fill: "#94a3b8", glow: "rgba(148,163,184,0.2)", text: "#0f172a" },
+  ON_BREAK:    { fill: "#f59e0b", glow: "rgba(245,158,11,0.3)", text: "#0f172a" },
 };
-const DEFAULT_COLOR = { fill: "#2563eb", text: "#ffffff", glow: "rgba(37,99,235,0.3)" };
-const BG = "#ffffff";           // High contrast crisp white border for markers
-const ROUTE_COLOR = "#00b4d8";  // Vibrant Waze-style neon telemetry blue
+const DEFAULT_COLOR = { fill: "#3b82f6", glow: "rgba(59,130,246,0.3)", text: "#fff" };
+const BG = "#ffffff";           // Light background for marker borders
+const ROUTE_COLOR = "#2563eb";  // Strong blue for route lines
 
 function driverMarkerHtml(name: string, status: string, selected: boolean): string {
-  const { fill, glow } = S_COLOR[status] ?? DEFAULT_COLOR;
+  const { fill, glow, text } = S_COLOR[status] ?? DEFAULT_COLOR;
   const initial = (name?.[0] ?? "?").toUpperCase();
   const size = selected ? 38 : 30;
   const fontSize = selected ? 15 : 12;
   const border = selected ? `3px solid #0f172a` : `2.5px solid ${BG}`;
   const shadow = selected
-    ? `0 0 0 2px ${fill}, 0 8px 24px rgba(15,23,42,0.35)`
-    : `0 4px 10px rgba(15,23,42,0.15), 0 0 0 1px ${glow}`;
-  
+    ? `0 0 0 3px ${fill},0 0 16px ${glow},0 4px 12px rgba(0,0,0,0.15)`
+    : `0 0 0 1.5px ${fill},0 0 10px ${glow},0 2px 6px rgba(0,0,0,0.1)`;
   const pulse = (status !== "OFF_SHIFT" && !selected)
-    ? `<div style="position:absolute;inset:-5px;border-radius:50%;border:2px solid ${fill};animation:ping 2s cubic-bezier(0,0,0.2,1) infinite;opacity:0.6;pointer-events:none"></div>`
+    ? `<div style="position:absolute;inset:-6px;border-radius:50%;border:1.5px solid ${fill};animation:ping-slow 2.4s cubic-bezier(0,0,0.2,1) infinite;pointer-events:none"></div>`
     : "";
-
   return `
     <div style="
       width:${size}px;height:${size}px;border-radius:50%;
       background:${fill};border:${border};
       box-shadow:${shadow};
       display:flex;align-items:center;justify-content:center;
-      font-family:Inter,system-ui,sans-serif;font-weight:700;font-size:${fontSize}px;color:#fff;
+      font-family:Inter,system-ui,sans-serif;font-weight:700;font-size:${fontSize}px;color:${text};
       cursor:pointer;position:relative;
-      transition: transform 0.2s ease;
-      ${selected ? "z-index:1000; transform: scale(1.1);" : ""}
+      ${selected ? "z-index:1000;" : ""}
     ">
       ${initial}
       ${pulse}
@@ -60,25 +52,25 @@ function driverMarkerHtml(name: string, status: string, selected: boolean): stri
 }
 
 function warehouseMarkerHtml(code: string): string {
-  const label = code.length > 5 ? code.slice(0, 5) : code;
+  const label = code.length > 4 ? code.slice(0, 4) : code;
   return `
     <div style="
-      background:#0f172a;border:2px solid ${BG};border-radius:6px;
+      background:#f59e0b;border:2px solid ${BG};border-radius:8px;
       padding:3px 8px;
       font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:10px;
-      color:#fff;white-space:nowrap;
-      box-shadow:0 4px 12px rgba(0,0,0,0.15), 0 0 0 1px rgba(15,23,42,0.1);
+      color:${BG};white-space:nowrap;
+      box-shadow:0 2px 8px rgba(0,0,0,0.15),0 0 0 1px rgba(245,158,11,0.4);
     ">
-      📍 ${label}
+      ${label}
     </div>`;
 }
 
 function popupHtml(title: string, sub: string, extra = ""): string {
   return `
-    <div style="font-family:Inter,system-ui,sans-serif;min-width:140px;color:#1e293b;padding:2px">
-      <div style="font-weight:700;font-size:14px;color:#0f172a;line-height:1.2">${title}</div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:.04em">${sub}</div>
-      ${extra ? `<div style="font-size:11px;color:#334155;margin-top:6px;border-top:1px solid #e2e8f0;padding-top:6px;line-height:1.4">${extra}</div>` : ""}
+    <div style="font-family:Inter,system-ui,sans-serif;min-width:140px;color:#0f172a">
+      <div style="font-weight:600;font-size:14px;color:#0f172a">${title}</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#334155;margin-top:4px;text-transform:uppercase;letter-spacing:.06em">${sub}</div>
+      ${extra ? `<div style="font-size:12px;color:#475569;margin-top:5px">${extra}</div>` : ""}
     </div>`;
 }
 
@@ -89,14 +81,14 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   const warehouseLayer = useRef<L.LayerGroup | null>(null);
   const routeLayer     = useRef<L.LayerGroup | null>(null);
 
-  // ── Init map once ──────────────────────────────────────────────────────────
+  // New state for manual distance/eta calculation
+  const [selectedCalcDriver, setSelectedCalcDriver] = useState<Driver | null>(null);
+  const [calcResult, setCalcResult] = useState<{ distanceKm: number; minutes: number } | null>(null);
+  const [calcLoading, setCalcLoading] = useState(false);
+
+  // ── Init map once (light CartoDB Voyager) ─────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-
-    // Clean up any lingering dark styles or layout overrides
-    const styleId = "carto-tile-fix";
-    const existingStyle = document.getElementById(styleId);
-    if (existingStyle) existingStyle.remove();
 
     const map = L.map(containerRef.current, {
       center: [53.5, -1.5],
@@ -105,9 +97,9 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       attributionControl: true,
     });
 
-    // CartoDB Voyager — Crisp, high-contrast street map with beautiful logistics legibility
+    // Light, Waze‑like basemap
     L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
       {
         attribution:
           '© <a href="https://www.openstreetmap.org/copyright">OSM</a> · <a href="https://carto.com/attributions">CARTO</a>',
@@ -116,7 +108,6 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       },
     ).addTo(map);
 
-    // Modern clean positioning for zoom tools
     L.control.zoom({ position: "bottomright" }).addTo(map);
 
     warehouseLayer.current = L.layerGroup().addTo(map);
@@ -130,7 +121,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
     };
   }, []);
 
-  // ── Fit to data on first meaningful load ───────────────────────────────────
+  // ── Fit to data on first load ───────────────────────────────────────────
   useEffect(() => {
     if (!mapRef.current) return;
     const points: [number, number][] = [
@@ -142,12 +133,12 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
     if (points.length === 0) return;
     mapRef.current.flyToBounds(L.latLngBounds(points), {
       padding: [60, 60],
-      maxZoom: 10,
+      maxZoom: 9,
       duration: 1.2,
     });
-  }, [warehouses.length > 0]);
+  }, [warehouses.length > 0]); // only on first meaningful load
 
-  // ── Warehouse markers ─────────────────────────────────────────────────────
+  // ── Warehouse markers (added click handler for calculation) ──────────────
   useEffect(() => {
     const layer = warehouseLayer.current;
     if (!layer) return;
@@ -156,18 +147,43 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       const icon = L.divIcon({
         className: "",
         html: warehouseMarkerHtml(w.code),
-        iconAnchor: [20, 10],
+        iconAnchor: [0, 0],
       });
-      const popup = L.popup({ offset: [0, -4] }).setContent(
+      const popup = L.popup({ className: "light-popup", offset: [0, -4] }).setContent(
         popupHtml(w.name, w.code, w.address ?? ""),
       );
-      L.marker([w.latitude, w.longitude], { icon })
-        .bindPopup(popup)
-        .addTo(layer);
-    });
-  }, [warehouses]);
+      const marker = L.marker([w.latitude, w.longitude], { icon })
+        .bindPopup(popup);
 
-  // ── Driver markers ────────────────────────────────────────────────────────
+      // Warehouse click: if a driver is selected for calculation, compute route
+      marker.on("click", () => {
+        if (selectedCalcDriver && selectedCalcDriver.current_lat && selectedCalcDriver.current_lon) {
+          setCalcLoading(true);
+          calculateRoute(
+            { lat: selectedCalcDriver.current_lat, lon: selectedCalcDriver.current_lon },
+            { lat: w.latitude, lon: w.longitude }
+          )
+            .then(({ distanceKm, minutes }) => {
+              setCalcResult({ distanceKm, minutes });
+            })
+            .catch((err) => {
+              console.error("Routing failed", err);
+              setCalcResult(null);
+              alert("Could not calculate route. Please try again.");
+            })
+            .finally(() => setCalcLoading(false));
+        } else {
+          // Optionally alert that no driver is selected
+          if (selectedCalcDriver) alert("Driver location missing");
+          else alert("Click a driver first to see distance/time to a warehouse");
+        }
+      });
+
+      marker.addTo(layer);
+    });
+  }, [warehouses, selectedCalcDriver]);
+
+  // ── Driver markers ───────────────────────────────────────────────────────
   useEffect(() => {
     const layer = driverLayer.current;
     if (!layer) return;
@@ -187,23 +203,30 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
         (j) => j.assigned_driver_id === d.id &&
           ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
       );
-      const extra = activeJob ? `Active Job: <b style="color:#2563eb">${activeJob.reference}</b>` : "";
+      const extra = activeJob ? `Job: <b>${activeJob.reference}</b>` : "";
       const lastSeen = d.last_update_time
-        ? `Ping: ${new Date(d.last_update_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+        ? `GPS: ${new Date(d.last_update_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
         : "";
 
-      const popup = L.popup({ offset: [0, -6] }).setContent(
+      const popup = L.popup({ className: "light-popup", offset: [0, -8] }).setContent(
         popupHtml(d.name, d.status.replace(/_/g, " "), [extra, lastSeen].filter(Boolean).join(" · ")),
       );
 
       const marker = L.marker([d.current_lat, d.current_lon], { icon, zIndexOffset: isSelected ? 1000 : 0 })
         .bindPopup(popup);
-      marker.on("click", () => onSelectDriver?.(d.id));
+
+      marker.on("click", () => {
+        onSelectDriver?.(d.id);
+        // Store driver for manual calculation and show coordinates
+        setSelectedCalcDriver(d);
+        setCalcResult(null); // clear previous result
+      });
+
       marker.addTo(layer);
     });
   }, [drivers, selectedDriverId, onSelectDriver, jobs]);
 
-  // ── Route line for selected driver ────────────────────────────────────────
+  // ── Route line for selected driver (existing feature) ────────────────────
   const selectedDriver = useMemo(
     () => drivers.find((d) => d.id === selectedDriverId),
     [drivers, selectedDriverId],
@@ -226,8 +249,9 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
     if (!selectedDriver?.current_lat || !selectedDriver.current_lon) return;
 
     if (!activeJob) {
-      mapRef.current?.flyTo([selectedDriver.current_lat, selectedDriver.current_lon], 12, {
+      mapRef.current?.flyTo([selectedDriver.current_lat, selectedDriver.current_lon], 11, {
         duration: 1.0,
+        easeLinearity: 0.3,
       });
       return;
     }
@@ -242,60 +266,45 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
     const from: [number, number] = [selectedDriver.current_lat, selectedDriver.current_lon];
     const to:   [number, number] = [destWh.latitude, destWh.longitude];
 
-    // Thick clean underlying vector track glow (Waze style guidance track)
+    L.polyline([from, to], { color: ROUTE_COLOR, weight: 8, opacity: 0.12, lineCap: "round" }).addTo(layer);
+    L.polyline([from, to], { color: ROUTE_COLOR, weight: 4, opacity: 0.25, lineCap: "round" }).addTo(layer);
     L.polyline([from, to], {
       color: ROUTE_COLOR,
-      weight: 8,
-      opacity: 0.25,
+      weight: 2.8,
+      opacity: 0.95,
+      dashArray: "10 6",
+      className: "route-line",
       lineCap: "round",
     }).addTo(layer);
 
-    // High-visibility core line routing
-    L.polyline([from, to], {
-      color: ROUTE_COLOR,
-      weight: 4,
-      opacity: 0.85,
-      lineCap: "round",
-    }).addTo(layer);
-
-    // Telemetry directional dash line overlay
-    L.polyline([from, to], {
-      color: "#ffffff",
-      weight: 2,
-      opacity: 0.90,
-      dashArray: "6 6",
-      lineCap: "round",
-    }).addTo(layer);
-
-    // Destination landing target node
-    L.circleMarker(to, {
-      radius: 6,
-      fillColor: "#0f172a",
-      fillOpacity: 1,
-      color: ROUTE_COLOR,
-      weight: 3,
-    })
-      .bindPopup(L.popup().setContent(popupHtml(destWh.name, destWh.code)))
+    L.circleMarker(to, { radius: 8, fillColor: ROUTE_COLOR, fillOpacity: 0.9, color: BG, weight: 2.5 })
+      .bindPopup(L.popup({ className: "light-popup" }).setContent(popupHtml(destWh.name, destWh.code)))
       .addTo(layer);
 
-    // Radar pulsing ring around target destination
-    L.circleMarker(to, {
-      radius: 14,
-      fillColor: "transparent",
-      fillOpacity: 0,
-      color: ROUTE_COLOR,
-      weight: 2,
-      opacity: 0.50,
-    }).addTo(layer);
+    L.circleMarker(to, { radius: 14, fillColor: "transparent", color: ROUTE_COLOR, weight: 1.8, opacity: 0.5 }).addTo(layer);
 
     mapRef.current?.flyToBounds(L.latLngBounds([from, to]), {
-      padding: [80, 80],
-      maxZoom: 12,
+      padding: [100, 100],
+      maxZoom: 10,
       duration: 1.1,
     });
   }, [selectedDriver, activeJob, warehouses]);
 
-  // ── Overlay stats (computed for React render) ─────────────────────────────
+  // ── Helpers for distance/eta ──────────────────────────────────────────────
+  async function calculateRoute(
+    from: { lat: number; lon: number },
+    to: { lat: number; lon: number }
+  ): Promise<{ distanceKm: number; minutes: number }> {
+    const url = `https://router.project-osrm.org/route/v1/driving/${from.lon},${from.lat};${to.lon},${to.lat}?overview=false`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Routing service unavailable");
+    const data = await res.json();
+    if (!data.routes?.length) throw new Error("No route found");
+    const { distance, duration } = data.routes[0];
+    return { distanceKm: distance / 1000, minutes: Math.round(duration / 60) };
+  }
+
+  // ── Overlay for statistics + calculation panel ──────────────────────────
   const overlayStats = useMemo(() => {
     const onMap   = drivers.filter((d) => d.current_lat != null).length;
     const active  = drivers.filter((d) => ["AVAILABLE","ON_SHIFT","ON_ROUTE"].includes(d.status) && d.current_lat != null).length;
@@ -305,116 +314,106 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   }, [drivers]);
 
   return (
-    <div className="absolute inset-0 bg-[#f8fafc]">
-      {/* Map rendering window */}
+    <div className="absolute inset-0">
       <div ref={containerRef} className="absolute inset-0" />
 
-      {/* ── Modern Telemetry Status Widgets — Bottom Left ────────────────── */}
-      <div
-        className="absolute bottom-6 left-4 z-[999] flex flex-col gap-2"
-        style={{ pointerEvents: "none" }}
-      >
-        {/* Fleet capacity metrics */}
-        <div
-          className="flex items-center gap-2.5 rounded-xl px-3 py-2 shadow-lg"
-          style={{
-            background: "rgba(255, 255, 255, 0.95)",
-            border: "1px solid #e2e8f0",
-            backdropFilter: "blur(12px)",
-            pointerEvents: "auto",
-          }}
-        >
-          <span
-            className="size-2 rounded-full shrink-0"
-            style={{ background: "#2563eb", boxShadow: "0 0 8px rgba(37,99,235,0.5)" }}
-          />
-          <span className="text-xs font-mono font-bold text-slate-900">
-            {overlayStats.onMap}
-          </span>
-          <span className="text-[10px] font-sans font-bold uppercase tracking-wider text-slate-500">
-            Active Assets
-          </span>
+      {/* ── Status overlay (bottom left, unchanged but background adapted) ── */}
+      <div className="absolute bottom-6 left-3 z-[999] flex flex-col gap-2" style={{ pointerEvents: "none" }}>
+        <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-slate-200 shadow-sm">
+          <span className="size-2 rounded-full bg-blue-500 shadow-sm" />
+          <span className="text-xs font-semibold text-slate-700">{overlayStats.onMap}</span>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">on map</span>
           {overlayStats.offline > 0 && (
-            <span className="text-[10px] font-sans font-medium text-slate-400">
-              ({overlayStats.offline} untracked)
-            </span>
+            <span className="text-[10px] font-mono text-slate-400">· {overlayStats.offline} offline</span>
           )}
         </div>
-
-        {/* Operational Flow Status */}
         {overlayStats.active > 0 && (
-          <div
-            className="flex items-center gap-2.5 rounded-xl px-3 py-2 shadow-lg"
-            style={{
-              background: "rgba(255, 255, 255, 0.95)",
-              border: "1px solid #e2e8f0",
-              backdropFilter: "blur(12px)",
-            }}
-          >
-            <span
-              className="size-2 rounded-full shrink-0"
-              style={{ background: "#10b981", boxShadow: "0 0 8px rgba(16,185,129,0.5)" }}
-            />
-            <span className="text-xs font-mono font-bold text-slate-900">
-              {overlayStats.active}
-            </span>
-            <span className="text-[10px] font-sans font-bold uppercase tracking-wider text-slate-500">
-              In Transit
-            </span>
+          <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-slate-200 shadow-sm">
+            <span className="size-2 rounded-full bg-green-500 shadow-sm animate-pulse" />
+            <span className="text-xs font-semibold text-slate-700">{overlayStats.active}</span>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">active</span>
           </div>
         )}
-
-        {/* Dynamic Critical Exceptions Alert */}
         {overlayStats.delayed > 0 && (
-          <div
-            className="flex items-center gap-2.5 rounded-xl px-3 py-2 shadow-xl animate-bounce"
-            style={{
-              background: "#fef2f2",
-              border: "1px solid #fee2e2",
-              backdropFilter: "blur(12px)",
-            }}
-          >
-            <span
-              className="size-2 rounded-full shrink-0 animate-ping"
-              style={{ background: "#dc2626" }}
-            />
-            <span className="text-xs font-mono font-bold text-red-700">
-              {overlayStats.delayed}
-            </span>
-            <span className="text-[10px] font-sans font-bold uppercase tracking-wider text-red-600">
-              Incidents / Delays
-            </span>
+          <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-amber-200 shadow-sm">
+            <span className="size-2 rounded-full bg-amber-500 shadow-sm" />
+            <span className="text-xs font-semibold text-slate-700">{overlayStats.delayed}</span>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-amber-600">delayed</span>
           </div>
         )}
       </div>
 
-      {/* ── Focused Driver HeaderHUD — Top Center ─────────────────────── */}
+      {/* ── Calculation panel (bottom right) ──────────────────────────────── */}
+      <div className="absolute bottom-6 right-3 z-[999] w-72" style={{ pointerEvents: "auto" }}>
+        <div className="bg-white/95 backdrop-blur-sm rounded-xl border border-slate-200 shadow-xl p-3 text-sm font-sans">
+          {selectedCalcDriver ? (
+            <>
+              <div className="flex justify-between items-start border-b border-slate-100 pb-2 mb-2">
+                <div>
+                  <span className="font-semibold text-slate-800">{selectedCalcDriver.name}</span>
+                  <span className="text-xs text-slate-500 ml-2">📍 selected</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedCalcDriver(null);
+                    setCalcResult(null);
+                  }}
+                  className="text-xs text-slate-400 hover:text-slate-600"
+                >
+                  ✕ Clear
+                </button>
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="text-slate-500">
+                  <span className="font-mono">Lat: {selectedCalcDriver.current_lat?.toFixed(5)}</span><br />
+                  <span className="font-mono">Lon: {selectedCalcDriver.current_lon?.toFixed(5)}</span>
+                </div>
+                {calcLoading && (
+                  <div className="text-blue-600 flex items-center gap-1 pt-1">
+                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-500 border-t-transparent" />
+                    Calculating route...
+                  </div>
+                )}
+                {calcResult && !calcLoading && (
+                  <div className="mt-2 pt-2 border-t border-slate-100">
+                    <div className="text-slate-700 font-medium">→ distance / ETA</div>
+                    <div className="font-mono text-slate-800">
+                      {calcResult.distanceKm.toFixed(1)} km · {calcResult.minutes} min
+                      {calcResult.minutes >= 60 && (
+                        <span className="text-slate-500">
+                          {" "}({Math.floor(calcResult.minutes / 60)}h {calcResult.minutes % 60}min)
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">Click a warehouse after selecting driver</p>
+                  </div>
+                )}
+                {!calcLoading && !calcResult && (
+                  <p className="text-[11px] text-slate-400 pt-1">Click any warehouse to get road distance & ETA</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="text-slate-500 text-xs text-center py-1">
+              Click a driver → click a warehouse → get distance & ETA
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Selected driver label (top center, background adjusted) ────────── */}
       {selectedDriver && (
-        <div
-          className="absolute top-4 left-1/2 -translate-x-1/2 z-[999]"
-          style={{ pointerEvents: "none" }}
-        >
-          <div
-            className="flex items-center gap-3 rounded-full px-4 py-2 shadow-xl"
-            style={{
-              background: "#0f172a",
-              border: "1px solid rgba(255,255,255,0.15)",
-              backdropFilter: "blur(12px)",
-              boxShadow: "0 10px 25px -5px rgba(15,23,42,0.3)",
-            }}
-          >
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[999]" style={{ pointerEvents: "none" }}>
+          <div className="flex items-center gap-2 rounded-full px-4 py-1.5 bg-white/90 backdrop-blur-md border border-slate-200 shadow-md">
             <span
-              className="size-2.5 rounded-full shrink-0"
+              className="size-2 rounded-full shrink-0"
               style={{
-                background: S_COLOR[selectedDriver.status]?.fill ?? "#2563eb",
-                boxShadow: `0 0 10px ${S_COLOR[selectedDriver.status]?.fill ?? "#2563eb"}`,
+                background: S_COLOR[selectedDriver.status]?.fill ?? "#3b82f6",
+                boxShadow: `0 0 6px ${S_COLOR[selectedDriver.status]?.glow ?? "rgba(59,130,246,0.4)"}`,
               }}
             />
-            <span className="text-xs font-bold text-white tracking-wide">{selectedDriver.name}</span>
-            <span className="w-px h-3 bg-slate-700" />
-            <span
-              className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400"
-            >
+            <span className="text-sm font-semibold text-slate-800">{selectedDriver.name}</span>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
               {selectedDriver.status.replace(/_/g, " ")}
             </span>
           </div>
@@ -423,5 +422,3 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
     </div>
   );
 }
-
-```
