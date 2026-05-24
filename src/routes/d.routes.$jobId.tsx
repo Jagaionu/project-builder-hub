@@ -181,37 +181,18 @@ function JobDetail() {
       </div>
       <p className="text-sm text-muted-foreground mb-4">{sortedStops.length} stops</p>
 
-      {(showAcceptReject || showCantComplete) && (
+      {showCantComplete && (
         <div className="mb-4 flex gap-2">
-          {showAcceptReject && (
-            <>
-              <button
-                onClick={acceptJob}
-                disabled={busy}
-                className="flex-1 bg-success/20 text-success font-bold py-3 rounded-xl active:scale-[0.99] transition disabled:opacity-50"
-              >
-                ✅ Accept
-              </button>
-              <button
-                onClick={rejectJob}
-                disabled={busy}
-                className="flex-1 bg-destructive/10 text-destructive font-bold py-3 rounded-xl active:scale-[0.99] transition disabled:opacity-50"
-              >
-                ❌ Reject
-              </button>
-            </>
-          )}
-          {showCantComplete && (
-            <button
-              onClick={cantComplete}
-              disabled={busy}
-              className="flex-1 bg-muted text-muted-foreground font-semibold py-3 rounded-xl active:scale-[0.99] transition disabled:opacity-50"
-            >
-              🚫 Can't complete
-            </button>
-          )}
+          <button
+            onClick={cantComplete}
+            disabled={busy}
+            className="flex-1 bg-muted text-muted-foreground font-semibold py-3 rounded-xl active:scale-[0.99] transition disabled:opacity-50"
+          >
+            🚫 Can't complete
+          </button>
         </div>
       )}
+
 
       <div className="mb-6 bg-card border border-border rounded-2xl p-4 space-y-2 text-sm">
         {dateStr && (
