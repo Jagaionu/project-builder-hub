@@ -329,14 +329,37 @@ function DispatchPage() {
       if (typeof window !== "undefined" && !window.confirm("Remove driver from this active job? It will go back to Pending.")) return;
     }
     const base = driverId
-      ? { assigned_driver_id: driverId, status: "ASSIGNED" as never }
+      ? { assigned_driver_id: driverId, status: "IN_PROGRESS" as never }
       : { assigned_driver_id: null, status: "PENDING" as never, planned_driver_id: null, planned_sequence: null, planned_start_at: null };
     const payload = opts?.manual ? { ...base, manual_override: true } : base;
     const { error } = await supabase.from("jobs").update(payload as never).eq("id", jobId);
     if (error) return toast.error(error.message);
+
+    if (driverId) {
+      await supabase.from("drivers").update({ status: "ON_ROUTE" } as never).eq("id", driverId);
+      try {
+        const tenantId = await getTenantId();
+        await supabase.from("driver_events").insert({
+          driver_id: driverId,
+          type: "JOB_ASSIGNED",
+          payload: { job_id: jobId, manual: opts?.manual ?? false },
+          tenant_id: tenantId,
+        } as never);
+      } catch (e) {
+        console.error("[dispatch] failed to log JOB_ASSIGNED event", e);
+      }
+    } else if (job?.assigned_driver_id) {
+      await supabase
+        .from("drivers")
+        .update({ status: "AVAILABLE" } as never)
+        .eq("id", job.assigned_driver_id)
+        .eq("status", "ON_ROUTE");
+    }
+
     if (driverId) toast.success(opts?.manual ? "Driver assigned (manual)" : "Driver assigned");
     else if (opts?.manual) toast.success("Driver removed — auto-planner paused for this job");
   }
+
 
   // Auto-planner — unchanged from prior Jobs page
   const planSigRef = useRef<string>("");
