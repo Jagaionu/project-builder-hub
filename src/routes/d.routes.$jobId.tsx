@@ -93,37 +93,6 @@ function JobDetail() {
     );
   };
 
-  const acceptJob = async () => {
-    if (!driver) return;
-    setBusy(true);
-    try {
-      const { error: jErr } = await supabase.from("jobs").update({ status: "IN_PROGRESS" } as never).eq("id", job.id);
-      if (jErr) throw jErr;
-      await supabase.from("drivers").update({ status: "ON_ROUTE" } as never).eq("id", driver.id);
-      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "ACCEPT_JOB", payload: { job_id: job.id }, tenant_id: await getTenantId() } as never);
-      refreshJob({ status: "IN_PROGRESS" });
-      toast.success("Route accepted");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to accept");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const rejectJob = async () => {
-    if (!driver) return;
-    if (typeof window !== "undefined" && !window.confirm("Reject this route?")) return;
-    setBusy(true);
-    try {
-      await supabase.from("jobs").update({ status: "PENDING", assigned_driver_id: null, planned_driver_id: null } as never).eq("id", job.id);
-      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "REJECT_JOB", payload: { job_id: job.id }, tenant_id: await getTenantId() } as never);
-      toast.success("Route rejected");
-      navigate({ to: "/d/routes" });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to reject");
-      setBusy(false);
-    }
-  };
 
   const cantComplete = async () => {
     if (!driver) return;
