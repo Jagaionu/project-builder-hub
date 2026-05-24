@@ -4,7 +4,7 @@ import { useDrivers, useJobs, useWarehouses } from "@/lib/hooks";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ClientOnly } from "@/components/ClientOnly";
 import { haversineKm, etaMinutes } from "@/lib/geo";
-import { Truck, Navigation, Clock, Radio } from "lucide-react";
+import { Navigation, Clock, Radio } from "lucide-react";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
 import { effectiveDriverStatus } from "@/lib/effective-status";
 
@@ -21,9 +21,9 @@ export const Route = createFileRoute("/_app/")({
 });
 
 function LiveDashboard() {
-  const drivers          = useDrivers();
-  const warehouses       = useWarehouses();
-  const jobs             = useJobs();
+  const drivers            = useDrivers();
+  const warehouses         = useWarehouses();
+  const jobs               = useJobs();
   const activeJobsByDriver = useActiveJobsByDriver();
   const [selected, setSelected] = useState<string | null>(null);
   const nowMs = Date.now();
@@ -46,17 +46,6 @@ function LiveDashboard() {
     ? haversineKm(selectedDriver.current_lat, selectedDriver.current_lon, destWh.latitude, destWh.longitude)
     : null;
 
-  const stats = {
-    active:   drivers.filter((d) => {
-      const eff = effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs);
-      return eff === "ON_ROUTE" || eff === "ON_SHIFT";
-    }).length,
-    available: drivers.filter((d) => d.status === "AVAILABLE").length,
-    delayed:   drivers.filter((d) => d.status === "DELAYED").length,
-    pending:   jobs.filter((j) => j.status === "PENDING").length,
-    tomorrow:  drivers.filter((d) => (d as { available_tomorrow?: boolean }).available_tomorrow === true).length,
-  };
-
   return (
     <div className="h-full flex flex-col">
       <PageHeader
@@ -71,19 +60,7 @@ function LiveDashboard() {
         }
       />
 
-      {/* KPI strip */}
-      <div
-        className="grid grid-cols-5 gap-2.5 px-5 py-3 border-b border-border"
-        style={{ background: "oklch(0.15 0.018 245 / 0.6)" }}
-      >
-        <Stat label="Active"     value={stats.active}    color="oklch(0.62 0.22 245)" />
-        <Stat label="Available"  value={stats.available} color="oklch(0.73 0.17 150)" />
-        <Stat label="Delayed"    value={stats.delayed}   color="oklch(0.63 0.22 20)"  />
-        <Stat label="Pending"    value={stats.pending}   color="oklch(0.80 0.18 72)"  />
-        <Stat label="Tomorrow"   value={stats.tomorrow}  color="oklch(0.68 0.16 230)" />
-      </div>
-
-      {/* Map + sidebar */}
+      {/* Map + sidebar — takes up all remaining space, no KPI strip */}
       <div className="flex-1 min-h-0 grid grid-cols-[1fr_300px]">
         {/* Map */}
         <div className="relative scanline">
@@ -239,25 +216,6 @@ function MetricPill({ label, value }: { label: string; value: string }) {
     >
       <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">{label}</div>
       <div className="font-mono text-xs mt-0.5 text-foreground">{value}</div>
-    </div>
-  );
-}
-
-function Stat({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div
-      className="rounded-lg px-3 py-2.5 stat-card cursor-default"
-      style={{ borderLeft: `2px solid ${color}` }}
-    >
-      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground truncate">
-        {label}
-      </div>
-      <div
-        className="text-2xl font-mono font-bold mt-1 tabular-nums"
-        style={{ color }}
-      >
-        {value}
-      </div>
     </div>
   );
 }
