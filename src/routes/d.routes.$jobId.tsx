@@ -87,11 +87,6 @@ function JobDetail() {
   const statusCfg = STATUS_CONFIG[job.status] ?? STATUS_CONFIG.PENDING;
 
 
-  const refreshJob = (patch: Partial<typeof job>) => {
-    useDriverStore.getState().setJobs(
-      useDriverStore.getState().jobs.map((j) => (j.id === job.id ? { ...j, ...patch } : j)),
-    );
-  };
 
 
   const cantComplete = async () => {
