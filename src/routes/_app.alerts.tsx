@@ -32,6 +32,11 @@ const LEVEL_CONFIG = {
   },
 } as const;
 
+// Safe helper to inject alpha transparencies dynamically inside valid OKLCH syntax
+const getAlphaColor = (oklchString: string, alpha: number) => {
+  return oklchString.replace(")", ` / ${alpha})`);
+};
+
 function AlertsPage() {
   const { alerts, ack } = useAlerts();
 
@@ -88,7 +93,7 @@ function AlertsPage() {
                   <div className="flex items-center gap-3 px-4 py-3 flex-1 min-w-0">
                     <div
                       className="size-8 rounded-lg grid place-items-center shrink-0"
-                      style={{ background: `${cfg.bar} / 0.15` }}
+                      style={{ background: getAlphaColor(cfg.bar, 0.15) }}
                     >
                       <Icon className="size-4" style={{ color: cfg.text }} />
                     </div>
@@ -96,7 +101,7 @@ function AlertsPage() {
                     <div className="flex-1 min-w-0">
                       <div
                         className="text-[10px] font-mono uppercase tracking-widest mb-0.5"
-                        style={{ color: `${cfg.text}` , opacity: 0.75 }}
+                        style={{ color: cfg.text, opacity: 0.75 }}
                       >
                         {a.type}
                       </div>
@@ -119,7 +124,7 @@ function AlertsPage() {
                           borderColor: cfg.border,
                           color: cfg.text,
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.background = `${cfg.bar} / 0.12`)}
+                        onMouseEnter={e => (e.currentTarget.style.background = getAlphaColor(cfg.bar, 0.12))}
                         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                       >
                         <Check className="size-3" />
