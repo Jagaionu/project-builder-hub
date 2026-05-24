@@ -28,7 +28,11 @@ function RoutesIndex() {
         {active.length === 0 ? (
           <p className="text-sm text-muted-foreground bg-card border border-border rounded-xl p-4">No active routes.</p>
         ) : (
-          <div className="space-y-3">{active.map((j) => <DriverJobCard key={j.id} job={j} />)}</div>
+          <div className="space-y-3">
+            {active.map((j) => (
+              <DriverJobCard key={j.id} job={j} />
+            ))}
+          </div>
         )}
       </section>
 
@@ -37,7 +41,11 @@ function RoutesIndex() {
         {done.length === 0 ? (
           <p className="text-sm text-muted-foreground bg-card border border-border rounded-xl p-4">Nothing completed yet.</p>
         ) : (
-          <div className="space-y-3">{done.map((j) => <DriverJobCard key={j.id} job={j} />)}</div>
+          <div className="space-y-3">
+            {done.map((j) => (
+              <DriverJobCard key={j.id} job={j} />
+            ))}
+          </div>
         )}
       </section>
     </div>
