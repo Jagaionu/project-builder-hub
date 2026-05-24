@@ -1,3 +1,8 @@
+Here is the completely rewritten, production-ready `LiveMap.tsx` component.
+
+The base tile layer has been migrated from the illegible dark canvas to **CartoDB Voyager**, which features highly detailed street networks, legible labels, and clean pastel landuse layouts similar to modern navigation systems like Waze. The marker dynamics, map overlays, popups, and route lines have been updated to high-contrast styles that stand out clearly against a bright map background.
+
+```tsx
 import { useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -11,31 +16,33 @@ interface Props {
   onSelectDriver?: (id: string) => void;
 }
 
-// ── Status colour palette (hex — needed for DivIcon HTML context) ─────────────
-const S_COLOR: Record<string, { fill: string; glow: string }> = {
-  AVAILABLE:  { fill: "#22c55e", glow: "rgba(34,197,94,0.45)" },
-  ON_SHIFT:   { fill: "#60a5fa", glow: "rgba(96,165,250,0.45)" },
-  ON_ROUTE:   { fill: "#22c55e", glow: "rgba(34,197,94,0.45)" },
-  DELAYED:    { fill: "#f59e0b", glow: "rgba(245,158,11,0.45)" },
-  OFF_SHIFT:  { fill: "#475569", glow: "rgba(71,85,105,0.20)" },
-  ON_BREAK:   { fill: "#f59e0b", glow: "rgba(245,158,11,0.35)" },
+// ── Waze-Inspired Status Colour Palette (Optimized for Light Street Maps) ──
+const S_COLOR: Record<string, { fill: string; text: string; glow: string }> = {
+  AVAILABLE:  { fill: "#10b981", text: "#ffffff", glow: "rgba(16,185,129,0.3)" },
+  ON_SHIFT:   { fill: "#2563eb", text: "#ffffff", glow: "rgba(37,99,235,0.3)" },
+  ON_ROUTE:   { fill: "#059669", text: "#ffffff", glow: "rgba(5,150,105,0.3)" },
+  DELAYED:    { fill: "#dc2626", text: "#ffffff", glow: "rgba(220,38,38,0.35)" },
+  OFF_SHIFT:  { fill: "#64748b", text: "#ffffff", glow: "rgba(100,116,139,0.15)" },
+  ON_BREAK:   { fill: "#d97706", text: "#ffffff", glow: "rgba(217,119,6,0.25)" },
 };
-const DEFAULT_COLOR = { fill: "#60a5fa", glow: "rgba(96,165,250,0.45)" };
-const BG = "#0d1117";       // deep background behind markers
-const ROUTE_COLOR = "#60a5fa";
+const DEFAULT_COLOR = { fill: "#2563eb", text: "#ffffff", glow: "rgba(37,99,235,0.3)" };
+const BG = "#ffffff";           // High contrast crisp white border for markers
+const ROUTE_COLOR = "#00b4d8";  // Vibrant Waze-style neon telemetry blue
 
 function driverMarkerHtml(name: string, status: string, selected: boolean): string {
   const { fill, glow } = S_COLOR[status] ?? DEFAULT_COLOR;
   const initial = (name?.[0] ?? "?").toUpperCase();
-  const size = selected ? 36 : 28;
-  const fontSize = selected ? 14 : 11;
-  const border = selected ? `3px solid #fff` : `2.5px solid ${BG}`;
+  const size = selected ? 38 : 30;
+  const fontSize = selected ? 15 : 12;
+  const border = selected ? `3px solid #0f172a` : `2.5px solid ${BG}`;
   const shadow = selected
-    ? `0 0 0 3px ${fill},0 0 24px ${glow},0 6px 20px rgba(0,0,0,0.7)`
-    : `0 0 0 1.5px ${fill},0 0 12px ${glow},0 2px 8px rgba(0,0,0,0.5)`;
+    ? `0 0 0 2px ${fill}, 0 8px 24px rgba(15,23,42,0.35)`
+    : `0 4px 10px rgba(15,23,42,0.15), 0 0 0 1px ${glow}`;
+  
   const pulse = (status !== "OFF_SHIFT" && !selected)
-    ? `<div style="position:absolute;inset:-6px;border-radius:50%;border:1.5px solid ${fill};animation:ping-slow 2.4s cubic-bezier(0,0,0.2,1) infinite;pointer-events:none"></div>`
+    ? `<div style="position:absolute;inset:-5px;border-radius:50%;border:2px solid ${fill};animation:ping 2s cubic-bezier(0,0,0.2,1) infinite;opacity:0.6;pointer-events:none"></div>`
     : "";
+
   return `
     <div style="
       width:${size}px;height:${size}px;border-radius:50%;
@@ -44,7 +51,8 @@ function driverMarkerHtml(name: string, status: string, selected: boolean): stri
       display:flex;align-items:center;justify-content:center;
       font-family:Inter,system-ui,sans-serif;font-weight:700;font-size:${fontSize}px;color:#fff;
       cursor:pointer;position:relative;
-      ${selected ? "z-index:1000;" : ""}
+      transition: transform 0.2s ease;
+      ${selected ? "z-index:1000; transform: scale(1.1);" : ""}
     ">
       ${initial}
       ${pulse}
@@ -52,25 +60,25 @@ function driverMarkerHtml(name: string, status: string, selected: boolean): stri
 }
 
 function warehouseMarkerHtml(code: string): string {
-  const label = code.length > 4 ? code.slice(0, 4) : code;
+  const label = code.length > 5 ? code.slice(0, 5) : code;
   return `
     <div style="
-      background:#f59e0b;border:2px solid ${BG};border-radius:6px;
-      padding:2px 6px;
-      font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:9px;
-      color:${BG};white-space:nowrap;
-      box-shadow:0 2px 10px rgba(0,0,0,0.55),0 0 0 1px rgba(245,158,11,0.35);
+      background:#0f172a;border:2px solid ${BG};border-radius:6px;
+      padding:3px 8px;
+      font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:10px;
+      color:#fff;white-space:nowrap;
+      box-shadow:0 4px 12px rgba(0,0,0,0.15), 0 0 0 1px rgba(15,23,42,0.1);
     ">
-      ${label}
+      📍 ${label}
     </div>`;
 }
 
 function popupHtml(title: string, sub: string, extra = ""): string {
   return `
-    <div style="font-family:Inter,system-ui,sans-serif;min-width:120px">
-      <div style="font-weight:600;font-size:13px;color:#f1f5f9">${title}</div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#94a3b8;margin-top:3px;text-transform:uppercase;letter-spacing:.06em">${sub}</div>
-      ${extra ? `<div style="font-size:11px;color:#94a3b8;margin-top:4px">${extra}</div>` : ""}
+    <div style="font-family:Inter,system-ui,sans-serif;min-width:140px;color:#1e293b;padding:2px">
+      <div style="font-weight:700;font-size:14px;color:#0f172a;line-height:1.2">${title}</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:.04em">${sub}</div>
+      ${extra ? `<div style="font-size:11px;color:#334155;margin-top:6px;border-top:1px solid #e2e8f0;padding-top:6px;line-height:1.4">${extra}</div>` : ""}
     </div>`;
 }
 
@@ -85,14 +93,10 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    // Disable OSM CSS filter — CartoDB tiles are natively dark
+    // Clean up any lingering dark styles or layout overrides
     const styleId = "carto-tile-fix";
-    if (!document.getElementById(styleId)) {
-      const s = document.createElement("style");
-      s.id = styleId;
-      s.textContent = ".leaflet-tile { filter: none !important; }";
-      document.head.appendChild(s);
-    }
+    const existingStyle = document.getElementById(styleId);
+    if (existingStyle) existingStyle.remove();
 
     const map = L.map(containerRef.current, {
       center: [53.5, -1.5],
@@ -101,9 +105,9 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       attributionControl: true,
     });
 
-    // CartoDB Dark Matter — proper dark basemap
+    // CartoDB Voyager — Crisp, high-contrast street map with beautiful logistics legibility
     L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
       {
         attribution:
           '© <a href="https://www.openstreetmap.org/copyright">OSM</a> · <a href="https://carto.com/attributions">CARTO</a>',
@@ -112,7 +116,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       },
     ).addTo(map);
 
-    // Zoom control — bottom right
+    // Modern clean positioning for zoom tools
     L.control.zoom({ position: "bottomright" }).addTo(map);
 
     warehouseLayer.current = L.layerGroup().addTo(map);
@@ -138,10 +142,9 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
     if (points.length === 0) return;
     mapRef.current.flyToBounds(L.latLngBounds(points), {
       padding: [60, 60],
-      maxZoom: 9,
+      maxZoom: 10,
       duration: 1.2,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warehouses.length > 0]);
 
   // ── Warehouse markers ─────────────────────────────────────────────────────
@@ -153,9 +156,9 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       const icon = L.divIcon({
         className: "",
         html: warehouseMarkerHtml(w.code),
-        iconAnchor: [0, 0],
+        iconAnchor: [20, 10],
       });
-      const popup = L.popup({ className: "dark-popup", offset: [0, -4] }).setContent(
+      const popup = L.popup({ offset: [0, -4] }).setContent(
         popupHtml(w.name, w.code, w.address ?? ""),
       );
       L.marker([w.latitude, w.longitude], { icon })
@@ -176,20 +179,20 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       const icon = L.divIcon({
         className: "",
         html: driverMarkerHtml(d.name, d.status, isSelected),
-        iconSize:   isSelected ? [36, 36] : [28, 28],
-        iconAnchor: isSelected ? [18, 18] : [14, 14],
+        iconSize:   isSelected ? [38, 38] : [30, 30],
+        iconAnchor: isSelected ? [19, 19] : [15, 15],
       });
 
       const activeJob = jobs.find(
         (j) => j.assigned_driver_id === d.id &&
           ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
       );
-      const extra = activeJob ? `Job: <b>${activeJob.reference}</b>` : "";
+      const extra = activeJob ? `Active Job: <b style="color:#2563eb">${activeJob.reference}</b>` : "";
       const lastSeen = d.last_update_time
-        ? `GPS: ${new Date(d.last_update_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+        ? `Ping: ${new Date(d.last_update_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
         : "";
 
-      const popup = L.popup({ className: "dark-popup", offset: [0, -6] }).setContent(
+      const popup = L.popup({ offset: [0, -6] }).setContent(
         popupHtml(d.name, d.status.replace(/_/g, " "), [extra, lastSeen].filter(Boolean).join(" · ")),
       );
 
@@ -222,11 +225,9 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
 
     if (!selectedDriver?.current_lat || !selectedDriver.current_lon) return;
 
-    // Just pan to driver if no active job
     if (!activeJob) {
-      mapRef.current?.flyTo([selectedDriver.current_lat, selectedDriver.current_lon], 11, {
+      mapRef.current?.flyTo([selectedDriver.current_lat, selectedDriver.current_lon], 12, {
         duration: 1.0,
-        easeLinearity: 0.3,
       });
       return;
     }
@@ -241,61 +242,56 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
     const from: [number, number] = [selectedDriver.current_lat, selectedDriver.current_lon];
     const to:   [number, number] = [destWh.latitude, destWh.longitude];
 
-    // Soft glow backdrop
+    // Thick clean underlying vector track glow (Waze style guidance track)
     L.polyline([from, to], {
       color: ROUTE_COLOR,
-      weight: 10,
-      opacity: 0.10,
+      weight: 8,
+      opacity: 0.25,
       lineCap: "round",
     }).addTo(layer);
 
-    // Mid-glow
+    // High-visibility core line routing
     L.polyline([from, to], {
       color: ROUTE_COLOR,
       weight: 4,
-      opacity: 0.20,
+      opacity: 0.85,
       lineCap: "round",
     }).addTo(layer);
 
-    // Animated dash line (uses .route-line keyframe from styles.css)
+    // Telemetry directional dash line overlay
     L.polyline([from, to], {
-      color: ROUTE_COLOR,
-      weight: 2.5,
+      color: "#ffffff",
+      weight: 2,
       opacity: 0.90,
-      dashArray: "8 5",
-      className: "route-line",
+      dashArray: "6 6",
       lineCap: "round",
     }).addTo(layer);
 
-    // Destination circle pulse
+    // Destination landing target node
     L.circleMarker(to, {
-      radius: 7,
-      fillColor: ROUTE_COLOR,
-      fillOpacity: 0.9,
-      color: BG,
-      weight: 2,
+      radius: 6,
+      fillColor: "#0f172a",
+      fillOpacity: 1,
+      color: ROUTE_COLOR,
+      weight: 3,
     })
-      .bindPopup(L.popup({ className: "dark-popup" }).setContent(
-        popupHtml(destWh.name, destWh.code),
-      ))
+      .bindPopup(L.popup().setContent(popupHtml(destWh.name, destWh.code)))
       .addTo(layer);
 
-    // Outer ring on destination
+    // Radar pulsing ring around target destination
     L.circleMarker(to, {
-      radius: 13,
+      radius: 14,
       fillColor: "transparent",
       fillOpacity: 0,
       color: ROUTE_COLOR,
-      weight: 1.5,
-      opacity: 0.40,
+      weight: 2,
+      opacity: 0.50,
     }).addTo(layer);
 
-    // Fly to show both points
     mapRef.current?.flyToBounds(L.latLngBounds([from, to]), {
-      padding: [90, 90],
-      maxZoom: 10,
+      padding: [80, 80],
+      maxZoom: 12,
       duration: 1.1,
-      easeLinearity: 0.3,
     });
   }, [selectedDriver, activeJob, warehouses]);
 
@@ -309,115 +305,115 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   }, [drivers]);
 
   return (
-    <div className="absolute inset-0">
-      {/* Leaflet container */}
+    <div className="absolute inset-0 bg-[#f8fafc]">
+      {/* Map rendering window */}
       <div ref={containerRef} className="absolute inset-0" />
 
-      {/* ── Status overlay — bottom left ─────────────────────────────────── */}
+      {/* ── Modern Telemetry Status Widgets — Bottom Left ────────────────── */}
       <div
-        className="absolute bottom-6 left-3 z-[999] flex flex-col gap-1.5"
+        className="absolute bottom-6 left-4 z-[999] flex flex-col gap-2"
         style={{ pointerEvents: "none" }}
       >
-        {/* Total on map */}
+        {/* Fleet capacity metrics */}
         <div
-          className="flex items-center gap-2 rounded-lg px-2.5 py-1.5"
+          className="flex items-center gap-2.5 rounded-xl px-3 py-2 shadow-lg"
           style={{
-            background: "oklch(0.15 0.018 245 / 0.88)",
-            border: "1px solid oklch(0.26 0.018 245 / 0.6)",
-            backdropFilter: "blur(8px)",
+            background: "rgba(255, 255, 255, 0.95)",
+            border: "1px solid #e2e8f0",
+            backdropFilter: "blur(12px)",
+            pointerEvents: "auto",
           }}
         >
           <span
-            className="size-1.5 rounded-full shrink-0"
-            style={{ background: "#60a5fa", boxShadow: "0 0 4px rgba(96,165,250,0.6)" }}
+            className="size-2 rounded-full shrink-0"
+            style={{ background: "#2563eb", boxShadow: "0 0 8px rgba(37,99,235,0.5)" }}
           />
-          <span className="text-[11px] font-mono font-semibold" style={{ color: "#60a5fa" }}>
+          <span className="text-xs font-mono font-bold text-slate-900">
             {overlayStats.onMap}
           </span>
-          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            on map
+          <span className="text-[10px] font-sans font-bold uppercase tracking-wider text-slate-500">
+            Active Assets
           </span>
           {overlayStats.offline > 0 && (
-            <span className="text-[10px] font-mono text-muted-foreground/50">
-              · {overlayStats.offline} offline
+            <span className="text-[10px] font-sans font-medium text-slate-400">
+              ({overlayStats.offline} untracked)
             </span>
           )}
         </div>
 
-        {/* Active drivers */}
+        {/* Operational Flow Status */}
         {overlayStats.active > 0 && (
           <div
-            className="flex items-center gap-2 rounded-lg px-2.5 py-1.5"
+            className="flex items-center gap-2.5 rounded-xl px-3 py-2 shadow-lg"
             style={{
-              background: "oklch(0.15 0.018 245 / 0.88)",
-              border: "1px solid oklch(0.26 0.018 245 / 0.6)",
-              backdropFilter: "blur(8px)",
+              background: "rgba(255, 255, 255, 0.95)",
+              border: "1px solid #e2e8f0",
+              backdropFilter: "blur(12px)",
             }}
           >
             <span
-              className="size-1.5 rounded-full shrink-0"
-              style={{ background: "#22c55e", boxShadow: "0 0 4px rgba(34,197,94,0.6)", animation: "pulse 2s ease infinite" }}
+              className="size-2 rounded-full shrink-0"
+              style={{ background: "#10b981", boxShadow: "0 0 8px rgba(16,185,129,0.5)" }}
             />
-            <span className="text-[11px] font-mono font-semibold" style={{ color: "#22c55e" }}>
+            <span className="text-xs font-mono font-bold text-slate-900">
               {overlayStats.active}
             </span>
-            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              active
+            <span className="text-[10px] font-sans font-bold uppercase tracking-wider text-slate-500">
+              In Transit
             </span>
           </div>
         )}
 
-        {/* Delayed */}
+        {/* Dynamic Critical Exceptions Alert */}
         {overlayStats.delayed > 0 && (
           <div
-            className="flex items-center gap-2 rounded-lg px-2.5 py-1.5"
+            className="flex items-center gap-2.5 rounded-xl px-3 py-2 shadow-xl animate-bounce"
             style={{
-              background: "oklch(0.63 0.22 20 / 0.08)",
-              border: "1px solid oklch(0.63 0.22 20 / 0.35)",
-              backdropFilter: "blur(8px)",
+              background: "#fef2f2",
+              border: "1px solid #fee2e2",
+              backdropFilter: "blur(12px)",
             }}
           >
             <span
-              className="size-1.5 rounded-full shrink-0"
-              style={{ background: "#f59e0b", boxShadow: "0 0 4px rgba(245,158,11,0.6)" }}
+              className="size-2 rounded-full shrink-0 animate-ping"
+              style={{ background: "#dc2626" }}
             />
-            <span className="text-[11px] font-mono font-semibold" style={{ color: "#f59e0b" }}>
+            <span className="text-xs font-mono font-bold text-red-700">
               {overlayStats.delayed}
             </span>
-            <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "oklch(0.72 0.18 20)" }}>
-              delayed
+            <span className="text-[10px] font-sans font-bold uppercase tracking-wider text-red-600">
+              Incidents / Delays
             </span>
           </div>
         )}
       </div>
 
-      {/* ── Selected driver label — top center ───────────────────────────── */}
+      {/* ── Focused Driver HeaderHUD — Top Center ─────────────────────── */}
       {selectedDriver && (
         <div
-          className="absolute top-3 left-1/2 -translate-x-1/2 z-[999]"
+          className="absolute top-4 left-1/2 -translate-x-1/2 z-[999]"
           style={{ pointerEvents: "none" }}
         >
           <div
-            className="flex items-center gap-2 rounded-full px-3.5 py-1.5"
+            className="flex items-center gap-3 rounded-full px-4 py-2 shadow-xl"
             style={{
-              background: "oklch(0.15 0.018 245 / 0.92)",
-              border: "1px solid oklch(0.62 0.22 245 / 0.4)",
-              backdropFilter: "blur(8px)",
-              boxShadow: "0 0 0 1px oklch(0.62 0.22 245 / 0.15), 0 4px 16px rgba(0,0,0,0.4)",
+              background: "#0f172a",
+              border: "1px solid rgba(255,255,255,0.15)",
+              backdropFilter: "blur(12px)",
+              boxShadow: "0 10px 25px -5px rgba(15,23,42,0.3)",
             }}
           >
             <span
-              className="size-2 rounded-full shrink-0"
+              className="size-2.5 rounded-full shrink-0"
               style={{
-                background: S_COLOR[selectedDriver.status]?.fill ?? "#60a5fa",
-                boxShadow: `0 0 6px ${S_COLOR[selectedDriver.status]?.glow ?? "rgba(96,165,250,0.5)"}`,
-                animation: "pulse 2s ease infinite",
+                background: S_COLOR[selectedDriver.status]?.fill ?? "#2563eb",
+                boxShadow: `0 0 10px ${S_COLOR[selectedDriver.status]?.fill ?? "#2563eb"}`,
               }}
             />
-            <span className="text-xs font-semibold text-foreground">{selectedDriver.name}</span>
+            <span className="text-xs font-bold text-white tracking-wide">{selectedDriver.name}</span>
+            <span className="w-px h-3 bg-slate-700" />
             <span
-              className="text-[10px] font-mono uppercase tracking-wider"
-              style={{ color: "oklch(0.55 0.014 245)" }}
+              className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400"
             >
               {selectedDriver.status.replace(/_/g, " ")}
             </span>
@@ -427,3 +423,5 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
     </div>
   );
 }
+
+```
