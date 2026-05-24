@@ -131,7 +131,7 @@ function JobDetail() {
     navigate({ to: "/d" });
   };
 
-  const showAcceptReject = job.status === "ASSIGNED";
+  
   const showCantComplete = job.status === "IN_PROGRESS" || job.status === "ARRIVED_PICKUP" || job.status === "EN_ROUTE_DELIVERY";
 
   return (
