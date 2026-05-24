@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Driver, Warehouse, Job } from "@/lib/types";
@@ -25,14 +25,13 @@ const ROUTE_BLUE = "#1a73e8";
 const ZOOM_TEXT_THRESHOLD = 10;   // show warehouse code pill only when zoom >= this value
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Marker HTML helpers
+// Marker HTML helpers – modern, minimal
 // ─────────────────────────────────────────────────────────────────────────────
 
 function driverDot(name: string, status: string, selected: boolean): string {
   const s = STATUS[status] ?? DEF_STATUS;
   const size = selected ? 30 : 22;
   const fs   = selected ? 11 : 9;
-  // ring for active statuses
   const pulse = status !== "OFF_SHIFT" && !selected
     ? `<div style="position:absolute;inset:-7px;border-radius:50%;border:1.5px solid ${s.bg};opacity:.5;animation:dpulse 2s ease-out infinite;pointer-events:none"></div>`
     : "";
@@ -50,52 +49,54 @@ function driverDot(name: string, status: string, selected: boolean): string {
   ">${(name[0]??"?").toUpperCase()}${pulse}</div>`;
 }
 
-// Full pill with warehouse code (shown at high zoom)
+// Modern pill (high zoom)
 function whPill(code: string): string {
   return `<div style="
-    display:flex;align-items:center;gap:5px;
-    background:#fff;border:1.5px solid #dadce0;border-radius:20px;
-    padding:4px 10px 4px 6px;
-    box-shadow:0 1px 5px rgba(0,0,0,.16),0 1px 2px rgba(0,0,0,.08);
+    display:flex;align-items:center;gap:6px;
+    background:#fff;border-radius:32px;
+    padding:4px 12px 4px 8px;
+    box-shadow:0 2px 8px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.08);
+    border:1px solid rgba(0,0,0,.08);
     cursor:pointer;white-space:nowrap;
     font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+    backdrop-filter:blur(2px);
   ">
-    <div style="width:18px;height:18px;border-radius:50%;background:#ea4335;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
-      <svg width="9" height="9" viewBox="0 0 24 24" fill="white"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+    <div style="width:20px;height:20px;border-radius:50%;background:#ea4335;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.2);">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
     </div>
-    <span style="font-size:11.5px;font-weight:700;color:#202124;letter-spacing:.04em">${code.toUpperCase()}</span>
+    <span style="font-size:12px;font-weight:600;color:#202124;letter-spacing:.02em">${code.toUpperCase()}</span>
   </div>`;
 }
 
-// Simple red dot (shown at low zoom)
+// Modern minimal dot (low zoom)
 function whDot(): string {
   return `<div style="
     width:12px;height:12px;border-radius:50%;
     background:#ea4335;border:2px solid #fff;
     box-shadow:0 1px 4px rgba(0,0,0,.3);
     cursor:pointer;
+    transition:transform 0.1s ease;
   "></div>`;
 }
 
-// Returns appropriate DivIcon based on current zoom level
 function getWhIcon(zoom: number, code: string): L.DivIcon {
   const html = zoom >= ZOOM_TEXT_THRESHOLD ? whPill(code) : whDot();
-  const anchor = zoom >= ZOOM_TEXT_THRESHOLD ? [14, 18] : [6, 6];
+  const anchor = zoom >= ZOOM_TEXT_THRESHOLD ? [16, 20] : [6, 6];
   return L.divIcon({ className: "", html, iconAnchor: anchor as L.PointExpression });
 }
 
 function etaChip(distKm: number, minutes: number): string {
   const t = minutes >= 60 ? `${Math.floor(minutes/60)}h ${minutes%60}m` : `${minutes} min`;
   return `<div style="
-    background:#1a73e8;border-radius:16px;padding:5px 12px;
+    background:#1a73e8;border-radius:24px;padding:4px 10px;
     display:flex;align-items:center;gap:8px;
-    box-shadow:0 2px 12px rgba(26,115,232,.4);
+    box-shadow:0 2px 8px rgba(26,115,232,.3);
     font-family:-apple-system,BlinkMacSystemFont,sans-serif;
     white-space:nowrap;pointer-events:none;
   ">
-    <span style="font-size:12px;font-weight:700;color:#fff">${distKm.toFixed(1)} km</span>
-    <div style="width:1px;height:12px;background:rgba(255,255,255,.35)"></div>
-    <span style="font-size:12px;font-weight:500;color:rgba(255,255,255,.9)">${t}</span>
+    <span style="font-size:11px;font-weight:700;color:#fff">${distKm.toFixed(1)} km</span>
+    <div style="width:1px;height:10px;background:rgba(255,255,255,.35)"></div>
+    <span style="font-size:11px;font-weight:500;color:rgba(255,255,255,.9)">${t}</span>
   </div>`;
 }
 
@@ -126,7 +127,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   const [panel, setPanel]           = useState<Panel>({ kind: "idle" });
   const [pinnedDriver, setPinned]   = useState<Driver | null>(null);
   const [routeEta, setRouteEta]     = useState<{ distKm: number; minutes: number } | null>(null);
-  const [zoomLevel, setZoomLevel]   = useState<number>(7);  // track map zoom for warehouse icons
+  const [zoomLevel, setZoomLevel]   = useState<number>(7);
 
   // ── CSS animations (once) ──────────────────────────────────────────────────
   useEffect(() => {
@@ -160,7 +161,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, {
-      center: [52.8, -1.8],   // UK centre
+      center: [52.8, -1.8],
       zoom: 7,
       zoomControl: false,
       attributionControl: true,
@@ -172,14 +173,9 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       attribution: "© Google Maps",
     }).addTo(map);
 
-    // Zoom top-right — well away from the bottom-right panel
     L.control.zoom({ position: "topright" }).addTo(map);
 
-    // Listen to zoom events to update warehouse markers dynamically
-    const onZoomEnd = () => {
-      const newZoom = map.getZoom();
-      setZoomLevel(newZoom);
-    };
+    const onZoomEnd = () => setZoomLevel(map.getZoom());
     map.on("zoomend", onZoomEnd);
     setZoomLevel(map.getZoom());
 
@@ -216,7 +212,6 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       const marker = L.marker([w.latitude, w.longitude], { icon })
         .on("click", () => {
           if (pinnedDriver?.current_lat != null) {
-            // calc mode
             setPanel({ kind: "loading", driver: pinnedDriver, wh: w });
             calcRoute(
               { lat: pinnedDriver.current_lat!, lon: pinnedDriver.current_lon! },
@@ -287,7 +282,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDriver?.id, activeJob?.id]);
 
-  // ── ETA midpoint chip (separate effect so route doesn't redraw) ────────────
+  // ── ETA midpoint chip (separate effect) ────────────────────────────────────
   useEffect(() => {
     const layer = routeLayer.current;
     if (!layer || !mapRef.current) return;
@@ -295,7 +290,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
     const mid = routeMidRef.current;
     if (!mid || !routeEta) return;
     etaMarkerRef.current = L.marker(mid, {
-      icon: L.divIcon({ className:"", html: etaChip(routeEta.distKm, routeEta.minutes), iconAnchor:[60,18] }),
+      icon: L.divIcon({ className:"", html: etaChip(routeEta.distKm, routeEta.minutes), iconAnchor:[50,14] }),
       interactive: false, zIndexOffset: 500,
     }).addTo(layer);
   }, [routeEta]);
@@ -321,36 +316,30 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
     // Glow layers
     L.polyline([from,to], { color: ROUTE_BLUE, weight:28, opacity:.05, lineCap:"round" }).addTo(layer);
     L.polyline([from,to], { color: ROUTE_BLUE, weight:12, opacity:.11, lineCap:"round" }).addTo(layer);
-    // Solid base
     L.polyline([from,to], { color: ROUTE_BLUE, weight:4.5, opacity:.92, lineCap:"round" }).addTo(layer);
-    // Marching white dashes
     L.polyline([from,to], { color:"#fff", weight:2.5, opacity:.85, dashArray:"8 13", className:"rm", lineCap:"round" }).addTo(layer);
 
-    // Origin dot (driver colour)
     const dBg = STATUS[selectedDriver.status]?.bg ?? ROUTE_BLUE;
     L.circleMarker(from, { radius:6, fillColor:dBg, fillOpacity:1, color:"#fff", weight:2.5 }).addTo(layer);
 
-    // Destination concentric rings
     [[28,.09,.22],[16,.18,.4],[9,1,1]].forEach(([r,fo,o]) =>
       L.circleMarker(to, { radius:r, fillColor:ROUTE_BLUE, fillOpacity:fo, color:ROUTE_BLUE, weight:1.4, opacity:o }).addTo(layer)
     );
     L.circleMarker(to, { radius:9, fillOpacity:1, fillColor:ROUTE_BLUE, color:"#fff", weight:3 }).addTo(layer);
 
-    // Immediate chip if ETA already known
     if (routeEta) {
       const mid = routeMidRef.current!;
       etaMarkerRef.current = L.marker(mid, {
-        icon: L.divIcon({ className:"", html:etaChip(routeEta.distKm, routeEta.minutes), iconAnchor:[60,18] }),
+        icon: L.divIcon({ className:"", html:etaChip(routeEta.distKm, routeEta.minutes), iconAnchor:[50,14] }),
         interactive:false, zIndexOffset:500,
       }).addTo(layer);
     }
 
     mapRef.current?.flyToBounds(L.latLngBounds([from,to]), { padding:[100,100], maxZoom:10, duration:1.1 });
-  // routeEta intentionally excluded
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDriver, destWh]);
 
-  // ── OSRM helper ────────────────────────────────────────────────────────────
+  // ── OSRM helper (truck‑suitable road distance) ────────────────────────────
   async function calcRoute(
     from: { lat: number; lon: number },
     to:   { lat: number; lon: number }
@@ -374,22 +363,21 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   }), [drivers]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Render helpers
+  // Compact panel content
   // ─────────────────────────────────────────────────────────────────────────
   const fmtTime = (m: number) => m >= 60 ? `${Math.floor(m/60)}h ${m%60}m` : `${m} min`;
 
   function PanelContent() {
     switch (panel.kind) {
-
       case "idle": return (
-        <div className="flex flex-col items-center gap-1.5 py-2 text-center">
-          <div style={{ fontSize:18, color:"#dadce0" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <div className="flex flex-col items-center gap-1 py-1 text-center">
+          <div style={{ fontSize:16, color:"#dadce0" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r=".5" fill="currentColor"/>
             </svg>
           </div>
-          <p style={{ fontSize:12, color:"#9aa0a6", lineHeight:1.5 }}>
-            Click a driver to select, then click a warehouse to calculate distance & ETA
+          <p style={{ fontSize:10, color:"#9aa0a6", lineHeight:1.4 }}>
+            Click a driver, then a warehouse
           </p>
         </div>
       );
@@ -398,42 +386,29 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
         const { driver, job } = panel;
         const s = STATUS[driver.status] ?? DEF_STATUS;
         return (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2.5">
-              <div className="size-8 rounded-full flex items-center justify-center font-bold text-sm text-white flex-shrink-0"
-                style={{ background: s.bg, boxShadow:`0 0 0 2px #fff,0 0 0 3.5px ${s.bg}` }}>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="size-7 rounded-full flex items-center justify-center font-bold text-xs text-white"
+                style={{ background: s.bg, boxShadow:`0 0 0 1.5px #fff,0 0 0 2.5px ${s.bg}` }}>
                 {(driver.name[0]??"?").toUpperCase()}
               </div>
               <div>
-                <div style={{ fontSize:13, fontWeight:600, color:"#202124" }}>{driver.name}</div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <div className="size-1.5 rounded-full" style={{ background: s.bg }} />
-                  <span style={{ fontSize:11, color:"#5f6368" }}>{s.label}</span>
+                <div style={{ fontSize:11, fontWeight:600, color:"#202124" }}>{driver.name}</div>
+                <div className="flex items-center gap-1">
+                  <div className="size-1 rounded-full" style={{ background: s.bg }} />
+                  <span style={{ fontSize:9, color:"#5f6368" }}>{s.label}</span>
                 </div>
               </div>
-              <div className="ml-auto">
-                <span style={{ fontSize:10, background:"#f1f3f4", color:"#5f6368", borderRadius:6, padding:"2px 7px", fontFamily:"monospace" }}>
-                  Pinned
-                </span>
-              </div>
+              <div className="ml-auto text-[9px] bg-gray-100 rounded-md px-1.5 py-0.5">pinned</div>
             </div>
-
-            {driver.current_lat != null && (
-              <div style={{ fontSize:11, fontFamily:"monospace", color:"#9aa0a6", letterSpacing:".03em" }}>
-                {driver.current_lat.toFixed(5)}, {driver.current_lon!.toFixed(5)}
-              </div>
-            )}
-
             {job && (
-              <div className="rounded-lg px-3 py-2" style={{ background:"#f8f9fa", border:"1px solid #e8eaed" }}>
-                <div style={{ fontSize:10, color:"#9aa0a6", textTransform:"uppercase", letterSpacing:".06em", marginBottom:2 }}>Active job</div>
-                <div style={{ fontSize:12, fontWeight:600, color:"#202124" }}>{job.reference}</div>
-                <div style={{ fontSize:11, color:"#5f6368" }}>{job.status.replace(/_/g," ")}</div>
+              <div className="rounded-md px-2 py-1.5 bg-gray-50 text-[10px]">
+                <div className="font-semibold">{job.reference}</div>
+                <div className="text-gray-500">{job.status.replace(/_/g," ")}</div>
               </div>
             )}
-
-            <div style={{ fontSize:11, color:"#9aa0a6", paddingTop:2 }}>
-              Now click a warehouse marker to calculate road distance & ETA
+            <div style={{ fontSize:9, color:"#9aa0a6" }}>
+              Click a warehouse → distance & ETA
             </div>
           </div>
         );
@@ -442,28 +417,18 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       case "warehouse": {
         const { wh } = panel;
         return (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2.5">
-              <div className="size-8 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background:"#fce8e6", border:"1.5px solid #ea4335" }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="#ea4335"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="size-7 rounded-full flex items-center justify-center bg-red-100 border border-red-500">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="#ea4335"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
               </div>
               <div>
-                <div style={{ fontSize:13, fontWeight:700, color:"#202124", letterSpacing:".04em" }}>{wh.code}</div>
-                <div style={{ fontSize:11, color:"#5f6368" }}>{wh.name}</div>
+                <div style={{ fontSize:11, fontWeight:700 }}>{wh.code}</div>
+                <div style={{ fontSize:9, color:"#5f6368" }}>{wh.name}</div>
               </div>
-              <button
-                onClick={() => setPanel({ kind:"idle" })}
-                className="ml-auto size-6 flex items-center justify-center rounded-full"
-                style={{ color:"#9aa0a6", background:"#f1f3f4", fontSize:12 }}
-              >✕</button>
+              <button onClick={() => setPanel({ kind:"idle" })} className="ml-auto text-xs text-gray-400 hover:text-gray-600">✕</button>
             </div>
-            {wh.address && (
-              <div style={{ fontSize:11, color:"#5f6368", lineHeight:1.5, paddingTop:2 }}>{wh.address}</div>
-            )}
-            {!pinnedDriver && (
-              <div style={{ fontSize:11, color:"#9aa0a6" }}>Select a driver first to calculate ETA to this warehouse</div>
-            )}
+            {!pinnedDriver && <div className="text-[9px] text-gray-400">Select a driver first</div>}
           </div>
         );
       }
@@ -471,15 +436,15 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       case "loading": {
         const { driver, wh } = panel;
         return (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm" style={{ color:"#5f6368" }}>
-              <span style={{ fontWeight:600, color:"#202124" }}>{driver.name}</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dadce0" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-              <span style={{ fontWeight:600, color:"#ea4335" }}>{wh.code}</span>
+          <div className="space-y-2">
+            <div className="flex items-center gap-1 text-xs">
+              <span className="font-semibold">{driver.name}</span>
+              <span>→</span>
+              <span className="font-semibold text-red-500">{wh.code}</span>
             </div>
-            <div className="flex items-center gap-2" style={{ color: ROUTE_BLUE }}>
-              <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-t-transparent" style={{ borderColor:`${ROUTE_BLUE}30`, borderTopColor:ROUTE_BLUE }} />
-              <span style={{ fontSize:12 }}>Calculating road route…</span>
+            <div className="flex items-center gap-2 text-blue-600 text-[10px]">
+              <div className="animate-spin rounded-full h-2.5 w-2.5 border border-t-transparent border-blue-600" />
+              <span>Calculating route…</span>
             </div>
           </div>
         );
@@ -488,48 +453,26 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       case "eta": {
         const { driver, wh, distKm, minutes } = panel;
         return (
-          <div className="space-y-3">
-            {/* Route summary row */}
-            <div className="flex items-center gap-2">
-              <div className="size-6 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
-                style={{ fontSize:9, background: STATUS[driver.status]?.bg ?? ROUTE_BLUE }}>
-                {(driver.name[0]??"?").toUpperCase()}
-              </div>
-              <div style={{ flex:1, height:1, background: ROUTE_BLUE, opacity:.3 }} />
-              <div className="size-5 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background:"#ea4335" }}>
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="white"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-              </div>
-              <div style={{ fontSize:11, fontWeight:700, color:"#ea4335" }}>{wh.code}</div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="font-semibold">{driver.name}</span>
+              <span className="text-gray-400">→</span>
+              <span className="font-semibold text-red-500">{wh.code}</span>
             </div>
-
-            {/* Result card */}
-            <div className="rounded-xl px-4 py-3 flex items-center justify-between"
-              style={{ background: ROUTE_BLUE }}>
+            <div className="rounded-lg px-2 py-1.5 flex items-center justify-between bg-blue-600 text-white">
               <div>
-                <div style={{ fontSize:18, fontWeight:700, color:"#fff", lineHeight:1 }}>{distKm.toFixed(1)}</div>
-                <div style={{ fontSize:10, color:"rgba(255,255,255,.7)", marginTop:2 }}>km by road</div>
+                <div className="text-base font-bold">{distKm.toFixed(1)}</div>
+                <div className="text-[8px] opacity-80">km</div>
               </div>
-              <div style={{ width:1, height:32, background:"rgba(255,255,255,.25)" }} />
+              <div className="w-px h-6 bg-white/30" />
               <div>
-                <div style={{ fontSize:18, fontWeight:700, color:"#fff", lineHeight:1 }}>{fmtTime(minutes)}</div>
-                <div style={{ fontSize:10, color:"rgba(255,255,255,.7)", marginTop:2 }}>estimated</div>
+                <div className="text-base font-bold">{fmtTime(minutes)}</div>
+                <div className="text-[8px] opacity-80">ETA</div>
               </div>
             </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPanel({ kind:"driver", driver })}
-                style={{ flex:1, fontSize:11, color:ROUTE_BLUE, background:"#e8f0fe", border:"none", borderRadius:8, padding:"6px 0", cursor:"pointer", fontWeight:600 }}
-              >
-                ← Back to driver
-              </button>
-              <button
-                onClick={() => { setPanel({ kind:"idle" }); setPinned(null); }}
-                style={{ flex:1, fontSize:11, color:"#5f6368", background:"#f1f3f4", border:"none", borderRadius:8, padding:"6px 0", cursor:"pointer" }}
-              >
-                Clear
-              </button>
+            <div className="flex gap-1">
+              <button onClick={() => setPanel({ kind:"driver", driver })} className="flex-1 text-[10px] bg-blue-50 text-blue-600 rounded-md py-1">Back</button>
+              <button onClick={() => { setPanel({ kind:"idle" }); setPinned(null); }} className="flex-1 text-[10px] bg-gray-100 rounded-md py-1">Clear</button>
             </div>
           </div>
         );
@@ -542,43 +485,34 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
     <div className="absolute inset-0">
       <div ref={containerRef} className="absolute inset-0" />
 
-      {/* ── Selected driver label — top-centre ───────────────────────────── */}
+      {/* Selected driver label (top‑centre) */}
       {selectedDriver && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[999]" style={{ pointerEvents:"none" }}>
-          <div className="flex items-center gap-2 rounded-full px-3.5 py-1.5"
-            style={{ background:"#fff", border:"1.5px solid #dadce0", boxShadow:"0 2px 8px rgba(0,0,0,.13)", fontFamily:"-apple-system,BlinkMacSystemFont,sans-serif" }}>
-            <span className="size-2 rounded-full"
-              style={{ background: STATUS[selectedDriver.status]?.bg ?? ROUTE_BLUE, boxShadow:`0 0 5px ${STATUS[selectedDriver.status]?.ring ?? "rgba(26,115,232,.4)"}` }} />
-            <span style={{ fontSize:12, fontWeight:600, color:"#202124" }}>{selectedDriver.name}</span>
-            <span style={{ fontSize:10, color:"#9aa0a6", textTransform:"uppercase", letterSpacing:".06em", fontFamily:"monospace" }}>
-              {selectedDriver.status.replace(/_/g," ")}
-            </span>
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[999]" style={{ pointerEvents:"none" }}>
+          <div className="flex items-center gap-2 rounded-full px-2.5 py-1 bg-white/95 backdrop-blur-sm shadow-md border border-gray-200 text-[11px]">
+            <span className="size-1.5 rounded-full" style={{ background: STATUS[selectedDriver.status]?.bg ?? ROUTE_BLUE }} />
+            <span className="font-semibold">{selectedDriver.name}</span>
+            <span className="text-gray-500 text-[9px]">{selectedDriver.status.replace(/_/g," ")}</span>
             {routeEta && activeJob && (
               <>
-                <div style={{ width:1, height:12, background:"#dadce0", margin:"0 2px" }} />
-                <span style={{ fontSize:11, fontWeight:700, color: ROUTE_BLUE }}>{routeEta.distKm.toFixed(1)} km</span>
-                <span style={{ fontSize:11, color:"#5f6368" }}>{fmtTime(routeEta.minutes)}</span>
+                <span className="w-px h-3 bg-gray-300" />
+                <span className="text-blue-600 font-semibold">{routeEta.distKm.toFixed(0)}km</span>
+                <span className="text-gray-500">{fmtTime(routeEta.minutes)}</span>
               </>
             )}
           </div>
         </div>
       )}
 
-      {/* ── Bottom-left: stat pills ───────────────────────────────────────── */}
-      <div className="absolute bottom-5 left-3 z-[998] flex flex-col gap-1.5" style={{ pointerEvents:"none" }}>
-        <Pill dot="#1a73e8" count={stats.onMap} label="on map" sub={stats.offline ? `· ${stats.offline} offline` : ""} />
+      {/* Bottom‑left stat pills */}
+      <div className="absolute bottom-3 left-3 z-[998] flex flex-col gap-1" style={{ pointerEvents:"none" }}>
+        <Pill dot="#1a73e8" count={stats.onMap} label="on map" sub={stats.offline ? `· ${stats.offline} off` : ""} />
         {stats.active  > 0 && <Pill dot="#34a853" count={stats.active}  label="active"  pulse />}
         {stats.delayed > 0 && <Pill dot="#ea4335" count={stats.delayed} label="delayed" warn />}
       </div>
 
-      {/* ── Bottom-right: unified info/calc panel ─────────────────────────── */}
-      <div className="absolute bottom-5 right-3 z-[998] w-64" style={{ pointerEvents:"auto" }}>
-        <div className="rounded-2xl p-3.5" style={{
-          background: "#fff",
-          border: "1.5px solid #dadce0",
-          boxShadow: "0 4px 18px rgba(0,0,0,.11),0 1px 4px rgba(0,0,0,.07)",
-          fontFamily: "-apple-system,BlinkMacSystemFont,sans-serif",
-        }}>
+      {/* Bottom‑right compact info panel – only shown when needed (idle still shows tiny hint) */}
+      <div className="absolute bottom-3 right-3 z-[998] w-48" style={{ pointerEvents:"auto" }}>
+        <div className="rounded-xl p-2.5 bg-white/95 backdrop-blur-sm shadow-lg border border-gray-200/80">
           <PanelContent />
         </div>
       </div>
@@ -587,18 +521,18 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tiny stat pill sub-component
+// Stat pill (compact)
 // ─────────────────────────────────────────────────────────────────────────────
 function Pill({ dot, count, label, sub="", pulse=false, warn=false }: {
   dot: string; count: number; label: string; sub?: string; pulse?: boolean; warn?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-full px-2.5 py-1"
-      style={{ background:"#fff", border:`1.5px solid ${warn ? "#fbbc04" : "#dadce0"}`, boxShadow:"0 1px 4px rgba(0,0,0,.10)", fontFamily:"-apple-system,BlinkMacSystemFont,sans-serif" }}>
-      <span className={`size-1.5 rounded-full flex-shrink-0 ${pulse ? "animate-pulse" : ""}`} style={{ background: dot }} />
-      <span style={{ fontSize:11, fontWeight:600, color:"#202124" }}>{count}</span>
-      <span style={{ fontSize:10, color: warn ? "#b45309" : "#9aa0a6", textTransform:"uppercase", letterSpacing:".06em", fontFamily:"monospace" }}>{label}</span>
-      {sub && <span style={{ fontSize:10, color:"#c4c7cb", fontFamily:"monospace" }}>{sub}</span>}
+    <div className="flex items-center gap-1.5 rounded-full px-2 py-0.5 bg-white/90 backdrop-blur-sm shadow-sm border"
+      style={{ borderColor: warn ? "#fbbc04" : "#e2e8f0" }}>
+      <span className={`size-1.5 rounded-full ${pulse ? "animate-pulse" : ""}`} style={{ background: dot }} />
+      <span style={{ fontSize:10, fontWeight:600 }}>{count}</span>
+      <span style={{ fontSize:8, color: warn ? "#b45309" : "#64748b", letterSpacing:".04em" }}>{label}</span>
+      {sub && <span style={{ fontSize:7, color:"#94a3b8" }}>{sub}</span>}
     </div>
   );
 }
