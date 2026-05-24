@@ -575,14 +575,17 @@ function DispatchPage() {
       </header>
 
       {/* Filter bar */}
-      <div className="px-5 py-3 border-b border-border bg-background/40 flex items-center gap-2">
+      <div className="px-5 py-2.5 flex items-center gap-2" style={{ borderBottom: "1px solid oklch(0.20 0.016 245)", background: "oklch(0.15 0.018 245 / 0.6)" }}>
         <Popover>
           <PopoverTrigger asChild>
             <button
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs hover:bg-surface-2",
+                "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-all",
                 dateRange ? "text-foreground" : "text-muted-foreground",
               )}
+              style={{ background: "oklch(0.17 0.018 245)", borderColor: "oklch(0.26 0.018 245)" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.20 0.020 245)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "oklch(0.17 0.018 245)")}
             >
               <CalendarIcon className="size-3.5" />
               {dateLabel}
@@ -616,14 +619,17 @@ function DispatchPage() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by reference, route, driver, status…"
-          className="flex-1 rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary"
+          placeholder="Search reference, driver, status…"
+          className="field-input flex-1"
         />
 
         <div ref={statusMenuRef} className="relative">
           <button
             onClick={() => setStatusMenuOpen((o) => !o)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-foreground hover:bg-surface-2"
+            className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs text-foreground transition-all"
+            style={{ background: "oklch(0.17 0.018 245)", borderColor: "oklch(0.26 0.018 245)" }}
+            onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.20 0.020 245)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "oklch(0.17 0.018 245)")}
           >
             Statuses
             <span className="font-mono text-[10px] text-muted-foreground">
@@ -632,8 +638,14 @@ function DispatchPage() {
             <ChevronDown className="size-3" />
           </button>
           {statusMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 z-30 w-56 rounded-md border border-border bg-surface shadow-lg overflow-hidden">
-              <div className="flex items-center justify-between px-2 py-1.5 border-b border-border text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            <div
+              className="absolute right-0 top-full mt-1 z-30 w-56 rounded-xl overflow-hidden"
+              style={{
+                background: "oklch(0.19 0.020 245)",
+                border: "1px solid oklch(0.28 0.020 245)",
+                boxShadow: "0 8px 24px oklch(0 0 0 / 0.45)",
+              }}
+            >              <div className="flex items-center justify-between px-2 py-1.5 border-b border-border text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
                 <span>Show statuses</span>
                 <div className="flex gap-2">
                   <button onClick={() => setHiddenStatuses(new Set())} className="hover:text-foreground">All</button>
@@ -660,7 +672,10 @@ function DispatchPage() {
         {!isDefaultFilters && (
           <button
             onClick={() => { const t = startOfDay(new Date()); setSearch(""); setStatusFilter(null); setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"])); setDateRange({ from: t, to: t }); }}
-            className="rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-2"
+            className="rounded-lg border px-2.5 py-1.5 text-xs text-muted-foreground transition-all"
+            style={{ background: "oklch(0.17 0.018 245)", borderColor: "oklch(0.26 0.018 245)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "oklch(0.95 0.006 240)")}
+            onMouseLeave={e => (e.currentTarget.style.color = "")}
           >
             Reset
           </button>
@@ -668,22 +683,39 @@ function DispatchPage() {
       </div>
 
       {tomorrowStats.isTomorrowView && tomorrowStats.total > 0 && (
-        <div className="mx-5 mt-3 rounded-md border border-border bg-surface px-3 py-2 flex items-center justify-between text-xs">
+        <div
+          className="mx-5 mt-3 rounded-xl border px-4 py-2.5 flex items-center justify-between text-xs fade-up"
+          style={{
+            background: tomorrowStats.assigned === tomorrowStats.total
+              ? "oklch(0.73 0.17 150 / 0.06)" : "oklch(0.80 0.18 72 / 0.06)",
+            borderColor: tomorrowStats.assigned === tomorrowStats.total
+              ? "oklch(0.73 0.17 150 / 0.25)" : "oklch(0.80 0.18 72 / 0.25)",
+          }}
+        >
           <div className="flex items-center gap-3">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Tomorrow coverage</span>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              Tomorrow coverage
+            </span>
             <span className="font-mono">
-              <span className={tomorrowStats.assigned === tomorrowStats.total ? "text-success" : "text-warning"}>
+              <span style={{ color: tomorrowStats.assigned === tomorrowStats.total ? "oklch(0.78 0.14 150)" : "oklch(0.80 0.16 72)" }}>
                 {tomorrowStats.assigned}
               </span>
               <span className="text-muted-foreground"> / {tomorrowStats.total} routes assigned</span>
             </span>
-            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground/40">·</span>
             <span className="font-mono text-muted-foreground">
               {tomorrowStats.availableDrivers.length} driver{tomorrowStats.availableDrivers.length === 1 ? "" : "s"} available
             </span>
           </div>
-          <button onClick={onPlanTomorrow} disabled={planningTomorrow} className="text-primary hover:underline disabled:opacity-50">
-            {planningTomorrow ? "Planning…" : "Re-run planner"}
+          <button
+            onClick={onPlanTomorrow}
+            disabled={planningTomorrow}
+            className="text-xs font-medium transition-colors disabled:opacity-50"
+            style={{ color: "oklch(0.75 0.18 245)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "oklch(0.85 0.14 245)")}
+            onMouseLeave={e => (e.currentTarget.style.color = "oklch(0.75 0.18 245)")}
+          >
+            {planningTomorrow ? "Planning…" : "Re-run planner →"}
           </button>
         </div>
       )}
@@ -691,17 +723,26 @@ function DispatchPage() {
       {/* Two-column body */}
       <div className="flex-1 min-h-0 grid grid-cols-[360px_1fr]">
         {/* Queue */}
-        <div className="border-r border-border overflow-y-auto bg-surface">
-          <div className="px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground border-b border-border sticky top-0 bg-surface z-10">
-            Queue · {filteredJobs.length}
+        <div className="border-r border-border overflow-y-auto" style={{ background: "oklch(0.155 0.017 245)" }}>
+          <div
+            className="px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground sticky top-0 z-10 flex items-center justify-between"
+            style={{ borderBottom: "1px solid oklch(0.20 0.016 245)", background: "oklch(0.15 0.018 245 / 0.95)", backdropFilter: "blur(4px)" }}
+          >
+            <span>Queue</span>
+            <span
+              className="inline-flex items-center justify-center size-5 rounded-full text-[10px] font-mono font-bold"
+              style={{ background: "oklch(0.62 0.22 245 / 0.12)", color: "oklch(0.75 0.18 245)" }}
+            >
+              {filteredJobs.length}
+            </span>
           </div>
           {filteredJobs.length === 0 ? (
-            <div className="p-6 text-sm text-muted-foreground text-center">
-              <MapPin className="size-8 mx-auto text-muted-foreground/40 mb-2" />
-              {jobs.length === 0 ? "No routes yet." : "No routes match your filters."}
+            <div className="p-8 text-sm text-muted-foreground text-center">
+              <MapPin className="size-8 mx-auto text-muted-foreground/30 mb-3" />
+              <p className="text-xs">{jobs.length === 0 ? "No routes yet." : "No routes match your filters."}</p>
             </div>
           ) : (
-            <ul className="divide-y divide-border">
+            <ul className="divide-y" style={{ borderColor: "oklch(0.20 0.016 245)" }}>
               {filteredJobs.map((j) => {
                 const stops = stopsMap[j.id] ?? [];
                 const o = warehouses.find((w) => w.id === stops[0]?.warehouse_id);
@@ -728,32 +769,50 @@ function DispatchPage() {
                   <li key={j.id}>
                     <button
                       onClick={() => setSelectedJobId(j.id)}
-                      className={cn(
-                        "w-full text-left px-4 py-3 hover:bg-surface-2 transition",
-                        active && "bg-surface-2 border-l-2 border-primary pl-[14px]",
-                      )}
+                      className="w-full text-left px-4 py-3 transition-colors"
+                      style={{
+                        background: active ? "oklch(0.62 0.22 245 / 0.08)" : "transparent",
+                        borderLeft: active ? "2px solid oklch(0.62 0.22 245)" : "2px solid transparent",
+                        paddingLeft: active ? "calc(1rem - 2px)" : "1rem",
+                      }}
+                      onMouseEnter={e => { if (!active) e.currentTarget.style.background = "oklch(0.18 0.018 245)"; }}
+                      onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="font-mono text-xs text-muted-foreground truncate">{j.reference}</div>
-                        <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] font-medium", cfg.badge)}>
-                          <span className={cn("size-1.5 rounded-full", cfg.dot)} />
+                      {/* Reference + status */}
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="font-mono text-[11px] text-muted-foreground">{j.reference}</span>
+                        <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tracking-wider", cfg.badge)}>
+                          <span className={cn("size-1.5 rounded-full shrink-0", cfg.dot)} />
                           {cfg.label}
                         </span>
                       </div>
-                      <div className="mt-1 flex items-center gap-1.5 text-sm font-mono">
-                        <span className="truncate">{o?.code ?? "?"}</span>
+                      {/* Route */}
+                      <div className="flex items-center gap-1.5 font-mono text-sm">
+                        <span className="font-semibold truncate" style={{ color: active ? "oklch(0.85 0.10 245)" : "oklch(0.88 0.008 240)" }}>
+                          {o?.code ?? "?"}
+                        </span>
                         <ArrowRight className="size-3 text-muted-foreground shrink-0" />
-                        <span className="truncate">{d?.code ?? "?"}</span>
-                        {isMR && <span className="ml-1 text-[9px] font-mono text-amber-500">+{stops.length - 2}</span>}
+                        <span className="font-semibold truncate" style={{ color: active ? "oklch(0.85 0.10 245)" : "oklch(0.88 0.008 240)" }}>
+                          {d?.code ?? "?"}
+                        </span>
+                        {isMR && (
+                          <span
+                            className="ml-1 px-1 rounded text-[9px] font-mono font-bold"
+                            style={{ background: "oklch(0.80 0.18 72 / 0.12)", color: "oklch(0.80 0.16 72)" }}
+                          >
+                            +{stops.length - 2}
+                          </span>
+                        )}
                       </div>
-                      <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span className="truncate">
+                      {/* Time + driver */}
+                      <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground gap-2">
+                        <span className="font-mono">
                           {j.scheduled_at
                             ? new Date(j.scheduled_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
                             : "ASAP"}
                         </span>
-                        <span className="truncate ml-2">
-                          {driver ? driver.name : plannedDriver ? `· planned: ${plannedDriver.name}` : "Unassigned"}
+                        <span className="truncate" style={{ color: driver ? "oklch(0.68 0.10 245)" : plannedDriver ? "oklch(0.60 0.08 245)" : "oklch(0.42 0.010 245)" }}>
+                          {driver ? driver.name : plannedDriver ? `· ${plannedDriver.name}` : "Unassigned"}
                         </span>
                       </div>
                     </button>
@@ -765,10 +824,18 @@ function DispatchPage() {
         </div>
 
         {/* Detail panel */}
-        <div className="overflow-y-auto">
+        <div className="overflow-y-auto" style={{ background: "oklch(0.14 0.016 245)" }}>
           {!selectedJob ? (
-            <div className="h-full grid place-items-center text-muted-foreground text-sm">
-              Select a route from the queue
+            <div className="h-full grid place-items-center">
+              <div className="text-center">
+                <div
+                  className="size-12 rounded-full grid place-items-center mx-auto mb-3"
+                  style={{ background: "oklch(0.22 0.018 245)" }}
+                >
+                  <MapPin className="size-5 text-muted-foreground/40" />
+                </div>
+                <p className="text-sm text-muted-foreground">Select a route from the queue</p>
+              </div>
             </div>
           ) : (
             <JobDetailPanel
