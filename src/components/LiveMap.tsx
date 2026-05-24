@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Driver, Warehouse, Job } from "@/lib/types";
@@ -22,6 +22,7 @@ const STATUS: Record<string, { bg: string; ring: string; text: string; label: st
 };
 const DEF_STATUS = STATUS.ON_SHIFT;
 const ROUTE_BLUE = "#1a73e8";
+const ZOOM_TEXT_THRESHOLD = 10;   // show warehouse code pill only when zoom >= this value
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Marker HTML helpers
@@ -49,8 +50,8 @@ function driverDot(name: string, status: string, selected: boolean): string {
   ">${(name[0]??"?").toUpperCase()}${pulse}</div>`;
 }
 
-function whPin(code: string): string {
-  // Minimal pill: small red-dot anchor + bold code text
+// Full pill with warehouse code (shown at high zoom)
+function whPill(code: string): string {
   return `<div style="
     display:flex;align-items:center;gap:5px;
     background:#fff;border:1.5px solid #dadce0;border-radius:20px;
@@ -64,6 +65,23 @@ function whPin(code: string): string {
     </div>
     <span style="font-size:11.5px;font-weight:700;color:#202124;letter-spacing:.04em">${code.toUpperCase()}</span>
   </div>`;
+}
+
+// Simple red dot (shown at low zoom)
+function whDot(): string {
+  return `<div style="
+    width:12px;height:12px;border-radius:50%;
+    background:#ea4335;border:2px solid #fff;
+    box-shadow:0 1px 4px rgba(0,0,0,.3);
+    cursor:pointer;
+  "></div>`;
+}
+
+// Returns appropriate DivIcon based on current zoom level
+function getWhIcon(zoom: number, code: string): L.DivIcon {
+  const html = zoom >= ZOOM_TEXT_THRESHOLD ? whPill(code) : whDot();
+  const anchor = zoom >= ZOOM_TEXT_THRESHOLD ? [14, 18] : [6, 6];
+  return L.divIcon({ className: "", html, iconAnchor: anchor as L.PointExpression });
 }
 
 function etaChip(distKm: number, minutes: number): string {
@@ -108,6 +126,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   const [panel, setPanel]           = useState<Panel>({ kind: "idle" });
   const [pinnedDriver, setPinned]   = useState<Driver | null>(null);
   const [routeEta, setRouteEta]     = useState<{ distKm: number; minutes: number } | null>(null);
+  const [zoomLevel, setZoomLevel]   = useState<number>(7);  // track map zoom for warehouse icons
 
   // ── CSS animations (once) ──────────────────────────────────────────────────
   useEffect(() => {
@@ -156,11 +175,23 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
     // Zoom top-right — well away from the bottom-right panel
     L.control.zoom({ position: "topright" }).addTo(map);
 
+    // Listen to zoom events to update warehouse markers dynamically
+    const onZoomEnd = () => {
+      const newZoom = map.getZoom();
+      setZoomLevel(newZoom);
+    };
+    map.on("zoomend", onZoomEnd);
+    setZoomLevel(map.getZoom());
+
     warehouseLayer.current = L.layerGroup().addTo(map);
     routeLayer.current     = L.layerGroup().addTo(map);
     driverLayer.current    = L.layerGroup().addTo(map);
     mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; };
+    return () => {
+      map.off("zoomend", onZoomEnd);
+      map.remove();
+      mapRef.current = null;
+    };
   }, []);
 
   // ── Fit to UK data on first load ───────────────────────────────────────────
@@ -175,19 +206,14 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warehouses.length > 0]);
 
-  // ── Warehouse markers (no popup — panel only) ──────────────────────────────
+  // ── Warehouse markers (zoom‑aware) ─────────────────────────────────────────
   useEffect(() => {
     const layer = warehouseLayer.current;
-    if (!layer) return;
+    if (!layer || !mapRef.current) return;
     layer.clearLayers();
     warehouses.forEach(w => {
-      const icon = L.divIcon({
-        className: "",
-        html: whPin(w.code),
-        // anchor so red circle sits on the coordinate
-        iconAnchor: [14, 18],
-      });
-      L.marker([w.latitude, w.longitude], { icon })
+      const icon = getWhIcon(zoomLevel, w.code);
+      const marker = L.marker([w.latitude, w.longitude], { icon })
         .on("click", () => {
           if (pinnedDriver?.current_lat != null) {
             // calc mode
@@ -201,10 +227,10 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
           } else {
             setPanel({ kind: "warehouse", wh: w });
           }
-        })
-        .addTo(layer);
+        });
+      marker.addTo(layer);
     });
-  }, [warehouses, pinnedDriver]);
+  }, [warehouses, pinnedDriver, zoomLevel]);
 
   // ── Driver markers (no popup — panel only) ────────────────────────────────
   useEffect(() => {
