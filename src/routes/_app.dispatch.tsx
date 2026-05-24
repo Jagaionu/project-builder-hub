@@ -104,15 +104,15 @@ const JOB_STATUSES = [
 ] as const;
 type JobStatus = (typeof JOB_STATUSES)[number];
 
-const STATUS_CONFIG: Record<JobStatus | "SCHEDULED", { label: string; dot: string; badge: string }> = {
-  PENDING:           { label: "Pending",           dot: "bg-amber-400",   badge: "text-amber-500 bg-amber-500/10" },
-  ASSIGNED:          { label: "Assigned",          dot: "bg-blue-400",    badge: "text-blue-500 bg-blue-500/10" },
-  IN_PROGRESS:       { label: "In Progress",       dot: "bg-violet-400",  badge: "text-violet-500 bg-violet-500/10" },
-  ARRIVED_PICKUP:    { label: "Arrived Pickup",    dot: "bg-cyan-400",    badge: "text-cyan-500 bg-cyan-500/10" },
-  EN_ROUTE_DELIVERY: { label: "En Route Delivery", dot: "bg-indigo-400",  badge: "text-indigo-500 bg-indigo-500/10" },
-  COMPLETED:         { label: "Completed",         dot: "bg-emerald-400", badge: "text-emerald-600 bg-emerald-500/10" },
-  CANCELLED:         { label: "Cancelled",         dot: "bg-zinc-400",    badge: "text-zinc-400 bg-zinc-500/10" },
-  SCHEDULED:         { label: "Scheduled",         dot: "bg-sky-400",     badge: "text-sky-500 bg-sky-500/10" },
+const STATUS_CONFIG: Record<JobStatus | "SCHEDULED", { label: string; dot: string; badge: string; color: string }> = {
+  PENDING:           { label: "Pending",           dot: "bg-amber-400",   badge: "text-amber-500 bg-amber-500/10",     color: "oklch(0.80 0.18 72)" },
+  ASSIGNED:          { label: "Assigned",          dot: "bg-blue-400",    badge: "text-blue-500 bg-blue-500/10",       color: "oklch(0.68 0.16 230)" },
+  IN_PROGRESS:       { label: "In Progress",       dot: "bg-violet-400",  badge: "text-violet-500 bg-violet-500/10",   color: "oklch(0.62 0.22 245)" },
+  ARRIVED_PICKUP:    { label: "Arrived Pickup",    dot: "bg-cyan-400",    badge: "text-cyan-500 bg-cyan-500/10",       color: "oklch(0.80 0.18 72)" },
+  EN_ROUTE_DELIVERY: { label: "En Route Delivery", dot: "bg-indigo-400",  badge: "text-indigo-500 bg-indigo-500/10",   color: "oklch(0.75 0.18 245)" },
+  COMPLETED:         { label: "Completed",         dot: "bg-emerald-400", badge: "text-emerald-600 bg-emerald-500/10", color: "oklch(0.73 0.17 150)" },
+  CANCELLED:         { label: "Cancelled",         dot: "bg-zinc-400",    badge: "text-zinc-400 bg-zinc-500/10",       color: "oklch(0.52 0.012 245)" },
+  SCHEDULED:         { label: "Scheduled",         dot: "bg-sky-400",     badge: "text-sky-500 bg-sky-500/10",         color: "oklch(0.68 0.16 230)" },
 };
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
@@ -329,37 +329,14 @@ function DispatchPage() {
       if (typeof window !== "undefined" && !window.confirm("Remove driver from this active job? It will go back to Pending.")) return;
     }
     const base = driverId
-      ? { assigned_driver_id: driverId, status: "IN_PROGRESS" as never }
+      ? { assigned_driver_id: driverId, status: "ASSIGNED" as never }
       : { assigned_driver_id: null, status: "PENDING" as never, planned_driver_id: null, planned_sequence: null, planned_start_at: null };
     const payload = opts?.manual ? { ...base, manual_override: true } : base;
     const { error } = await supabase.from("jobs").update(payload as never).eq("id", jobId);
     if (error) return toast.error(error.message);
-
-    if (driverId) {
-      await supabase.from("drivers").update({ status: "ON_ROUTE" } as never).eq("id", driverId);
-      try {
-        const tenantId = await getTenantId();
-        await supabase.from("driver_events").insert({
-          driver_id: driverId,
-          type: "JOB_ASSIGNED",
-          payload: { job_id: jobId, manual: opts?.manual ?? false },
-          tenant_id: tenantId,
-        } as never);
-      } catch (e) {
-        console.error("[dispatch] failed to log JOB_ASSIGNED event", e);
-      }
-    } else if (job?.assigned_driver_id) {
-      await supabase
-        .from("drivers")
-        .update({ status: "AVAILABLE" } as never)
-        .eq("id", job.assigned_driver_id)
-        .eq("status", "ON_ROUTE");
-    }
-
     if (driverId) toast.success(opts?.manual ? "Driver assigned (manual)" : "Driver assigned");
     else if (opts?.manual) toast.success("Driver removed — auto-planner paused for this job");
   }
-
 
   // Auto-planner — unchanged from prior Jobs page
   const planSigRef = useRef<string>("");
@@ -570,25 +547,14 @@ function DispatchPage() {
             const active = statusFilter === s;
             const cfg = STATUS_CONFIG[s];
             return (
-              <button
+              <DispatchStat
                 key={s}
-                onClick={(e) => { e.stopPropagation(); setStatusFilter(active ? null : s); }}
-                title={`Filter by ${cfg.label}`}
-                className={cn(
-                  "size-14 shrink-0 flex flex-col items-center justify-center gap-0.5 rounded-md border transition-colors",
-                  active
-                    ? "border-primary bg-primary/10 text-foreground"
-                    : "border-border bg-surface text-muted-foreground hover:bg-surface-2 hover:text-foreground",
-                )}
-              >
-                <span className="font-mono font-semibold text-base text-foreground tabular-nums leading-none">
-                  {statusCounts[s] ?? 0}
-                </span>
-                <span className="flex items-center gap-1 uppercase tracking-wide text-[8px] font-mono leading-none">
-                  <span className={`size-1.5 rounded-full ${cfg.dot}`} />
-                  {cfg.label}
-                </span>
-              </button>
+                label={cfg.label}
+                value={statusCounts[s] ?? 0}
+                color={cfg.color}
+                active={active}
+                onClick={() => setStatusFilter(active ? null : s)}
+              />
             );
           })}
         </div>
@@ -1557,4 +1523,50 @@ function ComplianceDot({ c, driverStatus }: { c: Compliance; driverStatus?: stri
     ? `Off shift · ${c.restHours === Infinity ? "—" : c.restHours.toFixed(1) + "h rest"}`
     : (c.issues[0]?.msg ?? `OK · ${c.daily.toFixed(1)}/10 today · ${c.weekly.toFixed(1)}/56 this week`);
   return <span title={title} className={`size-1.5 rounded-full shrink-0 ${cls}`} />;
+}
+
+// ── Dispatch stat card ────────────────────────────────────────────────────────
+
+function DispatchStat({
+  label, value, color, active, onClick,
+}: {
+  label: string; value: number; color: string; active?: boolean; onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`Filter by ${label}`}
+      style={{
+        minWidth: "76px",
+        padding: "0.45rem 0.75rem",
+        borderRadius: "0.5rem",
+        borderLeft: `2px solid ${color}`,
+        borderTop:    `1px solid ${active ? "oklch(0.32 0.020 245)" : "oklch(0.24 0.018 245)"}`,
+        borderRight:  `1px solid ${active ? "oklch(0.32 0.020 245)" : "oklch(0.24 0.018 245)"}`,
+        borderBottom: `1px solid ${active ? "oklch(0.32 0.020 245)" : "oklch(0.24 0.018 245)"}`,
+        background: active ? "oklch(0.20 0.020 245)" : "oklch(0.17 0.018 245)",
+        textAlign: "left" as const,
+        cursor: "pointer",
+        transition: "all 150ms ease",
+        boxShadow: active ? `0 0 0 1px ${color}, 0 2px 8px oklch(0 0 0 / 0.25)` : "none",
+        flexShrink: 0,
+      }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.background = "oklch(0.19 0.018 245)"; }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.background = "oklch(0.17 0.018 245)"; }}
+    >
+      <div style={{
+        fontSize: "9px", fontFamily: "var(--font-mono)", textTransform: "uppercase" as const,
+        letterSpacing: "0.08em", color: "oklch(0.55 0.014 245)", lineHeight: 1, whiteSpace: "nowrap" as const,
+      }}>
+        {label}
+      </div>
+      <div style={{
+        fontSize: "1.35rem", fontFamily: "var(--font-mono)", fontWeight: 700,
+        marginTop: "0.2rem", lineHeight: 1, fontVariantNumeric: "tabular-nums", color,
+      }}>
+        {value}
+      </div>
+    </button>
+  );
 }
