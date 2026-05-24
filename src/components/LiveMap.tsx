@@ -11,68 +11,100 @@ interface Props {
   onSelectDriver?: (id: string) => void;
 }
 
-// ── Color palette for statuses (now tuned for light background) ─────────────
+// ── Status colours ────────────────────────────────────────────────────────────
 const S_COLOR: Record<string, { fill: string; glow: string; text: string }> = {
-  AVAILABLE:   { fill: "#22c55e", glow: "rgba(34,197,94,0.3)", text: "#0f172a" },
-  ON_SHIFT:    { fill: "#3b82f6", glow: "rgba(59,130,246,0.3)", text: "#fff" },
-  ON_ROUTE:    { fill: "#22c55e", glow: "rgba(34,197,94,0.3)", text: "#0f172a" },
-  DELAYED:     { fill: "#f59e0b", glow: "rgba(245,158,11,0.3)", text: "#0f172a" },
-  OFF_SHIFT:   { fill: "#94a3b8", glow: "rgba(148,163,184,0.2)", text: "#0f172a" },
-  ON_BREAK:    { fill: "#f59e0b", glow: "rgba(245,158,11,0.3)", text: "#0f172a" },
+  AVAILABLE: { fill: "#1a73e8", glow: "rgba(26,115,232,0.35)", text: "#fff" },
+  ON_SHIFT:  { fill: "#1a73e8", glow: "rgba(26,115,232,0.35)", text: "#fff" },
+  ON_ROUTE:  { fill: "#34a853", glow: "rgba(52,168,83,0.35)",  text: "#fff" },
+  DELAYED:   { fill: "#fbbc04", glow: "rgba(251,188,4,0.35)",  text: "#202124" },
+  OFF_SHIFT: { fill: "#9aa0a6", glow: "rgba(154,160,166,0.25)", text: "#fff" },
+  ON_BREAK:  { fill: "#fa7b17", glow: "rgba(250,123,23,0.35)", text: "#fff" },
 };
-const DEFAULT_COLOR = { fill: "#3b82f6", glow: "rgba(59,130,246,0.3)", text: "#fff" };
-const BG = "#ffffff";           // Light background for marker borders
-const ROUTE_COLOR = "#2563eb";  // Strong blue for route lines
+const DEFAULT_COLOR = { fill: "#1a73e8", glow: "rgba(26,115,232,0.35)", text: "#fff" };
+const ROUTE_BLUE = "#1a73e8";
+
+// ── Marker HTML generators ───────────────────────────────────────────────────
 
 function driverMarkerHtml(name: string, status: string, selected: boolean): string {
-  const { fill, glow, text } = S_COLOR[status] ?? DEFAULT_COLOR;
+  const { fill, text } = S_COLOR[status] ?? DEFAULT_COLOR;
   const initial = (name?.[0] ?? "?").toUpperCase();
-  const size = selected ? 38 : 30;
-  const fontSize = selected ? 15 : 12;
-  const border = selected ? `3px solid #0f172a` : `2.5px solid ${BG}`;
+  const size = selected ? 42 : 34;
+  const fontSize = selected ? 17 : 13;
+  // Google Maps–style: white ring + colored fill + subtle shadow
   const shadow = selected
-    ? `0 0 0 3px ${fill},0 0 16px ${glow},0 4px 12px rgba(0,0,0,0.15)`
-    : `0 0 0 1.5px ${fill},0 0 10px ${glow},0 2px 6px rgba(0,0,0,0.1)`;
-  const pulse = (status !== "OFF_SHIFT" && !selected)
-    ? `<div style="position:absolute;inset:-6px;border-radius:50%;border:1.5px solid ${fill};animation:ping-slow 2.4s cubic-bezier(0,0,0.2,1) infinite;pointer-events:none"></div>`
+    ? `0 0 0 3px #fff, 0 0 0 5.5px ${fill}, 0 6px 20px rgba(0,0,0,0.22)`
+    : `0 0 0 2.5px #fff, 0 0 0 4px ${fill}, 0 3px 10px rgba(0,0,0,0.18)`;
+  const pulse = status !== "OFF_SHIFT" && !selected
+    ? `<div style="position:absolute;inset:-9px;border-radius:50%;border:2px solid ${fill};animation:driver-ping 2.2s ease-out infinite;pointer-events:none;opacity:0.55"></div>`
     : "";
-  return `
-    <div style="
-      width:${size}px;height:${size}px;border-radius:50%;
-      background:${fill};border:${border};
-      box-shadow:${shadow};
-      display:flex;align-items:center;justify-content:center;
-      font-family:Inter,system-ui,sans-serif;font-weight:700;font-size:${fontSize}px;color:${text};
-      cursor:pointer;position:relative;
-      ${selected ? "z-index:1000;" : ""}
-    ">
-      ${initial}
-      ${pulse}
-    </div>`;
+  return `<div style="
+    width:${size}px;height:${size}px;border-radius:50%;
+    background:${fill};box-shadow:${shadow};
+    display:flex;align-items:center;justify-content:center;
+    font-family:-apple-system,BlinkMacSystemFont,'Google Sans',sans-serif;
+    font-weight:700;font-size:${fontSize}px;color:${text};
+    cursor:pointer;position:relative;
+    ${selected ? "transform:scale(1.06);z-index:1000;" : ""}
+  ">${initial}${pulse}</div>`;
 }
 
 function warehouseMarkerHtml(code: string): string {
-  const label = code.length > 4 ? code.slice(0, 4) : code;
-  return `
+  // Google Maps place chip: white pill, red icon circle, bold code text
+  const displayCode = code.toUpperCase();
+  return `<div style="
+    display:flex;align-items:center;gap:6px;
+    background:#ffffff;
+    border:1.5px solid #dadce0;
+    border-radius:22px;
+    padding:5px 12px 5px 7px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.16),0 1px 3px rgba(0,0,0,0.1);
+    cursor:pointer;white-space:nowrap;
+    font-family:-apple-system,BlinkMacSystemFont,'Google Sans',sans-serif;
+    min-width:52px;
+  ">
     <div style="
-      background:#f59e0b;border:2px solid ${BG};border-radius:8px;
-      padding:3px 8px;
-      font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:10px;
-      color:${BG};white-space:nowrap;
-      box-shadow:0 2px 8px rgba(0,0,0,0.15),0 0 0 1px rgba(245,158,11,0.4);
+      width:22px;height:22px;border-radius:50%;
+      background:#ea4335;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
     ">
-      ${label}
-    </div>`;
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="white">
+        <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+      </svg>
+    </div>
+    <span style="font-weight:600;font-size:12.5px;color:#202124;letter-spacing:0.03em">${displayCode}</span>
+  </div>`;
 }
 
 function popupHtml(title: string, sub: string, extra = ""): string {
-  return `
-    <div style="font-family:Inter,system-ui,sans-serif;min-width:140px;color:#0f172a">
-      <div style="font-weight:600;font-size:14px;color:#0f172a">${title}</div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#334155;margin-top:4px;text-transform:uppercase;letter-spacing:.06em">${sub}</div>
-      ${extra ? `<div style="font-size:12px;color:#475569;margin-top:5px">${extra}</div>` : ""}
-    </div>`;
+  return `<div style="
+    font-family:-apple-system,BlinkMacSystemFont,'Google Sans',sans-serif;
+    min-width:160px;padding:4px 2px;color:#202124;
+  ">
+    <div style="font-weight:600;font-size:14px;margin-bottom:4px">${title}</div>
+    <div style="font-size:11px;color:#fff;background:#5f6368;padding:2px 7px;border-radius:4px;display:inline-block;text-transform:uppercase;letter-spacing:.06em">${sub}</div>
+    ${extra ? `<div style="font-size:12px;color:#5f6368;margin-top:6px">${extra}</div>` : ""}
+  </div>`;
 }
+
+function etaChipHtml(distKm: number, minutes: number): string {
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} min`;
+  return `<div style="
+    background:#1a73e8;border-radius:20px;
+    padding:6px 14px;
+    display:flex;align-items:center;gap:9px;
+    box-shadow:0 2px 14px rgba(26,115,232,0.45),0 1px 5px rgba(0,0,0,0.12);
+    font-family:-apple-system,BlinkMacSystemFont,'Google Sans',sans-serif;
+    white-space:nowrap;pointer-events:none;
+  ">
+    <span style="font-size:13px;font-weight:700;color:#fff">${distKm.toFixed(1)} km</span>
+    <div style="width:1px;height:14px;background:rgba(255,255,255,0.35)"></div>
+    <span style="font-size:13px;font-weight:500;color:rgba(255,255,255,0.92)">${timeStr}</span>
+  </div>`;
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
 
 export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectDriver }: Props) {
   const containerRef   = useRef<HTMLDivElement | null>(null);
@@ -80,345 +112,478 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   const driverLayer    = useRef<L.LayerGroup | null>(null);
   const warehouseLayer = useRef<L.LayerGroup | null>(null);
   const routeLayer     = useRef<L.LayerGroup | null>(null);
+  const etaMarkerRef   = useRef<L.Marker | null>(null);
+  const routeMidRef    = useRef<[number, number] | null>(null);
 
-  // New state for manual distance/eta calculation
   const [selectedCalcDriver, setSelectedCalcDriver] = useState<Driver | null>(null);
-  const [calcResult, setCalcResult] = useState<{ distanceKm: number; minutes: number } | null>(null);
-  const [calcLoading, setCalcLoading] = useState(false);
+  const [calcResult, setCalcResult]     = useState<{ distanceKm: number; minutes: number } | null>(null);
+  const [calcLoading, setCalcLoading]   = useState(false);
+  const [routeEta, setRouteEta]         = useState<{ distanceKm: number; minutes: number } | null>(null);
 
-  // ── Init map once (light CartoDB Voyager) ─────────────────────────────────
+  // ── Inject animation CSS ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (document.getElementById("livemap-css")) return;
+    const style = document.createElement("style");
+    style.id = "livemap-css";
+    style.textContent = `
+      @keyframes driver-ping {
+        0%   { transform:scale(1);   opacity:0.55; }
+        75%  { transform:scale(2.6); opacity:0; }
+        100% { transform:scale(2.6); opacity:0; }
+      }
+      @keyframes route-flow {
+        to { stroke-dashoffset: -24; }
+      }
+      .route-marching path {
+        animation: route-flow 0.9s linear infinite;
+      }
+      .leaflet-popup-content-wrapper {
+        border-radius: 14px !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.14), 0 1px 6px rgba(0,0,0,0.08) !important;
+        border: 1px solid #dadce0 !important;
+        padding: 12px 16px !important;
+      }
+      .leaflet-popup-content { margin: 0 !important; }
+      .leaflet-popup-tip-container { display:none; }
+    `;
+    document.head.appendChild(style);
+    return () => { document.getElementById("livemap-css")?.remove(); };
+  }, []);
+
+  // ── Init map (Google Maps road tiles) ────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-
     const map = L.map(containerRef.current, {
-      center: [53.5, -1.5],
-      zoom: 6,
-      zoomControl: false,
-      attributionControl: true,
+      center: [53.5, -1.5], zoom: 6,
+      zoomControl: false, attributionControl: true,
     });
 
-    // Light, Waze‑like basemap
-    L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-      {
-        attribution:
-          '© <a href="https://www.openstreetmap.org/copyright">OSM</a> · <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: "abcd",
-        maxZoom: 20,
-      },
-    ).addTo(map);
+    L.tileLayer("https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
+      subdomains: ["mt0", "mt1", "mt2", "mt3"],
+      maxZoom: 20,
+      attribution: "© Google Maps",
+    }).addTo(map);
 
     L.control.zoom({ position: "bottomright" }).addTo(map);
-
     warehouseLayer.current = L.layerGroup().addTo(map);
     routeLayer.current     = L.layerGroup().addTo(map);
     driverLayer.current    = L.layerGroup().addTo(map);
     mapRef.current = map;
-
-    return () => {
-      map.remove();
-      mapRef.current = null;
-    };
+    return () => { map.remove(); mapRef.current = null; };
   }, []);
 
-  // ── Fit to data on first load ───────────────────────────────────────────
+  // ── Fit bounds on first load ───────────────────────────────────────────────
   useEffect(() => {
     if (!mapRef.current) return;
-    const points: [number, number][] = [
-      ...warehouses.map((w) => [w.latitude, w.longitude] as [number, number]),
-      ...drivers
-        .filter((d) => d.current_lat != null)
-        .map((d) => [d.current_lat!, d.current_lon!] as [number, number]),
+    const pts: [number, number][] = [
+      ...warehouses.map(w => [w.latitude, w.longitude] as [number, number]),
+      ...drivers.filter(d => d.current_lat != null).map(d => [d.current_lat!, d.current_lon!] as [number, number]),
     ];
-    if (points.length === 0) return;
-    mapRef.current.flyToBounds(L.latLngBounds(points), {
-      padding: [60, 60],
-      maxZoom: 9,
-      duration: 1.2,
-    });
-  }, [warehouses.length > 0]); // only on first meaningful load
+    if (pts.length === 0) return;
+    mapRef.current.flyToBounds(L.latLngBounds(pts), { padding: [60, 60], maxZoom: 9, duration: 1.2 });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [warehouses.length > 0]);
 
-  // ── Warehouse markers (added click handler for calculation) ──────────────
+  // ── Warehouse markers ──────────────────────────────────────────────────────
   useEffect(() => {
     const layer = warehouseLayer.current;
     if (!layer) return;
     layer.clearLayers();
-    warehouses.forEach((w) => {
+    warehouses.forEach(w => {
       const icon = L.divIcon({
         className: "",
         html: warehouseMarkerHtml(w.code),
-        iconAnchor: [0, 0],
+        iconAnchor: [0, 16],
       });
-      const popup = L.popup({ className: "light-popup", offset: [0, -4] }).setContent(
-        popupHtml(w.name, w.code, w.address ?? ""),
-      );
       const marker = L.marker([w.latitude, w.longitude], { icon })
-        .bindPopup(popup);
-
-      // Warehouse click: if a driver is selected for calculation, compute route
+        .bindPopup(
+          L.popup({ className: "gmap-popup", offset: [40, -4] })
+            .setContent(popupHtml(w.name, w.code, w.address ?? ""))
+        );
       marker.on("click", () => {
-        if (selectedCalcDriver && selectedCalcDriver.current_lat && selectedCalcDriver.current_lon) {
+        if (selectedCalcDriver?.current_lat != null && selectedCalcDriver?.current_lon != null) {
           setCalcLoading(true);
-          calculateRoute(
+          calcRoute(
             { lat: selectedCalcDriver.current_lat, lon: selectedCalcDriver.current_lon },
             { lat: w.latitude, lon: w.longitude }
           )
-            .then(({ distanceKm, minutes }) => {
-              setCalcResult({ distanceKm, minutes });
-            })
-            .catch((err) => {
-              console.error("Routing failed", err);
-              setCalcResult(null);
-              alert("Could not calculate route. Please try again.");
-            })
+            .then(r => setCalcResult(r))
+            .catch(() => { setCalcResult(null); alert("Routing failed – try again."); })
             .finally(() => setCalcLoading(false));
         } else {
-          // Optionally alert that no driver is selected
-          if (selectedCalcDriver) alert("Driver location missing");
-          else alert("Click a driver first to see distance/time to a warehouse");
+          alert("Select a driver first, then click a warehouse.");
         }
       });
-
       marker.addTo(layer);
     });
   }, [warehouses, selectedCalcDriver]);
 
-  // ── Driver markers ───────────────────────────────────────────────────────
+  // ── Driver markers ─────────────────────────────────────────────────────────
   useEffect(() => {
     const layer = driverLayer.current;
     if (!layer) return;
     layer.clearLayers();
-
-    drivers.forEach((d) => {
+    drivers.forEach(d => {
       if (d.current_lat == null || d.current_lon == null) return;
-      const isSelected = d.id === selectedDriverId;
+      const sel  = d.id === selectedDriverId;
       const icon = L.divIcon({
         className: "",
-        html: driverMarkerHtml(d.name, d.status, isSelected),
-        iconSize:   isSelected ? [38, 38] : [30, 30],
-        iconAnchor: isSelected ? [19, 19] : [15, 15],
+        html: driverMarkerHtml(d.name, d.status, sel),
+        iconSize:   sel ? [42, 42] : [34, 34],
+        iconAnchor: sel ? [21, 21] : [17, 17],
       });
-
-      const activeJob = jobs.find(
-        (j) => j.assigned_driver_id === d.id &&
-          ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
+      const activeJob = jobs.find(j =>
+        j.assigned_driver_id === d.id &&
+        ["ASSIGNED","IN_PROGRESS","ARRIVED_PICKUP","EN_ROUTE_DELIVERY"].includes(j.status)
       );
-      const extra = activeJob ? `Job: <b>${activeJob.reference}</b>` : "";
-      const lastSeen = d.last_update_time
+      const extra  = activeJob ? `Job: <b>${activeJob.reference}</b>` : "";
+      const lastGps = d.last_update_time
         ? `GPS: ${new Date(d.last_update_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
         : "";
-
-      const popup = L.popup({ className: "light-popup", offset: [0, -8] }).setContent(
-        popupHtml(d.name, d.status.replace(/_/g, " "), [extra, lastSeen].filter(Boolean).join(" · ")),
-      );
-
-      const marker = L.marker([d.current_lat, d.current_lon], { icon, zIndexOffset: isSelected ? 1000 : 0 })
-        .bindPopup(popup);
-
+      const marker = L.marker([d.current_lat, d.current_lon], { icon, zIndexOffset: sel ? 1000 : 0 })
+        .bindPopup(
+          L.popup({ offset: [0, -10] }).setContent(
+            popupHtml(d.name, d.status.replace(/_/g, " "), [extra, lastGps].filter(Boolean).join(" · "))
+          )
+        );
       marker.on("click", () => {
         onSelectDriver?.(d.id);
-        // Store driver for manual calculation and show coordinates
         setSelectedCalcDriver(d);
-        setCalcResult(null); // clear previous result
+        setCalcResult(null);
       });
-
       marker.addTo(layer);
     });
   }, [drivers, selectedDriverId, onSelectDriver, jobs]);
 
-  // ── Route line for selected driver (existing feature) ────────────────────
+  // ── Derived state ──────────────────────────────────────────────────────────
   const selectedDriver = useMemo(
-    () => drivers.find((d) => d.id === selectedDriverId),
-    [drivers, selectedDriverId],
+    () => drivers.find(d => d.id === selectedDriverId),
+    [drivers, selectedDriverId]
   );
   const activeJob = useMemo(
-    () =>
-      jobs.find(
-        (j) =>
-          j.assigned_driver_id === selectedDriverId &&
-          ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
-      ),
-    [jobs, selectedDriverId],
+    () => jobs.find(j =>
+      j.assigned_driver_id === selectedDriverId &&
+      ["ASSIGNED","IN_PROGRESS","ARRIVED_PICKUP","EN_ROUTE_DELIVERY"].includes(j.status)
+    ),
+    [jobs, selectedDriverId]
   );
+  const destWarehouse = useMemo(() => {
+    if (!activeJob) return null;
+    return warehouses.find(w =>
+      ["ASSIGNED","IN_PROGRESS"].includes(activeJob.status)
+        ? w.id === activeJob.origin_warehouse_id
+        : w.id === activeJob.destination_warehouse_id
+    ) ?? null;
+  }, [activeJob, warehouses]);
 
+  // ── Auto ETA for active route (separate from manual calc) ─────────────────
+  useEffect(() => {
+    if (!selectedDriver?.current_lat || !destWarehouse) {
+      setRouteEta(null);
+      return;
+    }
+    calcRoute(
+      { lat: selectedDriver.current_lat!, lon: selectedDriver.current_lon! },
+      { lat: destWarehouse.latitude,      lon: destWarehouse.longitude }
+    ).then(setRouteEta).catch(() => setRouteEta(null));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDriver?.id, activeJob?.id]);
+
+  // ── ETA chip: re-render when routeEta arrives without redrawing route ──────
+  useEffect(() => {
+    if (!routeLayer.current || !mapRef.current) return;
+    if (etaMarkerRef.current) {
+      routeLayer.current.removeLayer(etaMarkerRef.current);
+      etaMarkerRef.current = null;
+    }
+    const mid = routeMidRef.current;
+    if (!mid || !routeEta) return;
+    const marker = L.marker(mid, {
+      icon: L.divIcon({
+        className: "",
+        html: etaChipHtml(routeEta.distanceKm, routeEta.minutes),
+        iconAnchor: [65, 20],
+      }),
+      interactive: false,
+      zIndexOffset: 500,
+    }).addTo(routeLayer.current);
+    etaMarkerRef.current = marker;
+  }, [routeEta]);
+
+  // ── Route visualisation ────────────────────────────────────────────────────
   useEffect(() => {
     const layer = routeLayer.current;
     if (!layer) return;
     layer.clearLayers();
+    etaMarkerRef.current = null;
+    routeMidRef.current  = null;
 
     if (!selectedDriver?.current_lat || !selectedDriver.current_lon) return;
 
-    if (!activeJob) {
+    if (!destWarehouse) {
       mapRef.current?.flyTo([selectedDriver.current_lat, selectedDriver.current_lon], 11, {
-        duration: 1.0,
-        easeLinearity: 0.3,
+        duration: 1.0, easeLinearity: 0.3,
       });
       return;
     }
 
-    const destWh = warehouses.find((w) =>
-      activeJob.status === "ASSIGNED" || activeJob.status === "IN_PROGRESS"
-        ? w.id === activeJob.origin_warehouse_id
-        : w.id === activeJob.destination_warehouse_id,
-    );
-    if (!destWh) return;
-
     const from: [number, number] = [selectedDriver.current_lat, selectedDriver.current_lon];
-    const to:   [number, number] = [destWh.latitude, destWh.longitude];
+    const to:   [number, number] = [destWarehouse.latitude, destWarehouse.longitude];
+    const mid:  [number, number] = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2];
+    routeMidRef.current = mid;
 
-    L.polyline([from, to], { color: ROUTE_COLOR, weight: 8, opacity: 0.12, lineCap: "round" }).addTo(layer);
-    L.polyline([from, to], { color: ROUTE_COLOR, weight: 4, opacity: 0.25, lineCap: "round" }).addTo(layer);
+    // ── Route line: 4 layers for the Google Maps look ──────────────────────
+    // 1. Wide outer glow
     L.polyline([from, to], {
-      color: ROUTE_COLOR,
-      weight: 2.8,
-      opacity: 0.95,
-      dashArray: "10 6",
-      className: "route-line",
+      color: ROUTE_BLUE, weight: 30, opacity: 0.05, lineCap: "round",
+    }).addTo(layer);
+    // 2. Mid aura
+    L.polyline([from, to], {
+      color: ROUTE_BLUE, weight: 14, opacity: 0.12, lineCap: "round",
+    }).addTo(layer);
+    // 3. Solid base
+    L.polyline([from, to], {
+      color: ROUTE_BLUE, weight: 5, opacity: 0.92, lineCap: "round",
+    }).addTo(layer);
+    // 4. White marching dashes (flowing direction cue)
+    L.polyline([from, to], {
+      color: "#ffffff", weight: 2.5, opacity: 0.85,
+      dashArray: "9 13",
+      className: "route-marching",
       lineCap: "round",
     }).addTo(layer);
 
-    L.circleMarker(to, { radius: 8, fillColor: ROUTE_COLOR, fillOpacity: 0.9, color: BG, weight: 2.5 })
-      .bindPopup(L.popup({ className: "light-popup" }).setContent(popupHtml(destWh.name, destWh.code)))
+    // ── Driver origin dot ──────────────────────────────────────────────────
+    const driverFill = S_COLOR[selectedDriver.status]?.fill ?? ROUTE_BLUE;
+    L.circleMarker(from, {
+      radius: 7, fillColor: driverFill, fillOpacity: 1,
+      color: "#fff", weight: 2.5,
+    }).addTo(layer);
+
+    // ── Destination rings (Google Maps destination style) ──────────────────
+    L.circleMarker(to, {
+      radius: 28, fillColor: ROUTE_BLUE, fillOpacity: 0.09,
+      color: ROUTE_BLUE, weight: 1.2, opacity: 0.25,
+    }).addTo(layer);
+    L.circleMarker(to, {
+      radius: 16, fillColor: ROUTE_BLUE, fillOpacity: 0.18,
+      color: ROUTE_BLUE, weight: 1.5, opacity: 0.4,
+    }).addTo(layer);
+    L.circleMarker(to, {
+      radius: 9, fillColor: ROUTE_BLUE, fillOpacity: 1,
+      color: "#fff", weight: 3,
+    }).addTo(layer);
+    // Destination dot tooltip
+    L.circleMarker(to, { radius: 9, fillOpacity: 0, color: "transparent", weight: 0 })
+      .bindTooltip(destWarehouse.name, { permanent: false, direction: "top", className: "gmap-tooltip" })
       .addTo(layer);
 
-    L.circleMarker(to, { radius: 14, fillColor: "transparent", color: ROUTE_COLOR, weight: 1.8, opacity: 0.5 }).addTo(layer);
+    // ETA chip placed immediately if routeEta is already available
+    if (routeEta) {
+      const m = L.marker(mid, {
+        icon: L.divIcon({ className: "", html: etaChipHtml(routeEta.distanceKm, routeEta.minutes), iconAnchor: [65, 20] }),
+        interactive: false, zIndexOffset: 500,
+      }).addTo(layer);
+      etaMarkerRef.current = m;
+    }
 
     mapRef.current?.flyToBounds(L.latLngBounds([from, to]), {
-      padding: [100, 100],
-      maxZoom: 10,
-      duration: 1.1,
+      padding: [110, 110], maxZoom: 10, duration: 1.15,
     });
-  }, [selectedDriver, activeJob, warehouses]);
+  // routeEta intentionally omitted – handled by its own effect above
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDriver, destWarehouse]);
 
-  // ── Helpers for distance/eta ──────────────────────────────────────────────
-  async function calculateRoute(
+  // ── OSRM helper ───────────────────────────────────────────────────────────
+  async function calcRoute(
     from: { lat: number; lon: number },
-    to: { lat: number; lon: number }
+    to:   { lat: number; lon: number }
   ): Promise<{ distanceKm: number; minutes: number }> {
-    const url = `https://router.project-osrm.org/route/v1/driving/${from.lon},${from.lat};${to.lon},${to.lat}?overview=false`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Routing service unavailable");
+    const url =
+      `https://router.project-osrm.org/route/v1/driving/` +
+      `${from.lon},${from.lat};${to.lon},${to.lat}?overview=false`;
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error("Routing unavailable");
     const data = await res.json();
-    if (!data.routes?.length) throw new Error("No route found");
+    if (!data.routes?.length) throw new Error("No route");
     const { distance, duration } = data.routes[0];
     return { distanceKm: distance / 1000, minutes: Math.round(duration / 60) };
   }
 
-  // ── Overlay for statistics + calculation panel ──────────────────────────
-  const overlayStats = useMemo(() => {
-    const onMap   = drivers.filter((d) => d.current_lat != null).length;
-    const active  = drivers.filter((d) => ["AVAILABLE","ON_SHIFT","ON_ROUTE"].includes(d.status) && d.current_lat != null).length;
-    const delayed = drivers.filter((d) => d.status === "DELAYED").length;
-    const offline = drivers.filter((d) => d.current_lat == null).length;
-    return { onMap, active, delayed, offline, total: drivers.length };
-  }, [drivers]);
+  // ── Overlay stats ─────────────────────────────────────────────────────────
+  const stats = useMemo(() => ({
+    onMap:   drivers.filter(d => d.current_lat != null).length,
+    active:  drivers.filter(d => ["AVAILABLE","ON_SHIFT","ON_ROUTE"].includes(d.status) && d.current_lat != null).length,
+    delayed: drivers.filter(d => d.status === "DELAYED").length,
+    offline: drivers.filter(d => d.current_lat == null).length,
+  }), [drivers]);
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="absolute inset-0">
       <div ref={containerRef} className="absolute inset-0" />
 
-      {/* ── Status overlay (bottom left, unchanged but background adapted) ── */}
-      <div className="absolute bottom-6 left-3 z-[999] flex flex-col gap-2" style={{ pointerEvents: "none" }}>
-        <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-slate-200 shadow-sm">
-          <span className="size-2 rounded-full bg-blue-500 shadow-sm" />
-          <span className="text-xs font-semibold text-slate-700">{overlayStats.onMap}</span>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">on map</span>
-          {overlayStats.offline > 0 && (
-            <span className="text-[10px] font-mono text-slate-400">· {overlayStats.offline} offline</span>
-          )}
+      {/* ── Top pill: selected driver + live ETA ──────────────────────────── */}
+      {selectedDriver && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[999]" style={{ pointerEvents: "none" }}>
+          <div
+            className="flex items-center gap-2.5 rounded-full px-4 py-2 border"
+            style={{
+              background: "#fff",
+              borderColor: "#dadce0",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
+              fontFamily: "-apple-system,BlinkMacSystemFont,'Google Sans',sans-serif",
+            }}
+          >
+            <span
+              className="size-2.5 rounded-full shrink-0"
+              style={{
+                background: S_COLOR[selectedDriver.status]?.fill ?? ROUTE_BLUE,
+                boxShadow: `0 0 6px ${S_COLOR[selectedDriver.status]?.glow ?? "rgba(26,115,232,0.4)"}`,
+              }}
+            />
+            <span className="text-sm font-semibold text-gray-800">{selectedDriver.name}</span>
+            <span
+              className="text-[10px] uppercase tracking-wider"
+              style={{ color: "#5f6368", fontFamily: "monospace" }}
+            >
+              {selectedDriver.status.replace(/_/g, " ")}
+            </span>
+            {routeEta && activeJob && (
+              <>
+                <div className="w-px h-4 mx-1" style={{ background: "#dadce0" }} />
+                <span className="text-xs font-bold" style={{ color: ROUTE_BLUE }}>
+                  {routeEta.distanceKm.toFixed(1)} km
+                </span>
+                <span className="text-xs" style={{ color: "#5f6368" }}>
+                  {routeEta.minutes >= 60
+                    ? `${Math.floor(routeEta.minutes / 60)}h ${routeEta.minutes % 60}m`
+                    : `${routeEta.minutes} min`}
+                </span>
+              </>
+            )}
+          </div>
         </div>
-        {overlayStats.active > 0 && (
-          <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-slate-200 shadow-sm">
-            <span className="size-2 rounded-full bg-green-500 shadow-sm animate-pulse" />
-            <span className="text-xs font-semibold text-slate-700">{overlayStats.active}</span>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">active</span>
+      )}
+
+      {/* ── Bottom-left: status legend ────────────────────────────────────── */}
+      <div
+        className="absolute bottom-6 left-3 z-[999] flex flex-col gap-1.5"
+        style={{ pointerEvents: "none" }}
+      >
+        {[
+          { dot: "#1a73e8", count: stats.onMap,   label: "on map",
+            extra: stats.offline > 0 ? `· ${stats.offline} offline` : "" },
+          stats.active  > 0 && { dot: "#34a853", count: stats.active,  label: "active",  pulse: true },
+          stats.delayed > 0 && { dot: "#fbbc04", count: stats.delayed, label: "delayed", warn: true },
+        ].filter(Boolean).map((item: any, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-2 rounded-full px-3 py-1.5 border"
+            style={{
+              background: "#fff",
+              borderColor: item.warn ? "#fbbc04" : "#dadce0",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+              fontFamily: "-apple-system,BlinkMacSystemFont,'Google Sans',sans-serif",
+            }}
+          >
+            <span
+              className={`size-2 rounded-full ${item.pulse ? "animate-pulse" : ""}`}
+              style={{ background: item.dot }}
+            />
+            <span className="text-xs font-semibold" style={{ color: "#202124" }}>{item.count}</span>
+            <span className="text-[10px] uppercase tracking-wider" style={{ color: item.warn ? "#b06000" : "#5f6368", fontFamily: "monospace" }}>
+              {item.label}
+            </span>
+            {item.extra && (
+              <span className="text-[10px]" style={{ color: "#9aa0a6", fontFamily: "monospace" }}>{item.extra}</span>
+            )}
           </div>
-        )}
-        {overlayStats.delayed > 0 && (
-          <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-amber-200 shadow-sm">
-            <span className="size-2 rounded-full bg-amber-500 shadow-sm" />
-            <span className="text-xs font-semibold text-slate-700">{overlayStats.delayed}</span>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-amber-600">delayed</span>
-          </div>
-        )}
+        ))}
       </div>
 
-      {/* ── Calculation panel (bottom right) ──────────────────────────────── */}
+      {/* ── Bottom-right: driver → warehouse manual calc panel ────────────── */}
       <div className="absolute bottom-6 right-3 z-[999] w-72" style={{ pointerEvents: "auto" }}>
-        <div className="bg-white/95 backdrop-blur-sm rounded-xl border border-slate-200 shadow-xl p-3 text-sm font-sans">
+        <div
+          className="rounded-2xl border p-3 text-sm"
+          style={{
+            background: "#fff",
+            borderColor: "#dadce0",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+            fontFamily: "-apple-system,BlinkMacSystemFont,'Google Sans',sans-serif",
+          }}
+        >
           {selectedCalcDriver ? (
             <>
-              <div className="flex justify-between items-start border-b border-slate-100 pb-2 mb-2">
-                <div>
-                  <span className="font-semibold text-slate-800">{selectedCalcDriver.name}</span>
-                  <span className="text-xs text-slate-500 ml-2">📍 selected</span>
+              <div
+                className="flex justify-between items-center pb-2 mb-2"
+                style={{ borderBottom: "1px solid #f1f3f4" }}
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className="size-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                    style={{ background: S_COLOR[selectedCalcDriver.status]?.fill ?? ROUTE_BLUE }}
+                  >
+                    {(selectedCalcDriver.name?.[0] ?? "?").toUpperCase()}
+                  </div>
+                  <span className="font-semibold" style={{ color: "#202124" }}>{selectedCalcDriver.name}</span>
                 </div>
                 <button
-                  onClick={() => {
-                    setSelectedCalcDriver(null);
-                    setCalcResult(null);
-                  }}
-                  className="text-xs text-slate-400 hover:text-slate-600"
+                  onClick={() => { setSelectedCalcDriver(null); setCalcResult(null); }}
+                  className="text-xs rounded-full px-2 py-0.5"
+                  style={{ color: "#5f6368", background: "#f1f3f4" }}
                 >
-                  ✕ Clear
+                  Clear
                 </button>
               </div>
-              <div className="space-y-1 text-xs">
-                <div className="text-slate-500">
-                  <span className="font-mono">Lat: {selectedCalcDriver.current_lat?.toFixed(5)}</span><br />
-                  <span className="font-mono">Lon: {selectedCalcDriver.current_lon?.toFixed(5)}</span>
+
+              <div className="space-y-2 text-xs" style={{ color: "#5f6368" }}>
+                <div style={{ fontFamily: "monospace", fontSize: 11 }}>
+                  {selectedCalcDriver.current_lat?.toFixed(5)}, {selectedCalcDriver.current_lon?.toFixed(5)}
                 </div>
+
                 {calcLoading && (
-                  <div className="text-blue-600 flex items-center gap-1 pt-1">
-                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-500 border-t-transparent" />
-                    Calculating route...
+                  <div className="flex items-center gap-2 pt-1" style={{ color: ROUTE_BLUE }}>
+                    <div
+                      className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-t-transparent"
+                      style={{ borderColor: `${ROUTE_BLUE}40`, borderTopColor: "transparent" }}
+                    />
+                    Calculating road route…
                   </div>
                 )}
+
                 {calcResult && !calcLoading && (
-                  <div className="mt-2 pt-2 border-t border-slate-100">
-                    <div className="text-slate-700 font-medium">→ distance / ETA</div>
-                    <div className="font-mono text-slate-800">
-                      {calcResult.distanceKm.toFixed(1)} km · {calcResult.minutes} min
-                      {calcResult.minutes >= 60 && (
-                        <span className="text-slate-500">
-                          {" "}({Math.floor(calcResult.minutes / 60)}h {calcResult.minutes % 60}min)
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-1">Click a warehouse after selecting driver</p>
+                  <div
+                    className="flex items-center justify-between rounded-xl px-3 py-2.5 mt-1"
+                    style={{ background: ROUTE_BLUE }}
+                  >
+                    <span className="font-bold text-sm text-white">{calcResult.distanceKm.toFixed(1)} km</span>
+                    <div className="w-px h-4 mx-1" style={{ background: "rgba(255,255,255,0.35)" }} />
+                    <span className="text-sm text-white">
+                      {calcResult.minutes >= 60
+                        ? `${Math.floor(calcResult.minutes / 60)}h ${calcResult.minutes % 60}m`
+                        : `${calcResult.minutes} min`}
+                    </span>
                   </div>
                 )}
+
                 {!calcLoading && !calcResult && (
-                  <p className="text-[11px] text-slate-400 pt-1">Click any warehouse to get road distance & ETA</p>
+                  <p style={{ color: "#9aa0a6", paddingTop: 4 }}>
+                    Now click any warehouse marker to get road distance & ETA
+                  </p>
                 )}
               </div>
             </>
           ) : (
-            <div className="text-slate-500 text-xs text-center py-1">
-              Click a driver → click a warehouse → get distance & ETA
+            <div
+              className="text-xs text-center py-1.5"
+              style={{ color: "#9aa0a6" }}
+            >
+              Click a driver → click a warehouse to get distance & ETA
             </div>
           )}
         </div>
       </div>
-
-      {/* ── Selected driver label (top center, background adjusted) ────────── */}
-      {selectedDriver && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[999]" style={{ pointerEvents: "none" }}>
-          <div className="flex items-center gap-2 rounded-full px-4 py-1.5 bg-white/90 backdrop-blur-md border border-slate-200 shadow-md">
-            <span
-              className="size-2 rounded-full shrink-0"
-              style={{
-                background: S_COLOR[selectedDriver.status]?.fill ?? "#3b82f6",
-                boxShadow: `0 0 6px ${S_COLOR[selectedDriver.status]?.glow ?? "rgba(59,130,246,0.4)"}`,
-              }}
-            />
-            <span className="text-sm font-semibold text-slate-800">{selectedDriver.name}</span>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
-              {selectedDriver.status.replace(/_/g, " ")}
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
