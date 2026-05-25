@@ -1020,16 +1020,18 @@ function JobDetailPanel({
   const isMR = stops.length > 2;
   const driver = drivers.find((d) => d.id === job.assigned_driver_id);
 
-  const effectiveStatus = isJobScheduledFuture(
-    {
-      ...job,
-      stops: stops.map((s, idx) => ({
-        seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
-        scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
-      })),
-    },
-    Date.now(),
-  ) ? "SCHEDULED" : job.status;
+  const effectiveStatus = (!driver && job.planned_driver_id)
+    ? "SCHEDULED"
+    : (isJobScheduledFuture(
+        {
+          ...job,
+          stops: stops.map((s, idx) => ({
+            seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
+            scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
+          })),
+        },
+        Date.now(),
+      ) ? "SCHEDULED" : job.status);
 
   const stopTimes = job.scheduled_at
     ? computeStopSchedule(stops, job.scheduled_at, warehouses)
