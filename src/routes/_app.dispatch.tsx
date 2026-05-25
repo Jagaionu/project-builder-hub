@@ -525,8 +525,12 @@ function DispatchPage() {
   const filteredJobs = useMemo(() => {
     return jobsInRange
       .filter((j) => {
-        if (statusFilter) return j.status === statusFilter;
-        return !hiddenStatuses.has(j.status as JobStatus);
+        const effective: JobStatus =
+          j.status === "PENDING" && j.planned_driver_id && !j.assigned_driver_id
+            ? "ASSIGNED"
+            : (j.status as JobStatus);
+        if (statusFilter) return effective === statusFilter;
+        return !hiddenStatuses.has(effective);
       })
       .sort((a, b) => {
         const ta = jobDate(a, stopsMap[a.id] ?? []).getTime();
