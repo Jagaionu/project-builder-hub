@@ -7,7 +7,6 @@ export default defineConfig({
       entry: "server",
     },
   },
-  nitro: true,   // ← this is the only change
   vite: {
     plugins: [
       VitePWA({
@@ -42,7 +41,8 @@ export default defineConfig({
               options: { cacheName: "supabase-api", networkTimeoutSeconds: 5 },
             },
             {
-              urlPattern: ({ request }: { request: Request }) => request.mode === "navigate",
+              urlPattern: ({ request }: { request: Request }) =>
+                request.mode === "navigate",
               handler: "NetworkFirst",
               options: { cacheName: "html", networkTimeoutSeconds: 3 },
             },
