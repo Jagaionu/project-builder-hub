@@ -880,16 +880,18 @@ function DispatchPage() {
                   ? drivers.find((dr) => dr.id === (planned?.driverId ?? j.planned_driver_id))
                   : null;
                 const isMR = stops.length > 2;
-                const effectiveStatus = isJobScheduledFuture(
-                  {
-                    ...j,
-                    stops: stops.map((s, idx) => ({
-                      seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
-                      scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
-                    })),
-                  },
-                  Date.now(),
-                ) ? "SCHEDULED" : (j.status as JobStatus);
+                const effectiveStatus: JobStatus = (!driver && j.planned_driver_id)
+                  ? "SCHEDULED"
+                  : (isJobScheduledFuture(
+                      {
+                        ...j,
+                        stops: stops.map((s, idx) => ({
+                          seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
+                          scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
+                        })),
+                      },
+                      Date.now(),
+                    ) ? "SCHEDULED" : (j.status as JobStatus));
                 const cfg = STATUS_CONFIG[effectiveStatus];
                 const active = selectedJobId === j.id;
                 return (
