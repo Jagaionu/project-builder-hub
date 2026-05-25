@@ -63,18 +63,26 @@ type Stop = {
 
 type JobStopsMap = Record<string, Stop[]>;
 
+type StopRow = { id: string; job_id: string; kind: Stop["kind"]; warehouse_id: string; scheduled_at: string | null; arrived_at: string | null; seq: number };
+
+// Match the jobs window so we don't pull stops for archived jobs.
+const STOPS_WINDOW_DAYS = 30;
+
 function useJobStops(): JobStopsMap {
   const [map, setMap] = useState<JobStopsMap>({});
   useEffect(() => {
     let mounted = true;
-    const load = async () => {
+    const since = new Date(Date.now() - STOPS_WINDOW_DAYS * 24 * 3600 * 1000).toISOString();
+
+    const reload = async () => {
       const { data } = await supabase
         .from("job_stops")
         .select("id,job_id,kind,warehouse_id,scheduled_at,arrived_at,seq")
+        .gte("created_at", since)
         .order("seq", { ascending: true });
       if (!mounted) return;
       const m: JobStopsMap = {};
-      for (const s of (data ?? []) as Array<{ job_id: string } & Stop & { seq: number }>) {
+      for (const s of (data ?? []) as StopRow[]) {
         (m[s.job_id] ||= []).push({
           id: s.id,
           kind: s.kind,
@@ -85,10 +93,63 @@ function useJobStops(): JobStopsMap {
       }
       setMap(m);
     };
-    load();
+
+    void reload();
+
     const ch = supabase
       .channel("rt-stops")
-      .on("postgres_changes", { event: "*", schema: "public", table: "job_stops" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_stops" }, (payload) => {
+        const evt = payload.eventType;
+        const newRow = payload.new as Partial<StopRow> | undefined;
+        const oldRow = payload.old as Partial<StopRow> | undefined;
+
+        // Fall back to a full reload only if we can't process the payload.
+        if (
+          (evt === "INSERT" && (!newRow?.id || !newRow.job_id)) ||
+          (evt === "UPDATE" && (!newRow?.id || !newRow.job_id)) ||
+          (evt === "DELETE" && !oldRow?.id)
+        ) {
+          void reload();
+          return;
+        }
+
+        setMap((prev) => {
+          const next: JobStopsMap = { ...prev };
+          if (evt === "DELETE") {
+            const oldId = oldRow!.id!;
+            for (const jid of Object.keys(next)) {
+              const arr = next[jid];
+              const filtered = arr.filter((s) => s.id !== oldId);
+              if (filtered.length !== arr.length) next[jid] = filtered;
+            }
+            return next;
+          }
+          const n = newRow as StopRow;
+          const stop: Stop = {
+            id: n.id,
+            kind: n.kind,
+            warehouse_id: n.warehouse_id,
+            scheduled_at: n.scheduled_at,
+            arrived_at: n.arrived_at,
+          };
+          if (evt === "INSERT") {
+            const bucket = next[n.job_id] ? [...next[n.job_id]] : [];
+            if (!bucket.some((s) => s.id === stop.id)) bucket.push(stop);
+            next[n.job_id] = bucket;
+          } else if (evt === "UPDATE") {
+            const bucket = next[n.job_id] ?? [];
+            const idx = bucket.findIndex((s) => s.id === stop.id);
+            if (idx >= 0) {
+              const copy = [...bucket];
+              copy[idx] = stop;
+              next[n.job_id] = copy;
+            } else {
+              next[n.job_id] = [...bucket, stop];
+            }
+          }
+          return next;
+        });
+      })
       .subscribe();
     return () => {
       mounted = false;
@@ -295,16 +356,31 @@ function DispatchPage() {
     } catch { /* noop */ }
   }, [statusFilter]);
 
+  // Only feed the planner active jobs — completed/cancelled history is huge
+  // and never needs re-planning. This memo dramatically shrinks the input
+  // every downstream effect depends on.
+  const plannerJobs = useMemo(
+    () => jobs.filter((j) => j.status !== "COMPLETED" && j.status !== "CANCELLED"),
+    [jobs],
+  );
+
   const plan = useMemo(
-    () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
-    [jobs, stopsMap, drivers, warehouses, compliance],
+    () => computePlan(plannerJobs, stopsMap, drivers, warehouses, compliance),
+    [plannerJobs, stopsMap, drivers, warehouses, compliance],
   );
   const plannedByJob = useMemo(
     () => new Map(plan.planned.map((item) => [item.jobId, item] as const)),
     [plan],
   );
 
+  // One-shot on mount: normalize jobs that are in an active status but have
+  // no assigned driver. Previously this ran on every `jobs` change, which
+  // could fire a write storm whenever realtime delivered an update.
+  const normalizerRanRef = useRef(false);
   useEffect(() => {
+    if (normalizerRanRef.current) return;
+    if (jobs.length === 0) return;
+    normalizerRanRef.current = true;
     const inconsistent = jobs.filter((j) => !j.assigned_driver_id && ACTIVE_JOB_STATUSES.has(j.status));
     if (inconsistent.length === 0) return;
     void (async () => {
@@ -338,14 +414,19 @@ function DispatchPage() {
     else if (opts?.manual) toast.success("Driver removed — auto-planner paused for this job");
   }
 
-  // Auto-planner — unchanged from prior Jobs page
+  // Auto-planner — gated by a writing ref so this effect can't re-enter while
+  // its own DB writes are coming back as realtime UPDATEs, and scoped to
+  // `plannerJobs` (active jobs only) so completed history doesn't bloat work.
   const planSigRef = useRef<string>("");
+  const isPlannerWritingRef = useRef(false);
   useEffect(() => {
     if (drivers.length === 0 || warehouses.length === 0) return;
-    const pending = jobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id);
+    if (isPlannerWritingRef.current) return;
+
+    const pending = plannerJobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id);
     if (pending.some((j) => !stopsMap[j.id])) return;
 
-    const jobsForPlanner = jobs.filter((j) => !(j as { manual_override?: boolean }).manual_override);
+    const jobsForPlanner = plannerJobs.filter((j) => !(j as { manual_override?: boolean }).manual_override);
     const p = computePlan(jobsForPlanner, stopsMap, drivers, warehouses, compliance);
 
     const sig = JSON.stringify({
@@ -355,39 +436,45 @@ function DispatchPage() {
     if (sig === planSigRef.current) return;
     planSigRef.current = sig;
 
+    isPlannerWritingRef.current = true;
     (async () => {
-      for (const a of p.immediate) {
-        const job = jobs.find((j) => j.id === a.jobId);
-        const driver = drivers.find((d) => d.id === a.driverId);
-        if (!job || !driver) continue;
-        if ((job as { manual_override?: boolean }).manual_override) continue;
-        await assignDriver(a.jobId, a.driverId);
-        toast.message(`Auto-assigned ${driver.name} → ${job.reference} (${a.distKm.toFixed(1)} km)`);
-        await fillStopTimes(a.jobId, job.scheduled_at ?? new Date().toISOString(), stopsMap[a.jobId] ?? [], warehouses);
-      }
-      const desired = new Map(p.planned.map((pp) => [pp.jobId, { d: pp.driverId, s: pp.sequence, t: pp.startAt }] as const));
-      for (const job of jobs) {
-        if ((job as { manual_override?: boolean }).manual_override) continue;
-        const want = desired.get(job.id);
-        const have = { d: job.planned_driver_id ?? null, s: job.planned_sequence ?? null, t: job.planned_start_at ?? null };
-        if (!want) {
-          if (have.d || have.s || have.t) {
-            await supabase.from("jobs")
-              .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
-              .eq("id", job.id);
+      try {
+        for (const a of p.immediate) {
+          const job = plannerJobs.find((j) => j.id === a.jobId);
+          const driver = drivers.find((d) => d.id === a.driverId);
+          if (!job || !driver) continue;
+          if ((job as { manual_override?: boolean }).manual_override) continue;
+          await assignDriver(a.jobId, a.driverId);
+          toast.message(`Auto-assigned ${driver.name} → ${job.reference} (${a.distKm.toFixed(1)} km)`);
+          await fillStopTimes(a.jobId, job.scheduled_at ?? new Date().toISOString(), stopsMap[a.jobId] ?? [], warehouses);
+        }
+        const desired = new Map(p.planned.map((pp) => [pp.jobId, { d: pp.driverId, s: pp.sequence, t: pp.startAt }] as const));
+        for (const job of plannerJobs) {
+          if ((job as { manual_override?: boolean }).manual_override) continue;
+          const want = desired.get(job.id);
+          const have = { d: job.planned_driver_id ?? null, s: job.planned_sequence ?? null, t: job.planned_start_at ?? null };
+          if (!want) {
+            if (have.d || have.s || have.t) {
+              await supabase.from("jobs")
+                .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
+                .eq("id", job.id);
+            }
+            continue;
           }
-          continue;
+          if (have.d !== want.d || have.s !== want.s || have.t !== want.t) {
+            await supabase.from("jobs")
+              .update({ planned_driver_id: want.d, planned_sequence: want.s, planned_start_at: want.t })
+              .eq("id", job.id);
+            await fillStopTimes(job.id, want.t, stopsMap[job.id] ?? [], warehouses);
+          }
         }
-        if (have.d !== want.d || have.s !== want.s || have.t !== want.t) {
-          await supabase.from("jobs")
-            .update({ planned_driver_id: want.d, planned_sequence: want.s, planned_start_at: want.t })
-            .eq("id", job.id);
-          await fillStopTimes(job.id, want.t, stopsMap[job.id] ?? [], warehouses);
-        }
+      } finally {
+        // Allow the realtime echo a moment to land before re-running.
+        setTimeout(() => { isPlannerWritingRef.current = false; }, 500);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobs, stopsMap, drivers, warehouses, compliance]);
+  }, [plannerJobs, stopsMap, drivers, warehouses, compliance]);
 
   async function setStatus(jobId: string, status: string) {
     const job = jobs.find((j) => j.id === jobId);
