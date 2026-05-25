@@ -1,24 +1,33 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { getUserTenantId, isSuperAdmin } from "@/lib/auth-helpers.server";
 
 /**
  * Delete a driver and all their associated data.
- * - Cascade FKs on driver_events / driver_positions / driver_day_hours /
- *   driver_registrations remove related rows automatically.
- * - Jobs with this driver assigned have the reference set to NULL (history preserved).
- * - The matching auth.users row is also removed so we don't leave orphan auth accounts.
+ * Authorisation: caller must be a super admin OR a member of the driver's tenant.
  */
 export const deleteDriver = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ driverId: z.string().uuid() }).parse(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { userId } = context;
+
     const { data: drv, error: fetchErr } = await supabaseAdmin
       .from("drivers")
-      .select("id, user_id")
+      .select("id, user_id, tenant_id")
       .eq("id", data.driverId)
       .maybeSingle();
     if (fetchErr) throw new Error(fetchErr.message);
     if (!drv) return { ok: true };
+
+    if (!(await isSuperAdmin(userId))) {
+      const callerTenant = await getUserTenantId(userId);
+      if (!callerTenant || callerTenant !== drv.tenant_id) {
+        throw new Error("Forbidden");
+      }
+    }
 
     const { error: delErr } = await supabaseAdmin
       .from("drivers")
