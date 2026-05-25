@@ -8,6 +8,9 @@ export default defineConfig({
     },
   },
   vite: {
+    ssr: {
+      noExternal: ["h3-v2"],
+    },
     plugins: [
       VitePWA({
         registerType: "autoUpdate",
