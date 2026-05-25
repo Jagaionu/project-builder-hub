@@ -77,6 +77,26 @@ export const planTomorrow = createServerFn({ method: "POST" })
 
   const plan = computeTomorrowPlan(jobList, stopsMap, driverList, whList, compliance);
 
+  // Diagnostics — surface why drivers may not match (visible in server logs)
+  const availableDrivers = driverList.filter((d) => (d as { available_tomorrow?: boolean }).available_tomorrow);
+  const eligibleDrivers = availableDrivers.filter((d) => {
+    const dd = d as Driver & { tomorrow_start_lat?: number | null; tomorrow_start_lon?: number | null };
+    const lat = dd.tomorrow_start_lat ?? d.current_lat;
+    const lon = dd.tomorrow_start_lon ?? d.current_lon;
+    return lat != null && lon != null && !compliance[d.id]?.blockAssignment;
+  });
+  console.log("[plan-tomorrow] summary", {
+    tomorrow,
+    tenantId,
+    totalJobs: jobList.length,
+    totalDrivers: driverList.length,
+    availableTomorrow: availableDrivers.length,
+    eligibleAfterCompliance: eligibleDrivers.length,
+    planned: plan.planned.length,
+    unassignable: plan.unassignable.length,
+    sampleUnassignable: plan.unassignable.slice(0, 3),
+  });
+
   // Persist planned_* for assigned jobs; clear for unassigned
   const desired = new Map(plan.planned.map((p) => [p.jobId, p] as const));
   for (const j of jobList) {
