@@ -880,16 +880,18 @@ function DispatchPage() {
                   ? drivers.find((dr) => dr.id === (planned?.driverId ?? j.planned_driver_id))
                   : null;
                 const isMR = stops.length > 2;
-                const effectiveStatus = isJobScheduledFuture(
-                  {
-                    ...j,
-                    stops: stops.map((s, idx) => ({
-                      seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
-                      scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
-                    })),
-                  },
-                  Date.now(),
-                ) ? "SCHEDULED" : (j.status as JobStatus);
+                const effectiveStatus: JobStatus | "SCHEDULED" = (!driver && j.planned_driver_id)
+                  ? "SCHEDULED"
+                  : (isJobScheduledFuture(
+                      {
+                        ...j,
+                        stops: stops.map((s, idx) => ({
+                          seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
+                          scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
+                        })),
+                      },
+                      Date.now(),
+                    ) ? "SCHEDULED" : (j.status as JobStatus));
                 const cfg = STATUS_CONFIG[effectiveStatus];
                 const active = selectedJobId === j.id;
                 return (
@@ -938,8 +940,8 @@ function DispatchPage() {
                             ? new Date(j.scheduled_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
                             : "ASAP"}
                         </span>
-                        <span className="truncate" style={{ color: driver ? "oklch(0.68 0.10 245)" : plannedDriver ? "oklch(0.60 0.08 245)" : "oklch(0.42 0.010 245)" }}>
-                          {driver ? driver.name : plannedDriver ? `· ${plannedDriver.name}` : "Unassigned"}
+                        <span className="truncate" style={{ color: driver ? "oklch(0.68 0.10 245)" : plannedDriver ? "oklch(0.68 0.10 245)" : "oklch(0.42 0.010 245)" }}>
+                          {driver ? driver.name : plannedDriver ? plannedDriver.name : "Unassigned"}
                         </span>
                       </div>
                     </button>
@@ -1018,16 +1020,18 @@ function JobDetailPanel({
   const isMR = stops.length > 2;
   const driver = drivers.find((d) => d.id === job.assigned_driver_id);
 
-  const effectiveStatus = isJobScheduledFuture(
-    {
-      ...job,
-      stops: stops.map((s, idx) => ({
-        seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
-        scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
-      })),
-    },
-    Date.now(),
-  ) ? "SCHEDULED" : job.status;
+  const effectiveStatus = (!driver && job.planned_driver_id)
+    ? "SCHEDULED"
+    : (isJobScheduledFuture(
+        {
+          ...job,
+          stops: stops.map((s, idx) => ({
+            seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
+            scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
+          })),
+        },
+        Date.now(),
+      ) ? "SCHEDULED" : job.status);
 
   const stopTimes = job.scheduled_at
     ? computeStopSchedule(stops, job.scheduled_at, warehouses)
@@ -1150,24 +1154,24 @@ function JobDetailPanel({
       <div className="mt-5 rounded-lg border border-border bg-surface p-4">
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Assigned driver</div>
         <DriverPicker
-          driverId={job.assigned_driver_id}
+          driverId={job.assigned_driver_id ?? job.planned_driver_id ?? null}
           drivers={drivers}
           compliance={compliance}
           onChange={onAssignDriver}
         />
-        {!driver && (planned || job.planned_driver_id) && (
+        {!driver && !job.planned_driver_id && planned && (
           <PlannedChip
-            driverName={drivers.find((d) => d.id === (planned?.driverId ?? job.planned_driver_id))?.name ?? "?"}
-            sequence={planned?.sequence ?? job.planned_sequence ?? undefined}
-            startAt={planned?.startAt ?? job.planned_start_at ?? undefined}
-            distanceKm={planned?.distKm}
-            dailyHoursLeft={planned?.dailyHoursLeft}
+            driverName={drivers.find((d) => d.id === planned.driverId)?.name ?? "?"}
+            sequence={planned.sequence}
+            startAt={planned.startAt}
+            distanceKm={planned.distKm}
+            dailyHoursLeft={planned.dailyHoursLeft}
           />
         )}
       </div>
 
       {/* Suggested drivers */}
-      {!driver && ranked.length > 0 && (
+      {!driver && !job.planned_driver_id && ranked.length > 0 && (
         <>
           <div className="mt-6 flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
             <Sparkles className="size-3.5 text-accent" /> Suggested drivers (closest first)
