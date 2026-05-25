@@ -448,6 +448,11 @@
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(-4px); }
 }
+@keyframes planbar {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(150%); }
+  100% { transform: translateX(350%); }
+}
 
 .animate-spin-slow   { animation: spin-slow 3s linear infinite; }
 .animate-float       { animation: float 3s ease-in-out infinite; }

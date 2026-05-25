@@ -499,8 +499,21 @@ function DispatchPage() {
     try {
       const r = await runPlanTomorrow();
       const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversPlanned} drivers`;
-      if (r.unassignable.length) toast.warning(`${msg} · ${r.unassignable.length} unassignable`);
-      else toast.success(msg);
+      if (r.unassignable.length) {
+        // Surface the top reason so the user can see WHY routes weren't assigned
+        const reasonCounts = new Map<string, number>();
+        for (const u of r.unassignable) reasonCounts.set(u.reason, (reasonCounts.get(u.reason) ?? 0) + 1);
+        const topReasons = [...reasonCounts.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 2)
+          .map(([reason, n]) => `${n}× ${reason}`)
+          .join(" · ");
+        toast.warning(`${msg} · ${r.unassignable.length} unassignable`, {
+          description: topReasons,
+          duration: 10000,
+        });
+        console.warn("[plan-tomorrow] unassignable", r.unassignable);
+      } else toast.success(msg);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -559,14 +572,24 @@ function DispatchPage() {
           })}
         </div>
         <div className="flex items-center gap-2 justify-self-end">
-          <ToolbarButton
-            onClick={onPlanTomorrow}
-            disabled={planningTomorrow || tomorrowStats.total === 0}
-            title={tomorrowStats.total === 0 ? "No jobs scheduled for tomorrow" : "Auto-assign tomorrow's routes and notify drivers"}
-            icon={<Sparkles className="size-3.5" />}
-          >
-            {planningTomorrow ? "Planning…" : "Plan Tomorrow"}
-          </ToolbarButton>
+          <div className="relative">
+            <ToolbarButton
+              onClick={onPlanTomorrow}
+              disabled={planningTomorrow || tomorrowStats.total === 0}
+              title={tomorrowStats.total === 0 ? "No jobs scheduled for tomorrow" : "Auto-assign tomorrow's routes and notify drivers"}
+              icon={<Sparkles className="size-3.5" />}
+            >
+              {planningTomorrow ? "Planning…" : "Plan Tomorrow"}
+            </ToolbarButton>
+            {planningTomorrow && (
+              <div
+                className="pointer-events-none absolute inset-x-1 bottom-0.5 h-0.5 overflow-hidden rounded-full bg-primary/15"
+                aria-hidden="true"
+              >
+                <div className="h-full w-1/3 rounded-full bg-primary animate-[planbar_1.2s_ease-in-out_infinite]" />
+              </div>
+            )}
+          </div>
           <ImportCsvButton />
           <ToolbarButton onClick={() => setCreateOpen(true)} primary icon={<Plus className="size-3.5" />}>
             Create route
