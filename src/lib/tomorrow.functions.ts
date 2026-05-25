@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { getUserTenantId, isSuperAdmin } from "@/lib/auth-helpers.server";
 import { computeTomorrowPlan, type StopsMap } from "@/lib/planner";
 import { computeCompliance, type ComplianceEvent } from "@/lib/compliance";
 import type { Driver, Warehouse, Job } from "@/lib/types";
@@ -10,17 +12,26 @@ function tomorrowISO() {
   return t.toISOString().slice(0, 10);
 }
 
-export const planTomorrow = createServerFn({ method: "POST" }).handler(async () => {
-  const tomorrow = tomorrowISO();
-  const [{ data: jobs }, { data: drivers }, { data: warehouses }, { data: stops }, { data: events }, { data: ledger }] =
-    await Promise.all([
-      supabaseAdmin.from("jobs").select("*").eq("for_date", tomorrow),
-      supabaseAdmin.from("drivers").select("*"),
-      supabaseAdmin.from("warehouses").select("*"),
-      supabaseAdmin.from("job_stops").select("*").order("seq"),
-      supabaseAdmin.from("driver_events").select("driver_id,type,timestamp"),
-      supabaseAdmin.from("driver_day_hours").select("*"),
-    ]);
+export const planTomorrow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { userId } = context;
+    const superAdmin = await isSuperAdmin(userId);
+    const tenantId = superAdmin ? null : await getUserTenantId(userId);
+    if (!superAdmin && !tenantId) throw new Error("Forbidden");
+
+    const tomorrow = tomorrowISO();
+    const scope = <T extends { eq: (col: string, v: string) => T }>(q: T): T =>
+      tenantId ? q.eq("tenant_id", tenantId) : q;
+    const [{ data: jobs }, { data: drivers }, { data: warehouses }, { data: stops }, { data: events }, { data: ledger }] =
+      await Promise.all([
+        scope(supabaseAdmin.from("jobs").select("*").eq("for_date", tomorrow) as never) as never,
+        scope(supabaseAdmin.from("drivers").select("*") as never) as never,
+        scope(supabaseAdmin.from("warehouses").select("*") as never) as never,
+        supabaseAdmin.from("job_stops").select("*").order("seq"),
+        scope(supabaseAdmin.from("driver_events").select("driver_id,type,timestamp") as never) as never,
+        supabaseAdmin.from("driver_day_hours").select("*"),
+      ]);
 
   const jobList = (jobs ?? []) as Job[];
   const driverList = (drivers ?? []) as Driver[];
