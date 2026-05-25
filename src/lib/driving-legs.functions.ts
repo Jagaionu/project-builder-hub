@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertDriverAccess } from "@/lib/auth-helpers.server";
 
 function ymdUk(iso: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -59,8 +61,10 @@ const OpenLegInput = z.object({
 });
 
 export const openLeg = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => OpenLegInput.parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertDriverAccess(context.userId, data.driverId);
     const leg_date = ymdUk(data.departedAt);
     const distance_km = haversineKm(data.fromLat, data.fromLon, data.toLat, data.toLon);
     const { data: row, error } = await supabaseAdmin.from("driving_legs" as never).insert({
@@ -84,12 +88,14 @@ const CloseLegInput = z.object({
 });
 
 export const closeLeg = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => CloseLegInput.parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { data: leg } = await supabaseAdmin.from("driving_legs" as never)
       .select("driver_id,leg_date,departed_at").eq("id", data.legId).maybeSingle();
     if (!leg) throw new Error("Leg not found");
     const row = leg as { driver_id: string; leg_date: string; departed_at: string | null };
+    await assertDriverAccess(context.userId, row.driver_id);
     const driving_minutes = row.departed_at
       ? Math.max(0, Math.round((new Date(data.arrivedAt).getTime() - new Date(row.departed_at).getTime()) / 60_000))
       : 0;
@@ -110,8 +116,10 @@ const OpenDwellInput = z.object({
 });
 
 export const openDwell = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => OpenDwellInput.parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertDriverAccess(context.userId, data.driverId);
     const dwell_date = ymdUk(data.arrivedAt);
     const { data: row, error } = await supabaseAdmin.from("stop_dwells" as never).insert({
       driver_id: data.driverId, job_id: data.jobId,
@@ -128,12 +136,14 @@ const CloseDwellInput = z.object({
 });
 
 export const closeDwell = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => CloseDwellInput.parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { data: dwell } = await supabaseAdmin.from("stop_dwells" as never)
       .select("driver_id,dwell_date,arrived_at").eq("id", data.dwellId).maybeSingle();
     if (!dwell) throw new Error("Dwell not found");
     const row = dwell as { driver_id: string; dwell_date: string; arrived_at: string | null };
+    await assertDriverAccess(context.userId, row.driver_id);
     const dwell_minutes = row.arrived_at
       ? Math.max(0, Math.round((new Date(data.departedAt).getTime() - new Date(row.arrived_at).getTime()) / 60_000))
       : 0;

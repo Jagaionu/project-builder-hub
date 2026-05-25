@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { getUserTenantId, isSuperAdmin } from "@/lib/auth-helpers.server";
 
 export type ImportRow = {
   reference: string;          // Load #
@@ -18,8 +20,13 @@ export type ImportResult = {
 };
 
 export const importJobsCsv = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: { rows: ImportRow[] }) => input)
-  .handler(async ({ data }): Promise<ImportResult> => {
+  .handler(async ({ data, context }): Promise<ImportResult> => {
+    const { userId } = context;
+    const superAdmin = await isSuperAdmin(userId);
+    const tenantId = await getUserTenantId(userId);
+    if (!superAdmin && !tenantId) throw new Error("Forbidden");
     const out: ImportResult = {
       created: 0,
       skippedDuplicate: [],
@@ -86,7 +93,8 @@ export const importJobsCsv = createServerFn({ method: "POST" })
             // for_date is set automatically by the sync_job_for_date trigger
             // from the first stop's scheduled arrival.
             equipment_type: row.equipmentType,
-          })
+            tenant_id: tenantId,
+          } as never)
           .select("id")
           .single();
         if (jobErr || !job) {
