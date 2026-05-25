@@ -1,15 +1,11 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-import tsConfigPaths from "vite-tsconfig-paths";
-import tailwindcss from "@tailwindcss/vite";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  tanstackStart: { server: { entry: "server" } },
   plugins: [
-    tanstackStart({ server: { entry: "server" } }),
     cloudflare(),
-    tailwindcss(),
-    tsConfigPaths(),
     VitePWA({
       registerType: "autoUpdate",
       devOptions: { enabled: false },
