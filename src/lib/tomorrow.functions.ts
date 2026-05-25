@@ -21,15 +21,17 @@ export const planTomorrow = createServerFn({ method: "POST" })
     if (!superAdmin && !tenantId) throw new Error("Forbidden");
 
     const tomorrow = tomorrowISO();
-    const scope = <T extends { eq: (col: string, v: string) => T }>(q: T): T =>
-      tenantId ? q.eq("tenant_id", tenantId) : q;
+    const jobsQ = supabaseAdmin.from("jobs").select("*").eq("for_date", tomorrow);
+    const driversQ = supabaseAdmin.from("drivers").select("*");
+    const whQ = supabaseAdmin.from("warehouses").select("*");
+    const eventsQ = supabaseAdmin.from("driver_events").select("driver_id,type,timestamp");
     const [{ data: jobs }, { data: drivers }, { data: warehouses }, { data: stops }, { data: events }, { data: ledger }] =
       await Promise.all([
-        scope(supabaseAdmin.from("jobs").select("*").eq("for_date", tomorrow) as never) as never,
-        scope(supabaseAdmin.from("drivers").select("*") as never) as never,
-        scope(supabaseAdmin.from("warehouses").select("*") as never) as never,
+        tenantId ? jobsQ.eq("tenant_id", tenantId) : jobsQ,
+        tenantId ? driversQ.eq("tenant_id", tenantId) : driversQ,
+        tenantId ? whQ.eq("tenant_id", tenantId) : whQ,
         supabaseAdmin.from("job_stops").select("*").order("seq"),
-        scope(supabaseAdmin.from("driver_events").select("driver_id,type,timestamp") as never) as never,
+        tenantId ? eventsQ.eq("tenant_id", tenantId) : eventsQ,
         supabaseAdmin.from("driver_day_hours").select("*"),
       ]);
 
