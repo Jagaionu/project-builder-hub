@@ -1,17 +1,18 @@
 import { defineConfig } from "@tanstack/react-start/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
+import { cloudflare } from "@cloudflare/vite-plugin";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   tanstackStart: {
     server: {
-      preset: "vercel",
-      // entry: "server" removed — src/server.ts is Cloudflare-only
+      entry: "server",
     },
   },
   vite: {
     plugins: [
+      cloudflare(),
       tailwindcss(),
       tsConfigPaths(),
       VitePWA({
