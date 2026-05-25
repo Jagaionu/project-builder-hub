@@ -525,8 +525,12 @@ function DispatchPage() {
   const filteredJobs = useMemo(() => {
     return jobsInRange
       .filter((j) => {
-        if (statusFilter) return j.status === statusFilter;
-        return !hiddenStatuses.has(j.status as JobStatus);
+        const effective: JobStatus =
+          j.status === "PENDING" && j.planned_driver_id && !j.assigned_driver_id
+            ? "ASSIGNED"
+            : (j.status as JobStatus);
+        if (statusFilter) return effective === statusFilter;
+        return !hiddenStatuses.has(effective);
       })
       .sort((a, b) => {
         const ta = jobDate(a, stopsMap[a.id] ?? []).getTime();
@@ -544,7 +548,9 @@ function DispatchPage() {
       // A PENDING job that already has a planned driver (tomorrow planner)
       // should not be counted as Pending — it's scheduled/assigned for later.
       const status =
-        j.status === "PENDING" && j.planned_driver_id ? "ASSIGNED" : (j.status as JobStatus);
+        j.status === "PENDING" && j.planned_driver_id && !j.assigned_driver_id
+          ? "ASSIGNED"
+          : (j.status as JobStatus);
       c[status] = (c[status] ?? 0) + 1;
     }
     return c;
