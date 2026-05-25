@@ -499,8 +499,21 @@ function DispatchPage() {
     try {
       const r = await runPlanTomorrow();
       const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversPlanned} drivers`;
-      if (r.unassignable.length) toast.warning(`${msg} · ${r.unassignable.length} unassignable`);
-      else toast.success(msg);
+      if (r.unassignable.length) {
+        // Surface the top reason so the user can see WHY routes weren't assigned
+        const reasonCounts = new Map<string, number>();
+        for (const u of r.unassignable) reasonCounts.set(u.reason, (reasonCounts.get(u.reason) ?? 0) + 1);
+        const topReasons = [...reasonCounts.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 2)
+          .map(([reason, n]) => `${n}× ${reason}`)
+          .join(" · ");
+        toast.warning(`${msg} · ${r.unassignable.length} unassignable`, {
+          description: topReasons,
+          duration: 10000,
+        });
+        console.warn("[plan-tomorrow] unassignable", r.unassignable);
+      } else toast.success(msg);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
