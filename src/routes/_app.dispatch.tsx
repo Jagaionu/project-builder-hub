@@ -449,8 +449,13 @@ function DispatchPage() {
           await fillStopTimes(a.jobId, job.scheduled_at ?? new Date().toISOString(), stopsMap[a.jobId] ?? [], warehouses);
         }
         const desired = new Map(p.planned.map((pp) => [pp.jobId, { d: pp.driverId, s: pp.sequence, t: pp.startAt }] as const));
+        const todayStr = new Date().toISOString().slice(0, 10);
         for (const job of plannerJobs) {
           if ((job as { manual_override?: boolean }).manual_override) continue;
+          // Never touch planned_* for jobs scheduled for a future date —
+          // those are owned by the tomorrow planner (planTomorrow).
+          const forDate = (job as { for_date?: string | null }).for_date;
+          if (forDate && forDate > todayStr) continue;
           const want = desired.get(job.id);
           const have = { d: job.planned_driver_id ?? null, s: job.planned_sequence ?? null, t: job.planned_start_at ?? null };
           if (!want) {
@@ -535,7 +540,13 @@ function DispatchPage() {
       PENDING: 0, ASSIGNED: 0, IN_PROGRESS: 0, ARRIVED_PICKUP: 0,
       EN_ROUTE_DELIVERY: 0, COMPLETED: 0, CANCELLED: 0,
     };
-    for (const j of jobsInRange) c[j.status as JobStatus] = (c[j.status as JobStatus] ?? 0) + 1;
+    for (const j of jobsInRange) {
+      // A PENDING job that already has a planned driver (tomorrow planner)
+      // should not be counted as Pending — it's scheduled/assigned for later.
+      const status =
+        j.status === "PENDING" && j.planned_driver_id ? "ASSIGNED" : (j.status as JobStatus);
+      c[status] = (c[status] ?? 0) + 1;
+    }
     return c;
   }, [jobsInRange]);
 
@@ -585,9 +596,15 @@ function DispatchPage() {
     setPlanningTomorrow(true);
     try {
       const r = await runPlanTomorrow();
+      const computed = (r as { computed?: number }).computed ?? r.assigned;
+      const persistFailures = (r as { persistFailures?: number }).persistFailures ?? 0;
       const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversPlanned} drivers`;
-      if (r.unassignable.length) {
-        // Surface the top reason so the user can see WHY routes weren't assigned
+      if (persistFailures > 0) {
+        toast.error(`${msg} · ${persistFailures} failed to save`, {
+          description: `Computed ${computed} assignments but only ${r.assigned} were saved. Check server logs.`,
+          duration: 12000,
+        });
+      } else if (r.unassignable.length) {
         const reasonCounts = new Map<string, number>();
         for (const u of r.unassignable) reasonCounts.set(u.reason, (reasonCounts.get(u.reason) ?? 0) + 1);
         const topReasons = [...reasonCounts.entries()]
