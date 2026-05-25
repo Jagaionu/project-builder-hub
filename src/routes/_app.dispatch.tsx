@@ -1079,7 +1079,7 @@ function JobDetailPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {ranked.slice(0, 8).map(({ driver: d, distKm, eta }, i) => {
+                {ranked.slice(0, 3).map(({ driver: d, distKm, eta }, i) => {
                   const dc = compliance[d.id];
                   const blocked = !!dc?.blockAssignment;
                   return (

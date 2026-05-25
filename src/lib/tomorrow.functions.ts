@@ -23,13 +23,17 @@ export const planTomorrow = createServerFn({ method: "POST" })
     const tomorrow = tomorrowISO();
     const jobsQ = supabaseAdmin.from("jobs").select("*").eq("for_date", tomorrow);
     const driversQ = supabaseAdmin.from("drivers").select("*");
-    const whQ = supabaseAdmin.from("warehouses").select("*");
+    // Include shared (tenant_id IS NULL) warehouses for tenant planning,
+    // matching the RLS select policy on warehouses.
+    const whQ = tenantId
+      ? supabaseAdmin.from("warehouses").select("*").or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
+      : supabaseAdmin.from("warehouses").select("*");
     const eventsQ = supabaseAdmin.from("driver_events").select("driver_id,type,timestamp");
     const [{ data: jobs }, { data: drivers }, { data: warehouses }, { data: stops }, { data: events }, { data: ledger }] =
       await Promise.all([
         tenantId ? jobsQ.eq("tenant_id", tenantId) : jobsQ,
         tenantId ? driversQ.eq("tenant_id", tenantId) : driversQ,
-        tenantId ? whQ.eq("tenant_id", tenantId) : whQ,
+        whQ,
         supabaseAdmin.from("job_stops").select("*").order("seq"),
         tenantId ? eventsQ.eq("tenant_id", tenantId) : eventsQ,
         supabaseAdmin.from("driver_day_hours").select("*"),

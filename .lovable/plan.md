@@ -1,41 +1,34 @@
-## Apply the two fixes
+## Plan
 
-### 1. Replace `vite.config.ts`
+1. Update the dispatch suggestions UI so each unassigned route only renders the 3 closest suggested drivers instead of 8.
+2. Fix the tomorrow planner data load so shared warehouses are included when planning for a tenant, which should allow pickup locations to resolve and routes to be assigned.
+3. Re-check the planner result end-to-end by confirming tomorrow jobs now receive `planned_driver_id` values and that the unassignable reasons change from the current false "No stops / pickup configured" failure.
 
-Add the Cloudflare Vite plugin and nest plugins under `vite.plugins`:
+## What I found
 
-```ts
-import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-import { cloudflare } from "@cloudflare/vite-plugin";
-import { VitePWA } from "vite-plugin-pwa";
+- The suggested drivers table already ranks drivers by distance correctly; it is currently slicing to 8, so reducing it to 3 is a very small UI change.
+- Tomorrow planning currently sees:
+  - 115 tomorrow jobs
+  - 61 available drivers with valid start locations
+  - 0 jobs with a planned or assigned driver
+- The likely root cause is in `src/lib/tomorrow.functions.ts`: warehouse loading is filtered to the tenant only, but your warehouses are currently shared records with `tenant_id = null`.
+- Because of that, the planner cannot resolve the pickup warehouse for tomorrow jobs, and it marks routes as unassignable even though the jobs do have stops.
 
-export default defineConfig({
-  tanstackStart: { server: { entry: "server" } },
-  vite: {
-    plugins: [
-      cloudflare(),
-      VitePWA({ /* …existing PWA config unchanged… */ }),
-    ],
-  },
-});
-```
+## Technical details
 
-### 2. Pin TanStack versions in `package.json`
+- `src/routes/_app.dispatch.tsx`
+  - Change the suggested-driver render from `ranked.slice(0, 8)` to `ranked.slice(0, 3)`.
+- `src/lib/tomorrow.functions.ts`
+  - Change the warehouse query so tenant planning includes both:
+    - tenant-owned warehouses
+    - shared warehouses where `tenant_id` is `null`
+  - Keep the rest of the planning flow intact.
+- Validation
+  - Re-run the tomorrow planner.
+  - Confirm planned counts increase above 0.
+  - Confirm the previous unassignable reason is gone for normal jobs with valid stops.
 
-Align all three to `1.168.11`:
-```
-"@tanstack/react-router": "1.168.11",
-"@tanstack/react-start":  "1.168.11",
-"@tanstack/router-plugin": "1.168.11",
-```
-Then run `bun install` to refresh the lockfile.
+## Expected outcome
 
-### Notes
-
-- `@cloudflare/vite-plugin` is already installed (verified in `node_modules`), no `bun add` needed.
-- No app code, routes, server functions, or migrations are touched.
-
-### Verify
-
-- Dev server boots without `tanstackStart not defined`.
-- `/`, `/login`, `/admin` on the published URL return real pages, not `Internal server error`.
+- The route drawer becomes lighter/faster by showing only the top 3 closest drivers.
+- Tomorrow planning should start assigning drivers again for eligible routes instead of returning 0.
