@@ -1154,24 +1154,24 @@ function JobDetailPanel({
       <div className="mt-5 rounded-lg border border-border bg-surface p-4">
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Assigned driver</div>
         <DriverPicker
-          driverId={job.assigned_driver_id}
+          driverId={job.assigned_driver_id ?? job.planned_driver_id ?? null}
           drivers={drivers}
           compliance={compliance}
           onChange={onAssignDriver}
         />
-        {!driver && (planned || job.planned_driver_id) && (
+        {!driver && !job.planned_driver_id && planned && (
           <PlannedChip
-            driverName={drivers.find((d) => d.id === (planned?.driverId ?? job.planned_driver_id))?.name ?? "?"}
-            sequence={planned?.sequence ?? job.planned_sequence ?? undefined}
-            startAt={planned?.startAt ?? job.planned_start_at ?? undefined}
-            distanceKm={planned?.distKm}
-            dailyHoursLeft={planned?.dailyHoursLeft}
+            driverName={drivers.find((d) => d.id === planned.driverId)?.name ?? "?"}
+            sequence={planned.sequence}
+            startAt={planned.startAt}
+            distanceKm={planned.distKm}
+            dailyHoursLeft={planned.dailyHoursLeft}
           />
         )}
       </div>
 
       {/* Suggested drivers */}
-      {!driver && ranked.length > 0 && (
+      {!driver && !job.planned_driver_id && ranked.length > 0 && (
         <>
           <div className="mt-6 flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
             <Sparkles className="size-3.5 text-accent" /> Suggested drivers (closest first)
