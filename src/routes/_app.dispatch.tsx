@@ -449,8 +449,13 @@ function DispatchPage() {
           await fillStopTimes(a.jobId, job.scheduled_at ?? new Date().toISOString(), stopsMap[a.jobId] ?? [], warehouses);
         }
         const desired = new Map(p.planned.map((pp) => [pp.jobId, { d: pp.driverId, s: pp.sequence, t: pp.startAt }] as const));
+        const todayStr = new Date().toISOString().slice(0, 10);
         for (const job of plannerJobs) {
           if ((job as { manual_override?: boolean }).manual_override) continue;
+          // Never touch planned_* for jobs scheduled for a future date —
+          // those are owned by the tomorrow planner (planTomorrow).
+          const forDate = (job as { for_date?: string | null }).for_date;
+          if (forDate && forDate > todayStr) continue;
           const want = desired.get(job.id);
           const have = { d: job.planned_driver_id ?? null, s: job.planned_sequence ?? null, t: job.planned_start_at ?? null };
           if (!want) {
