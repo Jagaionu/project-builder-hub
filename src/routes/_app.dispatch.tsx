@@ -880,8 +880,8 @@ function DispatchPage() {
                   ? drivers.find((dr) => dr.id === (planned?.driverId ?? j.planned_driver_id))
                   : null;
                 const isMR = stops.length > 2;
-                const effectiveStatus: JobStatus = (!driver && j.planned_driver_id)
-                  ? "SCHEDULED"
+                const effectiveStatus = (!driver && j.planned_driver_id)
+                  ? ("SCHEDULED" as JobStatus)
                   : (isJobScheduledFuture(
                       {
                         ...j,
