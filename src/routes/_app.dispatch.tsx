@@ -356,16 +356,31 @@ function DispatchPage() {
     } catch { /* noop */ }
   }, [statusFilter]);
 
+  // Only feed the planner active jobs — completed/cancelled history is huge
+  // and never needs re-planning. This memo dramatically shrinks the input
+  // every downstream effect depends on.
+  const plannerJobs = useMemo(
+    () => jobs.filter((j) => j.status !== "COMPLETED" && j.status !== "CANCELLED"),
+    [jobs],
+  );
+
   const plan = useMemo(
-    () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
-    [jobs, stopsMap, drivers, warehouses, compliance],
+    () => computePlan(plannerJobs, stopsMap, drivers, warehouses, compliance),
+    [plannerJobs, stopsMap, drivers, warehouses, compliance],
   );
   const plannedByJob = useMemo(
     () => new Map(plan.planned.map((item) => [item.jobId, item] as const)),
     [plan],
   );
 
+  // One-shot on mount: normalize jobs that are in an active status but have
+  // no assigned driver. Previously this ran on every `jobs` change, which
+  // could fire a write storm whenever realtime delivered an update.
+  const normalizerRanRef = useRef(false);
   useEffect(() => {
+    if (normalizerRanRef.current) return;
+    if (jobs.length === 0) return;
+    normalizerRanRef.current = true;
     const inconsistent = jobs.filter((j) => !j.assigned_driver_id && ACTIVE_JOB_STATUSES.has(j.status));
     if (inconsistent.length === 0) return;
     void (async () => {
