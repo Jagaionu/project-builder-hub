@@ -1,7 +1,6 @@
 // Force fresh production rebuild - clear stale h3-v2 module reference
 import "./lib/error-capture";
 
-import serverEntry from "@tanstack/react-start/server-entry";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
@@ -9,7 +8,17 @@ type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
 
-const handler = serverEntry as unknown as ServerEntry;
+let serverEntryPromise: Promise<ServerEntry> | undefined;
+
+async function getServerEntry(): Promise<ServerEntry> {
+  if (!serverEntryPromise) {
+    serverEntryPromise = import("@tanstack/react-start/server-entry").then(
+      (module) => (module.default ?? module) as ServerEntry,
+    );
+  }
+
+  return serverEntryPromise;
+}
 
 function brandedErrorResponse(): Response {
   return new Response(renderErrorPage(), {
@@ -62,6 +71,7 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
