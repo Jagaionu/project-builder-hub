@@ -540,7 +540,13 @@ function DispatchPage() {
       PENDING: 0, ASSIGNED: 0, IN_PROGRESS: 0, ARRIVED_PICKUP: 0,
       EN_ROUTE_DELIVERY: 0, COMPLETED: 0, CANCELLED: 0,
     };
-    for (const j of jobsInRange) c[j.status as JobStatus] = (c[j.status as JobStatus] ?? 0) + 1;
+    for (const j of jobsInRange) {
+      // A PENDING job that already has a planned driver (tomorrow planner)
+      // should not be counted as Pending — it's scheduled/assigned for later.
+      const status =
+        j.status === "PENDING" && j.planned_driver_id ? "ASSIGNED" : (j.status as JobStatus);
+      c[status] = (c[status] ?? 0) + 1;
+    }
     return c;
   }, [jobsInRange]);
 
