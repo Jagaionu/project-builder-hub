@@ -7,6 +7,7 @@ export default defineConfig({
       entry: "server",
     },
   },
+  nitro: true,   // ← this is the only change
   vite: {
     plugins: [
       VitePWA({
