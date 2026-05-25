@@ -33,7 +33,7 @@ export const planTomorrow = createServerFn({ method: "POST" })
       await Promise.all([
         tenantId ? jobsQ.eq("tenant_id", tenantId) : jobsQ,
         tenantId ? driversQ.eq("tenant_id", tenantId) : driversQ,
-        tenantId ? whQ.eq("tenant_id", tenantId) : whQ,
+        whQ,
         supabaseAdmin.from("job_stops").select("*").order("seq"),
         tenantId ? eventsQ.eq("tenant_id", tenantId) : eventsQ,
         supabaseAdmin.from("driver_day_hours").select("*"),
