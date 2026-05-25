@@ -1,25 +1,46 @@
-## What's actually wrong
+## Problem
+The preview is not failing because of backend env vars. It is still failing during SSR before the app can render.
 
-Copilot's diagnosis is incorrect. The Supabase env vars are present in `.env` (`VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are both set), and `src/integrations/supabase/client.ts` uses a lazy Proxy — it only throws when something accesses the client, not on import. The black screen is not from a Supabase init error.
+I confirmed the active runtime error is still:
+- `TypeError: toResponse is not a function`
 
-The actual server logs show every request to the preview returning **502** with:
+And I isolated the mismatch to these files:
+- `src/server.ts`
+- `vite.config.ts`
+- `wrangler.jsonc`
+- `package.json`
+- installed runtime package `node_modules/h3/package.json`
+- installed framework code `node_modules/@tanstack/start-server-core/src/request-response.ts`
 
-```
-Error: No such module "h3-v2".
-  imported from "server.js"
-    at async serveSSR (...)
-```
-
-This is a stale server bundle on the edge worker referencing an `h3-v2` virtual module that no longer exists in the current dependency graph. SSR fails before any of our app code runs — which is why the page is black and the console only shows the Lovable wrapper logs, not a real React error.
+## What is actually wrong
+`@tanstack/start-server-core` imports `toResponse` from `h3-v2`, which expects the H3 v2 API.
+But the installed top-level `h3` package currently resolves to **v1.15.11**, which does not export `toResponse`.
+That means the SSR worker is still bundling against the wrong H3 shape, so Cloudflare cannot render the site and returns a blank/failed preview.
 
 ## Plan
+1. Remove the manual H3 override that forced an incompatible runtime shape.
+   - Delete the direct `h3` dependency from `package.json`.
+   - Keep the TanStack server entry wiring, but stop overriding TanStack’s H3 dependency graph.
 
-1. Force a fresh production rebuild by making a no-op edit to `src/server.ts` (add a harmless comment). This invalidates the cached bundle that's pinned to the broken `h3-v2` import and produces a clean server entry against the current `@tanstack/react-start` + h3 versions.
-2. Wait for the rebuild, then reload the preview URL and confirm SSR returns 200 instead of 502.
-3. If the 502 persists after rebuild, inspect `package.json` / lockfile for a version mismatch between `@tanstack/react-start` and its h3 peer and pin/upgrade accordingly.
+2. Realign the framework package set.
+   - Update the TanStack packages so `@tanstack/react-start`, `@tanstack/router-plugin`, and related runtime pieces resolve consistently.
+   - Regenerate the lockfile so `h3-v2` resolves to the framework’s expected H3 v2 package instead of falling through to H3 v1.
 
-## Verification
+3. Re-verify the SSR entry path only after dependency alignment.
+   - Keep `src/server.ts` as the server entry wrapper if it is still needed for error capture.
+   - Confirm `vite.config.ts` and `wrangler.jsonc` point at the correct server entry and are not reintroducing aliasing.
 
-- Reload `id-preview--de24c086-d49f-40b3-b183-98147b9f11b0.lovable.app` — should render the login page, not a 502/black screen.
-- Recheck server logs: no more `No such module "h3-v2"` entries.
-- No file changes to `src/integrations/supabase/client.ts` are needed (and would not fix this).
+4. Validate the fix against the actual failure signal.
+   - Check dev-server logs for the disappearance of `toResponse is not a function`.
+   - Confirm preview SSR loads instead of returning the blank screen / Cloudflare error.
+   - If preview is healthy but the public site still shows the old failure, note that the frontend publish must be updated.
+
+## Technical details
+- `node_modules/@tanstack/start-server-core/src/request-response.ts` imports:
+  - `toResponse as h3_toResponse` from `h3-v2`
+- `node_modules/h3/package.json` currently shows:
+  - `version: 1.15.11`
+- H3 v1 does not provide the export shape TanStack’s current server runtime expects.
+
+## Expected outcome
+After dependency alignment, SSR should stop crashing in the worker runtime, the preview should render normally again, and Cloudflare should no longer show the website error.
