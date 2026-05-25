@@ -1,4 +1,4 @@
-import { defineConfig } from "@tanstack/react-start/vite";
+import { defineConfig } from "@tanstack/react-start/plugin/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
 import { cloudflare } from "@cloudflare/vite-plugin";
