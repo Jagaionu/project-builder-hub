@@ -596,9 +596,15 @@ function DispatchPage() {
     setPlanningTomorrow(true);
     try {
       const r = await runPlanTomorrow();
+      const computed = (r as { computed?: number }).computed ?? r.assigned;
+      const persistFailures = (r as { persistFailures?: number }).persistFailures ?? 0;
       const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversPlanned} drivers`;
-      if (r.unassignable.length) {
-        // Surface the top reason so the user can see WHY routes weren't assigned
+      if (persistFailures > 0) {
+        toast.error(`${msg} · ${persistFailures} failed to save`, {
+          description: `Computed ${computed} assignments but only ${r.assigned} were saved. Check server logs.`,
+          duration: 12000,
+        });
+      } else if (r.unassignable.length) {
         const reasonCounts = new Map<string, number>();
         for (const u of r.unassignable) reasonCounts.set(u.reason, (reasonCounts.get(u.reason) ?? 0) + 1);
         const topReasons = [...reasonCounts.entries()]
