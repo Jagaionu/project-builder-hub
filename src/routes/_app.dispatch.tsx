@@ -63,18 +63,26 @@ type Stop = {
 
 type JobStopsMap = Record<string, Stop[]>;
 
+type StopRow = { id: string; job_id: string; kind: Stop["kind"]; warehouse_id: string; scheduled_at: string | null; arrived_at: string | null; seq: number };
+
+// Match the jobs window so we don't pull stops for archived jobs.
+const STOPS_WINDOW_DAYS = 30;
+
 function useJobStops(): JobStopsMap {
   const [map, setMap] = useState<JobStopsMap>({});
   useEffect(() => {
     let mounted = true;
-    const load = async () => {
+    const since = new Date(Date.now() - STOPS_WINDOW_DAYS * 24 * 3600 * 1000).toISOString();
+
+    const reload = async () => {
       const { data } = await supabase
         .from("job_stops")
         .select("id,job_id,kind,warehouse_id,scheduled_at,arrived_at,seq")
+        .gte("created_at", since)
         .order("seq", { ascending: true });
       if (!mounted) return;
       const m: JobStopsMap = {};
-      for (const s of (data ?? []) as Array<{ job_id: string } & Stop & { seq: number }>) {
+      for (const s of (data ?? []) as StopRow[]) {
         (m[s.job_id] ||= []).push({
           id: s.id,
           kind: s.kind,
@@ -85,10 +93,63 @@ function useJobStops(): JobStopsMap {
       }
       setMap(m);
     };
-    load();
+
+    void reload();
+
     const ch = supabase
       .channel("rt-stops")
-      .on("postgres_changes", { event: "*", schema: "public", table: "job_stops" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_stops" }, (payload) => {
+        const evt = payload.eventType;
+        const newRow = payload.new as Partial<StopRow> | undefined;
+        const oldRow = payload.old as Partial<StopRow> | undefined;
+
+        // Fall back to a full reload only if we can't process the payload.
+        if (
+          (evt === "INSERT" && (!newRow?.id || !newRow.job_id)) ||
+          (evt === "UPDATE" && (!newRow?.id || !newRow.job_id)) ||
+          (evt === "DELETE" && !oldRow?.id)
+        ) {
+          void reload();
+          return;
+        }
+
+        setMap((prev) => {
+          const next: JobStopsMap = { ...prev };
+          if (evt === "DELETE") {
+            const oldId = oldRow!.id!;
+            for (const jid of Object.keys(next)) {
+              const arr = next[jid];
+              const filtered = arr.filter((s) => s.id !== oldId);
+              if (filtered.length !== arr.length) next[jid] = filtered;
+            }
+            return next;
+          }
+          const n = newRow as StopRow;
+          const stop: Stop = {
+            id: n.id,
+            kind: n.kind,
+            warehouse_id: n.warehouse_id,
+            scheduled_at: n.scheduled_at,
+            arrived_at: n.arrived_at,
+          };
+          if (evt === "INSERT") {
+            const bucket = next[n.job_id] ? [...next[n.job_id]] : [];
+            if (!bucket.some((s) => s.id === stop.id)) bucket.push(stop);
+            next[n.job_id] = bucket;
+          } else if (evt === "UPDATE") {
+            const bucket = next[n.job_id] ?? [];
+            const idx = bucket.findIndex((s) => s.id === stop.id);
+            if (idx >= 0) {
+              const copy = [...bucket];
+              copy[idx] = stop;
+              next[n.job_id] = copy;
+            } else {
+              next[n.job_id] = [...bucket, stop];
+            }
+          }
+          return next;
+        });
+      })
       .subscribe();
     return () => {
       mounted = false;
