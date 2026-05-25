@@ -7,7 +7,7 @@ export default defineConfig({
   tanstackStart: {
     server: {
       preset: "vercel",
-      entry: "server",
+      // entry: "server" removed — src/server.ts is Cloudflare-only
     },
   },
   vite: {
