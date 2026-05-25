@@ -101,33 +101,50 @@ export const planTomorrow = createServerFn({ method: "POST" })
     sampleUnassignable: plan.unassignable.slice(0, 3),
   });
 
-  // Persist planned_* for assigned jobs; clear for unassigned
+  // Persist planned_* for assigned jobs; clear for unassigned.
+  // Parallelize writes and capture failures so we can report what really stuck.
   const desired = new Map(plan.planned.map((p) => [p.jobId, p] as const));
-  for (const j of jobList) {
-    const want = desired.get(j.id);
-    if (want) {
-      await supabaseAdmin
-        .from("jobs")
-        .update({
-          planned_driver_id: want.driverId,
-          planned_sequence: want.sequence,
-          planned_start_at: want.startAt,
-        })
-        .eq("id", j.id);
-    } else if (j.planned_driver_id || j.planned_sequence || j.planned_start_at) {
-      await supabaseAdmin
-        .from("jobs")
-        .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
-        .eq("id", j.id);
-    }
-  }
+  let persisted = 0;
+  const failures: Array<{ jobId: string; error: string }> = [];
 
-  // Drivers see tomorrow's plan in the driver app via Realtime subscriptions.
+  await Promise.all(
+    jobList.map(async (j) => {
+      const want = desired.get(j.id);
+      if (want) {
+        const { error } = await supabaseAdmin
+          .from("jobs")
+          .update({
+            planned_driver_id: want.driverId,
+            planned_sequence: want.sequence,
+            planned_start_at: want.startAt,
+          })
+          .eq("id", j.id);
+        if (error) failures.push({ jobId: j.id, error: error.message });
+        else persisted += 1;
+      } else if (j.planned_driver_id || j.planned_sequence || j.planned_start_at) {
+        const { error } = await supabaseAdmin
+          .from("jobs")
+          .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
+          .eq("id", j.id);
+        if (error) failures.push({ jobId: j.id, error: error.message });
+      }
+    }),
+  );
+
+  if (failures.length) {
+    console.error("[plan-tomorrow] persistence failures", {
+      count: failures.length,
+      sample: failures.slice(0, 5),
+    });
+  }
+  console.log("[plan-tomorrow] persisted", { persisted, computed: plan.planned.length });
 
   return {
     tomorrow,
     totalJobs: jobList.length,
-    assigned: plan.planned.length,
+    assigned: persisted,
+    computed: plan.planned.length,
+    persistFailures: failures.length,
     unassignable: plan.unassignable,
     driversPlanned: new Set(plan.planned.map((p) => p.driverId)).size,
   };
