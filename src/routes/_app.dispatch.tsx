@@ -414,14 +414,19 @@ function DispatchPage() {
     else if (opts?.manual) toast.success("Driver removed — auto-planner paused for this job");
   }
 
-  // Auto-planner — unchanged from prior Jobs page
+  // Auto-planner — gated by a writing ref so this effect can't re-enter while
+  // its own DB writes are coming back as realtime UPDATEs, and scoped to
+  // `plannerJobs` (active jobs only) so completed history doesn't bloat work.
   const planSigRef = useRef<string>("");
+  const isPlannerWritingRef = useRef(false);
   useEffect(() => {
     if (drivers.length === 0 || warehouses.length === 0) return;
-    const pending = jobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id);
+    if (isPlannerWritingRef.current) return;
+
+    const pending = plannerJobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id);
     if (pending.some((j) => !stopsMap[j.id])) return;
 
-    const jobsForPlanner = jobs.filter((j) => !(j as { manual_override?: boolean }).manual_override);
+    const jobsForPlanner = plannerJobs.filter((j) => !(j as { manual_override?: boolean }).manual_override);
     const p = computePlan(jobsForPlanner, stopsMap, drivers, warehouses, compliance);
 
     const sig = JSON.stringify({
@@ -431,39 +436,45 @@ function DispatchPage() {
     if (sig === planSigRef.current) return;
     planSigRef.current = sig;
 
+    isPlannerWritingRef.current = true;
     (async () => {
-      for (const a of p.immediate) {
-        const job = jobs.find((j) => j.id === a.jobId);
-        const driver = drivers.find((d) => d.id === a.driverId);
-        if (!job || !driver) continue;
-        if ((job as { manual_override?: boolean }).manual_override) continue;
-        await assignDriver(a.jobId, a.driverId);
-        toast.message(`Auto-assigned ${driver.name} → ${job.reference} (${a.distKm.toFixed(1)} km)`);
-        await fillStopTimes(a.jobId, job.scheduled_at ?? new Date().toISOString(), stopsMap[a.jobId] ?? [], warehouses);
-      }
-      const desired = new Map(p.planned.map((pp) => [pp.jobId, { d: pp.driverId, s: pp.sequence, t: pp.startAt }] as const));
-      for (const job of jobs) {
-        if ((job as { manual_override?: boolean }).manual_override) continue;
-        const want = desired.get(job.id);
-        const have = { d: job.planned_driver_id ?? null, s: job.planned_sequence ?? null, t: job.planned_start_at ?? null };
-        if (!want) {
-          if (have.d || have.s || have.t) {
-            await supabase.from("jobs")
-              .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
-              .eq("id", job.id);
+      try {
+        for (const a of p.immediate) {
+          const job = plannerJobs.find((j) => j.id === a.jobId);
+          const driver = drivers.find((d) => d.id === a.driverId);
+          if (!job || !driver) continue;
+          if ((job as { manual_override?: boolean }).manual_override) continue;
+          await assignDriver(a.jobId, a.driverId);
+          toast.message(`Auto-assigned ${driver.name} → ${job.reference} (${a.distKm.toFixed(1)} km)`);
+          await fillStopTimes(a.jobId, job.scheduled_at ?? new Date().toISOString(), stopsMap[a.jobId] ?? [], warehouses);
+        }
+        const desired = new Map(p.planned.map((pp) => [pp.jobId, { d: pp.driverId, s: pp.sequence, t: pp.startAt }] as const));
+        for (const job of plannerJobs) {
+          if ((job as { manual_override?: boolean }).manual_override) continue;
+          const want = desired.get(job.id);
+          const have = { d: job.planned_driver_id ?? null, s: job.planned_sequence ?? null, t: job.planned_start_at ?? null };
+          if (!want) {
+            if (have.d || have.s || have.t) {
+              await supabase.from("jobs")
+                .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
+                .eq("id", job.id);
+            }
+            continue;
           }
-          continue;
+          if (have.d !== want.d || have.s !== want.s || have.t !== want.t) {
+            await supabase.from("jobs")
+              .update({ planned_driver_id: want.d, planned_sequence: want.s, planned_start_at: want.t })
+              .eq("id", job.id);
+            await fillStopTimes(job.id, want.t, stopsMap[job.id] ?? [], warehouses);
+          }
         }
-        if (have.d !== want.d || have.s !== want.s || have.t !== want.t) {
-          await supabase.from("jobs")
-            .update({ planned_driver_id: want.d, planned_sequence: want.s, planned_start_at: want.t })
-            .eq("id", job.id);
-          await fillStopTimes(job.id, want.t, stopsMap[job.id] ?? [], warehouses);
-        }
+      } finally {
+        // Allow the realtime echo a moment to land before re-running.
+        setTimeout(() => { isPlannerWritingRef.current = false; }, 500);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobs, stopsMap, drivers, warehouses, compliance]);
+  }, [plannerJobs, stopsMap, drivers, warehouses, compliance]);
 
   async function setStatus(jobId: string, status: string) {
     const job = jobs.find((j) => j.id === jobId);
