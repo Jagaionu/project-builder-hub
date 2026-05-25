@@ -1,32 +1,25 @@
-## Goal
-Make the app open reliably in the browser preview and remove the broken/incorrect login experience that appears instead of the app.
+## What's actually wrong
+
+Copilot's diagnosis is incorrect. The Supabase env vars are present in `.env` (`VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are both set), and `src/integrations/supabase/client.ts` uses a lazy Proxy — it only throws when something accesses the client, not on import. The black screen is not from a Supabase init error.
+
+The actual server logs show every request to the preview returning **502** with:
+
+```
+Error: No such module "h3-v2".
+  imported from "server.js"
+    at async serveSSR (...)
+```
+
+This is a stale server bundle on the edge worker referencing an `h3-v2` virtual module that no longer exists in the current dependency graph. SSR fails before any of our app code runs — which is why the page is black and the console only shows the Lovable wrapper logs, not a real React error.
 
 ## Plan
-1. Inspect the root app shell and login route integration to fix the route/render mismatch causing the preview to fail or show the wrong login surface.
-2. Repair the root shell so TanStack Router head/render APIs are used in a safe place and do not trigger the `useContext` / invalid hook error seen in the preview.
-3. Remove the SSR/client mismatch on the custom `/login` route so preview no longer falls back to stale or conflicting HTML.
-4. Verify the preview on mobile-sized viewport and confirm the app opens instead of showing an internal server error or the external Lovable login screen.
 
-## What I found
-- The hosted backend looks healthy, so this is not a backend outage.
-- The sandbox app can render the custom `/login` page, but the failing preview/browser experience is inconsistent with that.
-- Runtime evidence points to a client/render crash around `HeadContent` with `Cannot read properties of null (reading 'useContext')`.
-- There is also a hydration mismatch on `/login`, which can make preview behavior unstable.
-- The public preview URL currently shows the platform login surface instead of your in-app login page, so the app shell/auth flow is not behaving consistently across environments.
-
-## Technical details
-- Investigate and adjust:
-  - `src/routes/__root.tsx`
-  - `src/router.tsx`
-  - `src/routes/login.tsx`
-- Focus on:
-  - root shell/head rendering placement
-  - eliminating the invalid hook/useRouter context error
-  - removing nondeterministic client-only rendering on login
-  - preserving your existing dispatch logic without changing business rules
+1. Force a fresh production rebuild by making a no-op edit to `src/server.ts` (add a harmless comment). This invalidates the cached bundle that's pinned to the broken `h3-v2` import and produces a clean server entry against the current `@tanstack/react-start` + h3 versions.
+2. Wait for the rebuild, then reload the preview URL and confirm SSR returns 200 instead of 502.
+3. If the 502 persists after rebuild, inspect `package.json` / lockfile for a version mismatch between `@tanstack/react-start` and its h3 peer and pin/upgrade accordingly.
 
 ## Verification
-- Open `/login` and `/` in preview
-- Confirm no runtime `useContext` crash
-- Confirm no hydration mismatch on login
-- Confirm browser preview opens the app instead of showing an internal server error screen
+
+- Reload `id-preview--de24c086-d49f-40b3-b183-98147b9f11b0.lovable.app` — should render the login page, not a 502/black screen.
+- Recheck server logs: no more `No such module "h3-v2"` entries.
+- No file changes to `src/integrations/supabase/client.ts` are needed (and would not fix this).
