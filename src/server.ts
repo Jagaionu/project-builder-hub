@@ -1,4 +1,4 @@
-// rebuild trigger: clear stale h3-v2 module bundle
+// Force fresh production rebuild - clear stale h3-v2 module reference
 import "./lib/error-capture";
 
 import serverEntry from "@tanstack/react-start/server-entry";
