@@ -8,11 +8,6 @@ export default defineConfig({
     },
   },
   vite: {
-    resolve: {
-      alias: {
-        "h3-v2": "h3",
-      },
-    },
     plugins: [
       VitePWA({
         registerType: "autoUpdate",
