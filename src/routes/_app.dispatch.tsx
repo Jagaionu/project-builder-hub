@@ -548,7 +548,9 @@ function DispatchPage() {
       // A PENDING job that already has a planned driver (tomorrow planner)
       // should not be counted as Pending — it's scheduled/assigned for later.
       const status =
-        j.status === "PENDING" && j.planned_driver_id ? "ASSIGNED" : (j.status as JobStatus);
+        j.status === "PENDING" && j.planned_driver_id && !j.assigned_driver_id
+          ? "ASSIGNED"
+          : (j.status as JobStatus);
       c[status] = (c[status] ?? 0) + 1;
     }
     return c;
