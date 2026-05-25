@@ -1,12 +1,14 @@
-import { defineConfig } from "@tanstack/react-start/config";
+import { defineConfig } from "@tanstack/react-start/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
-  server: {
-    preset: "vercel",
-    entry: "server",
+  tanstackStart: {
+    server: {
+      preset: "vercel",
+      entry: "server",
+    },
   },
   vite: {
     plugins: [
