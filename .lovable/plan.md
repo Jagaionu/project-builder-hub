@@ -1,28 +1,41 @@
-## Problem
+## Apply the two fixes
 
-When you click **Generate credentials** for a company whose admin user already exists, the UI shows a brand-new password — but logging in with it fails. Reason: the server only saves the password when it *creates* the user. On the "user already exists" path, it looks up the existing account and returns it without ever updating the password, so the value shown on screen was never written to the auth database.
+### 1. Replace `vite.config.ts`
 
-## Fix
-
-In `src/lib/admin-users.functions.ts` → `createCompanyAdmin`, after we resolve the existing user id on the duplicate-email branch, call the Supabase Admin API to actually rotate the password and confirm the email:
+Add the Cloudflare Vite plugin and nest plugins under `vite.plugins`:
 
 ```ts
-await supabaseAdmin.auth.admin.updateUserById(userIdToLink, {
-  password: data.password,
-  email_confirm: true,
+import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { cloudflare } from "@cloudflare/vite-plugin";
+import { VitePWA } from "vite-plugin-pwa";
+
+export default defineConfig({
+  tanstackStart: { server: { entry: "server" } },
+  vite: {
+    plugins: [
+      cloudflare(),
+      VitePWA({ /* …existing PWA config unchanged… */ }),
+    ],
+  },
 });
 ```
 
-This makes the "Generate credentials" button behave as a true password-rotation action: whether the user is new or existing, the password shown in the UI is the one stored in the database.
+### 2. Pin TanStack versions in `package.json`
 
-## Scope
+Align all three to `1.168.11`:
+```
+"@tanstack/react-router": "1.168.11",
+"@tanstack/react-start":  "1.168.11",
+"@tanstack/router-plugin": "1.168.11",
+```
+Then run `bun install` to refresh the lockfile.
 
-- Edit only `src/lib/admin-users.functions.ts` (the `createCompanyAdmin` handler, duplicate-email branch).
-- No schema changes, no UI changes, no other files touched.
-- Behavior for brand-new users is unchanged (still uses `createUser` with the password).
+### Notes
 
-## Verification
+- `@cloudflare/vite-plugin` is already installed (verified in `node_modules`), no `bun add` needed.
+- No app code, routes, server functions, or migrations are touched.
 
-After the change, on the `/admin` page:
-1. Expand a company and click **Generate credentials** twice in a row.
-2. Copy the second password and sign in at `/login` with the displayed email — it should work.
+### Verify
+
+- Dev server boots without `tanstackStart not defined`.
+- `/`, `/login`, `/admin` on the published URL return real pages, not `Internal server error`.
