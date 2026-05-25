@@ -940,8 +940,8 @@ function DispatchPage() {
                             ? new Date(j.scheduled_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
                             : "ASAP"}
                         </span>
-                        <span className="truncate" style={{ color: driver ? "oklch(0.68 0.10 245)" : plannedDriver ? "oklch(0.60 0.08 245)" : "oklch(0.42 0.010 245)" }}>
-                          {driver ? driver.name : plannedDriver ? `· ${plannedDriver.name}` : "Unassigned"}
+                        <span className="truncate" style={{ color: driver ? "oklch(0.68 0.10 245)" : plannedDriver ? "oklch(0.68 0.10 245)" : "oklch(0.42 0.010 245)" }}>
+                          {driver ? driver.name : plannedDriver ? plannedDriver.name : "Unassigned"}
                         </span>
                       </div>
                     </button>
