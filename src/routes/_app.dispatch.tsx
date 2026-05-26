@@ -340,8 +340,11 @@ function DispatchPage() {
     if (!driverId && opts?.manual && wasActive) {
       if (typeof window !== "undefined" && !window.confirm("Remove driver from this active job? It will go back to Pending.")) return;
     }
+    // Assignment flips the job straight to IN_PROGRESS (no Accept/Reject step
+    // on the driver side). Unassignment goes back to PENDING and wipes any
+    // plan fields.
     const base = driverId
-      ? { assigned_driver_id: driverId, status: "ASSIGNED" as never }
+      ? { assigned_driver_id: driverId, status: "IN_PROGRESS" as never }
       : { assigned_driver_id: null, status: "PENDING" as never, planned_driver_id: null, planned_sequence: null, planned_start_at: null };
     const payload = opts?.manual ? { ...base, manual_override: true } : base;
     // Optimistic local update — counts and row status flip instantly,
@@ -349,6 +352,30 @@ function DispatchPage() {
     applyJobPatch(jobId, payload as Partial<typeof jobs[number]>);
     const { error } = await supabase.from("jobs").update(payload as never).eq("id", jobId);
     if (error) return toast.error(error.message);
+
+    // Side effects: keep driver row + event log in sync with the assignment.
+    if (driverId) {
+      await supabase.from("drivers").update({ status: "ON_ROUTE" } as never).eq("id", driverId);
+      try {
+        const tenantId = await getTenantId();
+        await supabase.from("driver_events").insert({
+          driver_id: driverId,
+          type: "JOB_ASSIGNED",
+          payload: { job_id: jobId, manual: opts?.manual ?? false },
+          tenant_id: tenantId,
+        } as never);
+      } catch (e) {
+        console.warn("[dispatch] failed to log JOB_ASSIGNED", e);
+      }
+    } else if (job?.assigned_driver_id) {
+      // Free up the previously assigned driver only if they were ON_ROUTE for
+      // this job (don't override OFF_SHIFT / DELAYED / etc.).
+      await supabase
+        .from("drivers")
+        .update({ status: "AVAILABLE" } as never)
+        .eq("id", job.assigned_driver_id)
+        .eq("status", "ON_ROUTE" as never);
+    }
   }
 
   // Auto-planner — unchanged from prior Jobs page
