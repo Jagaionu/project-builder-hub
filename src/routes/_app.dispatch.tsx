@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState, useLayoutEffect, type ChangeEvent } from "react";
 import { createPortal } from "react-dom";
-import { useJobs, useWarehouses, useDrivers, useCompliance } from "@/lib/hooks";
+import { useJobs, useWarehouses, useDrivers, useCompliance, applyJobPatch } from "@/lib/hooks";
 import type { Compliance } from "@/lib/compliance";
 
 
@@ -332,9 +332,11 @@ function DispatchPage() {
       ? { assigned_driver_id: driverId, status: "ASSIGNED" as never }
       : { assigned_driver_id: null, status: "PENDING" as never, planned_driver_id: null, planned_sequence: null, planned_start_at: null };
     const payload = opts?.manual ? { ...base, manual_override: true } : base;
+    // Optimistic local update — counts and row status flip instantly,
+    // realtime echo will reconcile shortly after.
+    applyJobPatch(jobId, payload as Partial<typeof jobs[number]>);
     const { error } = await supabase.from("jobs").update(payload as never).eq("id", jobId);
     if (error) return toast.error(error.message);
-    // No toast here — the UI updates immediately via realtime; toasts caused spam when bulk-assigning
   }
 
   // Auto-planner — unchanged from prior Jobs page
@@ -558,16 +560,8 @@ function DispatchPage() {
   const STATUS_BOX_KEYS: JobStatus[] = ["PENDING", "ASSIGNED", "COMPLETED", "CANCELLED"];
 
   const statusBoxesRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!statusFilter) return;
-    const h = (e: MouseEvent) => {
-      if (statusBoxesRef.current && !statusBoxesRef.current.contains(e.target as Node)) {
-        setStatusFilter(null);
-      }
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [statusFilter]);
+  // Status filter stays active until the user explicitly toggles it off
+  // by clicking the same box again — no outside-click dismissal.
 
   return (
     <div className="h-full flex flex-col">
