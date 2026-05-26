@@ -73,7 +73,6 @@ export interface TenantConfig {
   modules: TenantModule[];
   maxDrivers: number;
   maxWarehouses: number;
-  showTelegramAlerts: boolean;
   showComplianceModule: boolean;
   customBranding: boolean;
   brandName: string | null;
@@ -112,7 +111,6 @@ export const DEFAULT_TENANT_CONFIG: TenantConfig = {
   modules: ["dispatch", "jobs", "drivers", "warehouses", "alerts", "events"],
   maxDrivers: 20,
   maxWarehouses: 5,
-  showTelegramAlerts: true,
   showComplianceModule: true,
   customBranding: false,
   brandName: null,

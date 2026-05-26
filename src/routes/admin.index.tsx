@@ -2,12 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import type { Company, SubscriptionStatus, CompanyPlan, TenantConfig, TenantModule } from "@/lib/types";
+import type { Company, SubscriptionStatus, CompanyPlan, TenantConfig, TenantModule, Warehouse } from "@/lib/types";
 import { DEFAULT_TENANT_CONFIG } from "@/lib/types";
 import { createCompanyAdmin, listCompanyMembers } from "@/lib/admin-users.functions";
 import {
   CheckCircle, XCircle, Clock, Ban,
-  Plus, ChevronDown, ChevronUp, Save, UserPlus, Copy,
+  Plus, ChevronDown, ChevronUp, Save, UserPlus, Copy, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,10 +32,14 @@ const STATUS_CONFIG: Record<SubscriptionStatus, { label: string; color: string; 
 const ALL_MODULES: ReadonlyArray<TenantModule> = ["dispatch", "jobs", "drivers", "warehouses", "alerts", "events"];
 
 function AdminDashboard() {
+  const [tab, setTab] = useState<"companies" | "warehouses">("companies");
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newWarehouse, setNewWarehouse] = useState({ code: "", name: "", latitude: 0, longitude: 0, address: "" });
+  const [showAddWarehouse, setShowAddWarehouse] = useState(false);
 
   async function loadCompanies() {
     const { data, error } = await supabase
@@ -43,10 +47,19 @@ function AdminDashboard() {
       .select("*")
       .order("created_at", { ascending: false });
     if (!error && data) setCompanies(data as unknown as Company[]);
-    setLoading(false);
   }
 
-  useEffect(() => { loadCompanies(); }, []);
+  async function loadWarehouses() {
+    const { data, error } = await supabase
+      .from("warehouses" as never)
+      .select("*")
+      .order("code", { ascending: true });
+    if (!error && data) setWarehouses(data as unknown as Warehouse[]);
+  }
+
+  useEffect(() => {
+    Promise.all([loadCompanies(), loadWarehouses()]).then(() => setLoading(false));
+  }, []);
 
   async function updateStatus(id: string, status: SubscriptionStatus) {
     const { error } = await supabase
@@ -69,41 +82,277 @@ function AdminDashboard() {
   }
 
   if (loading) {
-    return <div className="p-6 text-sm text-muted-foreground font-mono">Loading companies…</div>;
+    return <div className="p-6 text-sm text-muted-foreground font-mono">Loading…</div>;
   }
+
+  // Calculate trial companies expiring soon (within 7 days)
+  const now = new Date();
+  const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const expiringTrials = companies
+    .filter(
+      (c) =>
+        c.subscription_status === "trial" &&
+        c.subscription_ends_at &&
+        new Date(c.subscription_ends_at) <= in7Days &&
+        new Date(c.subscription_ends_at) > now,
+    )
+    .sort((a, b) => new Date(a.subscription_ends_at!).getTime() - new Date(b.subscription_ends_at!).getTime());
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-4">
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <h1 className="text-lg font-semibold">Companies</h1>
-          <p className="text-xs text-muted-foreground">{companies.length} total</p>
-        </div>
+      <div className="mb-4">
+        <h1 className="text-lg font-semibold">Admin Dashboard</h1>
+        <p className="text-xs text-muted-foreground">System management</p>
+      </div>
+
+      <div className="flex gap-2 border-b border-border">
         <button
-          onClick={() => setShowCreateForm(true)}
-          className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          onClick={() => setTab("companies")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            tab === "companies"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
         >
-          <Plus className="size-4" /> New Company
+          Companies
+        </button>
+        <button
+          onClick={() => setTab("warehouses")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            tab === "warehouses"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Global Warehouses
         </button>
       </div>
 
-      {showCreateForm && (
-        <CreateCompanyForm
-          onCreated={() => { setShowCreateForm(false); loadCompanies(); }}
-          onCancel={() => setShowCreateForm(false)}
-        />
+      {tab === "companies" && (
+        <>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">{companies.length} total</p>
+            </div>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="size-4" /> New Company
+            </button>
+          </div>
+
+          {expiringTrials.length > 0 && (
+            <div className="rounded-lg border border-warning/30 bg-warning/5 p-4">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-warning mb-3">Trials Expiring Soon</div>
+              <div className="space-y-2">
+                {expiringTrials.map((c) => {
+                  const daysLeft = Math.ceil(
+                    (new Date(c.subscription_ends_at!).getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
+                  );
+                  const color = daysLeft <= 3 ? "text-destructive" : daysLeft <= 7 ? "text-warning" : "text-foreground";
+                  const bgColor = daysLeft <= 3 ? "bg-destructive/10" : daysLeft <= 7 ? "bg-warning/10" : "bg-surface-2/40";
+                  return (
+                    <div key={c.id} className={`flex items-center justify-between gap-2 rounded px-3 py-2 ${bgColor}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium">{c.name}</div>
+                        <div className={`text-xs ${color}`}>
+                          {daysLeft} day{daysLeft !== 1 ? "s" : ""} remaining
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const newDate = new Date(c.subscription_ends_at!);
+                          newDate.setDate(newDate.getDate() + 7);
+                          const { error } = await supabase
+                            .from("companies" as never)
+                            .update({ subscription_ends_at: newDate.toISOString() } as never)
+                            .eq("id", c.id);
+                          if (error) {
+                            toast.error("Failed to extend trial");
+                            return;
+                          }
+                          toast.success(`${c.name} trial extended by 7 days`);
+                          loadCompanies();
+                        }}
+                        className="px-2 py-1 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors whitespace-nowrap"
+                      >
+                        Extend 7d
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {showCreateForm && (
+            <CreateCompanyForm
+              onCreated={() => { setShowCreateForm(false); loadCompanies(); }}
+              onCancel={() => setShowCreateForm(false)}
+            />
+          )}
+
+          {companies.map((company) => (
+            <CompanyRow
+              key={company.id}
+              company={company}
+              expanded={expandedId === company.id}
+              onToggle={() => setExpandedId(expandedId === company.id ? null : company.id)}
+              onStatusChange={updateStatus}
+              onConfigSave={updateConfig}
+            />
+          ))}
+        </>
       )}
 
-      {companies.map((company) => (
-        <CompanyRow
-          key={company.id}
-          company={company}
-          expanded={expandedId === company.id}
-          onToggle={() => setExpandedId(expandedId === company.id ? null : company.id)}
-          onStatusChange={updateStatus}
-          onConfigSave={updateConfig}
-        />
-      ))}
+      {tab === "warehouses" && (
+        <>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">{warehouses.length} total</p>
+            </div>
+            <button
+              onClick={() => setShowAddWarehouse(true)}
+              className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="size-4" /> Add Warehouse
+            </button>
+          </div>
+
+          {showAddWarehouse && (
+            <div className="rounded-lg border border-primary/30 bg-surface p-4 space-y-3">
+              <div className="text-xs font-semibold text-primary mb-1">New Warehouse</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Code</label>
+                  <input
+                    type="text"
+                    value={newWarehouse.code}
+                    onChange={(e) => setNewWarehouse({ ...newWarehouse, code: e.target.value })}
+                    placeholder="BHX2"
+                    className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Name</label>
+                  <input
+                    type="text"
+                    value={newWarehouse.name}
+                    onChange={(e) => setNewWarehouse({ ...newWarehouse, name: e.target.value })}
+                    placeholder="Birmingham Hub"
+                    className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Latitude</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={newWarehouse.latitude}
+                    onChange={(e) => setNewWarehouse({ ...newWarehouse, latitude: parseFloat(e.target.value) })}
+                    placeholder="52.5"
+                    className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Longitude</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={newWarehouse.longitude}
+                    onChange={(e) => setNewWarehouse({ ...newWarehouse, longitude: parseFloat(e.target.value) })}
+                    placeholder="-1.9"
+                    className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Address (optional)</label>
+                <input
+                  type="text"
+                  value={newWarehouse.address}
+                  onChange={(e) => setNewWarehouse({ ...newWarehouse, address: e.target.value })}
+                  placeholder="123 Logistics Way, Birmingham"
+                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!newWarehouse.code || !newWarehouse.name) {
+                      toast.error("Code and name are required");
+                      return;
+                    }
+                    const { error } = await supabase.from("warehouses" as never).insert({
+                      code: newWarehouse.code.trim(),
+                      name: newWarehouse.name.trim(),
+                      latitude: newWarehouse.latitude,
+                      longitude: newWarehouse.longitude,
+                      address: newWarehouse.address.trim() || null,
+                    } as never);
+                    if (error) { toast.error(error.message); return; }
+                    toast.success(`Warehouse "${newWarehouse.name}" created`);
+                    setNewWarehouse({ code: "", name: "", latitude: 0, longitude: 0, address: "" });
+                    setShowAddWarehouse(false);
+                    loadWarehouses();
+                  }}
+                  className="rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                >
+                  Create Warehouse
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddWarehouse(false)}
+                  className="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {warehouses.map((wh) => (
+              <div key={wh.id} className="rounded-lg border border-border bg-surface p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold">{wh.code}</span>
+                      <span className="text-xs font-mono text-muted-foreground">{wh.name}</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-1 font-mono">
+                      {wh.latitude.toFixed(4)}, {wh.longitude.toFixed(4)}
+                      {wh.address && <div>{wh.address}</div>}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (confirm(`Delete warehouse "${wh.code}"? This cannot be undone.`)) {
+                        const { error } = await supabase
+                          .from("warehouses" as never)
+                          .delete()
+                          .eq("id", wh.id);
+                        if (error) { toast.error("Failed to delete warehouse"); return; }
+                        toast.success(`Warehouse "${wh.code}" deleted`);
+                        loadWarehouses();
+                      }
+                    }}
+                    className="p-2 rounded-md text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -240,6 +489,39 @@ function CompanyRow({
             </div>
           </div>
 
+          {company.subscription_status === "trial" && (
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Trial expires — extend to give the company more time.</label>
+              <div className="mt-2 flex gap-2 items-end">
+                <input
+                  type="date"
+                  value={company.subscription_ends_at ? new Date(company.subscription_ends_at).toISOString().split("T")[0] : ""}
+                  onChange={async (e) => {
+                    if (!e.target.value) return;
+                    const newDate = new Date(e.target.value);
+                    const { error } = await supabase.from("companies" as never).update({ subscription_ends_at: newDate.toISOString() } as never).eq("id", company.id);
+                    if (error) { toast.error("Failed to update trial date"); return; }
+                    toast.success("Trial date updated");
+                  }}
+                  className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const newDate = new Date(company.subscription_ends_at || new Date());
+                    newDate.setDate(newDate.getDate() + 7);
+                    const { error } = await supabase.from("companies" as never).update({ subscription_ends_at: newDate.toISOString() } as never).eq("id", company.id);
+                    if (error) { toast.error("Failed to extend trial"); return; }
+                    toast.success("Trial extended by 7 days");
+                  }}
+                  className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors whitespace-nowrap"
+                >
+                  Extend 7 days
+                </button>
+              </div>
+            </div>
+          )}
+
           <div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Enabled Modules</div>
             <div className="flex flex-wrap gap-2">
@@ -329,7 +611,6 @@ function CompanyRow({
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Feature Toggles</div>
             <div className="space-y-2">
               {[
-                { key: "showTelegramAlerts" as const, label: "Telegram Alerts integration" },
                 { key: "showComplianceModule" as const, label: "Driver compliance tracking" },
               ].map(({ key, label }) => (
                 <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -352,55 +633,41 @@ function CompanyRow({
             <Save className="size-4" /> Save Configuration
           </button>
 
-          <div className="border-t border-border pt-4">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Admin Login</div>
-            <div className="rounded-md border border-border bg-surface-2/30 p-3 space-y-2">
-              <div className="text-xs">
-                <span className="text-muted-foreground">Login email:</span>{" "}
-                <span className="font-mono select-all">{derivedEmail}</span>
-              </div>
-              {members.length > 0 ? (
-                <div className="space-y-1.5">
-                  {members.map((m) => (
-                    <div key={m.id} className="flex items-center justify-between gap-3 text-xs font-mono py-1.5">
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="text-muted-foreground shrink-0">Password:</span>
-                        {m.password ? (
-                          <span className="select-all text-foreground/90 truncate">{m.password}</span>
-                        ) : (
-                          <span className="text-muted-foreground/60 italic">not on file — regenerate to set</span>
-                        )}
-                      </span>
-                      {m.password && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            await navigator.clipboard.writeText(m.password!);
-                            toast.success("Password copied");
-                          }}
-                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground shrink-0"
-                        >
-                          <Copy className="size-3" /> Copy
-                        </button>
-                      )}
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Admin Users</div>
+            {members.length > 0 ? (
+              <div className="space-y-2">
+                {members.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between gap-2 rounded-md bg-surface-2 px-3 py-2 text-sm">
+                    <div>
+                      <div className="font-mono text-xs">{m.email}</div>
+                      <div className="text-[11px] text-muted-foreground capitalize">{m.role}</div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-[11px] text-muted-foreground">
-                  No admin yet. Generate credentials to create the company's login.
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={handleGenerateCredentials}
-                disabled={creating}
-                className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                <UserPlus className="size-4" />
-                {creating ? "Working…" : members.length > 0 ? "Regenerate password" : "Generate credentials"}
-              </button>
-            </div>
+                    {m.password && (
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(m.password!); toast.success("Password copied"); }}
+                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground shrink-0"
+                      >
+                        <Copy className="size-3" /> Copy
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                No admin yet. Generate credentials to create the company's login.
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleGenerateCredentials}
+              disabled={creating}
+              className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              <UserPlus className="size-4" />
+              {creating ? "Working…" : members.length > 0 ? "Regenerate password" : "Generate credentials"}
+            </button>
           </div>
 
 
@@ -428,14 +695,17 @@ function CreateCompanyForm({ onCreated, onCancel }: { onCreated: () => void; onC
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + 14);
     const { error } = await supabase.from("companies" as never).insert({
       name: name.trim(),
       slug: slug.trim() || toSlug(name),
       plan,
       subscription_status: "trial",
+      subscription_ends_at: trialEndsAt.toISOString(),
     } as never);
     if (error) { toast.error(error.message); setLoading(false); return; }
-    toast.success(`Company "${name}" created`);
+    toast.success(`Company "${name}" created (trial expires in 14 days)`);
     onCreated();
   }
 
