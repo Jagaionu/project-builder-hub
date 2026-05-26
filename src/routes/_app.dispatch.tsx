@@ -86,9 +86,14 @@ function useJobStops(): JobStopsMap {
       setMap(m);
     };
     load();
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    const debouncedLoad = () => {
+      if (pending) clearTimeout(pending);
+      pending = setTimeout(() => { void load(); }, 400);
+    };
     const ch = supabase
       .channel("rt-stops")
-      .on("postgres_changes", { event: "*", schema: "public", table: "job_stops" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_stops" }, debouncedLoad)
       .subscribe();
     return () => {
       mounted = false;
