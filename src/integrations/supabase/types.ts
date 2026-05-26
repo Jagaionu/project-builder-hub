@@ -230,6 +230,38 @@ export type Database = {
           },
         ]
       }
+      driver_push_subscriptions: {
+        Row: {
+          auth: string
+          driver_id: string
+          endpoint: string
+          p256dh: string
+          updated_at: string
+        }
+        Insert: {
+          auth: string
+          driver_id: string
+          endpoint: string
+          p256dh: string
+          updated_at?: string
+        }
+        Update: {
+          auth?: string
+          driver_id?: string
+          endpoint?: string
+          p256dh?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_push_subscriptions_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: true
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_registrations: {
         Row: {
           created_at: string

@@ -12,7 +12,60 @@ async function loadDriver(userId: string) {
     .eq("user_id", userId)
     .maybeSingle();
   useDriverStore.getState().setDriver((driver as DriverProfile | null) ?? null);
-  if (driver) await refreshJobs(driver.id);
+  if (driver) {
+    await refreshJobs(driver.id);
+    registerPush(driver.id).catch((e) => console.warn("[push] register failed", e));
+  }
+}
+
+// Capture the browser's push subscription so the dispatcher backend can
+// notify this driver before the planner runs. Silently no-ops when the
+// browser doesn't support Push, the user denies permission, or the VAPID
+// public key isn't configured.
+function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(b64);
+  const buf = new ArrayBuffer(raw.length);
+  const out = new Uint8Array(buf);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+async function registerPush(driverId: string) {
+  if (typeof window === "undefined") return;
+  if (!("PushManager" in window) || !("serviceWorker" in navigator)) return;
+  const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+  if (!vapidKey) return; // not configured — server-side push send isn't wired yet
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return;
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    const sub =
+      existing ??
+      (await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      }));
+    const subJson = sub.toJSON();
+    const keys = (subJson.keys ?? {}) as Record<string, string>;
+    if (!subJson.endpoint || !keys.p256dh || !keys.auth) return;
+    await supabase
+      .from("driver_push_subscriptions")
+      .upsert(
+        {
+          driver_id: driverId,
+          endpoint: subJson.endpoint,
+          p256dh: keys.p256dh,
+          auth: keys.auth,
+          updated_at: new Date().toISOString(),
+        } as never,
+        { onConflict: "driver_id" },
+      );
+  } catch (e) {
+    console.warn("[push] subscription failed", e);
+  }
 }
 
 async function refreshJobs(driverId: string) {
