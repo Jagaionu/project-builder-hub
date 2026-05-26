@@ -22,6 +22,13 @@ const DAILY_CAP = 10;
 const WEEKLY_CAP = 56;
 const ACTIVE = new Set(["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"]);
 
+// HGV Break Rules (Simplified for UK/EU)
+// - 45 min break after 4.5h of driving.
+// - In this planner, we insert a 45 min buffer if the total drive time
+//   exceeds 4.5h without a sufficient break.
+const BREAK_THRESHOLD_HOURS = 4.5;
+const BREAK_DURATION_MINUTES = 45;
+
 export type PlannerStop = {
   kind: "PICKUP" | "DROP";
   warehouse_id: string;
@@ -72,7 +79,7 @@ function lastDropWh(stops: PlannerStop[] | undefined, warehouses: Warehouse[]) {
   return warehouses.find((w) => w.id === ld.warehouse_id) ?? null;
 }
 
-type Forecast = { lat: number; lon: number; endMs: number; daily: number; weekly: number };
+type Forecast = { lat: number; lon: number; endMs: number; daily: number; weekly: number; continuous: number };
 
 function remainingJobHours(
   driver: Driver,
@@ -116,6 +123,16 @@ function remainingJobHours(
   return transitTimeHours(deadheadKm) + jobDriveHours(remaining, warehouses);
 }
 
+/**
+ * Calculates whether a break is needed and returns the added delay in MS.
+ */
+function calculateBreakDelayMs(currentContinuous: number, driveAdd: number): number {
+  if (currentContinuous + driveAdd > BREAK_THRESHOLD_HOURS) {
+    return BREAK_DURATION_MINUTES * 60_000;
+  }
+  return 0;
+}
+
 export function computePlan(
   jobs: Job[],
   stopsMap: StopsMap,
@@ -145,6 +162,7 @@ export function computePlan(
     const c = compliance[d.id];
     const daily = c?.daily ?? 0;
     const weekly = c?.weekly ?? 0;
+    const continuous = c?.continuousDrive ?? 0;
     const active = activeByDriver[d.id];
     if (active) {
       const stops = stopsMap[active.id];
@@ -157,6 +175,7 @@ export function computePlan(
         endMs: nowMs + drive * 3_600_000,
         daily: daily + drive,
         weekly: weekly + drive,
+        continuous: continuous + drive,
       };
     } else {
       forecast[d.id] = {
@@ -165,6 +184,7 @@ export function computePlan(
         endMs: nowMs,
         daily,
         weekly,
+        continuous,
       };
     }
   }
@@ -190,20 +210,25 @@ export function computePlan(
 
     const isTomorrowJob = (job.for_date ?? null) === tomorrow;
 
-    let best: { d: Driver; dist: number; driveAdd: number } | null = null;
+    let best: { d: Driver; dist: number; driveAdd: number; breakMs: number } | null = null;
     for (const d of eligible) {
       if (activeByDriver[d.id]) continue;
       if (compliance[d.id]?.blockAssignment) continue;
-      // Drivers who opted out of tomorrow must not be auto-planned onto
-      // tomorrow-dated jobs (dispatcher can still manually assign them).
       if (isTomorrowJob && (d as Driver & { available_tomorrow?: boolean }).available_tomorrow === false) continue;
+      
       const dist = haversineKm(d.current_lat!, d.current_lon!, fp.latitude, fp.longitude);
       if (dist > AUTO_ASSIGN_RADIUS_KM) continue;
-      const driveAdd = jobDriveHours(stops, warehouses) + transitTimeHours(dist);
+      
+      const transit = transitTimeHours(dist);
+      const jobH = jobDriveHours(stops, warehouses);
+      const driveAdd = jobH + transit;
+      
       const f = forecast[d.id];
+      const breakMs = calculateBreakDelayMs(f.continuous, driveAdd);
+      
       if (f.daily + driveAdd > DAILY_CAP) continue;
       if (f.weekly + driveAdd > WEEKLY_CAP) continue;
-      if (!best || dist < best.dist) best = { d, dist, driveAdd };
+      if (!best || dist < best.dist) best = { d, dist, driveAdd, breakMs };
     }
     if (best) {
       out.immediate.push({ jobId: job.id, driverId: best.d.id, distKm: best.dist });
@@ -213,9 +238,10 @@ export function computePlan(
       const f = forecast[best.d.id];
       f.lat = ld?.latitude ?? f.lat;
       f.lon = ld?.longitude ?? f.lon;
-      f.endMs += best.driveAdd * 3_600_000;
+      f.endMs += best.driveAdd * 3_600_000 + best.breakMs;
       f.daily += best.driveAdd;
       f.weekly += best.driveAdd;
+      f.continuous = best.breakMs > 0 ? best.driveAdd : f.continuous + best.driveAdd;
     }
   }
 
@@ -228,7 +254,7 @@ export function computePlan(
 
     const isTomorrowJob = (job.for_date ?? null) === tomorrow;
 
-    let best: { d: Driver; dist: number; driveAdd: number; transit: number } | null = null;
+    let best: { d: Driver; dist: number; driveAdd: number; transit: number; breakMs: number } | null = null;
     let nearMiss: { name: string; dist: number; reason: string } | null = null;
 
     for (const d of eligible) {
@@ -236,10 +262,15 @@ export function computePlan(
       const f = forecast[d.id];
       const dist = haversineKm(f.lat, f.lon, fp.latitude, fp.longitude);
       const transit = transitTimeHours(dist);
-      const driveAdd = jobDriveHours(stops, warehouses) + transit;
+      const jobH = jobDriveHours(stops, warehouses);
+      const driveAdd = jobH + transit;
+      
+      const breakMs = calculateBreakDelayMs(f.continuous, driveAdd);
+      
       const overRadius = dist > AUTO_ASSIGN_RADIUS_KM;
       const overDaily = f.daily + driveAdd > DAILY_CAP;
       const overWeekly = f.weekly + driveAdd > WEEKLY_CAP;
+      
       if (overRadius || overDaily || overWeekly) {
         const reason = overRadius
           ? `${dist.toFixed(1)} km from end of last run`
@@ -249,12 +280,12 @@ export function computePlan(
         if (!nearMiss || dist < nearMiss.dist) nearMiss = { name: d.name, dist, reason };
         continue;
       }
-      if (!best || dist < best.dist) best = { d, dist, driveAdd, transit };
+      if (!best || dist < best.dist) best = { d, dist, driveAdd, transit, breakMs };
     }
 
     if (best) {
       const f = forecast[best.d.id];
-      const startMs = f.endMs + best.transit * 3_600_000;
+      const startMs = f.endMs + best.transit * 3_600_000 + best.breakMs;
       const seq = (seqByDriver[best.d.id] = (seqByDriver[best.d.id] ?? 0) + 1);
       const nextDaily = f.daily + best.driveAdd;
       const nextWeekly = f.weekly + best.driveAdd;
@@ -270,9 +301,10 @@ export function computePlan(
       const ld = lastDropWh(stops, warehouses);
       f.lat = ld?.latitude ?? f.lat;
       f.lon = ld?.longitude ?? f.lon;
-      f.endMs += best.driveAdd * 3_600_000;
-      f.daily += best.driveAdd;
-      f.weekly += best.driveAdd;
+      f.endMs += best.driveAdd * 3_600_000 + best.breakMs;
+      f.daily += nextDaily;
+      f.weekly += nextWeekly;
+      f.continuous = best.breakMs > 0 ? best.driveAdd : f.continuous + best.driveAdd;
     } else {
       const reason = nearMiss
         ? `Closest: ${nearMiss.name} — ${nearMiss.reason}`
@@ -285,10 +317,6 @@ export function computePlan(
 }
 
 // ----- Tomorrow planner -----
-// Plans jobs that are scheduled for tomorrow against drivers who opted in via
-// Telegram (`available_tomorrow = true` + start lat/lon). Each driver gets a
-// daily budget (9h base, capped by weekly/fortnight headroom) and is chained
-// — the next job starts from where the last one dropped.
 
 export function computeTomorrowPlan(
   tomorrowJobs: Job[],
@@ -299,7 +327,7 @@ export function computeTomorrowPlan(
 ): PlanResult {
   const out: PlanResult = { immediate: [], planned: [], unassignable: [] };
 
-  type TForecast = { lat: number; lon: number; hoursLeft: number; sequence: number };
+  type TForecast = { lat: number; lon: number; hoursLeft: number; sequence: number; continuous: number };
   const forecast: Record<string, TForecast> = {};
   const driverById: Record<string, Driver> = {};
 
@@ -310,8 +338,6 @@ export function computeTomorrowPlan(
       tomorrow_start_lon?: number | null;
     };
     if (!dd.available_tomorrow) continue;
-    // Prefer the driver-reported tomorrow start location; fall back to their
-    // last known GPS so an opt-in without a pinned start point still plans.
     const startLat = dd.tomorrow_start_lat ?? d.current_lat ?? null;
     const startLon = dd.tomorrow_start_lon ?? d.current_lon ?? null;
     if (startLat == null || startLon == null) continue;
@@ -328,6 +354,7 @@ export function computeTomorrowPlan(
       lon: startLon,
       hoursLeft: cap,
       sequence: 0,
+      continuous: 0,
     };
     driverById[d.id] = d;
   }
@@ -339,7 +366,7 @@ export function computeTomorrowPlan(
   t.setUTCDate(t.getUTCDate() + 1);
   t.setUTCHours(6, 0, 0, 0);
   const baseStartMs = t.getTime();
-  const driverElapsed: Record<string, number> = {};
+  const driverElapsedMs: Record<string, number> = {};
 
   // Longest-first
   const sorted = [...tomorrowJobs].sort((a, b) => {
@@ -357,20 +384,24 @@ export function computeTomorrowPlan(
     }
     const jobH = jobDriveHours(stops, warehouses);
 
-    let best: { id: string; dist: number; total: number; transit: number } | null = null;
+    let best: { id: string; dist: number; total: number; transit: number; breakMs: number } | null = null;
     let nearMiss: { name: string; dist: number; reason: string } | null = null;
 
     for (const did of eligibleIds) {
       const f = forecast[did];
       const dist = haversineKm(f.lat, f.lon, fp.latitude, fp.longitude);
       const transit = transitTimeHours(dist);
-      const total = transit + jobH;
+      const driveAdd = jobH + transit;
+      
+      const breakMs = calculateBreakDelayMs(f.continuous, driveAdd);
+      const total = driveAdd + (breakMs / 3_600_000);
+
       if (f.hoursLeft < total) {
         const reason = `needs ${total.toFixed(1)}h, ${f.hoursLeft.toFixed(1)}h left`;
         if (!nearMiss || dist < nearMiss.dist) nearMiss = { name: driverById[did].name, dist, reason };
         continue;
       }
-      if (!best || dist < best.dist) best = { id: did, dist, total, transit };
+      if (!best || dist < best.dist) best = { id: did, dist, total, transit, breakMs };
     }
 
     if (!best) {
@@ -385,12 +416,13 @@ export function computeTomorrowPlan(
 
     const f = forecast[best.id];
     const seq = ++f.sequence;
-    const elapsedH = driverElapsed[best.id] ?? 0;
-    const startMs = baseStartMs + elapsedH * 3_600_000;
-    driverElapsed[best.id] = elapsedH + best.total;
+    const elapsedMs = driverElapsedMs[best.id] ?? 0;
+    const startMs = baseStartMs + elapsedMs + best.breakMs;
+    driverElapsedMs[best.id] = elapsedMs + (best.total * 3_600_000);
 
     const c = compliance[best.id];
     const weeklyBase = c?.weekly ?? 0;
+    const nextWeekly = weeklyBase + best.total;
 
     out.planned.push({
       jobId: job.id,
@@ -399,13 +431,14 @@ export function computeTomorrowPlan(
       startAt: new Date(startMs).toISOString(),
       distKm: best.dist,
       dailyHoursLeft: Math.max(0, f.hoursLeft - best.total),
-      weeklyHoursLeft: Math.max(0, 56 - weeklyBase - best.total),
+      weeklyHoursLeft: Math.max(0, WEEKLY_CAP - nextWeekly),
     });
 
     const ld = lastDropWh(stops, warehouses);
     f.lat = ld?.latitude ?? f.lat;
     f.lon = ld?.longitude ?? f.lon;
     f.hoursLeft -= best.total;
+    f.continuous = best.breakMs > 0 ? best.total : f.continuous + best.total;
   }
 
   return out;

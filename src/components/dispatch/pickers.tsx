@@ -79,13 +79,20 @@ export const PlannedChip = memo(function PlannedChip({
   const when = startAt
     ? new Date(startAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
     : null;
+  const isChained = sequence && sequence > 1;
   return (
     <div
-      title="Planned follow-on assignment — not confirmed yet"
-      className="mt-2 inline-flex items-center gap-1 rounded-md bg-muted/40 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground"
+      title={isChained ? "Chained follow-on assignment — part of a multi-route sequence" : "Planned follow-on assignment — not confirmed yet"}
+      className={`mt-2 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-mono ${
+        isChained
+          ? "bg-blue-500/10 text-blue-600 border border-blue-500/30"
+          : "bg-muted/40 text-muted-foreground"
+      }`}
     >
-      <span className="size-1 rounded-full bg-muted-foreground/60" />
-      planned: {driverName}
+      <span className={`size-1 rounded-full ${
+        isChained ? "bg-blue-500" : "bg-muted-foreground/60"
+      }`} />
+      {isChained ? "⛓ " : ""}planned: {driverName}
       {sequence ? ` · #${sequence}` : ""}
       {when ? ` · ${when}` : ""}
       {distanceKm != null ? ` · ${distanceKm.toFixed(0)}km away` : ""}

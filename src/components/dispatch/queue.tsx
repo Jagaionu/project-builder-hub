@@ -1,6 +1,6 @@
 import { memo, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowRight, MapPin } from "lucide-react";
+import { ArrowRight, Link as LinkIcon, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isJobScheduledFuture } from "@/lib/effective-status";
 import type { Job } from "@/lib/types";
@@ -115,6 +115,11 @@ const QueueRow = memo(function QueueRow({
   const planned = plannedByJob.get(job.id);
   const plannedDriverId = planned?.driverId ?? job.planned_driver_id ?? null;
   const plannedDriver = !driver && plannedDriverId ? lookups.driversById.get(plannedDriverId) : null;
+  
+  // Chaining indicator: job is planned and has a sequence > 1, 
+  // OR it's planned and there are other jobs planned for the same driver.
+  const isChained = !!(plannedDriverId && (planned?.sequence && planned.sequence > 1 || job.planned_sequence && job.planned_sequence > 1));
+  
   const isMR = stops.length > 2;
 
   const effectiveStatus: EffectiveStatus = useMemo(() => {
@@ -143,7 +148,12 @@ const QueueRow = memo(function QueueRow({
       )}
     >
       <div className="flex items-center justify-between gap-2 mb-1">
-        <span className="font-mono text-[11px] text-muted-foreground">{job.reference}</span>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[11px] text-muted-foreground">{job.reference}</span>
+          {isChained && (
+            <LinkIcon className="size-3 text-[oklch(0.75_0.18_245)]" title="Chained route" />
+          )}
+        </div>
         <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tracking-wider", cfg.badge)}>
           <span className={cn("size-1.5 rounded-full shrink-0", cfg.dot)} />
           {cfg.label}
