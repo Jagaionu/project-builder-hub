@@ -21,18 +21,30 @@ export const planTomorrow = createServerFn({ method: "POST" })
     if (!superAdmin && !tenantId) throw new Error("Forbidden");
 
     const tomorrow = tomorrowISO();
+    // Bug 6: time-filter driver_events (last 14 days covers compliance window).
+    const eventsSince = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
+    // Bug 7: tenant-filter job_stops via parent-job join.
+    const stopsQ = supabaseAdmin
+      .from("job_stops")
+      .select("*, jobs!inner(tenant_id)")
+      .order("seq");
     const jobsQ = supabaseAdmin.from("jobs").select("*").eq("for_date", tomorrow);
     const driversQ = supabaseAdmin.from("drivers").select("*");
     const whQ = supabaseAdmin.from("warehouses").select("*");
-    const eventsQ = supabaseAdmin.from("driver_events").select("driver_id,type,timestamp");
+    const eventsQ = supabaseAdmin
+      .from("driver_events")
+      .select("driver_id,type,timestamp")
+      .gte("timestamp", eventsSince);
     const [{ data: jobs }, { data: drivers }, { data: warehouses }, { data: stops }, { data: events }, { data: ledger }] =
       await Promise.all([
         tenantId ? jobsQ.eq("tenant_id", tenantId) : jobsQ,
         tenantId ? driversQ.eq("tenant_id", tenantId) : driversQ,
         tenantId ? whQ.eq("tenant_id", tenantId) : whQ,
-        supabaseAdmin.from("job_stops").select("*").order("seq"),
+        tenantId ? stopsQ.eq("jobs.tenant_id", tenantId) : stopsQ,
         tenantId ? eventsQ.eq("tenant_id", tenantId) : eventsQ,
-        supabaseAdmin.from("driver_day_hours").select("*"),
+        tenantId
+          ? supabaseAdmin.from("driver_day_hours").select("*").eq("tenant_id", tenantId)
+          : supabaseAdmin.from("driver_day_hours").select("*"),
       ]);
 
   const jobList = (jobs ?? []) as Job[];
