@@ -96,9 +96,18 @@ export function useJobs() {
   useEffect(() => {
     jobsSubscribers.add(setJobs);
     let mounted = true;
-    supabase.from("jobs").select("*").order("created_at", { ascending: false }).then(({ data }) => {
-      if (mounted && data) broadcastJobs(data as Job[]);
-    });
+    // Bounded window: last 30 days + future + any unscheduled.
+    // Avoids fetching the entire jobs history (which grew linearly with usage).
+    const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    supabase
+      .from("jobs")
+      .select("*")
+      .or(`for_date.gte.${since},for_date.is.null`)
+      .order("created_at", { ascending: false })
+      .limit(2000)
+      .then(({ data }) => {
+        if (mounted && data) broadcastJobs(data as Job[]);
+      });
     const ch = supabase.channel(channelNameRef.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, (payload) => {
         let next = cache.jobs;

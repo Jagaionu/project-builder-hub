@@ -244,9 +244,9 @@ function DispatchPage() {
     }
   }
 
-  // Auto-planner — extracted hook with batched DB writes + in-flight guard.
+  // Auto-planner — reuses the memoized `plan` so computePlan runs once per data change.
   useAutoPlanner({
-    jobs, stopsMap, drivers, warehouses, compliance,
+    plan, jobs, stopsMap, warehouses,
     assignDriver: (id, did) => assignDriver(id, did),
   });
 
@@ -360,16 +360,10 @@ function DispatchPage() {
     return s;
   }, [jobs, stopsMap]);
 
-  const { monthStart, monthEnd, hasJobsOn } = useMemo(() => {
-    const now = new Date();
-    const ms = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
-    const me = startOfDay(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-    return {
-      monthStart: ms,
-      monthEnd: me,
-      hasJobsOn: (d: Date) => jobDays.has(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`),
-    };
-  }, [jobDays]);
+  const hasJobsOn = useMemo(
+    () => (d: Date) => jobDays.has(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`),
+    [jobDays],
+  );
 
   // ── Tomorrow stats ─────────────────────────────────────────────────────────
 
@@ -520,9 +514,6 @@ function DispatchPage() {
               selected={dateRange}
               onSelect={setDateRange}
               numberOfMonths={1}
-              startMonth={monthStart}
-              endMonth={monthEnd}
-              disabled={(d) => d < monthStart || d > monthEnd || !hasJobsOn(d)}
               modifiers={{ hasJobs: (d) => hasJobsOn(d) }}
               modifiersClassNames={{ hasJobs: "font-semibold underline underline-offset-4 decoration-primary/70" }}
               className={cn("p-3 pointer-events-auto")}
@@ -566,7 +557,7 @@ function DispatchPage() {
                     <span className={`size-1.5 rounded-full ${STATUS_CONFIG[s].dot}`} />
                     <span className="flex-1">{STATUS_CONFIG[s].label}</span>
                     <span className="font-mono text-[10px] text-muted-foreground">
-                      {jobs.filter((j) => j.status === s).length}
+                      {statusCounts[s] ?? 0}
                     </span>
                   </label>
                 );

@@ -1,49 +1,41 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { computePlan } from "@/lib/planner";
+import type { computePlan } from "@/lib/planner";
 import { computeStopSchedule } from "@/lib/geo";
-import type { Driver, Job, Warehouse } from "@/lib/types";
-import type { Compliance } from "@/lib/compliance";
+import type { Job, Warehouse } from "@/lib/types";
 import type { JobStopsMap, Stop } from "./use-job-stops";
 import { applyJobPatch } from "@/lib/hooks";
 
 type AssignDriver = (jobId: string, driverId: string) => Promise<void>;
+type Plan = ReturnType<typeof computePlan>;
 
 /**
- * Batched, single-round-trip auto-planner. Replaces the previous version
- * which did N+M sequential supabase calls per planning pass.
+ * Batched, single-round-trip auto-planner. Consumes a precomputed `plan`
+ * (memoized once in dispatch.tsx) instead of re-running computePlan here —
+ * which previously meant the planner ran TWICE per data change.
  *
- *  - Reads compliance via ref so the minute-tick can't re-trigger writes.
  *  - Skips jobs flagged manual_override.
  *  - Coalesces all "clear planned fields" into one .in() update.
  *  - Applies per-row updates in parallel.
  *  - Stop-time fills run in parallel via Promise.all.
  */
 export function useAutoPlanner(args: {
+  plan: Plan;
   jobs: Job[];
   stopsMap: JobStopsMap;
-  drivers: Driver[];
   warehouses: Warehouse[];
-  compliance: Record<string, Compliance>;
   assignDriver: AssignDriver;
 }) {
-  const { jobs, stopsMap, drivers, warehouses, compliance, assignDriver } = args;
-
-  const complianceRef = useRef(compliance);
-  useEffect(() => { complianceRef.current = compliance; }, [compliance]);
+  const { plan, jobs, stopsMap, warehouses, assignDriver } = args;
 
   const planSigRef = useRef<string>("");
   const inFlightRef = useRef(false);
 
   useEffect(() => {
-    if (drivers.length === 0 || warehouses.length === 0) return;
     if (inFlightRef.current) return;
 
     const pending = jobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id);
     if (pending.some((j) => !stopsMap[j.id])) return;
-
-    const jobsForPlanner = jobs.filter((j) => !j.manual_override);
-    const plan = computePlan(jobsForPlanner, stopsMap, drivers, warehouses, complianceRef.current);
 
     const sig = JSON.stringify({
       i: plan.immediate.map((x) => [x.jobId, x.driverId]),
@@ -63,7 +55,7 @@ export function useAutoPlanner(args: {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobs, stopsMap, drivers, warehouses]);
+  }, [plan, jobs, stopsMap, warehouses]);
 }
 
 async function runPlan(

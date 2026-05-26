@@ -21,17 +21,29 @@ export const planTomorrow = createServerFn({ method: "POST" })
     if (!superAdmin && !tenantId) throw new Error("Forbidden");
 
     const tomorrow = tomorrowISO();
+    // Bug 6: time-filter driver_events (last 14 days covers compliance window).
+    const eventsSince = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
+    // Bug 7: tenant-filter job_stops via parent-job join.
+    const stopsQ = supabaseAdmin
+      .from("job_stops")
+      .select("*, jobs!inner(tenant_id)")
+      .order("seq");
     const jobsQ = supabaseAdmin.from("jobs").select("*").eq("for_date", tomorrow);
     const driversQ = supabaseAdmin.from("drivers").select("*");
     const whQ = supabaseAdmin.from("warehouses").select("*");
-    const eventsQ = supabaseAdmin.from("driver_events").select("driver_id,type,timestamp");
+    const eventsQ = supabaseAdmin
+      .from("driver_events")
+      .select("driver_id,type,timestamp")
+      .gte("timestamp", eventsSince);
     const [{ data: jobs }, { data: drivers }, { data: warehouses }, { data: stops }, { data: events }, { data: ledger }] =
       await Promise.all([
         tenantId ? jobsQ.eq("tenant_id", tenantId) : jobsQ,
         tenantId ? driversQ.eq("tenant_id", tenantId) : driversQ,
         tenantId ? whQ.eq("tenant_id", tenantId) : whQ,
-        supabaseAdmin.from("job_stops").select("*").order("seq"),
+        tenantId ? stopsQ.eq("jobs.tenant_id", tenantId) : stopsQ,
         tenantId ? eventsQ.eq("tenant_id", tenantId) : eventsQ,
+        // driver_day_hours has no tenant column — keyed by driver_id and
+        // only consulted for drivers we already loaded under the tenant filter.
         supabaseAdmin.from("driver_day_hours").select("*"),
       ]);
 
@@ -77,26 +89,42 @@ export const planTomorrow = createServerFn({ method: "POST" })
 
   const plan = computeTomorrowPlan(jobList, stopsMap, driverList, whList, compliance);
 
-  // Persist planned_* for assigned jobs; clear for unassigned
+  // Bug 5: Persist planned_* — coalesce clears into one .in() and run
+  // updates in parallel instead of sequential awaits (which timed out
+  // on Cloudflare Workers when N grew).
   const desired = new Map(plan.planned.map((p) => [p.jobId, p] as const));
+  const toClear: string[] = [];
+  const toApply: Array<{ id: string; planned_driver_id: string; planned_sequence: number; planned_start_at: string }> = [];
   for (const j of jobList) {
     const want = desired.get(j.id);
     if (want) {
-      await supabaseAdmin
-        .from("jobs")
-        .update({
-          planned_driver_id: want.driverId,
-          planned_sequence: want.sequence,
-          planned_start_at: want.startAt,
-        })
-        .eq("id", j.id);
+      toApply.push({
+        id: j.id,
+        planned_driver_id: want.driverId,
+        planned_sequence: want.sequence,
+        planned_start_at: want.startAt,
+      });
     } else if (j.planned_driver_id || j.planned_sequence || j.planned_start_at) {
-      await supabaseAdmin
-        .from("jobs")
-        .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
-        .eq("id", j.id);
+      toClear.push(j.id);
     }
   }
+
+  const writes: Array<Promise<unknown>> = [];
+  if (toClear.length) {
+    writes.push(
+      Promise.resolve(
+        supabaseAdmin
+          .from("jobs")
+          .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
+          .in("id", toClear),
+      ),
+    );
+  }
+  for (const u of toApply) {
+    const { id, ...patch } = u;
+    writes.push(Promise.resolve(supabaseAdmin.from("jobs").update(patch).eq("id", id)));
+  }
+  await Promise.all(writes);
 
   // Drivers see tomorrow's plan in the driver app via Realtime subscriptions.
 

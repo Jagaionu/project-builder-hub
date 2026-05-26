@@ -56,10 +56,16 @@ export function useJobStops(): JobStopsMap {
     let mounted = true;
 
     const load = async () => {
+      // Bounded window: stops scheduled in the last 30 days, plus any without
+      // a scheduled_at (unscheduled / brand-new imports). Mirrors useJobs()
+      // so we don't pull stops for jobs we'll never display.
+      const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
       const { data, error } = await supabase
         .from("job_stops")
         .select("id,job_id,kind,warehouse_id,scheduled_at,arrived_at,seq")
-        .order("seq", { ascending: true });
+        .or(`scheduled_at.gte.${since},scheduled_at.is.null`)
+        .order("seq", { ascending: true })
+        .limit(5000);
       if (!mounted || error || !data) return;
       const m: JobStopsMap = {};
       for (const row of data as StopRow[]) {
