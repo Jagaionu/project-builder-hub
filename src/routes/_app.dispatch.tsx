@@ -155,8 +155,6 @@ function DispatchPage() {
   // to PENDING. The DB is the source of truth for status; the only legitimate
   // PENDING→ASSIGNED transition is via the Plan button or a manual assign,
   // and ASSIGNED→IN_PROGRESS comes from the driver app starting a leg.
-  void ACTIVE_JOB_STATUSES;
-  void applyJobPatch;
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 

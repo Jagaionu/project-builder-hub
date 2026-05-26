@@ -134,7 +134,7 @@ export function useDriverBootstrap() {
   const lastSent = useRef<GPSPosition | null>(null);
   const stopWatchRef = useRef<(() => void) | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
-  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // heartbeatRef removed — GPS cadence is owned by driver-gps.watchPosition.
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
@@ -240,8 +240,6 @@ export function useDriverBootstrap() {
       document.removeEventListener("visibilitychange", onVisibility);
       stopWatchRef.current?.();
       stopWatchRef.current = null;
-      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
-      heartbeatRef.current = null;
       wakeLockRef.current?.release().catch(() => {});
       wakeLockRef.current = null;
     };
