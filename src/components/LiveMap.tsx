@@ -104,6 +104,12 @@ const MAP_CSS = `
 .marker-cluster-large{background:rgba(220,38,38,.15)!important;border:2px solid rgba(220,38,38,.4)!important}
 .marker-cluster-large div{background:#dc2626!important;color:#fff!important;font-weight:800!important}
 .marker-cluster div{width:34px!important;height:34px!important;margin:2px!important;border-radius:50%!important;line-height:34px!important;font-size:12px!important;display:flex!important;align-items:center!important;justify-content:center!important}
+.wh-cluster-small{background:rgba(249,115,22,.15)!important;border:2px solid rgba(249,115,22,.45)!important}
+.wh-cluster-small div{background:#f97316!important;color:#fff!important;font-weight:900!important}
+.wh-cluster-medium{background:rgba(234,88,12,.15)!important;border:2px solid rgba(234,88,12,.45)!important}
+.wh-cluster-medium div{background:#ea580c!important;color:#fff!important;font-weight:900!important}
+.wh-cluster-large{background:rgba(194,65,12,.15)!important;border:2px solid rgba(194,65,12,.45)!important}
+.wh-cluster-large div{background:#c2410c!important;color:#fff!important;font-weight:900!important}
 
 @keyframes route-dash{to{stroke-dashoffset:-24}}
 .route-anim{animation:route-dash 1.1s linear infinite}
@@ -141,7 +147,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   const containerRef       = useRef<HTMLDivElement | null>(null);
   const mapRef             = useRef<L.Map | null>(null);
   const clusterLayerRef    = useRef<any | null>(null);
-  const warehouseLayerRef  = useRef<L.LayerGroup | null>(null);
+  const whClusterLayerRef  = useRef<any | null>(null);
   const routeLayerRef      = useRef<L.LayerGroup | null>(null);
 
   const [panel, setPanel]       = useState<Panel>({ kind: "idle" });
@@ -185,8 +191,25 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       zoomToBoundsOnClick: true,
     }).addTo(map);
 
-    warehouseLayerRef.current = L.layerGroup().addTo(map);
-    routeLayerRef.current     = L.layerGroup().addTo(map);
+    // Warehouse cluster — orange-themed, separate from driver cluster
+    whClusterLayerRef.current = (L as any).markerClusterGroup({
+      showCoverageOnHover: false,
+      spiderfyOnMaxZoom: true,
+      maxClusterRadius: 55,
+      disableClusteringAtZoom: 12,
+      zoomToBoundsOnClick: true,
+      iconCreateFunction: (cluster: any) => {
+        const count = cluster.getChildCount();
+        const sz    = count < 5 ? "small" : count < 15 ? "medium" : "large";
+        return L.divIcon({
+          html: `<div><span>${count}</span></div>`,
+          className: `marker-cluster wh-cluster-${sz}`,
+          iconSize: L.point(40, 40),
+        });
+      },
+    }).addTo(map);
+
+    routeLayerRef.current = L.layerGroup().addTo(map);
 
     mapRef.current = map;
     return () => { map.remove(); mapRef.current = null; };
@@ -206,7 +229,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
 
   // ── Warehouse markers ─────────────────────────────────────────────────────
   useEffect(() => {
-    const layer = warehouseLayerRef.current;
+    const layer = whClusterLayerRef.current;
     if (!layer) return;
     layer.clearLayers();
 
@@ -478,18 +501,15 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
 
         {/* Route ETA if available */}
         {routeEta && destWh && (
-          <div className="rounded-xl p-3 bg-slate-900 text-white">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Route to {destWh.code}</p>
-            <div className="flex items-center gap-0">
-              <div className="flex-1 text-center">
-                <p className="text-xl font-black leading-none">{routeEta.distKm.toFixed(1)}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">km</p>
-              </div>
-              <div className="w-px h-8 bg-white/10" />
-              <div className="flex-1 text-center">
-                <p className="text-xl font-black leading-none">{fmtTime(routeEta.minutes)}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">ETA</p>
-              </div>
+          <div className="rounded-lg px-3 py-2 bg-slate-900 text-white flex items-center gap-0">
+            <div className="flex-1 text-center">
+              <p className="text-base font-black leading-none">{routeEta.distKm.toFixed(1)}</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">km · {destWh.code}</p>
+            </div>
+            <div className="w-px h-6 bg-white/10" />
+            <div className="flex-1 text-center">
+              <p className="text-base font-black leading-none">{fmtTime(routeEta.minutes)}</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">ETA</p>
             </div>
           </div>
         )}
