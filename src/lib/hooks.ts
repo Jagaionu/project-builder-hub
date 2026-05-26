@@ -67,32 +67,43 @@ export function useWarehouses() {
   return warehouses;
 }
 
+// Module-level fan-out so any mutation site can push optimistic updates into
+// every mounted useJobs() subscriber without waiting for the realtime echo.
+const jobsSubscribers = new Set<(jobs: Job[]) => void>();
+function broadcastJobs(next: Job[]) {
+  cache.jobs = next;
+  for (const fn of jobsSubscribers) fn(next);
+}
+export function applyJobPatch(jobId: string, patch: Partial<Job>) {
+  const next = cache.jobs.map((j) => (j.id === jobId ? { ...j, ...patch } : j));
+  broadcastJobs(next);
+}
+
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>(cache.jobs);
   const channelNameRef = useRef(`rt-jobs-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
+    jobsSubscribers.add(setJobs);
     let mounted = true;
     supabase.from("jobs").select("*").order("created_at", { ascending: false }).then(({ data }) => {
-      if (mounted && data) {
-        cache.jobs = data as Job[];
-        setJobs(cache.jobs);
-      }
+      if (mounted && data) broadcastJobs(data as Job[]);
     });
     const ch = supabase.channel(channelNameRef.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, (payload) => {
-        setJobs((prev) => {
-          let next = prev;
-          if (payload.eventType === "INSERT") next = [payload.new as Job, ...prev];
-          else if (payload.eventType === "UPDATE")
-            next = prev.map((j) => (j.id === (payload.new as Job).id ? (payload.new as Job) : j));
-          else if (payload.eventType === "DELETE")
-            next = prev.filter((j) => j.id !== (payload.old as Job).id);
-          cache.jobs = next;
-          return next;
-        });
+        let next = cache.jobs;
+        if (payload.eventType === "INSERT") next = [payload.new as Job, ...cache.jobs];
+        else if (payload.eventType === "UPDATE")
+          next = cache.jobs.map((j) => (j.id === (payload.new as Job).id ? (payload.new as Job) : j));
+        else if (payload.eventType === "DELETE")
+          next = cache.jobs.filter((j) => j.id !== (payload.old as Job).id);
+        broadcastJobs(next);
       })
       .subscribe();
-    return () => { mounted = false; supabase.removeChannel(ch); };
+    return () => {
+      mounted = false;
+      jobsSubscribers.delete(setJobs);
+      supabase.removeChannel(ch);
+    };
   }, []);
   return jobs;
 }
