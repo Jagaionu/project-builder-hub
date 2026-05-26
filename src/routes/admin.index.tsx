@@ -356,66 +356,56 @@ function CompanyRow({
           </button>
 
           <div className="border-t border-border pt-4">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Create Admin User</div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Admin Login</div>
             <div className="rounded-md border border-border bg-surface-2/30 p-3 space-y-2">
               <div className="text-xs">
                 <span className="text-muted-foreground">Login email:</span>{" "}
                 <span className="font-mono select-all">{derivedEmail}</span>
               </div>
-              <p className="text-[11px] text-muted-foreground">
-                A strong random password will be generated and shown once. Share it with the customer.
-              </p>
+              {members.length > 0 ? (
+                <div className="space-y-1.5">
+                  {members.map((m) => (
+                    <div key={m.id} className="flex items-center justify-between gap-3 text-xs font-mono py-1.5">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="text-muted-foreground shrink-0">Password:</span>
+                        {m.password ? (
+                          <span className="select-all text-foreground/90 truncate">{m.password}</span>
+                        ) : (
+                          <span className="text-muted-foreground/60 italic">not on file — regenerate to set</span>
+                        )}
+                      </span>
+                      {m.password && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await navigator.clipboard.writeText(m.password!);
+                            toast.success("Password copied");
+                          }}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground shrink-0"
+                        >
+                          <Copy className="size-3" /> Copy
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  No admin yet. Generate credentials to create the company's login.
+                </p>
+              )}
               <button
                 type="button"
                 onClick={handleGenerateCredentials}
                 disabled={creating}
                 className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                <UserPlus className="size-4" /> {creating ? "Generating…" : "Generate credentials"}
+                <UserPlus className="size-4" />
+                {creating ? "Working…" : members.length > 0 ? "Regenerate password" : "Generate credentials"}
               </button>
             </div>
-
-
-            {lastCreated && (
-              <div className="mt-3 rounded-md border border-success/30 bg-success/5 p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-success">User Created — Share These Credentials</div>
-                  <button
-                    onClick={copyCreds}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    <Copy className="size-3.5" /> Copy
-                  </button>
-                </div>
-                <div className="font-mono text-xs space-y-1">
-                  <div><span className="text-muted-foreground">Email:</span> <span className="select-all">{lastCreated.email}</span></div>
-                  <div><span className="text-muted-foreground">Password:</span> <span className="select-all">{lastCreated.password}</span></div>
-                </div>
-                <p className="text-[11px] text-muted-foreground">This password won't be shown again. Copy it now.</p>
-              </div>
-            )}
-
-            {members.length > 0 && (
-              <div className="mt-3">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">Existing Members ({members.length})</div>
-                <div className="space-y-1">
-                  {members.map((m) => (
-                    <div key={m.id} className="flex items-center justify-between gap-3 text-xs font-mono py-1.5 px-2 rounded bg-surface-2/50">
-                      <span className="truncate">{m.email ?? m.user_id}</span>
-                      <span className="flex items-center gap-2 shrink-0">
-                        {m.password ? (
-                          <span className="select-all text-foreground/90" title="Password">{m.password}</span>
-                        ) : (
-                          <span className="text-muted-foreground/60 italic">no password on file</span>
-                        )}
-                        <span className="text-muted-foreground">{m.role}</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
+
 
 
           <div className="border-t border-border pt-3">
