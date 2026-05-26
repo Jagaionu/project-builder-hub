@@ -111,6 +111,7 @@ export function useAlerts() {
   const jobs = useJobs();
   const compliance = useCompliance();
   const recentDelays = useRecentDelays();
+  const cantCompleteEvents = useRecentCantComplete();
   const { acked, ack } = useAcked();
 
   const all = useMemo<AppAlert[]>(() => {
@@ -131,6 +132,17 @@ export function useAlerts() {
         type: "Delay reported",
         icon: AlertTriangle,
         message: `${name}${jobRef}: ${dr.reason} (${ageMin}m ago)`,
+      });
+    });
+
+    cantCompleteEvents.forEach((e) => {
+      const p = e.payload ?? {};
+      out.push({
+        id: `cc-${e.id}`,
+        level: "critical",
+        type: "Cannot Complete",
+        icon: AlertTriangle,
+        message: `${p.driver_name ?? "Driver"} cannot complete ${p.job_reference ?? "job"} — now unassigned`,
       });
     });
 
