@@ -96,7 +96,7 @@ function JobDetail() {
     try {
       await supabase.from("jobs").update({ status: "PENDING", assigned_driver_id: null, planned_driver_id: null } as never).eq("id", job.id);
       await supabase.from("drivers").update({ status: "AVAILABLE" } as never).eq("id", driver.id);
-      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "CANT_COMPLETE", payload: { job_id: job.id }, tenant_id: await getTenantId() } as never);
+      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "CANT_COMPLETE", payload: { job_id: job.id, job_reference: job.reference, driver_name: driver.name, reason: "Driver reported cannot complete" }, tenant_id: await getTenantId() } as never);
       toast.success("Reported — dispatcher notified");
       navigate({ to: "/d/routes" });
     } catch (e) {
