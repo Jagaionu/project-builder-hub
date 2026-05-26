@@ -300,6 +300,12 @@ function DispatchPage() {
     } catch { /* noop */ }
   }, [statusFilter]);
 
+  // Compliance changes every minute via a tick. We don't want that tick to
+  // re-run the auto-planner (which writes to the DB and echoes back).
+  // Keep a ref of the latest value for the planner to read on real changes.
+  const complianceRef = useRef(compliance);
+  useEffect(() => { complianceRef.current = compliance; }, [compliance]);
+
   const plan = useMemo(
     () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
     [jobs, stopsMap, drivers, warehouses, compliance],
@@ -308,6 +314,7 @@ function DispatchPage() {
     () => new Map(plan.planned.map((item) => [item.jobId, item] as const)),
     [plan],
   );
+
 
   useEffect(() => {
     const inconsistent = jobs.filter((j) => !j.assigned_driver_id && ACTIVE_JOB_STATUSES.has(j.status));
