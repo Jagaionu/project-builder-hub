@@ -613,6 +613,42 @@ export type Database = {
           },
         ]
       }
+      pending_job_imports: {
+        Row: {
+          created_at: string
+          equipment_type: string | null
+          id: string
+          lane: string
+          missing_codes: string[]
+          reference: string
+          stop_scheduled_at: string[]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          equipment_type?: string | null
+          id?: string
+          lane: string
+          missing_codes?: string[]
+          reference: string
+          stop_scheduled_at?: string[]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          equipment_type?: string | null
+          id?: string
+          lane?: string
+          missing_codes?: string[]
+          reference?: string
+          stop_scheduled_at?: string[]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       stop_dwells: {
         Row: {
           arrived_at: string | null

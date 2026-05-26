@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Gauge, Timer, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Gauge, Timer, MapPin, type LucideIcon } from "lucide-react";
 import { useCompliance, useDrivers, useJobs, useRecentDelays } from "@/lib/hooks";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -41,6 +41,44 @@ function useRecentCantComplete(): CantCompleteEvent[] {
   }, []);
   return rows;
 }
+
+type ParkedImport = {
+  id: string;
+  reference: string;
+  lane: string;
+  missing_codes: string[];
+};
+
+function useParkedImports(): ParkedImport[] {
+  const [rows, setRows] = useState<ParkedImport[]>([]);
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      const { data } = await supabase
+        .from("pending_job_imports" as never)
+        .select("id,reference,lane,missing_codes")
+        .order("created_at", { ascending: false });
+      if (!mounted || !data) return;
+      setRows(data as unknown as ParkedImport[]);
+    };
+    load();
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    const debounced = () => {
+      if (pending) clearTimeout(pending);
+      pending = setTimeout(() => void load(), 400);
+    };
+    const ch = supabase
+      .channel(`rt-parked-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pending_job_imports" }, debounced)
+      .subscribe();
+    return () => {
+      mounted = false;
+      supabase.removeChannel(ch);
+    };
+  }, []);
+  return rows;
+}
+
 
 export interface AppAlert {
   id: string;
@@ -112,6 +150,7 @@ export function useAlerts() {
   const compliance = useCompliance();
   const recentDelays = useRecentDelays();
   const cantCompleteEvents = useRecentCantComplete();
+  const parkedImports = useParkedImports();
   const { acked, ack } = useAcked();
 
   const all = useMemo<AppAlert[]>(() => {
@@ -187,9 +226,18 @@ export function useAlerts() {
         }
       }
     });
+    parkedImports.forEach((p) => {
+      out.push({
+        id: `park-${p.id}`,
+        level: "warning",
+        type: "Unmapped lane",
+        icon: MapPin,
+        message: `${p.reference}: lane ${p.lane} — missing ${p.missing_codes.join(", ")}. Add the warehouse to release.`,
+      });
+    });
 
     return out;
-  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents]);
+  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents, parkedImports]);
 
   const visible = useMemo(() => all.filter((a) => !acked.has(a.id)), [all, acked]);
 

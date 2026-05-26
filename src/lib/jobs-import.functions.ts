@@ -14,6 +14,7 @@ export type ImportRow = {
 
 export type ImportResult = {
   created: number;
+  parked: string[];
   skippedDuplicate: string[];
   skippedUnknownWh: { reference: string; missing: string[] }[];
   errors: { reference: string; message: string }[];
@@ -29,10 +30,20 @@ export const importJobsCsv = createServerFn({ method: "POST" })
     if (!superAdmin && !tenantId) throw new Error("Forbidden");
     const out: ImportResult = {
       created: 0,
+      parked: [],
       skippedDuplicate: [],
       skippedUnknownWh: [],
       errors: [],
     };
+
+    // Pre-fetch existing parked refs to dedupe against
+    const { data: parkedExisting } = await supabaseAdmin
+      .from("pending_job_imports" as never)
+      .select("reference")
+      .eq("tenant_id", tenantId as never);
+    const parkedRefs = new Set(
+      ((parkedExisting ?? []) as { reference: string }[]).map((r) => r.reference),
+    );
 
     // Pre-fetch warehouses
     const { data: whs } = await supabaseAdmin
@@ -76,9 +87,41 @@ export const importJobsCsv = createServerFn({ method: "POST" })
           else stopWhIds.push(id);
         }
         if (missing.length) {
+          // Park the row so it appears in Alerts; auto-promotes when WH is added.
+          if (parkedRefs.has(row.reference)) {
+            // Refresh missing_codes in case some have since been added by hand.
+            await supabaseAdmin
+              .from("pending_job_imports" as never)
+              .update({
+                lane: row.lane,
+                equipment_type: row.equipmentType,
+                stop_scheduled_at: row.stopScheduledAt,
+                missing_codes: missing,
+              } as never)
+              .eq("tenant_id", tenantId as never)
+              .eq("reference", row.reference);
+          } else {
+            const { error: parkErr } = await supabaseAdmin
+              .from("pending_job_imports" as never)
+              .insert({
+                tenant_id: tenantId,
+                reference: row.reference,
+                lane: row.lane,
+                equipment_type: row.equipmentType,
+                stop_scheduled_at: row.stopScheduledAt,
+                missing_codes: missing,
+              } as never);
+            if (parkErr) {
+              out.errors.push({ reference: row.reference, message: `park: ${parkErr.message}` });
+              continue;
+            }
+            parkedRefs.add(row.reference);
+          }
+          out.parked.push(row.reference);
           out.skippedUnknownWh.push({ reference: row.reference, missing });
           continue;
         }
+
 
         const firstScheduled = row.stopScheduledAt.find((s) => s) ?? null;
 

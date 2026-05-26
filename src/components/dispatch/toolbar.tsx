@@ -53,13 +53,15 @@ export function ImportCsvButton() {
       if (rows.length === 0) { toast.error("No rows found in CSV"); return; }
       const res = await runImport({ data: { rows } });
       const parts: string[] = [`${res.created} created`];
+      if (res.parked.length) parts.push(`${res.parked.length} parked (see Alerts)`);
       if (res.skippedDuplicate.length) parts.push(`${res.skippedDuplicate.length} duplicate`);
-      if (res.skippedUnknownWh.length) parts.push(`${res.skippedUnknownWh.length} unknown warehouse`);
       if (res.errors.length) parts.push(`${res.errors.length} errors`);
       toast.success(parts.join(" · "));
       if (res.skippedUnknownWh.length) {
         const codes = Array.from(new Set(res.skippedUnknownWh.flatMap((r) => r.missing)));
-        toast.message("Missing warehouse codes", { description: codes.join(", ") });
+        toast.message("Parked — missing warehouse codes", {
+          description: `${codes.join(", ")}. Add them and these jobs will auto-release.`,
+        });
       }
       if (res.errors.length) console.error("[csv-import] errors", res.errors);
     } catch (err) {
