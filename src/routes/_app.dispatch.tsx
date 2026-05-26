@@ -360,16 +360,10 @@ function DispatchPage() {
     return s;
   }, [jobs, stopsMap]);
 
-  const { monthStart, monthEnd, hasJobsOn } = useMemo(() => {
-    const now = new Date();
-    const ms = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
-    const me = startOfDay(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-    return {
-      monthStart: ms,
-      monthEnd: me,
-      hasJobsOn: (d: Date) => jobDays.has(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`),
-    };
-  }, [jobDays]);
+  const hasJobsOn = useMemo(
+    () => (d: Date) => jobDays.has(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`),
+    [jobDays],
+  );
 
   // ── Tomorrow stats ─────────────────────────────────────────────────────────
 
