@@ -938,7 +938,7 @@ function JobDetailPanel({
   compliance: Record<string, Compliance>;
   planned: { driverId: string; sequence: number; startAt: string; distKm: number; dailyHoursLeft: number } | null;
   onAssignDriver: (id: string) => void;
-  onSetStatus: (s: string) => void;
+  onSetStatus: (s: string, opts?: { silent?: boolean }) => void;
   onEdit: () => void;
 }) {
   const origin = warehouses.find((w) => w.id === stops[0]?.warehouse_id);
