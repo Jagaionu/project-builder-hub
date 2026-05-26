@@ -24,13 +24,13 @@ export function ToolbarButton({
       disabled={disabled}
       title={title}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed",
+        "inline-flex items-center gap-1 rounded px-2 py-1.5 text-[11px] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed",
         primary
-          ? "bg-gradient-to-b from-primary to-primary/85 text-primary-foreground shadow-[0_1px_0_oklch(1_0_0/0.18)_inset,0_4px_12px_oklch(0.62_0.22_245/0.35)] hover:shadow-[0_1px_0_oklch(1_0_0/0.2)_inset,0_6px_18px_oklch(0.62_0.22_245/0.5)] hover:-translate-y-px"
-          : "bg-surface border border-border text-foreground hover:bg-surface-2 hover:border-border/70 shadow-sm",
+          ? "bg-primary text-primary-foreground shadow-sm hover:shadow-md"
+          : "bg-surface border border-border text-foreground hover:bg-surface-2 shadow-sm",
       )}
     >
-      {icon}
+      {icon && <span className="size-3">{icon}</span>}
       {children}
     </button>
   );
@@ -114,8 +114,7 @@ export function DispatchStat({
         {label}
       </div>
       <div
-        className="font-mono font-bold leading-none mt-1 text-[1.35rem] tabular-nums"
-        style={{ color }}
+        className="font-mono font-bold leading-none mt-1 text-[1.35rem] tabular-nums text-white"
       >
         {value}
       </div>

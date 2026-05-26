@@ -248,12 +248,17 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                   <div className="col-span-2 font-mono text-foreground text-sm">{fmt(dep)}</div>
                   <div className="col-span-1 font-mono">
                     {s.arrived_at ? (
-                      <div className="flex flex-col items-start">
-                        <span className={isDelayed ? "text-amber-600" : "text-emerald-600"}>
-                          {new Date(s.arrived_at).toLocaleTimeString([], {
-                            hour: "2-digit", minute: "2-digit",
-                          })}
-                        </span>
+                      <div className="flex flex-col items-start gap-0.5">
+                        <div className="flex items-center gap-1">
+                          <span className={isDelayed ? "text-amber-600" : "text-emerald-600"}>
+                            {new Date(s.arrived_at).toLocaleTimeString([], {
+                              hour: "2-digit", minute: "2-digit",
+                            })}
+                          </span>
+                          {arr && Math.abs((new Date(s.arrived_at).getTime() - new Date(arr).getTime()) / 60_000) <= 15 && (
+                            <span className="inline-flex items-center px-1 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-[8px] font-bold text-orange-600">GPS</span>
+                          )}
+                        </div>
                         {isDelayed && <span className="text-[9px] text-amber-600">+{delayMin}m late</span>}
                       </div>
                     ) : (
