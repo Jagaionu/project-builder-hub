@@ -150,6 +150,7 @@ export function useAlerts() {
   const compliance = useCompliance();
   const recentDelays = useRecentDelays();
   const cantCompleteEvents = useRecentCantComplete();
+  const parkedImports = useParkedImports();
   const { acked, ack } = useAcked();
 
   const all = useMemo<AppAlert[]>(() => {
