@@ -1,0 +1,107 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+export type Stop = {
+  id?: string;
+  kind: "PICKUP" | "DROP";
+  warehouse_id: string;
+  scheduled_at: string | null;
+  arrived_at?: string | null;
+};
+
+type StopRow = {
+  id: string;
+  job_id: string;
+  kind: "PICKUP" | "DROP";
+  warehouse_id: string;
+  scheduled_at: string | null;
+  arrived_at: string | null;
+  seq: number;
+};
+
+export type JobStopsMap = Record<string, Stop[]>;
+
+// Module-level cache so route remounts don't flash empty state.
+let cache: JobStopsMap = {};
+const subscribers = new Set<(m: JobStopsMap) => void>();
+function broadcast(next: JobStopsMap) {
+  cache = next;
+  for (const fn of subscribers) fn(next);
+}
+
+function rowToStop(s: StopRow): Stop & { seq: number } {
+  return {
+    id: s.id,
+    kind: s.kind,
+    warehouse_id: s.warehouse_id,
+    scheduled_at: s.scheduled_at,
+    arrived_at: s.arrived_at,
+    seq: s.seq,
+  };
+}
+
+/**
+ * Loads job_stops once, then applies INSERT / UPDATE / DELETE realtime
+ * payloads incrementally. Avoids re-downloading the entire table on every
+ * mutation (the previous version did a full SELECT on each change).
+ *
+ * Stops are kept sorted by `seq` ascending per job — the planner and
+ * detail panel rely on positional indexing.
+ */
+export function useJobStops(): JobStopsMap {
+  const [map, setMap] = useState<JobStopsMap>(cache);
+
+  useEffect(() => {
+    subscribers.add(setMap);
+    let mounted = true;
+
+    const load = async () => {
+      const { data, error } = await supabase
+        .from("job_stops")
+        .select("id,job_id,kind,warehouse_id,scheduled_at,arrived_at,seq")
+        .order("seq", { ascending: true });
+      if (!mounted || error || !data) return;
+      const m: JobStopsMap = {};
+      for (const row of data as StopRow[]) {
+        (m[row.job_id] ||= []).push(rowToStop(row));
+      }
+      broadcast(m);
+    };
+    void load();
+
+    const channel = supabase
+      .channel(`rt-stops-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "job_stops" }, (payload) => {
+        const row = payload.new as StopRow;
+        const next: JobStopsMap = { ...cache };
+        const list = [...(next[row.job_id] ?? []), rowToStop(row)]
+          .sort((a, b) => (a as { seq: number }).seq - (b as { seq: number }).seq);
+        next[row.job_id] = list.map(({ seq: _seq, ...rest }) => rest);
+        broadcast(next);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "job_stops" }, (payload) => {
+        const row = payload.new as StopRow;
+        const next: JobStopsMap = { ...cache };
+        const list = next[row.job_id] ?? [];
+        next[row.job_id] = list.map((s) => (s.id === row.id ? rowToStop(row) : s));
+        broadcast(next);
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "job_stops" }, (payload) => {
+        const row = payload.old as StopRow;
+        const next: JobStopsMap = { ...cache };
+        const list = (next[row.job_id] ?? []).filter((s) => s.id !== row.id);
+        if (list.length) next[row.job_id] = list;
+        else delete next[row.job_id];
+        broadcast(next);
+      })
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      subscribers.delete(setMap);
+      void supabase.removeChannel(channel);
+    };
+  }, []);
+
+  return map;
+}
