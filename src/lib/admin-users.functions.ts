@@ -82,30 +82,31 @@ export const createCompanyAdmin = createServerFn({ method: "POST" })
       .eq("user_id", userIdToLink)
       .eq("company_id", data.companyId)
       .maybeSingle();
-    if (existingMember) {
-      return { userId: userIdToLink, email: data.email };
-    }
-
-    // Link to company as admin
-    const { error: mErr } = await supabaseAdmin.from("company_members").insert({
-      user_id: userIdToLink,
-      company_id: data.companyId,
-      role: "admin",
-    });
-    if (mErr) {
-      // Only roll back if we just created the user
-      if (created?.user) {
-        await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+    if (!existingMember) {
+      const { error: mErr } = await supabaseAdmin.from("company_members").insert({
+        user_id: userIdToLink,
+        company_id: data.companyId,
+        role: "admin",
+      });
+      if (mErr) {
+        if (created?.user) await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+        throw new Error(`Failed to link user to company: ${mErr.message}`);
       }
-      throw new Error(`Failed to link user to company: ${mErr.message}`);
     }
 
-    // Note: we intentionally do NOT persist the password — Supabase Auth is
-    // the source of truth. If an admin forgets their password, super admins
-    // can issue a reset via the auth admin API.
+    // Persist the latest password so super admins can view it later
+    // (table is locked down by RLS to super admins only).
+    await supabaseAdmin
+      .from("admin_credentials" as never)
+      .upsert(
+        { user_id: userIdToLink, email: data.email, password: data.password } as never,
+        { onConflict: "user_id" } as never,
+      );
 
     return { userId: userIdToLink, email: data.email };
   });
+
+
 
 const ListInput = z.object({ companyId: z.string().uuid() });
 
@@ -131,12 +132,17 @@ export const listCompanyMembers = createServerFn({ method: "POST" })
     const results: Array<{ id: string; user_id: string; role: string; email: string | null; password: string | null; created_at: string }> = [];
     for (const m of members ?? []) {
       const { data: u } = await supabaseAdmin.auth.admin.getUserById(m.user_id);
+      const { data: cred } = await supabaseAdmin
+        .from("admin_credentials" as never)
+        .select("password")
+        .eq("user_id", m.user_id)
+        .maybeSingle();
       results.push({
         id: m.id,
         user_id: m.user_id,
         role: m.role,
         email: u.user?.email ?? null,
-        password: null,
+        password: ((cred as { password?: string } | null)?.password) ?? null,
         created_at: m.created_at,
       });
     }
