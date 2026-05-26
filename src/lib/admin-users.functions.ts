@@ -106,23 +106,7 @@ export const createCompanyAdmin = createServerFn({ method: "POST" })
     return { userId: userIdToLink, email: data.email };
   });
 
-      company_id: data.companyId,
-      role: "admin",
-    });
-    if (mErr) {
-      // Only roll back if we just created the user
-      if (created?.user) {
-        await supabaseAdmin.auth.admin.deleteUser(created.user.id);
-      }
-      throw new Error(`Failed to link user to company: ${mErr.message}`);
-    }
 
-    // Note: we intentionally do NOT persist the password — Supabase Auth is
-    // the source of truth. If an admin forgets their password, super admins
-    // can issue a reset via the auth admin API.
-
-    return { userId: userIdToLink, email: data.email };
-  });
 
 const ListInput = z.object({ companyId: z.string().uuid() });
 
