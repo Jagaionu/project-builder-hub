@@ -48,10 +48,15 @@ export function useActiveJobsByDriver(): Record<string, ActiveJob[]> {
       setMap(m);
     };
     load();
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    const debouncedLoad = () => {
+      if (pending) clearTimeout(pending);
+      pending = setTimeout(() => { void load(); }, 500);
+    };
     const ch = supabase
       .channel(`rt-active-jobs-${Math.random().toString(36).slice(2)}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "job_stops" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, debouncedLoad)
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_stops" }, debouncedLoad)
       .subscribe();
     return () => {
       mounted = false;
