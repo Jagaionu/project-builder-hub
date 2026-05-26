@@ -15,6 +15,7 @@ import { rotateDriverLoginCode } from "@/lib/pairing.functions";
 import { deleteDriver } from "@/lib/drivers-delete.functions";
 import { useActiveJobsByDriver, type ActiveJob } from "@/lib/use-driver-routes";
 import { effectiveDriverStatus, projectedRouteDriveMinutes, jobStartMs, isJobScheduledFuture } from "@/lib/effective-status";
+import { DispatchStat } from "@/components/dispatch/toolbar";
 
 type DriverRouteFilter = "ON_ROUTE" | "ON_SHIFT" | "OFF_SHIFT";
 const ALL_DRIVER_ROUTE_FILTERS: DriverRouteFilter[] = ["ON_ROUTE", "ON_SHIFT", "OFF_SHIFT"];
@@ -138,7 +139,10 @@ function DriversPage() {
     return { d, effectiveStatus, category };
   });
 
-  const counts = driverRows.reduce(
+  const q = driverSearch.trim().toLowerCase();
+  const driverRowsAfterSearch = driverRows.filter((r) => !q || r.d.name.toLowerCase().includes(q));
+
+  const counts = driverRowsAfterSearch.reduce(
     (acc, r) => {
       acc[r.category] += 1;
       return acc;
@@ -146,11 +150,9 @@ function DriversPage() {
     { ON_ROUTE: 0, ON_SHIFT: 0, OFF_SHIFT: 0 } as Record<DriverRouteFilter, number>,
   );
 
-  const q = driverSearch.trim().toLowerCase();
-  const filteredDriverRows = driverRows.filter((r) => {
-    if (driverListFilter !== "ALL" && r.category !== driverListFilter) return false;
-    if (q && !r.d.name.toLowerCase().includes(q)) return false;
-    return true;
+  const filteredDriverRows = driverRowsAfterSearch.filter((r) => {
+    if (driverListFilter === "ALL") return true;
+    return r.category === driverListFilter;
   });
   const rotateCode = useServerFn(rotateDriverLoginCode);
   const removeDriver = useServerFn(deleteDriver);
@@ -241,20 +243,53 @@ function DriversPage() {
         title="Drivers"
         subtitle={`${filteredDriverRows.length} shown of ${drivers.length} drivers in roster`}
         right={
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={copyDriverLink}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface hover:bg-surface-2 text-xs font-medium"
-              title={driverLoginUrl}
-            >
-              <LinkIcon className="size-3.5" /> Copy driver link
-            </button>
-            <button
-              onClick={() => setOpen((o) => !o)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
-            >
-              <Plus className="size-3.5" /> New Driver
-            </button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <DispatchStat
+                label="All"
+                value={driverRowsAfterSearch.length}
+                color={"oklch(0.52 0.012 245)"}
+                active={driverListFilter === "ALL"}
+                onClick={() => setDriverListFilter("ALL")}
+              />
+              <DispatchStat
+                label="On Route"
+                value={counts.ON_ROUTE}
+                color={"oklch(0.73 0.17 150)"}
+                active={driverListFilter === "ON_ROUTE"}
+                onClick={() => setDriverListFilter("ON_ROUTE")}
+              />
+              <DispatchStat
+                label="On Shift"
+                value={counts.ON_SHIFT}
+                color={"oklch(0.62 0.22 245)"}
+                active={driverListFilter === "ON_SHIFT"}
+                onClick={() => setDriverListFilter("ON_SHIFT")}
+              />
+              <DispatchStat
+                label="Off Shift"
+                value={counts.OFF_SHIFT}
+                color={"oklch(0.45 0.012 245)"}
+                active={driverListFilter === "OFF_SHIFT"}
+                onClick={() => setDriverListFilter("OFF_SHIFT")}
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={copyDriverLink}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface hover:bg-surface-2 text-xs font-medium"
+                title={driverLoginUrl}
+              >
+                <LinkIcon className="size-3.5" /> Copy driver link
+              </button>
+              <button
+                onClick={() => setOpen((o) => !o)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
+              >
+                <Plus className="size-3.5" /> New Driver
+              </button>
+            </div>
           </div>
         }
       />
@@ -269,77 +304,13 @@ function DriversPage() {
           </div>
         )}
 
-        <div
-          className="rounded-md border border-border bg-surface p-3 flex flex-wrap items-center gap-2"
-          role="group"
-          aria-label="Driver shift filters"
-        >
-          <button
-            type="button"
-            onClick={() => setDriverListFilter("ALL")}
-            aria-pressed={driverListFilter === "ALL"}
-            className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-mono transition-colors ${
-              driverListFilter === "ALL"
-                ? "bg-[oklch(0.62_0.22_245/0.10)] border-[oklch(0.62_0.22_245)] text-[oklch(0.75_0.18_245)]"
-                : "bg-transparent border-border text-muted-foreground hover:bg-surface-2/40 hover:text-foreground"
-            }`}
-            title="Show all drivers"
-          >
-            <span className="inline-flex size-1.5 rounded-full bg-current opacity-60" />
-            All drivers
-            <span className="tabular-nums">{drivers.length}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setDriverListFilter("ON_ROUTE")}
-            aria-pressed={driverListFilter === "ON_ROUTE"}
-            className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-mono transition-colors ${
-              driverListFilter === "ON_ROUTE"
-                ? "bg-[oklch(0.62_0.22_245/0.10)] border-[oklch(0.62_0.22_245)] text-[oklch(0.75_0.18_245)]"
-                : "bg-transparent border-border text-muted-foreground hover:bg-surface-2/40 hover:text-foreground"
-            }`}
-            title="Drivers with an active route started"
-          >
-            <StatusBadge status="ON_ROUTE" kind="driver" />
-            <span className="tabular-nums">{counts.ON_ROUTE}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setDriverListFilter("ON_SHIFT")}
-            aria-pressed={driverListFilter === "ON_SHIFT"}
-            className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-mono transition-colors ${
-              driverListFilter === "ON_SHIFT"
-                ? "bg-[oklch(0.68_0.16_230/0.10)] border-[oklch(0.68_0.16_230)] text-[oklch(0.73_0.13_230)]"
-                : "bg-transparent border-border text-muted-foreground hover:bg-surface-2/40 hover:text-foreground"
-            }`}
-            title="Drivers on shift (including available/delayed drivers)"
-          >
-            <StatusBadge status="ON_SHIFT" kind="driver" />
-            <span className="tabular-nums">{counts.ON_SHIFT}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setDriverListFilter("OFF_SHIFT")}
-            aria-pressed={driverListFilter === "OFF_SHIFT"}
-            className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-mono transition-colors ${
-              driverListFilter === "OFF_SHIFT"
-                ? "bg-[oklch(0.22_0.018_245/0.12)] border-[oklch(0.26_0.018_245)] text-[oklch(0.52_0.012_245)]"
-                : "bg-transparent border-border text-muted-foreground hover:bg-surface-2/40 hover:text-foreground"
-            }`}
-            title="Drivers currently off shift"
-          >
-            <StatusBadge status="OFF_SHIFT" kind="driver" />
-            <span className="tabular-nums">{counts.OFF_SHIFT}</span>
-          </button>
-
+        <div className="flex items-center gap-2">
           <input
             value={driverSearch}
             onChange={(e) => setDriverSearch(e.target.value)}
             placeholder="Search driver name…"
-            className="ml-auto h-9 w-72 max-w-full px-3 rounded bg-background border border-border text-sm focus:outline-none focus:border-primary"
+            className="field-input"
+            style={{ flex: 1 }}
           />
         </div>
 
