@@ -3,6 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Driver, Warehouse, Job } from "@/lib/types";
 import { computeCompliance, type Compliance, type ComplianceEvent } from "@/lib/compliance";
 
+// Coalesce bursty realtime triggers so a flurry of inserts/updates from the
+// server doesn't fire N back-to-back full-table reloads. ~300ms feels instant
+// to a user but collapses dozens of events into one DB round trip.
+function debounce<T extends (...args: never[]) => void>(fn: T, ms = 300): T {
+  let t: ReturnType<typeof setTimeout> | null = null;
+  return ((...args: Parameters<T>) => {
+    if (t) clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  }) as T;
+}
+
 // Module-level caches so navigating between routes doesn't briefly flash
 // empty state while data re-loads. Each hook seeds initial state from cache
 // and writes back on every update.
