@@ -16,6 +16,12 @@ import { deleteDriver } from "@/lib/drivers-delete.functions";
 import { useActiveJobsByDriver, type ActiveJob } from "@/lib/use-driver-routes";
 import { effectiveDriverStatus, projectedRouteDriveMinutes, jobStartMs, isJobScheduledFuture } from "@/lib/effective-status";
 
+type DriverRouteFilter = "ON_ROUTE" | "ON_SHIFT" | "OFF_SHIFT";
+const ALL_DRIVER_ROUTE_FILTERS: DriverRouteFilter[] = ["ON_ROUTE", "ON_SHIFT", "OFF_SHIFT"];
+type DriverListFilter = "ALL" | DriverRouteFilter;
+const DRIVER_FILTER_STORAGE_KEY = "drivers.routeShiftFilters";
+const DRIVER_SEARCH_STORAGE_KEY = "drivers.searchByName";
+
 export const Route = createFileRoute("/_app/drivers")({
   loader: () => getDriversSnapshot(),
   component: DriversPage,
@@ -56,6 +62,96 @@ function DriversPage() {
   const [form, setForm] = useState<DriverForm>({ name: "", phone: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "" });
+
+  // ── Drivers list filters (persisted) ────────────────────────────────────
+  const [driverListFilter, setDriverListFilter] = useState<DriverListFilter>(() => {
+    if (typeof window === "undefined") return "ALL";
+    try {
+      const raw = localStorage.getItem(DRIVER_FILTER_STORAGE_KEY);
+      if (!raw) return "ALL";
+      const parsed = JSON.parse(raw) as unknown;
+
+      if (typeof parsed === "string") {
+        if (parsed === "ALL") return "ALL";
+        if (ALL_DRIVER_ROUTE_FILTERS.includes(parsed as DriverRouteFilter)) return parsed as DriverRouteFilter;
+        return "ALL";
+      }
+
+      // Back-compat: older versions stored an array for multi-select.
+      if (Array.isArray(parsed)) {
+        const valid = parsed.filter(
+          (v): v is DriverRouteFilter =>
+            typeof v === "string" && ALL_DRIVER_ROUTE_FILTERS.includes(v as DriverRouteFilter),
+        );
+        if (valid.length === 3) return "ALL";
+        if (valid.length === 1) return valid[0];
+        // If multiple stored, pick a deterministic one.
+        return valid.includes("OFF_SHIFT")
+          ? "OFF_SHIFT"
+          : valid.includes("ON_SHIFT")
+            ? "ON_SHIFT"
+            : valid.includes("ON_ROUTE")
+              ? "ON_ROUTE"
+              : "ALL";
+      }
+
+      return "ALL";
+    } catch {
+      return "ALL";
+    }
+  });
+
+  const [driverSearch, setDriverSearch] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      return localStorage.getItem(DRIVER_SEARCH_STORAGE_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DRIVER_FILTER_STORAGE_KEY, JSON.stringify(driverListFilter));
+    } catch {
+      /* noop */
+    }
+  }, [driverListFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DRIVER_SEARCH_STORAGE_KEY, driverSearch);
+    } catch {
+      /* noop */
+    }
+  }, [driverSearch]);
+
+  const nowMs = Date.now();
+  const driverRows = drivers.map((d) => {
+    const effectiveStatus = effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs);
+    const category: DriverRouteFilter =
+      effectiveStatus === "ON_ROUTE"
+        ? "ON_ROUTE"
+        : effectiveStatus === "OFF_SHIFT"
+          ? "OFF_SHIFT"
+          : "ON_SHIFT";
+    return { d, effectiveStatus, category };
+  });
+
+  const counts = driverRows.reduce(
+    (acc, r) => {
+      acc[r.category] += 1;
+      return acc;
+    },
+    { ON_ROUTE: 0, ON_SHIFT: 0, OFF_SHIFT: 0 } as Record<DriverRouteFilter, number>,
+  );
+
+  const q = driverSearch.trim().toLowerCase();
+  const filteredDriverRows = driverRows.filter((r) => {
+    if (driverListFilter !== "ALL" && r.category !== driverListFilter) return false;
+    if (q && !r.d.name.toLowerCase().includes(q)) return false;
+    return true;
+  });
   const rotateCode = useServerFn(rotateDriverLoginCode);
   const removeDriver = useServerFn(deleteDriver);
 
@@ -143,7 +239,7 @@ function DriversPage() {
     <div className="h-full flex flex-col">
       <PageHeader
         title="Drivers"
-        subtitle={`${drivers.length} drivers in roster`}
+        subtitle={`${filteredDriverRows.length} shown of ${drivers.length} drivers in roster`}
         right={
           <div className="flex items-center gap-1.5">
             <button
@@ -173,6 +269,80 @@ function DriversPage() {
           </div>
         )}
 
+        <div
+          className="rounded-md border border-border bg-surface p-3 flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label="Driver shift filters"
+        >
+          <button
+            type="button"
+            onClick={() => setDriverListFilter("ALL")}
+            aria-pressed={driverListFilter === "ALL"}
+            className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-mono transition-colors ${
+              driverListFilter === "ALL"
+                ? "bg-[oklch(0.62_0.22_245/0.10)] border-[oklch(0.62_0.22_245)] text-[oklch(0.75_0.18_245)]"
+                : "bg-transparent border-border text-muted-foreground hover:bg-surface-2/40 hover:text-foreground"
+            }`}
+            title="Show all drivers"
+          >
+            <span className="inline-flex size-1.5 rounded-full bg-current opacity-60" />
+            All drivers
+            <span className="tabular-nums">{drivers.length}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDriverListFilter("ON_ROUTE")}
+            aria-pressed={driverListFilter === "ON_ROUTE"}
+            className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-mono transition-colors ${
+              driverListFilter === "ON_ROUTE"
+                ? "bg-[oklch(0.62_0.22_245/0.10)] border-[oklch(0.62_0.22_245)] text-[oklch(0.75_0.18_245)]"
+                : "bg-transparent border-border text-muted-foreground hover:bg-surface-2/40 hover:text-foreground"
+            }`}
+            title="Drivers with an active route started"
+          >
+            <StatusBadge status="ON_ROUTE" kind="driver" />
+            <span className="tabular-nums">{counts.ON_ROUTE}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDriverListFilter("ON_SHIFT")}
+            aria-pressed={driverListFilter === "ON_SHIFT"}
+            className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-mono transition-colors ${
+              driverListFilter === "ON_SHIFT"
+                ? "bg-[oklch(0.68_0.16_230/0.10)] border-[oklch(0.68_0.16_230)] text-[oklch(0.73_0.13_230)]"
+                : "bg-transparent border-border text-muted-foreground hover:bg-surface-2/40 hover:text-foreground"
+            }`}
+            title="Drivers on shift (including available/delayed drivers)"
+          >
+            <StatusBadge status="ON_SHIFT" kind="driver" />
+            <span className="tabular-nums">{counts.ON_SHIFT}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDriverListFilter("OFF_SHIFT")}
+            aria-pressed={driverListFilter === "OFF_SHIFT"}
+            className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-mono transition-colors ${
+              driverListFilter === "OFF_SHIFT"
+                ? "bg-[oklch(0.22_0.018_245/0.12)] border-[oklch(0.26_0.018_245)] text-[oklch(0.52_0.012_245)]"
+                : "bg-transparent border-border text-muted-foreground hover:bg-surface-2/40 hover:text-foreground"
+            }`}
+            title="Drivers currently off shift"
+          >
+            <StatusBadge status="OFF_SHIFT" kind="driver" />
+            <span className="tabular-nums">{counts.OFF_SHIFT}</span>
+          </button>
+
+          <input
+            value={driverSearch}
+            onChange={(e) => setDriverSearch(e.target.value)}
+            placeholder="Search driver name…"
+            className="ml-auto h-9 w-72 max-w-full px-3 rounded bg-background border border-border text-sm focus:outline-none focus:border-primary"
+          />
+        </div>
+
         <div className="rounded-md border border-border overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -189,7 +359,7 @@ function DriversPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {drivers.map((d) => {
+              {filteredDriverRows.map(({ d, effectiveStatus }) => {
                 const isEditing = editingId === d.id;
                 const code = (d as { login_code?: string | null }).login_code ?? null;
                 return (
@@ -241,7 +411,7 @@ function DriversPage() {
 
                     <td className="px-3 py-2.5">
                       <StatusBadge
-                        status={effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [])}
+                        status={effectiveStatus}
                         kind="driver"
                       />
                     </td>
