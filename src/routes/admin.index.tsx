@@ -154,8 +154,8 @@ function CompanyRow({
     const password = generatePassword();
     try {
       await createAdmin({ data: { companyId: company.id, email: derivedEmail, password } });
-      toast.success(`Admin credentials generated for ${company.name}`);
-      setLastCreated({ email: derivedEmail, password });
+      toast.success(`Password ${members.length > 0 ? "regenerated" : "generated"} for ${company.name}`);
+      setRefreshKey((k) => k + 1);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create user");
     } finally {
@@ -163,11 +163,7 @@ function CompanyRow({
     }
   }
 
-  async function copyCreds() {
-    if (!lastCreated) return;
-    await navigator.clipboard.writeText(`Email: ${lastCreated.email}\nPassword: ${lastCreated.password}`);
-    toast.success("Credentials copied to clipboard");
-  }
+
 
   return (
     <div className="rounded-lg border border-border bg-surface overflow-hidden">
