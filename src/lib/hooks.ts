@@ -141,9 +141,10 @@ export function useDriverEventsByDriver(): Record<string, ComplianceEvent[]> {
       setMap(m);
     };
     load();
+    const debouncedLoad = debounce(load, 500);
     const ch = supabase
       .channel(channelNameRef.current)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "driver_events" }, load)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "driver_events" }, debouncedLoad)
       .subscribe();
     return () => {
       mounted = false;
