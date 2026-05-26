@@ -112,15 +112,17 @@ export const planTomorrow = createServerFn({ method: "POST" })
   const writes: Array<Promise<unknown>> = [];
   if (toClear.length) {
     writes.push(
-      supabaseAdmin
-        .from("jobs")
-        .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
-        .in("id", toClear),
+      Promise.resolve(
+        supabaseAdmin
+          .from("jobs")
+          .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
+          .in("id", toClear),
+      ),
     );
   }
   for (const u of toApply) {
     const { id, ...patch } = u;
-    writes.push(supabaseAdmin.from("jobs").update(patch).eq("id", id));
+    writes.push(Promise.resolve(supabaseAdmin.from("jobs").update(patch).eq("id", id)));
   }
   await Promise.all(writes);
 
