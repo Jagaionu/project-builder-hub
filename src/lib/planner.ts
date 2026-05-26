@@ -152,7 +152,7 @@ export function computePlan(
       const stops = stopsMap[active.id];
       const remaining = (stops ?? []).filter((s) => !s.arrived_at);
       const ld = lastDropWh(remaining, warehouses);
-      const drive = remainingJobHours(d, stops, warehouses);
+      const drive = remainingJobHours(d, active, stops, warehouses, nowMs);
       forecast[d.id] = {
         lat: ld?.latitude ?? d.current_lat!,
         lon: ld?.longitude ?? d.current_lon!,
