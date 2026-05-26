@@ -226,9 +226,18 @@ export function useAlerts() {
         }
       }
     });
+    parkedImports.forEach((p) => {
+      out.push({
+        id: `park-${p.id}`,
+        level: "warning",
+        type: "Unmapped lane",
+        icon: MapPin,
+        message: `${p.reference}: lane ${p.lane} — missing ${p.missing_codes.join(", ")}. Add the warehouse to release.`,
+      });
+    });
 
     return out;
-  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents]);
+  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents, parkedImports]);
 
   const visible = useMemo(() => all.filter((a) => !acked.has(a.id)), [all, acked]);
 
