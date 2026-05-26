@@ -557,7 +557,7 @@ function DispatchPage() {
                     <span className={`size-1.5 rounded-full ${STATUS_CONFIG[s].dot}`} />
                     <span className="flex-1">{STATUS_CONFIG[s].label}</span>
                     <span className="font-mono text-[10px] text-muted-foreground">
-                      {jobs.filter((j) => j.status === s).length}
+                      {statusCounts[s] ?? 0}
                     </span>
                   </label>
                 );
