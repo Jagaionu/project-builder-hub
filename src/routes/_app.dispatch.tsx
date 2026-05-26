@@ -244,9 +244,9 @@ function DispatchPage() {
     }
   }
 
-  // Auto-planner — extracted hook with batched DB writes + in-flight guard.
+  // Auto-planner — reuses the memoized `plan` so computePlan runs once per data change.
   useAutoPlanner({
-    jobs, stopsMap, drivers, warehouses, compliance,
+    plan, jobs, stopsMap, warehouses,
     assignDriver: (id, did) => assignDriver(id, did),
   });
 
