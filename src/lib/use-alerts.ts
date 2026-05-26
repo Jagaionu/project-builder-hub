@@ -42,6 +42,44 @@ function useRecentCantComplete(): CantCompleteEvent[] {
   return rows;
 }
 
+type ParkedImport = {
+  id: string;
+  reference: string;
+  lane: string;
+  missing_codes: string[];
+};
+
+function useParkedImports(): ParkedImport[] {
+  const [rows, setRows] = useState<ParkedImport[]>([]);
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      const { data } = await supabase
+        .from("pending_job_imports" as never)
+        .select("id,reference,lane,missing_codes")
+        .order("created_at", { ascending: false });
+      if (!mounted || !data) return;
+      setRows(data as unknown as ParkedImport[]);
+    };
+    load();
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    const debounced = () => {
+      if (pending) clearTimeout(pending);
+      pending = setTimeout(() => void load(), 400);
+    };
+    const ch = supabase
+      .channel(`rt-parked-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pending_job_imports" }, debounced)
+      .subscribe();
+    return () => {
+      mounted = false;
+      supabase.removeChannel(ch);
+    };
+  }, []);
+  return rows;
+}
+
+
 export interface AppAlert {
   id: string;
   level: "critical" | "warning" | "info";
