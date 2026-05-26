@@ -40,7 +40,6 @@ function formatStableTime(iso: string | null): string {
   return `${hh}:${mm}:${ss} UTC`;
 }
 
-
 function formatLedgerDay(day: string): string {
   const [year, month, date] = day.split("-").map(Number);
   const utcDate = new Date(Date.UTC(year, month - 1, date));
@@ -50,8 +49,6 @@ function formatLedgerDay(day: string): string {
   });
   return `${weekday} ${String(date).padStart(2, "0")}/${String(month).padStart(2, "0")}`;
 }
-
-
 
 function DriversPage() {
   const { drivers: initialDrivers } = Route.useLoaderData();
@@ -78,7 +75,6 @@ function DriversPage() {
         return "ALL";
       }
 
-      // Back-compat: older versions stored an array for multi-select.
       if (Array.isArray(parsed)) {
         const valid = parsed.filter(
           (v): v is DriverRouteFilter =>
@@ -86,7 +82,6 @@ function DriversPage() {
         );
         if (valid.length === 3) return "ALL";
         if (valid.length === 1) return valid[0];
-        // If multiple stored, pick a deterministic one.
         return valid.includes("OFF_SHIFT")
           ? "OFF_SHIFT"
           : valid.includes("ON_SHIFT")
@@ -154,20 +149,21 @@ function DriversPage() {
     if (driverListFilter === "ALL") return true;
     return r.category === driverListFilter;
   });
+
   const rotateCode = useServerFn(rotateDriverLoginCode);
   const removeDriver = useServerFn(deleteDriver);
 
   async function regenerate(driverId: string, driverName: string) {
     if (!confirm(`Regenerate login code for "${driverName}"?\n\nThe old code will stop working immediately. The driver will need the new code to log in.`)) return;
     try {
-      const r = await rotateCode({ data: { driverId } });
-      await navigator.clipboard?.writeText(r.code).catch(() => {});
-      toast.success(`New code ${r.code} — copied to clipboard`);
+      // FIX: Pass driverId directly, not wrapped in { data: ... }
+      const newCode = await rotateCode(driverId);
+      await navigator.clipboard?.writeText(newCode).catch(() => {});
+      toast.success(`New code ${newCode} — copied to clipboard`);
     } catch (e) {
       toast.error((e as Error).message);
     }
   }
-
 
   async function add() {
     if (!form.name) return toast.error("Name required");
@@ -189,7 +185,6 @@ function DriversPage() {
     setOpen(false);
     setForm({ name: "", phone: "" });
   }
-
 
   function startEdit(d: { id: string; name: string; phone: string | null }) {
     setEditingId(d.id);
@@ -216,7 +211,8 @@ function DriversPage() {
   async function remove(id: string, name: string) {
     if (!confirm(`Delete driver "${name}"?\n\nThis removes the driver, their login, GPS history, events and shift records.`)) return;
     try {
-      await removeDriver({ data: { driverId: id } });
+      // FIX: Pass id directly, not wrapped in { data: ... }
+      await removeDriver(id);
       toast.success("Driver deleted");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Delete failed");
@@ -379,12 +375,8 @@ function DriversPage() {
                         </button>
                       )}
                     </td>
-
                     <td className="px-3 py-2.5">
-                      <StatusBadge
-                        status={effectiveStatus}
-                        kind="driver"
-                      />
+                      <StatusBadge status={effectiveStatus} kind="driver" />
                     </td>
                     <td className="px-3 py-2.5">
                       <TomorrowCell
@@ -437,7 +429,6 @@ function DriversPage() {
                         ) : (
                           <>
                             <button onClick={() => copyInvite(d.name, code)} title="Copy login link + code for this driver" className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-primary"><LinkIcon className="size-3.5" /></button>
-
                             <button
                               onClick={() => startEdit(d)}
                               className="p-1.5 rounded hover:bg-surface-2 text-muted-foreground hover:text-foreground"
@@ -467,48 +458,7 @@ function DriversPage() {
   );
 }
 
-// Shows the active code persistently with expiry time and a copy button.
-// A small "↻" link lets the dispatcher regenerate without leaving the row.
-function CodeCell({
-  code,
-  expiresAt,
-  onCopy,
-  onRegenerate,
-}: {
-  code: string;
-  expiresAt: string | null;
-  onCopy: () => void;
-  onRegenerate: () => void;
-}) {
-  const expiryLabel = expiresAt
-    ? `exp ${new Date(expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-    : null;
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <button
-        onClick={onCopy}
-        className="inline-flex items-center gap-1 px-2 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary font-mono text-xs tracking-widest"
-        title="Click to copy"
-      >
-        {code}
-        <Copy className="size-2.5 opacity-60" />
-      </button>
-      {expiryLabel && (
-        <span className="text-[10px] text-muted-foreground font-mono">{expiryLabel}</span>
-      )}
-      <button
-        onClick={onRegenerate}
-        className="text-[10px] text-muted-foreground hover:text-primary"
-        title="Regenerate code"
-      >
-        ↻
-      </button>
-    </div>
-  );
-}
-
-export function Field({
+function Field({
   label,
   value,
   onChange,
@@ -708,7 +658,6 @@ function Metric({
   );
 }
 
-
 function LiveTimer({ baseHours, dir }: { baseHours: number; dir: "up" | "down" }) {
   const anchorRef = useRef<{ base: number; at: number }>({ base: baseHours, at: Date.now() });
   const [, force] = useState(0);
@@ -785,9 +734,6 @@ function DayHoursTable({ rows }: { rows: DriverDayHours[] }) {
   );
 }
 
-// Planner-facing view: for each ACTIVE job assigned to this driver, show the
-// projected driving time (deadhead from current GPS to first pickup +
-// inter-stop transit). Excludes loading/unloading/checks — pure wheel time.
 function ProjectedRoutePanel({
   jobs,
   driverLat,
@@ -817,14 +763,25 @@ function ProjectedRoutePanel({
         const startLabel = startMs
           ? new Date(startMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           : "—";
-        // 45-min break required after each 4.5h continuous driving.
-        // If already on shift, fold in the current continuous-drive cycle.
-        const cycleStartH = onShift ? continuousDriveH : 0;
+        // FIX: Correct break scheduling – mandatory immediate break if already at or over 4.5h
+        let effectiveCycleStartH = onShift ? continuousDriveH : 0;
+        let breaksNeeded = 0;
+        let immediateBreak = false;
+        if (effectiveCycleStartH >= 4.5) {
+          immediateBreak = true;
+          // After a 45min break, the cycle resets to 0.
+          // Subtract one full 4.5 block from the accumulated driving time
+          // to compute how many more breaks are needed during the route.
+          const excess = effectiveCycleStartH - 4.5;
+          effectiveCycleStartH = excess; // start new cycle with the excess over 4.5h
+          breaksNeeded = 1;
+        }
         const totalH = proj.totalMin / 60;
-        const breaksNeeded = Math.max(
+        const additionalBreaks = Math.max(
           0,
-          Math.floor((cycleStartH + totalH) / 4.5) - Math.floor(cycleStartH / 4.5),
+          Math.floor((effectiveCycleStartH + totalH) / 4.5) - Math.floor(effectiveCycleStartH / 4.5)
         );
+        breaksNeeded += additionalBreaks;
         const breakMin = breaksNeeded * 45;
         const totalWithBreaksMin = proj.totalMin + breakMin;
         const wouldExceed = totalWithBreaksMin / 60 > dailyHeadroomH;
@@ -852,20 +809,30 @@ function ProjectedRoutePanel({
               </span>
             </div>
             {breaksNeeded > 0 && startMs && (() => {
-              // Schedule each 45-min break at the next 4.5h continuous-drive
-              // boundary, measured from route start.
               const fmtClock = (ms: number) =>
                 new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
               const breaks: { startMs: number; endMs: number }[] = [];
-              let driven = cycleStartH; // hours driven in current cycle at route start
+              let remainingBreaks = breaksNeeded;
               let cursor = startMs;
-              for (let i = 0; i < breaksNeeded; i++) {
+              let cycleStart = immediateBreak ? 0 : (onShift ? continuousDriveH : 0);
+              if (immediateBreak) {
+                // First break starts immediately
+                const bStart = cursor;
+                const bEnd = bStart + 45 * 60_000;
+                breaks.push({ startMs: bStart, endMs: bEnd });
+                cursor = bEnd;
+                cycleStart = 0;
+                remainingBreaks--;
+              }
+              let driven = cycleStart;
+              while (remainingBreaks > 0) {
                 const toNextBreakH = 4.5 - driven;
                 const bStart = cursor + toNextBreakH * 3_600_000;
                 const bEnd = bStart + 45 * 60_000;
                 breaks.push({ startMs: bStart, endMs: bEnd });
                 cursor = bEnd;
-                driven = 0; // cycle resets after break
+                driven = 0;
+                remainingBreaks--;
               }
               const routeEndMs = startMs + totalWithBreaksMin * 60_000;
               return (
