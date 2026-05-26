@@ -300,6 +300,12 @@ function DispatchPage() {
     } catch { /* noop */ }
   }, [statusFilter]);
 
+  // Compliance changes every minute via a tick. We don't want that tick to
+  // re-run the auto-planner (which writes to the DB and echoes back).
+  // Keep a ref of the latest value for the planner to read on real changes.
+  const complianceRef = useRef(compliance);
+  useEffect(() => { complianceRef.current = compliance; }, [compliance]);
+
   const plan = useMemo(
     () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
     [jobs, stopsMap, drivers, warehouses, compliance],
@@ -308,6 +314,7 @@ function DispatchPage() {
     () => new Map(plan.planned.map((item) => [item.jobId, item] as const)),
     [plan],
   );
+
 
   useEffect(() => {
     const inconsistent = jobs.filter((j) => !j.assigned_driver_id && ACTIVE_JOB_STATUSES.has(j.status));
@@ -352,7 +359,9 @@ function DispatchPage() {
     if (pending.some((j) => !stopsMap[j.id])) return;
 
     const jobsForPlanner = jobs.filter((j) => !(j as { manual_override?: boolean }).manual_override);
-    const p = computePlan(jobsForPlanner, stopsMap, drivers, warehouses, compliance);
+    // Read compliance via ref so the minute-tick doesn't re-trigger the planner.
+    const p = computePlan(jobsForPlanner, stopsMap, drivers, warehouses, complianceRef.current);
+
 
     const sig = JSON.stringify({
       i: p.immediate.map((x) => [x.jobId, x.driverId]),
@@ -392,20 +401,28 @@ function DispatchPage() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobs, stopsMap, drivers, warehouses, compliance]);
+  }, [jobs, stopsMap, drivers, warehouses]);
 
-  async function setStatus(jobId: string, status: string) {
+  async function setStatus(jobId: string, status: string, opts?: { silent?: boolean }) {
     const job = jobs.find((j) => j.id === jobId);
     if (!job) return;
+    if (job.status === status) return; // no-op guard: prevents echo loops
     const requiresDriver = ACTIVE_JOB_STATUSES.has(status);
     if (requiresDriver && !job.assigned_driver_id) {
       toast.error("Assign a driver before setting this route in progress");
       return;
     }
+    // Optimistic local update so re-renders see the new status immediately
+    // and auto-complete effects don't re-fire before the realtime echo lands.
+    applyJobPatch(jobId, { status: status as never } as Partial<typeof jobs[number]>);
     const { error } = await supabase.from("jobs").update({ status: status as never }).eq("id", jobId);
-    if (error) toast.error(error.message);
-    else toast.success(`Status → ${STATUS_CONFIG[status as JobStatus]?.label ?? status}`);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    if (!opts?.silent) toast.success(`Status → ${STATUS_CONFIG[status as JobStatus]?.label ?? status}`);
   }
+
 
   const editingJob = editJobId ? jobs.find((j) => j.id === editJobId) : null;
 
@@ -894,7 +911,7 @@ function DispatchPage() {
               compliance={compliance}
               planned={plannedByJob.get(selectedJob.id) ?? null}
               onAssignDriver={(id) => assignDriver(selectedJob.id, id, { manual: true })}
-              onSetStatus={(s) => setStatus(selectedJob.id, s)}
+              onSetStatus={(s, opts) => { void setStatus(selectedJob.id, s, opts); }}
               onEdit={() => setEditJobId(selectedJob.id)}
             />
           )}
@@ -930,7 +947,7 @@ function JobDetailPanel({
   compliance: Record<string, Compliance>;
   planned: { driverId: string; sequence: number; startAt: string; distKm: number; dailyHoursLeft: number } | null;
   onAssignDriver: (id: string) => void;
-  onSetStatus: (s: string) => void;
+  onSetStatus: (s: string, opts?: { silent?: boolean }) => void;
   onEdit: () => void;
 }) {
   const origin = warehouses.find((w) => w.id === stops[0]?.warehouse_id);
@@ -1005,9 +1022,12 @@ function JobDetailPanel({
 
 
   // Auto-complete: all stops arrived, no significant delays, and not already terminal.
+  // Track per-job so the realtime echo round-trip can't fire it twice.
+  const autoCompletedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (stops.length === 0) return;
     if (job.status === "COMPLETED" || job.status === "CANCELLED") return;
+    if (autoCompletedRef.current.has(job.id)) return;
     const allArrived = stops.every((s) => !!s.arrived_at);
     if (!allArrived) return;
     const anyDelayed = stops.some((s) => {
@@ -1017,9 +1037,11 @@ function JobDetailPanel({
       return delayMin > 5;
     });
     if (anyDelayed) return;
-    onSetStatus("COMPLETED");
+    autoCompletedRef.current.add(job.id);
+    onSetStatus("COMPLETED", { silent: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.id, job.status, stops]);
+
 
 
   return (
