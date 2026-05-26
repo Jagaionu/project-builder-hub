@@ -902,7 +902,7 @@ function DispatchPage() {
               compliance={compliance}
               planned={plannedByJob.get(selectedJob.id) ?? null}
               onAssignDriver={(id) => assignDriver(selectedJob.id, id, { manual: true })}
-              onSetStatus={(s, opts) => setStatus(selectedJob.id, s, opts)}
+              onSetStatus={(s, opts) => { void setStatus(selectedJob.id, s, opts); }}
               onEdit={() => setEditJobId(selectedJob.id)}
             />
           )}
