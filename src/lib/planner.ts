@@ -9,7 +9,13 @@
 
 import type { Driver, Warehouse, Job } from "./types";
 import type { Compliance } from "./compliance";
-import { haversineKm, transitTimeHours, stopDwellMinutes, ARRIVAL_BUFFER_MINUTES } from "./geo";
+import { haversineKm, transitTimeHours, stopDwellMinutes, projectPosition, ARRIVAL_BUFFER_MINUTES } from "./geo";
+
+function tomorrowISODate(nowMs: number): string {
+  const t = new Date(nowMs);
+  t.setDate(t.getDate() + 1);
+  return t.toISOString().slice(0, 10);
+}
 
 export const AUTO_ASSIGN_RADIUS_KM = 30;
 const DAILY_CAP = 10;
