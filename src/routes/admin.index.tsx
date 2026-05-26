@@ -125,7 +125,7 @@ function CompanyRow({
   const StatusIcon = status.icon;
   const [config, setConfig] = useState<TenantConfig>({ ...DEFAULT_TENANT_CONFIG, ...company.config });
   const [creating, setCreating] = useState(false);
-  const [lastCreated, setLastCreated] = useState<{ email: string; password: string } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [members, setMembers] = useState<Array<{ id: string; user_id: string; role: string; email: string | null; password: string | null }>>([]);
   const createAdmin = useServerFn(createCompanyAdmin);
   const fetchMembers = useServerFn(listCompanyMembers);
@@ -137,7 +137,8 @@ function CompanyRow({
     fetchMembers({ data: { companyId: company.id } })
       .then((r) => setMembers(r as typeof members))
       .catch(() => {});
-  }, [expanded, company.id, fetchMembers, lastCreated]);
+  }, [expanded, company.id, fetchMembers, refreshKey]);
+
 
   function toggleModule(mod: TenantModule) {
     setConfig((prev) => ({
