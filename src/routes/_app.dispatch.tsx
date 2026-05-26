@@ -394,18 +394,26 @@ function DispatchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobs, stopsMap, drivers, warehouses, compliance]);
 
-  async function setStatus(jobId: string, status: string) {
+  async function setStatus(jobId: string, status: string, opts?: { silent?: boolean }) {
     const job = jobs.find((j) => j.id === jobId);
     if (!job) return;
+    if (job.status === status) return; // no-op guard: prevents echo loops
     const requiresDriver = ACTIVE_JOB_STATUSES.has(status);
     if (requiresDriver && !job.assigned_driver_id) {
       toast.error("Assign a driver before setting this route in progress");
       return;
     }
+    // Optimistic local update so re-renders see the new status immediately
+    // and auto-complete effects don't re-fire before the realtime echo lands.
+    applyJobPatch(jobId, { status: status as never } as Partial<typeof jobs[number]>);
     const { error } = await supabase.from("jobs").update({ status: status as never }).eq("id", jobId);
-    if (error) toast.error(error.message);
-    else toast.success(`Status → ${STATUS_CONFIG[status as JobStatus]?.label ?? status}`);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    if (!opts?.silent) toast.success(`Status → ${STATUS_CONFIG[status as JobStatus]?.label ?? status}`);
   }
+
 
   const editingJob = editJobId ? jobs.find((j) => j.id === editJobId) : null;
 
