@@ -10,7 +10,7 @@ import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Check, X, KeyRound, Copy, Link as LinkIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, KeyRound, Copy, Link as LinkIcon, Search } from "lucide-react";
 import { rotateDriverLoginCode } from "@/lib/pairing.functions";
 import { deleteDriver } from "@/lib/drivers-delete.functions";
 import { useActiveJobsByDriver, type ActiveJob } from "@/lib/use-driver-routes";
@@ -300,14 +300,22 @@ function DriversPage() {
           </div>
         )}
 
-        <div className="flex items-center gap-2">
+        <div className="relative max-w-md">
+          <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
             value={driverSearch}
             onChange={(e) => setDriverSearch(e.target.value)}
-            placeholder="Search driver name…"
-            className="field-input"
-            style={{ flex: 1 }}
+            placeholder="Filter by driver name…"
+            className="w-full h-9 pl-9 pr-8 rounded-md border border-border bg-surface text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           />
+          {driverSearch && (
+            <button
+              onClick={() => setDriverSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <div className="rounded-md border border-border overflow-hidden">

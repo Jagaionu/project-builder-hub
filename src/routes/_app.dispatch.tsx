@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar as CalendarIcon, ChevronDown, MapPin, Plus, Sparkles } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronDown, MapPin, Plus, Sparkles, Search } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 
@@ -521,13 +521,24 @@ function DispatchPage() {
           </PopoverContent>
         </Popover>
 
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search reference, driver, status…"
-          className="field-input flex-1"
-        />
+        <div className="relative flex-1 max-w-md">
+          <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filter by reference, driver, status…"
+            className="w-full h-9 pl-9 pr-8 rounded-md border border-border bg-surface text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+            >
+              ✕
+            </button>
+          )}
+        </div>
 
         <div ref={statusMenuRef} className="relative">
           <button
