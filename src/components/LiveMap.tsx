@@ -296,7 +296,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
           if (pinnedDriver?.current_lat != null) {
             setPanel({ kind: "loading", driver: pinnedDriver, wh: w });
             calcRoute(
-              { lat: pinnedDriver.current_lat!, lon: pinnedDriver.current_lat! },
+              { lat: pinnedDriver.current_lat!, lon: pinnedDriver.current_lon! },
               { lat: w.latitude, lon: w.longitude }
             )
               .then(r => setPanel({ kind: "eta", driver: pinnedDriver, wh: w, ...r }))
