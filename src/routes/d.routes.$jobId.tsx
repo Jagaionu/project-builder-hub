@@ -190,7 +190,34 @@ function JobDetail() {
         )}
       </div>
 
-      <DriverStopTimeline job={{ ...job, stops: sortedStops }} driverPosition={gps} />
+      <DriverStopTimeline
+        job={{ ...job, stops: sortedStops }}
+        driverPosition={gps}
+        onArrive={async (stopId) => {
+          const now = new Date().toISOString();
+          const { error } = await supabase
+            .from("job_stops")
+            .update({ arrived_at: now } as never)
+            .eq("id", stopId)
+            .is("arrived_at", null);
+          if (error) return;
+
+          // If this is the first stop, move job to ARRIVED_PICKUP
+          if (stopId === sortedStops[0]?.id && job.status === "ASSIGNED") {
+            await supabase.from("jobs").update({ status: "ARRIVED_PICKUP" } as never).eq("id", job.id);
+          } else if (job.status === "ASSIGNED") {
+            // Any other stop arrival also implies IN_PROGRESS
+            await supabase.from("jobs").update({ status: "IN_PROGRESS" } as never).eq("id", job.id);
+          }
+
+          await supabase.from("driver_events").insert({
+            driver_id: driver?.id,
+            type: "ARRIVED",
+            payload: { stop_id: stopId, job_id: job.id, auto: false },
+            tenant_id: await getTenantId(),
+          } as never);
+        }}
+      />
 
       <p className="mt-2 text-xs text-muted-foreground text-center">
         Arrivals are confirmed automatically when you reach each stop.

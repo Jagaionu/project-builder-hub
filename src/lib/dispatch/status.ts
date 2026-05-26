@@ -24,7 +24,7 @@ export const STATUS_CONFIG: Record<EffectiveStatus, {
   SCHEDULED:         { label: "Scheduled",         dot: "bg-sky-400",     badge: "text-sky-500 bg-sky-500/10",         color: "oklch(0.68 0.16 230)" },
 };
 
-export const STATUS_BOX_KEYS: JobStatus[] = ["PENDING", "ASSIGNED", "COMPLETED", "CANCELLED"];
+export const STATUS_BOX_KEYS: JobStatus[] = ["PENDING", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 
 // ── Date helpers (stateless) ────────────────────────────────────────────────
 

@@ -65,6 +65,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
   }, [driver, isLaneAssigned, drivers, origin]);
 
   useAutoValidateArrivals(job, stops, stopTimes, driver?.last_update_time ?? null);
+  useAutoStatusTransition(job, stops, onSetStatus);
   useAutoComplete(job, stops, onSetStatus);
 
   return (
@@ -278,6 +279,37 @@ export const JobDetailPanel = memo(function JobDetailPanel({
 
 const autoValidatedStops = new Set<string>();
 const autoCompletedJobs = new Set<string>();
+
+function useAutoStatusTransition(
+  job: Job,
+  stops: Stop[],
+  onSetStatus: (s: string, opts?: { silent?: boolean }) => void,
+) {
+  const onSetStatusRef = useRef(onSetStatus);
+  useEffect(() => { onSetStatusRef.current = onSetStatus; }, [onSetStatus]);
+
+  useEffect(() => {
+    if (stops.length === 0) return;
+    if (job.status === "COMPLETED" || job.status === "CANCELLED") return;
+
+    const firstArrived = stops[0]?.arrived_at;
+    const lastArrived = stops[stops.length - 1]?.arrived_at;
+    const anyArrived = stops.some((s) => !!s.arrived_at);
+
+    if (lastArrived && job.status !== "COMPLETED") {
+      // Handled by useAutoComplete
+      return;
+    }
+
+    if (firstArrived && job.status === "ASSIGNED") {
+      // If first stop arrived, it must be at least ARRIVED_PICKUP
+      onSetStatusRef.current("ARRIVED_PICKUP", { silent: true });
+    } else if (anyArrived && job.status === "ASSIGNED") {
+      // Any arrival means it's no longer just "Assigned"
+      onSetStatusRef.current("IN_PROGRESS", { silent: true });
+    }
+  }, [job.id, job.status, stops]);
+}
 
 function useAutoValidateArrivals(
   job: Job,

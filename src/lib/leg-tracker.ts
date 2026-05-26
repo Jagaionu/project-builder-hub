@@ -85,6 +85,14 @@ export async function checkGeofences(
       if (distToNextM < ARRIVAL_RADIUS_M) {
         await closeLeg({ data: { legId: legState.activeLegId, arrivedAt: nowIso, actualLat: pos.lat, actualLon: pos.lon } }).catch((e) => console.error("[legs] closeLeg", e));
         await supabase.from("job_stops").update({ arrived_at: nowIso } as never).eq("id", nextStop.id).is("arrived_at", null);
+
+        // Auto-transition status on arrival
+        if (nextStop.id === sorted[0]?.id && job.status === "ASSIGNED") {
+          await supabase.from("jobs").update({ status: "ARRIVED_PICKUP" } as never).eq("id", job.id);
+        } else if (job.status === "ASSIGNED") {
+          await supabase.from("jobs").update({ status: "IN_PROGRESS" } as never).eq("id", job.id);
+        }
+
         await supabase.from("driver_events").insert({
           driver_id: driverId, type: "ARRIVED",
           payload: { stop_id: nextStop.id, job_id: job.id, auto: true },
