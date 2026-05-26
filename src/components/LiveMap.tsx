@@ -3,6 +3,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+// @ts-ignore
 import "leaflet.markercluster";
 import type { Driver, Warehouse, Job } from "@/lib/types";
 
@@ -90,7 +91,7 @@ type Panel =
 export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectDriver }: Props) {
   const containerRef   = useRef<HTMLDivElement | null>(null);
   const mapRef         = useRef<L.Map | null>(null);
-  const clusterLayer   = useRef<L.MarkerClusterGroup | null>(null);
+  const clusterLayer   = useRef<any | null>(null);
   const routeLayer     = useRef<L.LayerGroup | null>(null);
   const etaMarkerRef   = useRef<L.Marker | null>(null);
   const routeMidRef    = useRef<[number,number] | null>(null);

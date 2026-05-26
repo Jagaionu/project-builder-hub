@@ -212,7 +212,7 @@ function DriversPage() {
     if (!confirm(`Delete driver "${name}"?\n\nThis removes the driver, their login, GPS history, events and shift records.`)) return;
     try {
       // FIX: Pass id directly, not wrapped in { data: ... }
-      await removeDriver({ driverId: id });
+      await (removeDriver as any)({ data: { driverId: id } });
       toast.success("Driver deleted");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Delete failed");

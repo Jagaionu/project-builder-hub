@@ -151,7 +151,7 @@ const QueueRow = memo(function QueueRow({
         <div className="flex items-center gap-2">
           <span className="font-mono text-[11px] text-muted-foreground">{job.reference}</span>
           {isChained && (
-            <LinkIcon className="size-3 text-[oklch(0.75_0.18_245)]" title="Chained route" />
+            <LinkIcon className="size-3 text-[oklch(0.75_0.18_245)]" />
           )}
         </div>
         <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tracking-wider", cfg.badge)}>

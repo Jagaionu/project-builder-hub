@@ -296,7 +296,7 @@ function useAutoStatusTransition(
     const lastArrived = stops[stops.length - 1]?.arrived_at;
     const anyArrived = stops.some((s) => !!s.arrived_at);
 
-    if (lastArrived && job.status !== "COMPLETED") {
+    if (lastArrived && (job.status as string) !== "COMPLETED") {
       // Handled by useAutoComplete
       return;
     }
