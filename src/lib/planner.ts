@@ -78,12 +78,39 @@ type Forecast = { lat: number; lon: number; endMs: number; daily: number; weekly
 
 function remainingJobHours(
   driver: Driver,
+  job: Job | null,
   stops: PlannerStop[] | undefined,
   warehouses: Warehouse[],
+  nowMs: number,
 ) {
   if (driver.current_lat == null || driver.current_lon == null) return 0;
   const remaining = (stops ?? []).filter((s) => !s.arrived_at);
   if (remaining.length === 0) return 0;
+
+  // If the job has a scheduled start, use projectPosition to estimate where
+  // the driver actually is along the route — gives a much better remaining
+  // estimate than raw GPS (which can be mid-leg or stale).
+  const startMs = job?.scheduled_at ? +new Date(job.scheduled_at) : null;
+  if (startMs && !Number.isNaN(startMs)) {
+    const projected = projectPosition(remaining, warehouses, startMs, nowMs);
+    if (projected) {
+      if (projected.phase === "EN_ROUTE") {
+        return (
+          projected.minutesUntilNextEvent / 60 +
+          jobDriveHours(remaining.slice(projected.stopIndex), warehouses)
+        );
+      }
+      if (projected.phase === "AT_STOP") {
+        return (
+          projected.minutesUntilNextEvent / 60 +
+          jobDriveHours(remaining.slice(projected.stopIndex + 1), warehouses)
+        );
+      }
+      if (projected.phase === "COMPLETED") return 0;
+    }
+  }
+
+  // Fallback: deadhead from raw GPS to the next unvisited stop + remaining drive.
   const nextWh = warehouses.find((w) => w.id === remaining[0].warehouse_id);
   const deadheadKm = nextWh
     ? haversineKm(driver.current_lat, driver.current_lon, nextWh.latitude, nextWh.longitude)
