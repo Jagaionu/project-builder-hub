@@ -50,6 +50,7 @@ export interface Job {
   planned_sequence?: number | null;
   planned_start_at?: string | null;
   for_date?: string | null;
+  manual_override?: boolean;
 }
 
 

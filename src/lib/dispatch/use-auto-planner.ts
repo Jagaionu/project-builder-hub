@@ -42,7 +42,7 @@ export function useAutoPlanner(args: {
     const pending = jobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id);
     if (pending.some((j) => !stopsMap[j.id])) return;
 
-    const jobsForPlanner = jobs.filter((j) => !(j as { manual_override?: boolean }).manual_override);
+    const jobsForPlanner = jobs.filter((j) => !j.manual_override);
     const plan = computePlan(jobsForPlanner, stopsMap, drivers, warehouses, complianceRef.current);
 
     const sig = JSON.stringify({
@@ -78,7 +78,7 @@ async function runPlan(
   const fillPromises: Array<Promise<void>> = [];
   for (const a of plan.immediate) {
     const job = jobs.find((j) => j.id === a.jobId);
-    if (!job || (job as { manual_override?: boolean }).manual_override) continue;
+    if (!job || job.manual_override) continue;
     await assignDriver(a.jobId, a.driverId);
     fillPromises.push(
       fillStopTimes(job.scheduled_at ?? new Date().toISOString(), stopsMap[a.jobId] ?? [], warehouses),
@@ -94,7 +94,7 @@ async function runPlan(
   const toFill: Array<{ id: string; startAt: string }> = [];
 
   for (const job of jobs) {
-    if ((job as { manual_override?: boolean }).manual_override) continue;
+    if (job.manual_override) continue;
     const want = desired.get(job.id);
     const havePlanned = !!(job.planned_driver_id || job.planned_sequence || job.planned_start_at);
 
