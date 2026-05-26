@@ -86,10 +86,10 @@ const MAP_CSS = `
 @keyframes drv-ring{0%{opacity:.7;transform:scale(.9)}100%{opacity:0;transform:scale(2)}}
 
 .wh-mk{display:flex;flex-direction:column;align-items:center;cursor:pointer}
-.wh-body{background:#f97316;border:2.5px solid #fff;border-radius:10px;width:52px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 4px 16px rgba(249,115,22,.4),0 2px 6px rgba(0,0,0,.15);transition:transform .2s,box-shadow .2s}
-.wh-mk:hover .wh-body{transform:scale(1.1);box-shadow:0 6px 22px rgba(249,115,22,.55),0 2px 8px rgba(0,0,0,.18)}
-.wh-icon{width:22px;height:22px;color:#fff;flex-shrink:0}
-.wh-code{color:#fff;font-size:10px;font-weight:900;font-family:system-ui,sans-serif;letter-spacing:.06em;line-height:1}
+.wh-body{background:#f97316;border:2px solid #fff;border-radius:8px;width:40px;height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;box-shadow:0 4px 14px rgba(249,115,22,.38),0 2px 5px rgba(0,0,0,.14);transition:transform .2s,box-shadow .2s}
+.wh-mk:hover .wh-body{transform:scale(1.1);box-shadow:0 6px 20px rgba(249,115,22,.52),0 2px 7px rgba(0,0,0,.17)}
+.wh-icon{width:17px;height:17px;color:#fff;flex-shrink:0}
+.wh-code{color:#000;font-size:9px;font-weight:900;font-family:system-ui,sans-serif;letter-spacing:.05em;line-height:1}
 .wh-pin{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #f97316;margin-top:-1px}
 
 .eta-chip{background:#1e293b;color:#f8fafc;border-radius:20px;padding:5px 12px;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;font-family:system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.35);white-space:nowrap}
@@ -227,9 +227,9 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       const icon = L.divIcon({
         className: "",
         html: warehouseHtml(wh.code),
-        iconSize:   [52, 68],
-        iconAnchor: [26, 68],
-        popupAnchor:[0, -70],
+        iconSize:   [40, 52],
+        iconAnchor: [20, 52],
+        popupAnchor:[0, -54],
       });
 
       L.marker([wh.latitude, wh.longitude], { icon, zIndexOffset: 2000 })
