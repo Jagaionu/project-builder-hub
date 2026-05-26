@@ -338,3 +338,16 @@ export function useComplianceWithLedger(
   const events = useDriverEventsByDriver();
   return useComplianceState(events, ledger);
 }
+
+export async function rotateDriverLoginCode({ driverId }: { driverId: string }): Promise<string> {
+  // Placeholder implementation for rotating driver login code
+  console.log(`Rotating login code for driver: ${driverId}`);
+  // In a real application, this would interact with a backend service
+  return `NEWCODE-${Math.random().toString(36).slice(2).toUpperCase()}`;
+}
+
+export async function removeDriver({ driverId }: { driverId: string }): Promise<void> {
+  // Placeholder implementation for removing a driver
+  console.log(`Removing driver: ${driverId}`);
+  // In a real application, this would interact with a backend service
+}
