@@ -189,7 +189,7 @@ export function useAlerts() {
     });
 
     return out;
-  }, [drivers, jobs, compliance, recentDelays]);
+  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents]);
 
   const visible = useMemo(() => all.filter((a) => !acked.has(a.id)), [all, acked]);
 
