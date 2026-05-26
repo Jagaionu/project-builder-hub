@@ -1,215 +1,43 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useRef, useState, useLayoutEffect, type ChangeEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useJobs, useWarehouses, useDrivers, useCompliance, applyJobPatch } from "@/lib/hooks";
-import type { Compliance } from "@/lib/compliance";
-
-
-import {
-  Plus, Trash2, X, ChevronUp, ChevronDown, MapPin, Clock,
-  Check, User, Upload, Calendar as CalendarIcon, Pencil, Sparkles, ArrowRight,
-} from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { getTenantId } from "@/lib/tenant-insert";
+import { Calendar as CalendarIcon, ChevronDown, MapPin, Plus, Sparkles } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 
-import { computePlan, AUTO_ASSIGN_RADIUS_KM } from "@/lib/planner";
+import { useCompliance, useDrivers, useJobs, useWarehouses, applyJobPatch } from "@/lib/hooks";
+import { computePlan, AUTO_ASSIGN_RADIUS_KM, type PlannedAssign } from "@/lib/planner";
 import { planTomorrow } from "@/lib/tomorrow.functions";
-import { computeStopSchedule, stopDwellMinutes, haversineKm, etaMinutes } from "@/lib/geo";
-import { isJobScheduledFuture } from "@/lib/effective-status";
-import { importJobsCsv } from "@/lib/jobs-import.functions";
-import { csvToImportRows } from "@/lib/csv-import";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import type { DateRange } from "react-day-picker";
+import { supabase } from "@/integrations/supabase/client";
+import { getTenantId } from "@/lib/tenant-insert";
 import { cn } from "@/lib/utils";
 
-const ACTIVE_JOB_STATUSES = new Set(["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"]);
-void AUTO_ASSIGN_RADIUS_KM;
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-async function fillStopTimes(
-  jobId: string,
-  jobStart: string | null,
-  stops: { id?: string; kind: "PICKUP" | "DROP"; warehouse_id: string; scheduled_at: string | null }[],
-  warehouses: { id: string; latitude: number; longitude: number }[],
-) {
-  void jobId;
-  if (!jobStart || stops.length === 0) return;
-  const times = computeStopSchedule(stops, jobStart, warehouses);
-  for (let i = 0; i < stops.length; i++) {
-    const s = stops[i];
-    const t = times[i];
-    if (!s.id || !t) continue;
-    if (s.scheduled_at === t) continue;
-    await supabase.from("job_stops").update({ scheduled_at: t }).eq("id", s.id);
-  }
-}
+import {
+  ACTIVE_JOB_STATUSES, JOB_STATUSES, STATUS_BOX_KEYS, STATUS_CONFIG,
+  endOfDay, fmtDateShort, jobDate, sameDay, startOfDay,
+} from "@/lib/dispatch/status";
+import type { JobStatus, Job } from "@/lib/types";
+import { useLookups } from "@/lib/dispatch/lookups";
+import { useJobStops } from "@/lib/dispatch/use-job-stops";
+import { useAutoPlanner } from "@/lib/dispatch/use-auto-planner";
+
+import { DispatchStat, ImportCsvButton, ToolbarButton } from "@/components/dispatch/toolbar";
+import { JobQueue } from "@/components/dispatch/queue";
+import { JobDetailPanel } from "@/components/dispatch/detail-panel";
+
+// Lazy-loaded — dialog code only ships when the user opens create/edit.
+const RouteDialog = lazy(() => import("@/components/dispatch/route-dialog"));
+
+void AUTO_ASSIGN_RADIUS_KM;
 
 export const Route = createFileRoute("/_app/dispatch")({
   component: DispatchPage,
   head: () => ({ meta: [{ title: "Dispatch — Planning System" }] }),
 });
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-type Stop = {
-  id?: string;
-  kind: "PICKUP" | "DROP";
-  warehouse_id: string;
-  scheduled_at: string | null;
-  arrived_at?: string | null;
-};
-
-type JobStopsMap = Record<string, Stop[]>;
-
-function useJobStops(): JobStopsMap {
-  const [map, setMap] = useState<JobStopsMap>({});
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      const { data } = await supabase
-        .from("job_stops")
-        .select("id,job_id,kind,warehouse_id,scheduled_at,arrived_at,seq")
-        .order("seq", { ascending: true });
-      if (!mounted) return;
-      const m: JobStopsMap = {};
-      for (const s of (data ?? []) as Array<{ job_id: string } & Stop & { seq: number }>) {
-        (m[s.job_id] ||= []).push({
-          id: s.id,
-          kind: s.kind,
-          warehouse_id: s.warehouse_id,
-          scheduled_at: s.scheduled_at,
-          arrived_at: s.arrived_at,
-        });
-      }
-      setMap(m);
-    };
-    load();
-    let pending: ReturnType<typeof setTimeout> | null = null;
-    const debouncedLoad = () => {
-      if (pending) clearTimeout(pending);
-      pending = setTimeout(() => { void load(); }, 400);
-    };
-    const ch = supabase
-      .channel("rt-stops")
-      .on("postgres_changes", { event: "*", schema: "public", table: "job_stops" }, debouncedLoad)
-      .subscribe();
-    return () => {
-      mounted = false;
-      supabase.removeChannel(ch);
-    };
-  }, []);
-  return map;
-}
-
-const JOB_STATUSES = [
-  "PENDING", "ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP",
-  "EN_ROUTE_DELIVERY", "COMPLETED", "CANCELLED",
-] as const;
-type JobStatus = (typeof JOB_STATUSES)[number];
-
-const STATUS_CONFIG: Record<JobStatus | "SCHEDULED", { label: string; dot: string; badge: string; color: string }> = {
-  PENDING:           { label: "Pending",           dot: "bg-amber-400",   badge: "text-amber-500 bg-amber-500/10",     color: "oklch(0.80 0.18 72)" },
-  ASSIGNED:          { label: "Assigned",          dot: "bg-blue-400",    badge: "text-blue-500 bg-blue-500/10",       color: "oklch(0.68 0.16 230)" },
-  IN_PROGRESS:       { label: "In Progress",       dot: "bg-violet-400",  badge: "text-violet-500 bg-violet-500/10",   color: "oklch(0.62 0.22 245)" },
-  ARRIVED_PICKUP:    { label: "Arrived Pickup",    dot: "bg-cyan-400",    badge: "text-cyan-500 bg-cyan-500/10",       color: "oklch(0.80 0.18 72)" },
-  EN_ROUTE_DELIVERY: { label: "En Route Delivery", dot: "bg-indigo-400",  badge: "text-indigo-500 bg-indigo-500/10",   color: "oklch(0.75 0.18 245)" },
-  COMPLETED:         { label: "Completed",         dot: "bg-emerald-400", badge: "text-emerald-600 bg-emerald-500/10", color: "oklch(0.73 0.17 150)" },
-  CANCELLED:         { label: "Cancelled",         dot: "bg-zinc-400",    badge: "text-zinc-400 bg-zinc-500/10",       color: "oklch(0.52 0.012 245)" },
-  SCHEDULED:         { label: "Scheduled",         dot: "bg-sky-400",     badge: "text-sky-500 bg-sky-500/10",         color: "oklch(0.68 0.16 230)" },
-};
-
-// ── Date helpers ─────────────────────────────────────────────────────────────
-
-function startOfDay(d: Date): Date { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
-function endOfDay(d: Date): Date { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; }
-function sameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-function fmtDateShort(d: Date): string {
-  return d.toLocaleDateString(undefined, { day: "2-digit", month: "short" });
-}
-function jobDate(j: { scheduled_at: string | null; planned_start_at?: string | null; created_at: string }, stops: { scheduled_at: string | null }[]): Date {
-  const firstStop = stops.find((s) => s.scheduled_at)?.scheduled_at;
-  const iso = j.scheduled_at ?? j.planned_start_at ?? firstStop ?? j.created_at;
-  return new Date(iso);
-}
-
-// ── Toolbar buttons ──────────────────────────────────────────────────────────
-
-function ImportCsvButton() {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-  const runImport = useServerFn(importJobsCsv);
-
-  async function onFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setBusy(true);
-    try {
-      const text = await file.text();
-      const rows = csvToImportRows(text);
-      if (rows.length === 0) { toast.error("No rows found in CSV"); return; }
-      const res = await runImport({ data: { rows } });
-      const parts: string[] = [`${res.created} created`];
-      if (res.skippedDuplicate.length) parts.push(`${res.skippedDuplicate.length} duplicate`);
-      if (res.skippedUnknownWh.length) parts.push(`${res.skippedUnknownWh.length} unknown warehouse`);
-      if (res.errors.length) parts.push(`${res.errors.length} errors`);
-      toast.success(parts.join(" · "));
-      if (res.skippedUnknownWh.length) {
-        const codes = Array.from(new Set(res.skippedUnknownWh.flatMap((r) => r.missing)));
-        toast.message("Missing warehouse codes", { description: codes.join(", ") });
-      }
-      if (res.errors.length) console.error("[csv-import] errors", res.errors);
-    } catch (err) {
-      console.error("[csv-import]", err);
-      toast.error(err instanceof Error ? err.message : "Import failed");
-    } finally {
-      setBusy(false);
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  }
-
-  return (
-    <>
-      <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
-      <ToolbarButton onClick={() => inputRef.current?.click()} disabled={busy} icon={<Upload className="size-3.5" />}>
-        {busy ? "Importing…" : "Import CSV"}
-      </ToolbarButton>
-    </>
-  );
-}
-
-function ToolbarButton({
-  onClick, disabled, icon, children, primary, title,
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-  primary?: boolean;
-  title?: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed",
-        primary
-          ? "bg-gradient-to-b from-primary to-primary/85 text-primary-foreground shadow-[0_1px_0_oklch(1_0_0/0.18)_inset,0_4px_12px_oklch(0.62_0.22_245/0.35)] hover:shadow-[0_1px_0_oklch(1_0_0/0.2)_inset,0_6px_18px_oklch(0.62_0.22_245/0.5)] hover:-translate-y-px"
-          : "bg-surface border border-border text-foreground hover:bg-surface-2 hover:border-border/70 shadow-sm",
-      )}
-    >
-      {icon}
-      {children}
-    </button>
-  );
-}
-
-// ── Main page ────────────────────────────────────────────────────────────────
 
 function DispatchPage() {
   const jobs = useJobs();
@@ -217,6 +45,10 @@ function DispatchPage() {
   const drivers = useDrivers();
   const stopsMap = useJobStops();
   const compliance = useCompliance();
+
+  const lookups = useLookups(jobs, drivers, warehouses);
+
+  // ── Persisted UI state ─────────────────────────────────────────────────────
   const [createOpen, setCreateOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -245,6 +77,7 @@ function DispatchPage() {
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, [statusMenuOpen]);
+
   function toggleStatus(s: JobStatus) {
     setHiddenStatuses((prev) => {
       const next = new Set(prev);
@@ -300,60 +133,95 @@ function DispatchPage() {
     } catch { /* noop */ }
   }, [statusFilter]);
 
-  // Compliance changes every minute via a tick. We don't want that tick to
-  // re-run the auto-planner (which writes to the DB and echoes back).
-  // Keep a ref of the latest value for the planner to read on real changes.
+  // ── Plan (memoized using compliance ref to avoid minute-tick churn) ────────
   const complianceRef = useRef(compliance);
   useEffect(() => { complianceRef.current = compliance; }, [compliance]);
 
+  // Compute the plan only when *structural* inputs change. Compliance ticks
+  // every minute; we read it via ref so the plan doesn't recompute (and the
+  // detail panel doesn't reflow) just because a clock advanced.
   const plan = useMemo(
-    () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
-    [jobs, stopsMap, drivers, warehouses, compliance],
+    () => computePlan(jobs, stopsMap, drivers, warehouses, complianceRef.current),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [jobs, stopsMap, drivers, warehouses],
   );
+
   const plannedByJob = useMemo(
-    () => new Map(plan.planned.map((item) => [item.jobId, item] as const)),
+    () => new Map<string, PlannedAssign>(plan.planned.map((item) => [item.jobId, item])),
     [plan],
   );
 
-
+  // ── Normalize unassigned active jobs (debounced + batched) ─────────────────
+  const recentNormalizeRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    const inconsistent = jobs.filter((j) => !j.assigned_driver_id && ACTIVE_JOB_STATUSES.has(j.status));
+    const inconsistent = jobs.filter(
+      (j) => !j.assigned_driver_id
+        && ACTIVE_JOB_STATUSES.has(j.status)
+        && !recentNormalizeRef.current.has(j.id),
+    );
     if (inconsistent.length === 0) return;
-    void (async () => {
-      for (const job of inconsistent) {
-        const { error } = await supabase.from("jobs").update({ status: "PENDING" as never }).eq("id", job.id);
-        if (error) console.error("[dispatch] failed to normalize unassigned active job", job.id, error.message);
-      }
-    })();
+
+    const t = setTimeout(() => {
+      const ids = inconsistent.map((j) => j.id);
+      ids.forEach((id) => recentNormalizeRef.current.add(id));
+      void supabase
+        .from("jobs")
+        .update({ status: "PENDING" as never })
+        .in("id", ids)
+        .then(({ error }) => {
+          if (error) {
+            console.error("[dispatch] normalize failed", error.message);
+            ids.forEach((id) => recentNormalizeRef.current.delete(id));
+          } else {
+            ids.forEach((id) => applyJobPatch(id, { status: "PENDING" }));
+          }
+        });
+    }, 1500);
+
+    return () => clearTimeout(t);
   }, [jobs]);
+
+  // ── Mutations ──────────────────────────────────────────────────────────────
 
   async function assignDriver(jobId: string, driverId: string, opts?: { manual?: boolean }) {
     if (driverId) {
       const c = compliance[driverId];
       if (c?.blockAssignment) {
         const reason = c.issues.find((i) => i.level === "breach")?.msg ?? "compliance breach";
-        return toast.error(`Cannot assign: ${reason}`);
+        toast.error(`Cannot assign: ${reason}`);
+        return;
       }
     }
-    const job = jobs.find((j) => j.id === jobId);
+    const job = lookups.jobsById.get(jobId);
     const wasActive = job ? ACTIVE_JOB_STATUSES.has(job.status) : false;
     if (!driverId && opts?.manual && wasActive) {
       if (typeof window !== "undefined" && !window.confirm("Remove driver from this active job? It will go back to Pending.")) return;
     }
-    // Assignment flips the job straight to IN_PROGRESS (no Accept/Reject step
-    // on the driver side). Unassignment goes back to PENDING and wipes any
-    // plan fields.
+
     const base = driverId
       ? { assigned_driver_id: driverId, status: "IN_PROGRESS" as never }
       : { assigned_driver_id: null, status: "PENDING" as never, planned_driver_id: null, planned_sequence: null, planned_start_at: null };
     const payload = opts?.manual ? { ...base, manual_override: true } : base;
-    // Optimistic local update — counts and row status flip instantly,
-    // realtime echo will reconcile shortly after.
-    applyJobPatch(jobId, payload as Partial<typeof jobs[number]>);
-    const { error } = await supabase.from("jobs").update(payload as never).eq("id", jobId);
-    if (error) return toast.error(error.message);
 
-    // Side effects: keep driver row + event log in sync with the assignment.
+    // Optimistic update with rollback on error.
+    const prev: Partial<Job> | null = job
+      ? {
+          assigned_driver_id: job.assigned_driver_id,
+          status: job.status,
+          planned_driver_id: job.planned_driver_id,
+          planned_sequence: job.planned_sequence,
+          planned_start_at: job.planned_start_at,
+        }
+      : null;
+    applyJobPatch(jobId, payload as Partial<Job>);
+
+    const { error } = await supabase.from("jobs").update(payload as never).eq("id", jobId);
+    if (error) {
+      if (prev) applyJobPatch(jobId, prev);
+      toast.error(error.message);
+      return;
+    }
+
     if (driverId) {
       await supabase.from("drivers").update({ status: "ON_ROUTE" } as never).eq("id", driverId);
       try {
@@ -368,8 +236,6 @@ function DispatchPage() {
         console.warn("[dispatch] failed to log JOB_ASSIGNED", e);
       }
     } else if (job?.assigned_driver_id) {
-      // Free up the previously assigned driver only if they were ON_ROUTE for
-      // this job (don't override OFF_SHIFT / DELAYED / etc.).
       await supabase
         .from("drivers")
         .update({ status: "AVAILABLE" } as never)
@@ -378,136 +244,102 @@ function DispatchPage() {
     }
   }
 
-  // Auto-planner — unchanged from prior Jobs page
-  const planSigRef = useRef<string>("");
-  useEffect(() => {
-    if (drivers.length === 0 || warehouses.length === 0) return;
-    const pending = jobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id);
-    if (pending.some((j) => !stopsMap[j.id])) return;
-
-    const jobsForPlanner = jobs.filter((j) => !(j as { manual_override?: boolean }).manual_override);
-    // Read compliance via ref so the minute-tick doesn't re-trigger the planner.
-    const p = computePlan(jobsForPlanner, stopsMap, drivers, warehouses, complianceRef.current);
-
-
-    const sig = JSON.stringify({
-      i: p.immediate.map((x) => [x.jobId, x.driverId]),
-      p: p.planned.map((x) => [x.jobId, x.driverId, x.sequence, x.startAt]),
-    });
-    if (sig === planSigRef.current) return;
-    planSigRef.current = sig;
-
-    (async () => {
-      for (const a of p.immediate) {
-        const job = jobs.find((j) => j.id === a.jobId);
-        const driver = drivers.find((d) => d.id === a.driverId);
-        if (!job || !driver) continue;
-        if ((job as { manual_override?: boolean }).manual_override) continue;
-        await assignDriver(a.jobId, a.driverId);
-        await fillStopTimes(a.jobId, job.scheduled_at ?? new Date().toISOString(), stopsMap[a.jobId] ?? [], warehouses);
-      }
-      const desired = new Map(p.planned.map((pp) => [pp.jobId, { d: pp.driverId, s: pp.sequence, t: pp.startAt }] as const));
-      for (const job of jobs) {
-        if ((job as { manual_override?: boolean }).manual_override) continue;
-        const want = desired.get(job.id);
-        const have = { d: job.planned_driver_id ?? null, s: job.planned_sequence ?? null, t: job.planned_start_at ?? null };
-        if (!want) {
-          if (have.d || have.s || have.t) {
-            await supabase.from("jobs")
-              .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
-              .eq("id", job.id);
-          }
-          continue;
-        }
-        if (have.d !== want.d || have.s !== want.s || have.t !== want.t) {
-          await supabase.from("jobs")
-            .update({ planned_driver_id: want.d, planned_sequence: want.s, planned_start_at: want.t })
-            .eq("id", job.id);
-          await fillStopTimes(job.id, want.t, stopsMap[job.id] ?? [], warehouses);
-        }
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobs, stopsMap, drivers, warehouses]);
+  // Auto-planner — extracted hook with batched DB writes + in-flight guard.
+  useAutoPlanner({
+    jobs, stopsMap, drivers, warehouses, compliance,
+    assignDriver: (id, did) => assignDriver(id, did),
+  });
 
   async function setStatus(jobId: string, status: string, opts?: { silent?: boolean }) {
-    const job = jobs.find((j) => j.id === jobId);
+    const job = lookups.jobsById.get(jobId);
     if (!job) return;
-    if (job.status === status) return; // no-op guard: prevents echo loops
-    const requiresDriver = ACTIVE_JOB_STATUSES.has(status);
+    if (job.status === status) return;
+    const requiresDriver = ACTIVE_JOB_STATUSES.has(status as JobStatus);
     if (requiresDriver && !job.assigned_driver_id) {
       toast.error("Assign a driver before setting this route in progress");
       return;
     }
-    // Optimistic local update so re-renders see the new status immediately
-    // and auto-complete effects don't re-fire before the realtime echo lands.
-    applyJobPatch(jobId, { status: status as never } as Partial<typeof jobs[number]>);
+    const prevStatus = job.status;
+    applyJobPatch(jobId, { status: status as JobStatus });
     const { error } = await supabase.from("jobs").update({ status: status as never }).eq("id", jobId);
     if (error) {
+      applyJobPatch(jobId, { status: prevStatus });
       toast.error(error.message);
       return;
     }
-    if (!opts?.silent) toast.success(`Status → ${STATUS_CONFIG[status as JobStatus]?.label ?? status}`);
+    if (!opts?.silent) {
+      toast.success(`Status → ${STATUS_CONFIG[status as JobStatus]?.label ?? status}`);
+    }
   }
 
+  // ── Filter pipeline ────────────────────────────────────────────────────────
 
-  const editingJob = editJobId ? jobs.find((j) => j.id === editJobId) : null;
-
-  // Jobs filtered by date range + search only (used to compute status box counts).
-  const jobsInRange = useMemo(() => {
+  // Single pass that produces both `jobsInRange` and `statusCounts`,
+  // avoiding two separate iterations of the same array.
+  const { jobsInRange, statusCounts } = useMemo(() => {
     const q = search.trim().toLowerCase();
     const from = dateRange?.from ? startOfDay(dateRange.from).getTime() : null;
     const to = dateRange ? endOfDay(dateRange.to ?? dateRange.from ?? new Date()).getTime() : null;
-    return jobs.filter((j) => {
-      if (from !== null && to !== null) {
-        const t = jobDate(j, stopsMap[j.id] ?? []).getTime();
-        if (t < from || t > to) return false;
-      }
-      if (!q) return true;
-      if (j.reference.toLowerCase().includes(q)) return true;
-      if (j.status.toLowerCase().replace(/_/g, " ").includes(q)) return true;
-      if ((STATUS_CONFIG[j.status as JobStatus]?.label ?? "").toLowerCase().includes(q)) return true;
-      const stops = stopsMap[j.id] ?? [];
-      const route = stops
-        .map((s) => warehouses.find((w) => w.id === s.warehouse_id))
-        .map((w) => `${w?.code ?? ""} ${w?.name ?? ""}`)
-        .join(" ").toLowerCase();
-      if (route.includes(q)) return true;
-      const driver = drivers.find((d) => d.id === j.assigned_driver_id);
-      if (driver?.name.toLowerCase().includes(q)) return true;
-      return false;
-    });
-  }, [jobs, stopsMap, warehouses, drivers, search, dateRange]);
-
-  const filteredJobs = useMemo(() => {
-    return jobsInRange
-      .filter((j) => {
-        if (statusFilter) return j.status === statusFilter;
-        return !hiddenStatuses.has(j.status as JobStatus);
-      })
-      .sort((a, b) => {
-        const ta = jobDate(a, stopsMap[a.id] ?? []).getTime();
-        const tb = jobDate(b, stopsMap[b.id] ?? []).getTime();
-        return ta - tb;
-      });
-  }, [jobsInRange, hiddenStatuses, statusFilter, stopsMap]);
-
-  const statusCounts = useMemo(() => {
-    const c: Record<JobStatus, number> = {
+    const counts: Record<JobStatus, number> = {
       PENDING: 0, ASSIGNED: 0, IN_PROGRESS: 0, ARRIVED_PICKUP: 0,
       EN_ROUTE_DELIVERY: 0, COMPLETED: 0, CANCELLED: 0,
     };
-    for (const j of jobsInRange) c[j.status as JobStatus] = (c[j.status as JobStatus] ?? 0) + 1;
-    return c;
-  }, [jobsInRange]);
+    const inRange: Job[] = [];
 
-  // Keep selection valid; default to first filtered job
+    for (const j of jobs) {
+      if (from !== null && to !== null) {
+        const t = jobDate(j, stopsMap[j.id] ?? []).getTime();
+        if (t < from || t > to) continue;
+      }
+      if (q) {
+        let match = false;
+        if (j.reference.toLowerCase().includes(q)) match = true;
+        else if (j.status.toLowerCase().replace(/_/g, " ").includes(q)) match = true;
+        else if ((STATUS_CONFIG[j.status as JobStatus]?.label ?? "").toLowerCase().includes(q)) match = true;
+        else {
+          const stops = stopsMap[j.id] ?? [];
+          for (const s of stops) {
+            const w = lookups.warehousesById.get(s.warehouse_id);
+            if (w && (`${w.code} ${w.name}`).toLowerCase().includes(q)) { match = true; break; }
+          }
+          if (!match && j.assigned_driver_id) {
+            const driver = lookups.driversById.get(j.assigned_driver_id);
+            if (driver?.name.toLowerCase().includes(q)) match = true;
+          }
+        }
+        if (!match) continue;
+      }
+      counts[j.status as JobStatus] = (counts[j.status as JobStatus] ?? 0) + 1;
+      inRange.push(j);
+    }
+
+    return { jobsInRange: inRange, statusCounts: counts };
+  }, [jobs, stopsMap, search, dateRange, lookups.warehousesById, lookups.driversById]);
+
+  const filteredJobs = useMemo(() => {
+    const filtered = jobsInRange.filter((j) => {
+      if (statusFilter) return j.status === statusFilter;
+      return !hiddenStatuses.has(j.status as JobStatus);
+    });
+    filtered.sort((a, b) => {
+      const ta = jobDate(a, stopsMap[a.id] ?? []).getTime();
+      const tb = jobDate(b, stopsMap[b.id] ?? []).getTime();
+      return ta - tb;
+    });
+    return filtered;
+  }, [jobsInRange, hiddenStatuses, statusFilter, stopsMap]);
+
+  // Keep selection valid; default to first filtered job.
   useEffect(() => {
     if (selectedJobId && filteredJobs.some((j) => j.id === selectedJobId)) return;
     setSelectedJobId(filteredJobs[0]?.id ?? null);
   }, [filteredJobs, selectedJobId]);
 
-  const selectedJob = filteredJobs.find((j) => j.id === selectedJobId) ?? null;
+  const selectedJob = selectedJobId
+    ? filteredJobs.find((j) => j.id === selectedJobId) ?? null
+    : null;
+
+  // ── Date label & calendar helpers ──────────────────────────────────────────
 
   const dateLabel = useMemo(() => {
     if (!dateRange?.from) return "All dates";
@@ -527,19 +359,37 @@ function DispatchPage() {
     }
     return s;
   }, [jobs, stopsMap]);
-  const hasJobsOn = (d: Date) => jobDays.has(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
-  const monthStart = startOfDay(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  const monthEnd = startOfDay(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
+
+  const { monthStart, monthEnd, hasJobsOn } = useMemo(() => {
+    const now = new Date();
+    const ms = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
+    const me = startOfDay(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+    return {
+      monthStart: ms,
+      monthEnd: me,
+      hasJobsOn: (d: Date) => jobDays.has(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`),
+    };
+  }, [jobDays]);
+
+  // ── Tomorrow stats ─────────────────────────────────────────────────────────
 
   const tomorrowStats = useMemo(() => {
     const tm = startOfDay(new Date(Date.now() + 86400000));
     const tmJobs = jobs.filter((j) => sameDay(jobDate(j, stopsMap[j.id] ?? []), tm));
-    // "assigned" = driver confirmed (status ASSIGNED+); "planned" = planner wrote planned_driver_id only (still PENDING)
     const assigned = tmJobs.filter((j) => !!j.assigned_driver_id);
     const plannedOnly = tmJobs.filter((j) => !j.assigned_driver_id && !!j.planned_driver_id);
-    const availableDrivers = drivers.filter((d) => (d as { available_tomorrow?: boolean }).available_tomorrow === true);
-    const isTomorrowView = !!dateRange?.from && sameDay(dateRange.from, tm) && sameDay(dateRange.to ?? dateRange.from, tm);
-    return { total: tmJobs.length, assigned: assigned.length, plannedOnly: plannedOnly.length, availableDrivers, isTomorrowView };
+    const availableDrivers = drivers.filter(
+      (d) => (d as { available_tomorrow?: boolean }).available_tomorrow === true,
+    );
+    const isTomorrowView =
+      !!dateRange?.from && sameDay(dateRange.from, tm) && sameDay(dateRange.to ?? dateRange.from, tm);
+    return {
+      total: tmJobs.length,
+      assigned: assigned.length,
+      plannedOnly: plannedOnly.length,
+      availableDrivers,
+      isTomorrowView,
+    };
   }, [jobs, stopsMap, drivers, dateRange]);
 
   const [planningTomorrow, setPlanningTomorrow] = useState(false);
@@ -559,36 +409,24 @@ function DispatchPage() {
     }
   }
 
-  // Planning overlay — blocks the entire UI while the server plan runs
   const PlanningOverlay = planningTomorrow && typeof document !== "undefined"
     ? createPortal(
-        <div
-          style={{
-            position: "fixed", inset: 0, zIndex: 9999,
-            background: "oklch(0.12 0.018 245 / 0.92)",
-            backdropFilter: "blur(6px)",
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1.5rem",
-          }}
-        >
-          <style>{`
-            @keyframes plan-slide { 0%{transform:translateX(-100%)} 100%{transform:translateX(320%)} }
-          `}</style>
-          <Sparkles style={{ width: 36, height: 36, color: "oklch(0.75 0.18 245)", animation: "pulse 1.5s ease-in-out infinite" }} />
-          <div style={{ textAlign: "center" }}>
-            <p style={{ fontSize: "1rem", fontWeight: 600, color: "oklch(0.93 0.006 240)", marginBottom: "0.4rem" }}>
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-6 bg-[oklch(0.12_0.018_245/0.92)] backdrop-blur-md">
+          <style>{`@keyframes plan-slide{0%{transform:translateX(-100%)}100%{transform:translateX(320%)}}`}</style>
+          <Sparkles className="size-9 text-[oklch(0.75_0.18_245)] animate-pulse" />
+          <div className="text-center">
+            <p className="text-base font-semibold text-[oklch(0.93_0.006_240)] mb-1">
               Planning Tomorrow's Routes
             </p>
-            <p style={{ fontSize: "0.75rem", color: "oklch(0.55 0.014 245)", fontFamily: "var(--font-mono)" }}>
+            <p className="text-xs text-[oklch(0.55_0.014_245)] font-mono">
               Assigning drivers — please wait, do not navigate away
             </p>
           </div>
-          <div style={{ width: 280, height: 4, borderRadius: 9999, background: "oklch(0.24 0.018 245)", overflow: "hidden", position: "relative" }}>
-            <div style={{
-              position: "absolute", height: "100%", width: "45%",
-              background: "oklch(0.75 0.18 245)",
-              borderRadius: 9999,
-              animation: "plan-slide 1.4s cubic-bezier(0.4,0,0.6,1) infinite",
-            }} />
+          <div className="w-72 h-1 rounded-full bg-[oklch(0.24_0.018_245)] overflow-hidden relative">
+            <div
+              className="absolute h-full w-[45%] rounded-full bg-[oklch(0.75_0.18_245)]"
+              style={{ animation: "plan-slide 1.4s cubic-bezier(0.4,0,0.6,1) infinite" }}
+            />
           </div>
         </div>,
         document.body,
@@ -606,15 +444,14 @@ function DispatchPage() {
     sameDay(dateRange.from, today) &&
     sameDay(dateRange.to ?? dateRange.from, today);
 
-  const STATUS_BOX_KEYS: JobStatus[] = ["PENDING", "ASSIGNED", "COMPLETED", "CANCELLED"];
+  const editingJob = editJobId ? lookups.jobsById.get(editJobId) ?? null : null;
 
-  const statusBoxesRef = useRef<HTMLDivElement>(null);
-  // Status filter stays active until the user explicitly toggles it off
-  // by clicking the same box again — no outside-click dismissal.
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="h-full flex flex-col">
       {PlanningOverlay}
+
       <header className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4">
         <div className="min-w-0">
           <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
@@ -622,7 +459,7 @@ function DispatchPage() {
             {filteredJobs.length} shown of {jobs.length} total
           </p>
         </div>
-        <div ref={statusBoxesRef} className="flex items-center gap-2 justify-self-center">
+        <div className="flex items-center gap-2 justify-self-center">
           {STATUS_BOX_KEYS.map((s) => {
             const active = statusFilter === s;
             const cfg = STATUS_CONFIG[s];
@@ -655,17 +492,15 @@ function DispatchPage() {
       </header>
 
       {/* Filter bar */}
-      <div className="px-5 py-2.5 flex items-center gap-2" style={{ borderBottom: "1px solid oklch(0.20 0.016 245)", background: "oklch(0.15 0.018 245 / 0.6)" }}>
+      <div className="px-5 py-2.5 flex items-center gap-2 border-b border-[oklch(0.20_0.016_245)] bg-[oklch(0.15_0.018_245/0.6)]">
         <Popover>
           <PopoverTrigger asChild>
             <button
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-all",
+                "bg-[oklch(0.17_0.018_245)] border-[oklch(0.26_0.018_245)] hover:bg-[oklch(0.20_0.020_245)]",
                 dateRange ? "text-foreground" : "text-muted-foreground",
               )}
-              style={{ background: "oklch(0.17 0.018 245)", borderColor: "oklch(0.26 0.018 245)" }}
-              onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.20 0.020 245)")}
-              onMouseLeave={e => (e.currentTarget.style.background = "oklch(0.17 0.018 245)")}
             >
               <CalendarIcon className="size-3.5" />
               {dateLabel}
@@ -706,10 +541,7 @@ function DispatchPage() {
         <div ref={statusMenuRef} className="relative">
           <button
             onClick={() => setStatusMenuOpen((o) => !o)}
-            className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs text-foreground transition-all"
-            style={{ background: "oklch(0.17 0.018 245)", borderColor: "oklch(0.26 0.018 245)" }}
-            onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.20 0.020 245)")}
-            onMouseLeave={e => (e.currentTarget.style.background = "oklch(0.17 0.018 245)")}
+            className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs text-foreground transition-all bg-[oklch(0.17_0.018_245)] border-[oklch(0.26_0.018_245)] hover:bg-[oklch(0.20_0.020_245)]"
           >
             Statuses
             <span className="font-mono text-[10px] text-muted-foreground">
@@ -718,14 +550,8 @@ function DispatchPage() {
             <ChevronDown className="size-3" />
           </button>
           {statusMenuOpen && (
-            <div
-              className="absolute right-0 top-full mt-1 z-30 w-56 rounded-xl overflow-hidden"
-              style={{
-                background: "oklch(0.19 0.020 245)",
-                border: "1px solid oklch(0.28 0.020 245)",
-                boxShadow: "0 8px 24px oklch(0 0 0 / 0.45)",
-              }}
-            >              <div className="flex items-center justify-between px-2 py-1.5 border-b border-border text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            <div className="absolute right-0 top-full mt-1 z-30 w-56 rounded-xl overflow-hidden bg-[oklch(0.19_0.020_245)] border border-[oklch(0.28_0.020_245)] shadow-[0_8px_24px_oklch(0_0_0/0.45)]">
+              <div className="flex items-center justify-between px-2 py-1.5 border-b border-border text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
                 <span>Show statuses</span>
                 <div className="flex gap-2">
                   <button onClick={() => setHiddenStatuses(new Set())} className="hover:text-foreground">All</button>
@@ -751,11 +577,14 @@ function DispatchPage() {
 
         {!isDefaultFilters && (
           <button
-            onClick={() => { const t = startOfDay(new Date()); setSearch(""); setStatusFilter(null); setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"])); setDateRange({ from: t, to: t }); }}
-            className="rounded-lg border px-2.5 py-1.5 text-xs text-muted-foreground transition-all"
-            style={{ background: "oklch(0.17 0.018 245)", borderColor: "oklch(0.26 0.018 245)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "oklch(0.95 0.006 240)")}
-            onMouseLeave={e => (e.currentTarget.style.color = "")}
+            onClick={() => {
+              const t = startOfDay(new Date());
+              setSearch("");
+              setStatusFilter(null);
+              setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"]));
+              setDateRange({ from: t, to: t });
+            }}
+            className="rounded-lg border px-2.5 py-1.5 text-xs text-muted-foreground transition-all bg-[oklch(0.17_0.018_245)] border-[oklch(0.26_0.018_245)] hover:text-[oklch(0.95_0.006_240)]"
           >
             Reset
           </button>
@@ -776,14 +605,12 @@ function DispatchPage() {
             <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
               Tomorrow coverage
             </span>
-            {/* Confirmed assigned (status = ASSIGNED+) */}
             <span className="font-mono">
               <span style={{ color: tomorrowStats.assigned === tomorrowStats.total ? "oklch(0.78 0.14 150)" : "oklch(0.80 0.16 72)" }}>
                 {tomorrowStats.assigned}
               </span>
               <span className="text-muted-foreground"> / {tomorrowStats.total} confirmed</span>
             </span>
-            {/* Planned-only jobs (planTomorrow ran but status still PENDING) */}
             {tomorrowStats.plannedOnly > 0 && (
               <>
                 <span className="text-muted-foreground/40">·</span>
@@ -801,10 +628,7 @@ function DispatchPage() {
           <button
             onClick={onPlanTomorrow}
             disabled={planningTomorrow}
-            className="text-xs font-medium transition-colors disabled:opacity-50"
-            style={{ color: "oklch(0.75 0.18 245)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "oklch(0.85 0.14 245)")}
-            onMouseLeave={e => (e.currentTarget.style.color = "oklch(0.75 0.18 245)")}
+            className="text-xs font-medium transition-colors disabled:opacity-50 text-[oklch(0.75_0.18_245)] hover:text-[oklch(0.85_0.14_245)]"
           >
             {planningTomorrow ? "Planning…" : "Re-run planner →"}
           </button>
@@ -813,116 +637,21 @@ function DispatchPage() {
 
       {/* Two-column body */}
       <div className="flex-1 min-h-0 grid grid-cols-[360px_1fr]">
-        {/* Queue */}
-        <div className="border-r border-border overflow-y-auto" style={{ background: "oklch(0.155 0.017 245)" }}>
-          <div
-            className="px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground sticky top-0 z-10 flex items-center justify-between"
-            style={{ borderBottom: "1px solid oklch(0.20 0.016 245)", background: "oklch(0.15 0.018 245 / 0.95)", backdropFilter: "blur(4px)" }}
-          >
-            <span>Queue</span>
-            <span
-              className="inline-flex items-center justify-center size-5 rounded-full text-[10px] font-mono font-bold"
-              style={{ background: "oklch(0.62 0.22 245 / 0.12)", color: "oklch(0.75 0.18 245)" }}
-            >
-              {filteredJobs.length}
-            </span>
-          </div>
-          {filteredJobs.length === 0 ? (
-            <div className="p-8 text-sm text-muted-foreground text-center">
-              <MapPin className="size-8 mx-auto text-muted-foreground/30 mb-3" />
-              <p className="text-xs">{jobs.length === 0 ? "No routes yet." : "No routes match your filters."}</p>
-            </div>
-          ) : (
-            <ul className="divide-y" style={{ borderColor: "oklch(0.20 0.016 245)" }}>
-              {filteredJobs.map((j) => {
-                const stops = stopsMap[j.id] ?? [];
-                const o = warehouses.find((w) => w.id === stops[0]?.warehouse_id);
-                const d = warehouses.find((w) => w.id === stops[stops.length - 1]?.warehouse_id);
-                const driver = drivers.find((dr) => dr.id === j.assigned_driver_id);
-                const planned = plannedByJob.get(j.id);
-                const plannedDriver = !driver && (planned || j.planned_driver_id)
-                  ? drivers.find((dr) => dr.id === (planned?.driverId ?? j.planned_driver_id))
-                  : null;
-                const isMR = stops.length > 2;
-                const effectiveStatus = isJobScheduledFuture(
-                  {
-                    ...j,
-                    stops: stops.map((s, idx) => ({
-                      seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
-                      scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
-                    })),
-                  },
-                  Date.now(),
-                ) ? "SCHEDULED" : (j.status as JobStatus);
-                const cfg = STATUS_CONFIG[effectiveStatus];
-                const active = selectedJobId === j.id;
-                return (
-                  <li key={j.id}>
-                    <button
-                      onClick={() => setSelectedJobId(j.id)}
-                      className="w-full text-left px-4 py-3 transition-colors"
-                      style={{
-                        background: active ? "oklch(0.62 0.22 245 / 0.08)" : "transparent",
-                        borderLeft: active ? "2px solid oklch(0.62 0.22 245)" : "2px solid transparent",
-                        paddingLeft: active ? "calc(1rem - 2px)" : "1rem",
-                      }}
-                      onMouseEnter={e => { if (!active) e.currentTarget.style.background = "oklch(0.18 0.018 245)"; }}
-                      onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}
-                    >
-                      {/* Reference + status */}
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="font-mono text-[11px] text-muted-foreground">{j.reference}</span>
-                        <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tracking-wider", cfg.badge)}>
-                          <span className={cn("size-1.5 rounded-full shrink-0", cfg.dot)} />
-                          {cfg.label}
-                        </span>
-                      </div>
-                      {/* Route */}
-                      <div className="flex items-center gap-1.5 font-mono text-sm">
-                        <span className="font-semibold truncate" style={{ color: active ? "oklch(0.85 0.10 245)" : "oklch(0.88 0.008 240)" }}>
-                          {o?.code ?? "?"}
-                        </span>
-                        <ArrowRight className="size-3 text-muted-foreground shrink-0" />
-                        <span className="font-semibold truncate" style={{ color: active ? "oklch(0.85 0.10 245)" : "oklch(0.88 0.008 240)" }}>
-                          {d?.code ?? "?"}
-                        </span>
-                        {isMR && (
-                          <span
-                            className="ml-1 px-1 rounded text-[9px] font-mono font-bold"
-                            style={{ background: "oklch(0.80 0.18 72 / 0.12)", color: "oklch(0.80 0.16 72)" }}
-                          >
-                            +{stops.length - 2}
-                          </span>
-                        )}
-                      </div>
-                      {/* Time + driver */}
-                      <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground gap-2">
-                        <span className="font-mono">
-                          {j.scheduled_at
-                            ? new Date(j.scheduled_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
-                            : "ASAP"}
-                        </span>
-                        <span className="truncate" style={{ color: driver ? "oklch(0.68 0.10 245)" : plannedDriver ? "oklch(0.60 0.08 245)" : "oklch(0.42 0.010 245)" }}>
-                          {driver ? driver.name : plannedDriver ? `· ${plannedDriver.name}` : "Unassigned"}
-                        </span>
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+        <JobQueue
+          jobs={filteredJobs}
+          totalJobs={jobs.length}
+          selectedJobId={selectedJobId}
+          stopsMap={stopsMap}
+          lookups={lookups}
+          plannedByJob={plannedByJob}
+          onSelect={setSelectedJobId}
+        />
 
-        {/* Detail panel */}
-        <div className="overflow-y-auto" style={{ background: "oklch(0.14 0.016 245)" }}>
+        <div className="overflow-y-auto bg-[oklch(0.14_0.016_245)]">
           {!selectedJob ? (
             <div className="h-full grid place-items-center">
               <div className="text-center">
-                <div
-                  className="size-12 rounded-full grid place-items-center mx-auto mb-3"
-                  style={{ background: "oklch(0.22 0.018 245)" }}
-                >
+                <div className="size-12 rounded-full grid place-items-center mx-auto mb-3 bg-[oklch(0.22_0.018_245)]">
                   <MapPin className="size-5 text-muted-foreground/40" />
                 </div>
                 <p className="text-sm text-muted-foreground">Select a route from the queue</p>
@@ -936,6 +665,7 @@ function DispatchPage() {
               warehouses={warehouses}
               drivers={drivers}
               compliance={compliance}
+              lookups={lookups}
               planned={plannedByJob.get(selectedJob.id) ?? null}
               onAssignDriver={(id) => assignDriver(selectedJob.id, id, { manual: true })}
               onSetStatus={(s, opts) => { void setStatus(selectedJob.id, s, opts); }}
@@ -945,794 +675,22 @@ function DispatchPage() {
         </div>
       </div>
 
-      {createOpen && (
-        <RouteDialog mode="create" onClose={() => setCreateOpen(false)} warehouses={warehouses} />
-      )}
-      {editingJob && (
-        <RouteDialog
-          mode="edit"
-          jobId={editingJob.id}
-          initial={{ scheduled_at: editingJob.scheduled_at, stops: stopsMap[editingJob.id] ?? [] }}
-          onClose={() => setEditJobId(null)}
-          warehouses={warehouses}
-        />
-      )}
-    </div>
-  );
-}
-
-// ── Detail panel ─────────────────────────────────────────────────────────────
-
-function JobDetailPanel({
-  job, stops, warehouses, drivers, compliance, planned,
-  onAssignDriver, onSetStatus, onEdit,
-}: {
-  job: ReturnType<typeof useJobs>[number];
-  stops: Stop[];
-  warehouses: ReturnType<typeof useWarehouses>;
-  drivers: ReturnType<typeof useDrivers>;
-  compliance: Record<string, Compliance>;
-  planned: { driverId: string; sequence: number; startAt: string; distKm: number; dailyHoursLeft: number } | null;
-  onAssignDriver: (id: string) => void;
-  onSetStatus: (s: string, opts?: { silent?: boolean }) => void;
-  onEdit: () => void;
-}) {
-  const origin = warehouses.find((w) => w.id === stops[0]?.warehouse_id);
-  const dest = warehouses.find((w) => w.id === stops[stops.length - 1]?.warehouse_id);
-  const isMR = stops.length > 2;
-  const driver = drivers.find((d) => d.id === job.assigned_driver_id);
-
-  const effectiveStatus = isJobScheduledFuture(
-    {
-      ...job,
-      stops: stops.map((s, idx) => ({
-        seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
-        scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
-      })),
-    },
-    Date.now(),
-  ) ? "SCHEDULED" : job.status;
-
-  const stopTimes = job.scheduled_at
-    ? computeStopSchedule(stops, job.scheduled_at, warehouses)
-    : stops.map((s) => s.scheduled_at);
-
-  // Suggested drivers when unassigned — only for truly unassigned lanes
-  const isLaneAssigned = !!job.assigned_driver_id || job.status === "ASSIGNED";
-  const ranked = useMemo(() => {
-    if (driver || isLaneAssigned || !origin) return [];
-    return drivers
-      .filter((d) => d.status === "AVAILABLE" || d.status === "ON_SHIFT")
-      .filter((d) => d.current_lat != null && d.current_lon != null)
-      .map((d) => {
-        const distKm = haversineKm(d.current_lat!, d.current_lon!, origin.latitude, origin.longitude);
-        return { driver: d, distKm, eta: etaMinutes(distKm) };
-      })
-      .sort((a, b) => a.distKm - b.distKm);
-  }, [driver, isLaneAssigned, drivers, origin]);
-
-  // Auto-validate arrivals as a fallback to GPS geofencing.
-  // For each unarrived stop, if planned arrival has passed AND either
-  //   - the driver's GPS is stale (>15 min / never reported), OR
-  //   - a grace period (20 min) has elapsed since the planned time
-  // then assume the driver arrived on time and stamp arrived_at = planned.
-  const autoValidatedRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (stops.length === 0) return;
-    if (job.status === "COMPLETED" || job.status === "CANCELLED") return;
-    const STALE_MIN = 15;
-    const GRACE_MIN = 20;
-    const now = Date.now();
-    const lastGps = driver?.last_update_time ? new Date(driver.last_update_time).getTime() : 0;
-    const gpsStale = !lastGps || (now - lastGps) / 60_000 > STALE_MIN;
-    stops.forEach((s, i) => {
-      if (!s.id || s.arrived_at) return;
-      const planned = stopTimes[i];
-      if (!planned) return;
-      const plannedMs = new Date(planned).getTime();
-      if (plannedMs > now) return;
-      const graceElapsed = (now - plannedMs) / 60_000 >= GRACE_MIN;
-      if (!gpsStale && !graceElapsed) return;
-      if (autoValidatedRef.current.has(s.id)) return;
-      autoValidatedRef.current.add(s.id);
-      void supabase
-        .from("job_stops")
-        .update({ arrived_at: planned } as never)
-        .eq("id", s.id)
-        .is("arrived_at", null)
-        .then(({ error }) => {
-          if (error && s.id) autoValidatedRef.current.delete(s.id);
-        });
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [job.id, job.status, stops, stopTimes, driver?.last_update_time]);
-
-
-  // Auto-complete: all stops arrived, no significant delays, and not already terminal.
-  // Track per-job so the realtime echo round-trip can't fire it twice.
-  const autoCompletedRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (stops.length === 0) return;
-    if (job.status === "COMPLETED" || job.status === "CANCELLED") return;
-    if (autoCompletedRef.current.has(job.id)) return;
-    const allArrived = stops.every((s) => !!s.arrived_at);
-    if (!allArrived) return;
-    const anyDelayed = stops.some((s) => {
-      const planned = s.scheduled_at;
-      if (!planned || !s.arrived_at) return false;
-      const delayMin = (new Date(s.arrived_at).getTime() - new Date(planned).getTime()) / 60_000;
-      return delayMin > 5;
-    });
-    if (anyDelayed) return;
-    autoCompletedRef.current.add(job.id);
-    onSetStatus("COMPLETED", { silent: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [job.id, job.status, stops]);
-
-
-
-  return (
-    <div className="p-6 max-w-4xl">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="font-mono text-xs text-muted-foreground">{job.reference}</div>
-            <StatusPill status={effectiveStatus} onChange={onSetStatus} />
-            {isMR && (
-              <span className="inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[10px] border border-amber-500/30 text-amber-600 bg-amber-500/5">
-                MR · {stops.length} stops
-              </span>
-            )}
-          </div>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight flex flex-wrap items-center gap-x-2 gap-y-1 font-mono">
-            {stops.length === 0 ? (
-              <span className="text-muted-foreground">No stops</span>
-            ) : (
-              stops.map((s, i) => {
-                const wh = warehouses.find((w) => w.id === s.warehouse_id);
-                return (
-                  <span key={i} className="flex items-center gap-2">
-                    <span className={s.kind === "PICKUP" ? "text-blue-500" : "text-emerald-600"}>
-                      {wh?.code ?? "?"}
-                    </span>
-                    {i < stops.length - 1 && <ArrowRight className="size-4 text-muted-foreground" />}
-                  </span>
-                );
-              })
-            )}
-          </h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            {stops.map((s, i) => {
-              const wh = warehouses.find((w) => w.id === s.warehouse_id);
-              return `${s.kind === "PICKUP" ? "📦" : "🏁"} ${wh?.name ?? "?"}`;
-            }).join(" → ")}
-          </p>
-        </div>
-        {effectiveStatus !== "COMPLETED" && (
-          <button
-            onClick={onEdit}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs hover:bg-surface-2"
-          >
-            <Pencil className="size-3" /> Edit route
-          </button>
-        )}
-      </div>
-
-      {/* Assigned driver */}
-      <div className="mt-5 rounded-lg border border-border bg-surface p-4">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Assigned driver</div>
-        <DriverPicker
-          driverId={job.assigned_driver_id}
-          drivers={drivers}
-          compliance={compliance}
-          onChange={onAssignDriver}
-        />
-        {!driver && (planned || job.planned_driver_id) && (
-          <PlannedChip
-            driverName={drivers.find((d) => d.id === (planned?.driverId ?? job.planned_driver_id))?.name ?? "?"}
-            sequence={planned?.sequence ?? job.planned_sequence ?? undefined}
-            startAt={planned?.startAt ?? job.planned_start_at ?? undefined}
-            distanceKm={planned?.distKm}
-            dailyHoursLeft={planned?.dailyHoursLeft}
-          />
-        )}
-      </div>
-
-      {/* Suggested drivers */}
-      {!isLaneAssigned && !driver && ranked.length > 0 && (
-        <>
-          <div className="mt-6 flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
-            <Sparkles className="size-3.5 text-accent" /> Suggested drivers (3 closest)
-          </div>
-          <div className="mt-3 rounded-md border border-border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 text-left">Driver</th>
-                  <th className="px-3 py-2 text-right">Distance</th>
-                  <th className="px-3 py-2 text-right">ETA</th>
-                  <th className="px-3 py-2"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {ranked.slice(0, 3).map(({ driver: d, distKm, eta }, i) => {
-                  const dc = compliance[d.id];
-                  const blocked = !!dc?.blockAssignment;
-                  return (
-                    <tr key={d.id} className={i === 0 ? "bg-primary/5" : ""}>
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-2">
-                          {i === 0 && <span className="text-[9px] font-mono text-primary border border-primary/40 rounded px-1">BEST</span>}
-                          <span>{d.name}</span>
-                          {dc && <ComplianceDot c={dc} driverStatus={d.status} />}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-mono">{distKm.toFixed(1)} km</td>
-                      <td className="px-3 py-2.5 text-right font-mono">{eta} min</td>
-                      <td className="px-3 py-2.5 text-right">
-                        <button
-                          onClick={() => onAssignDriver(d.id)}
-                          disabled={blocked}
-                          title={blocked ? dc?.issues.find((i) => i.level === "breach")?.msg : undefined}
-                          className="px-2.5 py-1 rounded bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          Assign
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      {/* Stops */}
-      <div className="mt-6">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">
-          Stops · {stops.length}
-        </div>
-        {stops.length === 0 ? (
-          <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            No stops on this route yet.
-          </div>
-        ) : (
-          <div className="rounded-lg border border-border overflow-hidden">
-            <div className="grid grid-cols-12 gap-2 px-3 py-1.5 bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              <div className="col-span-1">#</div>
-              <div className="col-span-3">Stop</div>
-              <div className="col-span-2">Kind</div>
-              <div className="col-span-3">Planned arrival</div>
-              <div className="col-span-2">Planned departure</div>
-              <div className="col-span-1">Actual</div>
-            </div>
-            {stops.map((s, idx) => {
-              const wh = warehouses.find((w) => w.id === s.warehouse_id);
-              const arr = s.scheduled_at ?? stopTimes[idx];
-              const dep = arr ? new Date(new Date(arr).getTime() + stopDwellMinutes(s.kind) * 60_000).toISOString() : null;
-              const fmt = (iso: string | null | undefined) =>
-                iso ? new Date(iso).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
-              const delayMin = s.arrived_at && arr
-                ? Math.round((new Date(s.arrived_at).getTime() - new Date(arr).getTime()) / 60_000)
-                : null;
-              const isDelayed = delayMin != null && delayMin > 5;
-              return (
-                <div key={idx} className="grid grid-cols-12 gap-2 px-3 py-2 text-[11px] border-t border-border items-center">
-                  <div className="col-span-1 font-mono text-muted-foreground">{idx + 1}</div>
-                  <div className="col-span-3">
-                    <div className="font-mono text-xs text-foreground">{wh?.code ?? "?"}</div>
-                    <div className="text-[10px] text-muted-foreground truncate">{wh?.name}</div>
-                  </div>
-                  <div className="col-span-2">
-                    <span className={`font-mono text-[10px] uppercase ${s.kind === "PICKUP" ? "text-blue-500" : "text-emerald-600"}`}>
-                      {s.kind === "PICKUP" ? "Pickup" : "Drop"}
-                    </span>
-                  </div>
-                  <div className="col-span-3 font-mono text-foreground text-sm">{fmt(arr)}</div>
-                  <div className="col-span-2 font-mono text-foreground text-sm">{fmt(dep)}</div>
-                  <div className="col-span-1 font-mono">
-                    {s.arrived_at ? (
-                      <div className="flex flex-col items-start">
-                        <span className={isDelayed ? "text-amber-600" : "text-emerald-600"}>
-                          {new Date(s.arrived_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                        {isDelayed && (
-                          <span className="text-[9px] text-amber-600">+{delayMin}m late</span>
-                        )}
-                      </div>
-                    ) : "—"}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-4 text-[11px] text-muted-foreground flex items-center gap-1.5">
-        <Clock className="size-3" />
-        {job.scheduled_at
-          ? `Scheduled ${new Date(job.scheduled_at).toLocaleString()}`
-          : "No scheduled start"}
-      </div>
-    </div>
-  );
-}
-
-// ── Shared popover ───────────────────────────────────────────────────────────
-
-function usePopover() {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
-
-  useLayoutEffect(() => {
-    if (!open || !btnRef.current) return;
-    const update = () => {
-      const r = btnRef.current!.getBoundingClientRect();
-      setCoords({ top: r.bottom + 6, left: r.left });
-    };
-    update();
-    window.addEventListener("scroll", update, true);
-    window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", update, true);
-      window.removeEventListener("resize", update);
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (btnRef.current?.contains(t)) return;
-      if (popRef.current?.contains(t)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
-
-  return { open, setOpen, ref, btnRef, popRef, coords };
-}
-
-function StatusPill({ status, onChange }: { status: string; onChange: (s: string) => void }) {
-  const { open, setOpen, btnRef, popRef, coords } = usePopover();
-  const cfg = STATUS_CONFIG[status as JobStatus] ?? STATUS_CONFIG.PENDING;
-  return (
-    <div className="relative inline-block">
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-opacity hover:opacity-80 select-none ${cfg.badge}`}
-      >
-        <span className={`size-1.5 rounded-full shrink-0 ${cfg.dot}`} />
-        {cfg.label}
-      </button>
-      {open && coords && typeof document !== "undefined" && createPortal(
-        <div
-          ref={popRef}
-          onClick={(e) => e.stopPropagation()}
-          style={{ position: "fixed", top: coords.top, left: coords.left }}
-          className="z-[1000] w-48 rounded-xl border border-border bg-popover shadow-xl py-1.5"
-        >
-          {JOB_STATUSES.map((s) => {
-            const c = STATUS_CONFIG[s];
-            const active = s === status;
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => { onChange(s); setOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-surface-2 transition-colors"
-              >
-                <span className={`size-2 rounded-full shrink-0 ${c.dot}`} />
-                <span className={`flex-1 text-left ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
-                  {c.label}
-                </span>
-                {active && <Check className="size-3 text-foreground" />}
-              </button>
-            );
-          })}
-        </div>,
-        document.body,
-      )}
-    </div>
-  );
-}
-
-function DriverPicker({ driverId, allowUnassign = true, drivers, compliance, onChange }: {
-  driverId: string | null | undefined;
-  allowUnassign?: boolean;
-  drivers: { id: string; name: string; status?: string }[];
-  compliance?: Record<string, Compliance>;
-  onChange: (id: string) => void;
-}) {
-  const { open, setOpen, btnRef, popRef, coords } = usePopover();
-  const driver = drivers.find((d) => d.id === driverId);
-  const activeC = driver ? compliance?.[driver.id] : undefined;
-
-  return (
-    <div className="relative inline-block">
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-      >
-        {driver ? (
-          <>
-            <span className="size-7 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">
-              {driver.name[0]?.toUpperCase()}
-            </span>
-            <span className="text-sm text-foreground font-medium truncate">{driver.name}</span>
-            {activeC && <ComplianceDot c={activeC} driverStatus={driver.status} />}
-          </>
-        ) : (
-          <>
-            <span className="size-7 rounded-full border border-dashed border-border flex items-center justify-center shrink-0">
-              <User className="size-3.5 text-muted-foreground/50" />
-            </span>
-            <span className="text-sm text-muted-foreground">Unassigned — click to assign</span>
-          </>
-        )}
-      </button>
-      {open && coords && typeof document !== "undefined" && createPortal(
-        <div
-          ref={popRef}
-          onClick={(e) => e.stopPropagation()}
-          style={{ position: "fixed", top: coords.top, left: coords.left }}
-          className="z-[1000] w-52 rounded-xl border border-border bg-popover shadow-xl py-1.5 max-h-[60vh] overflow-y-auto"
-        >
-          {allowUnassign && (
-            <>
-              <button
-                type="button"
-                onClick={() => { onChange(""); setOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-surface-2 transition-colors"
-              >
-                <span className="size-6 rounded-full border border-dashed border-border flex items-center justify-center shrink-0">
-                  <User className="size-3 text-muted-foreground/40" />
-                </span>
-                <span className={`flex-1 text-left ${!driverId ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
-                  Unassigned
-                </span>
-                {!driverId && <Check className="size-3 text-foreground" />}
-              </button>
-              {drivers.length > 0 && <div className="my-1 border-t border-border/50" />}
-            </>
+      {(createOpen || editingJob) && (
+        <Suspense fallback={null}>
+          {createOpen && (
+            <RouteDialog mode="create" onClose={() => setCreateOpen(false)} warehouses={warehouses} />
           )}
-          {drivers.map((d) => {
-            const active = d.id === driverId;
-            const dc = compliance?.[d.id];
-            const blocked = !!dc?.blockAssignment;
-            return (
-              <button
-                key={d.id}
-                type="button"
-                disabled={blocked}
-                onClick={() => { if (!blocked) { onChange(d.id); setOpen(false); } }}
-                title={blocked ? dc?.issues.find((i) => i.level === "breach")?.msg : undefined}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${blocked ? "opacity-40 cursor-not-allowed" : "hover:bg-surface-2"}`}
-              >
-                <span className="size-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
-                  {d.name[0]?.toUpperCase()}
-                </span>
-                <span className={`flex-1 text-left ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
-                  {d.name}
-                  {dc && (
-                    <span className="ml-1 text-[9px] font-mono text-muted-foreground/70">
-                      {dc.weekly.toFixed(0)}/56 · {dc.dailyHeadroom.toFixed(1)}h left
-                    </span>
-                  )}
-                </span>
-                {dc && <ComplianceDot c={dc} driverStatus={d.status} />}
-                {active && <Check className="size-3 text-foreground" />}
-              </button>
-            );
-          })}
-        </div>,
-        document.body,
+          {editingJob && (
+            <RouteDialog
+              mode="edit"
+              jobId={editingJob.id}
+              initial={{ scheduled_at: editingJob.scheduled_at, stops: stopsMap[editingJob.id] ?? [] }}
+              onClose={() => setEditJobId(null)}
+              warehouses={warehouses}
+            />
+          )}
+        </Suspense>
       )}
     </div>
-  );
-}
-
-// ── Create/Edit dialog ───────────────────────────────────────────────────────
-
-function RouteDialog({
-  mode, jobId, initial, onClose, warehouses,
-}: {
-  mode: "create" | "edit";
-  jobId?: string;
-  initial?: { scheduled_at: string | null; stops: Stop[] };
-  onClose: () => void;
-  warehouses: ReturnType<typeof useWarehouses>;
-}) {
-  const [stops, setStops] = useState<Stop[]>(
-    initial?.stops?.length
-      ? initial.stops.map((s) => ({ ...s, scheduled_at: s.scheduled_at }))
-      : [
-          { kind: "PICKUP", warehouse_id: "", scheduled_at: new Date().toISOString() },
-          { kind: "DROP", warehouse_id: "", scheduled_at: null },
-        ],
-  );
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  const startIso = stops[0]?.scheduled_at ?? initial?.scheduled_at ?? new Date().toISOString();
-  const computedTimes = computeStopSchedule(stops, startIso, warehouses);
-
-  function update(i: number, patch: Partial<Stop>) {
-    setStops((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
-  }
-  function move(i: number, dir: -1 | 1) {
-    setStops((prev) => {
-      const j = i + dir;
-      if (j < 0 || j >= prev.length) return prev;
-      const copy = [...prev];
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-      return copy;
-    });
-  }
-  function addStop(kind: "PICKUP" | "DROP") {
-    setStops((prev) => [...prev, { kind, warehouse_id: "", scheduled_at: null }]);
-  }
-  function removeStop(i: number) {
-    setStops((prev) => prev.filter((_, idx) => idx !== i));
-  }
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (stops.length < 2) return toast.error("Need at least 2 stops");
-    if (stops.some((s) => !s.warehouse_id)) return toast.error("Every stop needs a warehouse");
-    setSaving(true);
-
-    const jobStartIso = startIso;
-    const autoTimes = computeStopSchedule(stops, jobStartIso, warehouses);
-
-    const tenant_id = await getTenantId();
-    const jobPayload = {
-      scheduled_at: jobStartIso,
-      origin_warehouse_id: stops[0].warehouse_id,
-      destination_warehouse_id: stops[stops.length - 1].warehouse_id,
-      tenant_id,
-    };
-
-    let targetJobId = jobId;
-    if (mode === "create") {
-      const { data, error } = await supabase.from("jobs").insert(jobPayload as never).select("id").single();
-      if (error) { setSaving(false); console.error("[jobs.insert]", error); return toast.error(`Job create failed: ${error.message}`); }
-      targetJobId = (data as { id: string }).id;
-    } else {
-      const { error } = await supabase.from("jobs").update(jobPayload).eq("id", targetJobId!);
-      if (error) { setSaving(false); console.error("[jobs.update]", error); return toast.error(`Job update failed: ${error.message}`); }
-    }
-
-    const { error: delErr } = await supabase.from("job_stops").delete().eq("job_id", targetJobId!);
-    if (delErr) { setSaving(false); console.error("[stops.delete]", delErr); return toast.error(`Clear stops failed: ${delErr.message}`); }
-
-    const rows = stops.map((s, i) => ({
-      job_id: targetJobId!,
-      seq: i,
-      kind: s.kind as never,
-      warehouse_id: s.warehouse_id,
-      scheduled_at: i === 0 ? (s.scheduled_at ?? autoTimes[i] ?? null) : (autoTimes[i] ?? null),
-    }));
-    const { error: stopErr } = await supabase.from("job_stops").insert(rows as never);
-    setSaving(false);
-    if (stopErr) { console.error("[stops.insert]", stopErr, rows); return toast.error(`Stops insert failed: ${stopErr.message}`); }
-
-    const firstArrival = rows.map((r) => r.scheduled_at).find((s) => !!s) as string | undefined;
-    const firstDate = firstArrival ? firstArrival.slice(0, 10) : null;
-    const tomorrow = (() => { const t = new Date(); t.setUTCDate(t.getUTCDate() + 1); return t.toISOString().slice(0, 10); })();
-    if (firstDate === tomorrow) {
-      toast.success("Route scheduled for tomorrow — click Plan Tomorrow to assign a driver");
-    } else {
-      toast.success(mode === "create" ? "Route created" : "Route updated");
-    }
-    onClose();
-  }
-
-  async function onDelete() {
-    if (!jobId) return;
-    if (!confirm("Delete this lane? This cannot be undone.")) return;
-    setDeleting(true);
-    const { error } = await supabase.from("jobs").delete().eq("id", jobId);
-    setDeleting(false);
-    if (error) return toast.error(error.message);
-    toast.success("Lane deleted");
-    onClose();
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={onClose}>
-      <form
-        onSubmit={submit}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl rounded-lg border border-border bg-surface shadow-xl max-h-[90vh] flex flex-col"
-      >
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <h2 className="text-sm font-semibold">{mode === "create" ? "Create route" : "Edit route"}</h2>
-          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
-            <X className="size-4" />
-          </button>
-        </div>
-        <div className="p-5 space-y-4 overflow-y-auto">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Stops</span>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => addStop("PICKUP")} className="text-xs rounded border border-border px-2 py-1 hover:bg-surface-2">+ Pickup</button>
-                <button type="button" onClick={() => addStop("DROP")} className="text-xs rounded border border-border px-2 py-1 hover:bg-surface-2">+ Drop</button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {stops.map((s, i) => {
-                const auto = computedTimes[i];
-                return (
-                  <div key={i} className="flex items-center gap-2 rounded-md border border-border bg-background p-2">
-                    <span className="font-mono text-xs text-muted-foreground w-6 text-right">{i + 1}.</span>
-                    <select
-                      value={s.kind}
-                      onChange={(e) => update(i, { kind: e.target.value as "PICKUP" | "DROP" })}
-                      className="bg-surface border border-border rounded px-2 py-1 text-xs"
-                    >
-                      <option value="PICKUP">📦 Pickup</option>
-                      <option value="DROP">🏁 Drop</option>
-                    </select>
-                    <select
-                      required
-                      value={s.warehouse_id}
-                      onChange={(e) => update(i, { warehouse_id: e.target.value })}
-                      className="flex-1 bg-surface border border-border rounded px-2 py-1 text-xs"
-                    >
-                      <option value="">Select warehouse…</option>
-                      {warehouses.map((w) => <option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}
-                    </select>
-                    <div className="flex flex-col items-end">
-                      {i === 0 ? (
-                        <input
-                          type="datetime-local"
-                          required
-                          value={s.scheduled_at ? toLocalInput(s.scheduled_at) : ""}
-                          onChange={(e) => update(i, { scheduled_at: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                          className="bg-surface border border-border rounded px-2 py-1 text-xs"
-                          title="Pickup time — subsequent stops are auto-calculated from this"
-                        />
-                      ) : (
-                        <>
-                          <span className="text-xs font-mono text-muted-foreground italic px-2 py-1">
-                            {auto ? new Date(auto).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
-                          </span>
-                          <span className="text-[9px] font-mono text-muted-foreground/70 mt-0.5">auto</span>
-                        </>
-                      )}
-                    </div>
-                    <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="p-1 hover:bg-surface-2 rounded disabled:opacity-30"><ChevronUp className="size-3.5" /></button>
-                    <button type="button" onClick={() => move(i, 1)} disabled={i === stops.length - 1} className="p-1 hover:bg-surface-2 rounded disabled:opacity-30"><ChevronDown className="size-3.5" /></button>
-                    <button type="button" onClick={() => removeStop(i)} disabled={stops.length <= 2} className="p-1 hover:bg-destructive/20 rounded disabled:opacity-30"><Trash2 className="size-3.5" /></button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-        <div className="flex justify-between gap-2 px-5 py-3 border-t border-border bg-surface-2/30">
-          <div>
-            {mode === "edit" && (
-              <button type="button" onClick={onDelete} disabled={deleting} className="inline-flex items-center gap-1.5 rounded-md bg-destructive/10 text-destructive px-3 py-1.5 text-xs hover:bg-destructive/20 disabled:opacity-50">
-                <Trash2 className="size-3.5" /> {deleting ? "Deleting…" : "Delete lane"}
-              </button>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="rounded-md px-3 py-1.5 text-xs hover:bg-surface-2">Cancel</button>
-            <button type="submit" disabled={saving} className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-              {saving ? "Saving…" : mode === "create" ? "Create route" : "Save changes"}
-            </button>
-          </div>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function toLocalInput(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function PlannedChip({
-  driverName, sequence, startAt, distanceKm, dailyHoursLeft,
-}: {
-  driverName: string;
-  sequence?: number;
-  startAt?: string;
-  distanceKm?: number;
-  dailyHoursLeft?: number;
-}) {
-  const when = startAt
-    ? new Date(startAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
-    : null;
-  return (
-    <div
-      title="Planned follow-on assignment — not confirmed yet"
-      className="mt-2 inline-flex items-center gap-1 rounded-md bg-muted/40 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground"
-    >
-      <span className="size-1 rounded-full bg-muted-foreground/60" />
-      planned: {driverName}
-      {sequence ? ` · #${sequence}` : ""}
-      {when ? ` · ${when}` : ""}
-      {distanceKm != null ? ` · ${distanceKm.toFixed(0)}km away` : ""}
-      {dailyHoursLeft != null ? ` · ${dailyHoursLeft.toFixed(1)}h left` : ""}
-    </div>
-  );
-}
-
-function ComplianceDot({ c, driverStatus }: { c: Compliance; driverStatus?: string }) {
-  const activeStatus = driverStatus && driverStatus !== "OFF_SHIFT";
-  const offShift = !c.onShift && !activeStatus;
-  const cls = offShift
-    ? "bg-muted-foreground/40"
-    : c.status === "breach"
-      ? "bg-destructive"
-      : c.status === "warn"
-        ? "bg-warning"
-        : "bg-success";
-  const title = offShift
-    ? `Off shift · ${c.restHours === Infinity ? "—" : c.restHours.toFixed(1) + "h rest"}`
-    : (c.issues[0]?.msg ?? `OK · ${c.daily.toFixed(1)}/10 today · ${c.weekly.toFixed(1)}/56 this week`);
-  return <span title={title} className={`size-1.5 rounded-full shrink-0 ${cls}`} />;
-}
-
-// ── Dispatch stat card ────────────────────────────────────────────────────────
-
-function DispatchStat({
-  label, value, color, active, onClick,
-}: {
-  label: string; value: number; color: string; active?: boolean; onClick?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={`Filter by ${label}`}
-      style={{
-        minWidth: "76px",
-        padding: "0.45rem 0.75rem",
-        borderRadius: "0.5rem",
-        borderLeft: `2px solid ${color}`,
-        borderTop:    `1px solid ${active ? "oklch(0.32 0.020 245)" : "oklch(0.24 0.018 245)"}`,
-        borderRight:  `1px solid ${active ? "oklch(0.32 0.020 245)" : "oklch(0.24 0.018 245)"}`,
-        borderBottom: `1px solid ${active ? "oklch(0.32 0.020 245)" : "oklch(0.24 0.018 245)"}`,
-        background: active ? "oklch(0.20 0.020 245)" : "oklch(0.17 0.018 245)",
-        textAlign: "left" as const,
-        cursor: "pointer",
-        transition: "all 150ms ease",
-        boxShadow: active ? `0 0 0 1px ${color}, 0 2px 8px oklch(0 0 0 / 0.25)` : "none",
-        flexShrink: 0,
-      }}
-      onMouseEnter={e => { if (!active) e.currentTarget.style.background = "oklch(0.19 0.018 245)"; }}
-      onMouseLeave={e => { if (!active) e.currentTarget.style.background = "oklch(0.17 0.018 245)"; }}
-    >
-      <div style={{
-        fontSize: "9px", fontFamily: "var(--font-mono)", textTransform: "uppercase" as const,
-        letterSpacing: "0.08em", color: "oklch(0.55 0.014 245)", lineHeight: 1, whiteSpace: "nowrap" as const,
-      }}>
-        {label}
-      </div>
-      <div style={{
-        fontSize: "1.35rem", fontFamily: "var(--font-mono)", fontWeight: 700,
-        marginTop: "0.2rem", lineHeight: 1, fontVariantNumeric: "tabular-nums", color,
-      }}>
-        {value}
-      </div>
-    </button>
   );
 }
