@@ -89,26 +89,40 @@ export const planTomorrow = createServerFn({ method: "POST" })
 
   const plan = computeTomorrowPlan(jobList, stopsMap, driverList, whList, compliance);
 
-  // Persist planned_* for assigned jobs; clear for unassigned
+  // Bug 5: Persist planned_* — coalesce clears into one .in() and run
+  // updates in parallel instead of sequential awaits (which timed out
+  // on Cloudflare Workers when N grew).
   const desired = new Map(plan.planned.map((p) => [p.jobId, p] as const));
+  const toClear: string[] = [];
+  const toApply: Array<{ id: string; planned_driver_id: string; planned_sequence: number; planned_start_at: string }> = [];
   for (const j of jobList) {
     const want = desired.get(j.id);
     if (want) {
-      await supabaseAdmin
-        .from("jobs")
-        .update({
-          planned_driver_id: want.driverId,
-          planned_sequence: want.sequence,
-          planned_start_at: want.startAt,
-        })
-        .eq("id", j.id);
+      toApply.push({
+        id: j.id,
+        planned_driver_id: want.driverId,
+        planned_sequence: want.sequence,
+        planned_start_at: want.startAt,
+      });
     } else if (j.planned_driver_id || j.planned_sequence || j.planned_start_at) {
-      await supabaseAdmin
-        .from("jobs")
-        .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
-        .eq("id", j.id);
+      toClear.push(j.id);
     }
   }
+
+  const writes: Array<Promise<unknown>> = [];
+  if (toClear.length) {
+    writes.push(
+      supabaseAdmin
+        .from("jobs")
+        .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
+        .in("id", toClear),
+    );
+  }
+  for (const u of toApply) {
+    const { id, ...patch } = u;
+    writes.push(supabaseAdmin.from("jobs").update(patch).eq("id", id));
+  }
+  await Promise.all(writes);
 
   // Drivers see tomorrow's plan in the driver app via Realtime subscriptions.
 
