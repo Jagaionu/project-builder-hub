@@ -151,35 +151,12 @@ function DispatchPage() {
     [plan],
   );
 
-  // ── Normalize unassigned active jobs (debounced + batched) ─────────────────
-  const recentNormalizeRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    const inconsistent = jobs.filter(
-      (j) => !j.assigned_driver_id
-        && ACTIVE_JOB_STATUSES.has(j.status)
-        && !recentNormalizeRef.current.has(j.id),
-    );
-    if (inconsistent.length === 0) return;
-
-    const t = setTimeout(() => {
-      const ids = inconsistent.map((j) => j.id);
-      ids.forEach((id) => recentNormalizeRef.current.add(id));
-      void supabase
-        .from("jobs")
-        .update({ status: "PENDING" as never })
-        .in("id", ids)
-        .then(({ error }) => {
-          if (error) {
-            console.error("[dispatch] normalize failed", error.message);
-            ids.forEach((id) => recentNormalizeRef.current.delete(id));
-          } else {
-            ids.forEach((id) => applyJobPatch(id, { status: "PENDING" }));
-          }
-        });
-    }, 1500);
-
-    return () => clearTimeout(t);
-  }, [jobs]);
+  // (Removed) Client-side "normalize" effect that forced ASSIGNED jobs back
+  // to PENDING. The DB is the source of truth for status; the only legitimate
+  // PENDING→ASSIGNED transition is via the Plan button or a manual assign,
+  // and ASSIGNED→IN_PROGRESS comes from the driver app starting a leg.
+  void ACTIVE_JOB_STATUSES;
+  void applyJobPatch;
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 
@@ -198,8 +175,10 @@ function DispatchPage() {
       if (typeof window !== "undefined" && !window.confirm("Remove driver from this active job? It will go back to Pending.")) return;
     }
 
+    // Assigning a driver puts the job in ASSIGNED. IN_PROGRESS is owned by
+    // the driver app (first leg start) — dispatch must never set it here.
     const base = driverId
-      ? { assigned_driver_id: driverId, status: "IN_PROGRESS" as never }
+      ? { assigned_driver_id: driverId, status: "ASSIGNED" as never }
       : { assigned_driver_id: null, status: "PENDING" as never, planned_driver_id: null, planned_sequence: null, planned_start_at: null };
     const payload = opts?.manual ? { ...base, manual_override: true } : base;
 
@@ -244,11 +223,26 @@ function DispatchPage() {
     }
   }
 
-  // Auto-planner — reuses the memoized `plan` so computePlan runs once per data change.
-  useAutoPlanner({
+  // Manual planner — wired to the "Plan now" button. Does NOT self-fire.
+  const { run: runAutoPlan } = useAutoPlanner({
     plan, jobs, stopsMap, warehouses,
     assignDriver: (id, did) => assignDriver(id, did),
   });
+  const [planningNow, setPlanningNow] = useState(false);
+  async function onPlanNow() {
+    if (planningNow) return;
+    setPlanningNow(true);
+    try {
+      const r = await runAutoPlan();
+      const total = r.assigned + r.planned;
+      if (total === 0) toast.info("No assignable jobs right now");
+      else toast.success(`Planned ${r.assigned} immediate · ${r.planned} chained`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setPlanningNow(false);
+    }
+  }
 
   async function setStatus(jobId: string, status: string, opts?: { silent?: boolean }) {
     const job = lookups.jobsById.get(jobId);
@@ -470,6 +464,14 @@ function DispatchPage() {
           })}
         </div>
         <div className="flex items-center gap-2 justify-self-end">
+          <ToolbarButton
+            onClick={onPlanNow}
+            disabled={planningNow}
+            title="Assign the closest available driver to each pending job"
+            icon={<Sparkles className="size-3.5" />}
+          >
+            {planningNow ? "Planning…" : "Plan now"}
+          </ToolbarButton>
           <ToolbarButton
             onClick={onPlanTomorrow}
             disabled={planningTomorrow || tomorrowStats.total === 0}

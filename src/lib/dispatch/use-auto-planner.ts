@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { computePlan } from "@/lib/planner";
 import { computeStopSchedule } from "@/lib/geo";
@@ -10,9 +10,8 @@ type AssignDriver = (jobId: string, driverId: string) => Promise<void>;
 type Plan = ReturnType<typeof computePlan>;
 
 /**
- * Batched, single-round-trip auto-planner. Consumes a precomputed `plan`
- * (memoized once in dispatch.tsx) instead of re-running computePlan here —
- * which previously meant the planner ran TWICE per data change.
+ * Manual planner. Returns a `run()` callback the user triggers via the
+ * "Plan now" button — no useEffect, no auto-firing on data ticks.
  *
  *  - Skips jobs flagged manual_override.
  *  - Coalesces all "clear planned fields" into one .in() update.
@@ -26,36 +25,28 @@ export function useAutoPlanner(args: {
   warehouses: Warehouse[];
   assignDriver: AssignDriver;
 }) {
-  const { plan, jobs, stopsMap, warehouses, assignDriver } = args;
-
-  const planSigRef = useRef<string>("");
+  const argsRef = useRef(args);
+  argsRef.current = args;
   const inFlightRef = useRef(false);
 
-  useEffect(() => {
-    if (inFlightRef.current) return;
-
-    const pending = jobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id);
-    if (pending.some((j) => !stopsMap[j.id])) return;
-
-    const sig = JSON.stringify({
-      i: plan.immediate.map((x) => [x.jobId, x.driverId]),
-      p: plan.planned.map((x) => [x.jobId, x.driverId, x.sequence, x.startAt]),
-    });
-    if (sig === planSigRef.current) return;
-    planSigRef.current = sig;
-
+  const run = useCallback(async (): Promise<{ assigned: number; planned: number }> => {
+    if (inFlightRef.current) return { assigned: 0, planned: 0 };
     inFlightRef.current = true;
-    void (async () => {
-      try {
-        await runPlan(plan, jobs, stopsMap, warehouses, assignDriver);
-      } catch (err) {
-        console.error("[auto-planner] failed", err);
-      } finally {
-        inFlightRef.current = false;
+    try {
+      const { plan, jobs, stopsMap, warehouses, assignDriver } = argsRef.current;
+      const pending = jobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id);
+      if (pending.some((j) => !stopsMap[j.id])) {
+        // Some stops haven't loaded yet — bail rather than plan with partial data.
+        return { assigned: 0, planned: 0 };
       }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plan, jobs, stopsMap, warehouses]);
+      await runPlan(plan, jobs, stopsMap, warehouses, assignDriver);
+      return { assigned: plan.immediate.length, planned: plan.planned.length };
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, []);
+
+  return { run };
 }
 
 async function runPlan(

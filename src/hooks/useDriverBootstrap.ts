@@ -229,23 +229,9 @@ export function useDriverBootstrap() {
     };
     document.addEventListener("visibilitychange", onVisibility);
 
-    // Heartbeat — force a fresh position every 60 s. Re-runs even when the
-    // page is in the background on browsers that still allow it (most
-    // mobile Chrome installs do, iOS Safari throttles harder).
-    heartbeatRef.current = setInterval(() => {
-      if (!navigator.geolocation) return;
-      navigator.geolocation.getCurrentPosition(
-        (pos) =>
-          onPosition({
-            lat: pos.coords.latitude,
-            lon: pos.coords.longitude,
-            accuracy: pos.coords.accuracy,
-            ts: pos.timestamp,
-          }),
-        () => {},
-        { enableHighAccuracy: false, maximumAge: 30_000, timeout: 15_000 },
-      );
-    }, 60_000);
+    // GPS ping cadence is now owned by driver-gps.watchPosition (5-min
+    // setInterval). No separate 60s heartbeat — that was layered on top of
+    // the old watchPosition stream and is now redundant.
 
     return () => {
       sub.subscription.unsubscribe();
