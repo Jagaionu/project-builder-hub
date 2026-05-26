@@ -42,9 +42,9 @@ export const planTomorrow = createServerFn({ method: "POST" })
         tenantId ? whQ.eq("tenant_id", tenantId) : whQ,
         tenantId ? stopsQ.eq("jobs.tenant_id", tenantId) : stopsQ,
         tenantId ? eventsQ.eq("tenant_id", tenantId) : eventsQ,
-        tenantId
-          ? supabaseAdmin.from("driver_day_hours").select("*").eq("tenant_id", tenantId)
-          : supabaseAdmin.from("driver_day_hours").select("*"),
+        // driver_day_hours has no tenant column — keyed by driver_id and
+        // only consulted for drivers we already loaded under the tenant filter.
+        supabaseAdmin.from("driver_day_hours").select("*"),
       ]);
 
   const jobList = (jobs ?? []) as Job[];
