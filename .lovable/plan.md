@@ -1,64 +1,61 @@
 ## Goal
-When importing lanes, instead of silently skipping rows that reference unknown warehouse codes, **park them** so they appear in Alerts. Once the missing warehouse is created, the parked row is automatically promoted to a real `PENDING` job.
-
-## Why
-Today `importJobsCsv` returns `skippedUnknownWh` in the result toast only — the info is lost the moment the dialog closes. Planners have no durable list of "blocked imports" and have to re-upload the CSV after fixing warehouses.
+Align runtime behavior with the right-hand column of your diagram. Six targeted fixes — no new UI surface, no schema changes beyond what's already in place.
 
 ---
 
-## 1. New table: `pending_job_imports`
+## 1. Kill the auto-planner trigger
+**File:** `src/lib/dispatch/use-auto-planner.ts` + caller in `src/routes/_app.dispatch.tsx`
 
-Holds the raw import row until all referenced warehouse codes exist.
+Today `useAutoPlanner` runs whenever `plan` / `jobs` / `stopsMap` change, which re-assigns drivers on every data tick.
 
-| column | type | notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `tenant_id` | uuid | RLS scope |
-| `reference` | text | Load # |
-| `lane` | text | original `BZDN->SWA->CDG8` string |
-| `equipment_type` | text null | |
-| `stop_scheduled_at` | timestamptz[] | per-stop arrivals |
-| `missing_codes` | text[] | which WH codes are unknown |
-| `created_at` / `updated_at` | timestamptz | |
+Change: the hook stops self-firing. Export a `runPlan()` callback instead of running inside a `useEffect`. The dispatch toolbar's existing **Plan** button calls `runPlan()`. No assignment happens until the user presses it.
 
-RLS: standard `tenant_id = current_tenant_id()` select/insert/update/delete + `is_super_admin()` override. Unique `(tenant_id, reference)` so re-uploading the same Load # doesn't duplicate.
+## 2. Assign → `ASSIGNED`, never `IN_PROGRESS`
+**File:** `src/lib/dispatch/use-auto-planner.ts` (the `assignDriver` call path)
 
-## 2. Import behavior change (`src/lib/jobs-import.functions.ts`)
+Today the planner writes `status: "IN_PROGRESS"` when it assigns. That's wrong — `IN_PROGRESS` should only come from the driver actually starting the job (first leg start event).
 
-Replace the `skippedUnknownWh` early-`continue` with an **upsert into `pending_job_imports`**. Result type gains `parked: string[]` (Load #s parked) alongside the existing `skippedUnknownWh` (kept for the toast detail).
+Change: planner writes `status: "ASSIGNED"` + `planned_driver_id` + `assigned_driver_id`. The driver app's existing leg-start flow remains the only path that moves a job to `IN_PROGRESS`.
 
-Duplicate guard: if `reference` already exists in `jobs` OR in `pending_job_imports`, treat as duplicate.
+## 3. Remove the "normalize" effect that resets jobs to PENDING
+**File:** likely `src/routes/_app.dispatch.tsx` or `src/lib/dispatch/*` — I'll grep for the offending effect
 
-## 3. Auto-promotion trigger
+There's an effect that "normalizes" job status and pushes `ASSIGNED` rows back to `PENDING` when it doesn't see the expected shape. Delete it. The DB is the source of truth; the UI should not rewrite status client-side.
 
-Postgres trigger on `warehouses` AFTER INSERT: for every `pending_job_imports` row in the same tenant whose `missing_codes` contains the new code, re-resolve all codes in `lane`. If all now resolve, the trigger:
-- inserts a `jobs` row + `job_stops` rows (mirroring the import handler)
-- deletes the `pending_job_imports` row
+## 4. Tabs reflect DB reality
+**File:** `src/routes/_app.dispatch.tsx` (status filter + counts)
 
-If some codes still missing, just update `missing_codes` to the remaining set.
+Once #2 and #3 are fixed, the ASSIGNED tab will naturally have rows. I'll also double-check `statusCounts` groups by the raw DB `status` (not a derived/effective status) so a freshly-assigned job shows under ASSIGNED, not IN_PROGRESS.
 
-Implemented as a `SECURITY DEFINER` plpgsql function so it can write across tables under RLS.
+## 5. GPS: `setInterval(5 min)` instead of `watchPosition`
+**File:** `src/lib/driver-gps.ts` + caller in `src/hooks/useDriverBootstrap.ts` (or wherever `watchPosition` is wired)
 
-## 4. Alerts surface (`src/lib/use-alerts.ts`)
+Replace `navigator.geolocation.watchPosition` with a `setInterval` (default 5 min, configurable constant) that calls `getCurrentPosition` once per tick and pushes the ping to the existing `driver_events` / `drivers.current_lat/lon` writer. Reduces battery drain + DB write pressure.
 
-Add a new hook `useParkedImports()` that subscribes to `pending_job_imports` for the tenant. For each row, emit:
+Cleanup on unmount + tab-hidden pause (use `document.visibilityState`).
 
-```
-level: "warning"
-type:  "Unmapped lane"
-message: "{reference}: lane {lane} — missing {missing_codes.join(", ")}. Add the warehouse to release."
-```
+## 6. "Closest driver" assignment uses latest GPS
+**File:** `src/lib/planner.ts` (or wherever `computePlan` picks a driver)
 
-These flow through the existing `useAlerts()` pipeline, so they appear in the bell count, on `/alerts`, and respect the existing ack mechanism.
-
-## 5. Out of scope
-- No UI for manually editing a parked row's lane (planner fixes the warehouse, not the lane).
-- No bulk-clear button on `/alerts` for parked imports (ack is enough; row disappears when promoted).
-- No change to `csv-import.ts` parser — it already yields the row shape we need.
+When `runPlan()` fires:
+- For each unassigned job's first pickup, sort drivers by haversine distance from their `drivers.current_lat/lon`.
+- Filter out drivers whose remaining shift hours can't cover `jobTotalMinutes` (already in `src/lib/geo.ts`).
+- Pick the closest eligible driver.
+- If that driver still has hours after this job, the planner is allowed to chain the next geographically-closest job onto them in the same run.
 
 ---
 
-## Technical notes
-- The trigger function reuses the same `(seq, kind, warehouse_id, scheduled_at)` mapping as `importJobsCsv` so promoted jobs are indistinguishable from directly-imported ones.
-- `for_date` continues to be set by the existing `sync_job_for_date` trigger after stops are inserted.
-- Realtime: enable `pending_job_imports` in `supabase_realtime` so the alerts hook updates without polling.
+## Out of scope (explicitly)
+- No new tables, no migration.
+- No change to the parked-imports / Alerts flow we just shipped.
+- No change to the driver-side job lifecycle (`IN_PROGRESS` → `ARRIVED_PICKUP` → ...).
+- No new Plan button UI — the existing one in the dispatch toolbar gets wired to `runPlan()`.
+
+## Verification
+- Import a CSV → jobs land in PENDING, ASSIGNED tab stays 0, no driver assigned.
+- Press Plan → drivers get assigned, jobs flip to ASSIGNED, ASSIGNED tab populates.
+- Driver starts a leg in driver app → that one job flips to IN_PROGRESS; others stay ASSIGNED.
+- Refresh page → no status churn (normalize effect is gone).
+- Driver app: GPS ping logs once every ~5 min, not every few seconds.
+
+Approve and I'll implement all six in one pass.
