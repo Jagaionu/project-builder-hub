@@ -48,16 +48,16 @@ function driverMarkerHtml(name: string, status: string, selected: boolean): stri
   `;
 }
 
-function warehouseMarkerHtml(code: string, zoom: number): string {
-  const showLabel = zoom > 9;
+function warehouseMarkerHtml(code: string): string {
   return `
-    <div class="modern-marker warehouse-marker ${showLabel ? 'with-label' : ''}">
-      <div class="marker-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M3 21h18M3 7v14M21 7v14M2 3h20M10 21V11h4v10M7 7l5-4 5 4" stroke-linecap="round" stroke-linejoin="round"/>
+    <div class="warehouse-marker-container">
+      <div class="warehouse-marker-icon">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+          <!-- House shape with warehouse style -->
+          <path d="M3 21h18M3 9v12M21 9v12M2 8h20L12 2L2 8M9 21v-8h6v8M10 9v3h4V9" fill="#ff8c00"/>
         </svg>
+        <span class="warehouse-code">${code.toUpperCase()}</span>
       </div>
-      ${showLabel ? `<span class="marker-label">${code.toUpperCase()}</span>` : ""}
     </div>
   `;
 }
@@ -80,7 +80,7 @@ function etaChipHtml(distKm: number, minutes: number): string {
 type Panel =
   | { kind: "idle" }
   | { kind: "driver"; driver: Driver; job?: Job }
-  | { kind: "warehouse"; wh: Warehouse }
+  | { kind: "warehouse"; wh: Warehouse; nearbyDrivers: Driver[] }
   | { kind: "eta"; driver: Driver; wh: Warehouse; distKm: number; minutes: number }
   | { kind: "loading"; driver: Driver; wh: Warehouse };
 
@@ -91,7 +91,8 @@ type Panel =
 export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectDriver }: Props) {
   const containerRef   = useRef<HTMLDivElement | null>(null);
   const mapRef         = useRef<L.Map | null>(null);
-  const clusterLayer   = useRef<any | null>(null);
+  const driverClusterLayer   = useRef<any | null>(null);
+  const warehouseLayer = useRef<L.LayerGroup | null>(null);
   const routeLayer     = useRef<L.LayerGroup | null>(null);
   const etaMarkerRef   = useRef<L.Marker | null>(null);
   const routeMidRef    = useRef<[number,number] | null>(null);
@@ -143,35 +144,48 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
         0% { transform: scale(1); opacity: 0.6; }
         100% { transform: scale(2.2); opacity: 0; }
       }
-      .warehouse-marker {
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 99px;
-        padding: 4px;
-        gap: 6px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        cursor: pointer;
-      }
-      .warehouse-marker .marker-icon {
-        width: 24px;
-        height: 24px;
-        background: #ef4444;
-        border-radius: 50%;
+      
+      /* Warehouse Marker - Orange house with black code */
+      .warehouse-marker-container {
         display: flex;
         align-items: center;
         justify-content: center;
-        color: white;
       }
-      .warehouse-marker .marker-icon svg {
-        width: 14px;
-        height: 14px;
+      .warehouse-marker-icon {
+        position: relative;
+        width: 48px;
+        height: 48px;
+        background: #ff8c00;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 6px 16px rgba(255, 140, 0, 0.35), 0 0 0 3px white;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 2px solid #fff;
       }
-      .warehouse-marker .marker-label {
-        font-size: 12px;
-        font-weight: 700;
-        color: #1e293b;
-        padding-right: 8px;
+      .warehouse-marker-icon:hover {
+        transform: scale(1.15);
+        box-shadow: 0 8px 24px rgba(255, 140, 0, 0.5), 0 0 0 3px white;
       }
+      .warehouse-marker-icon svg {
+        width: 32px;
+        height: 32px;
+        color: #ff8c00;
+        position: absolute;
+        opacity: 0.15;
+      }
+      .warehouse-code {
+        position: absolute;
+        font-size: 11px;
+        font-weight: 900;
+        color: #000;
+        text-shadow: 0 1px 2px rgba(255,255,255,0.3);
+        letter-spacing: 0.5px;
+        z-index: 10;
+      }
+      
       .eta-chip {
         background: #6366f1;
         color: white;
@@ -190,33 +204,48 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
         height: 12px;
         background: rgba(255,255,255,0.3);
       }
-      /* Marker Cluster Overrides */
-      .marker-cluster-small { background-color: rgba(181, 226, 191, 0.6); }
-      .marker-cluster-small div { background-color: rgba(110, 204, 57, 0.6); }
-      .marker-cluster-medium { background-color: rgba(241, 211, 87, 0.6); }
-      .marker-cluster-medium div { background-color: rgba(240, 194, 12, 0.6); }
-      .marker-cluster-large { background-color: rgba(253, 156, 115, 0.6); }
-      .marker-cluster-large div { background-color: rgba(241, 128, 23, 0.6); }
+      
+      /* Marker Cluster Overrides - Modern styling */
+      .marker-cluster-small { background-color: rgba(181, 226, 191, 0.7); border: 2px solid #6ee63d; }
+      .marker-cluster-small div { background-color: #6ee63d; color: #fff; }
+      .marker-cluster-medium { background-color: rgba(241, 211, 87, 0.7); border: 2px solid #f0c20c; }
+      .marker-cluster-medium div { background-color: #f0c20c; color: #1e293b; }
+      .marker-cluster-large { background-color: rgba(253, 156, 115, 0.7); border: 2px solid #f18017; }
+      .marker-cluster-large div { background-color: #f18017; color: #fff; }
       .marker-cluster div {
-        width: 30px;
-        height: 30px;
-        margin-left: 5px;
-        margin-top: 5px;
+        width: 36px;
+        height: 36px;
+        margin-left: 2px;
+        margin-top: 2px;
         text-align: center;
-        border-radius: 15px;
+        border-radius: 50%;
         font-family: inherit;
-        font-size: 12px;
-        font-weight: 700;
-        color: #1e293b;
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
       }
+      .marker-cluster {
+        background-clip: padding-box;
+      }
+      
       @keyframes route-flow {
         to { stroke-dashoffset: -20; }
       }
       .route-line-animated {
         animation: route-flow 1s linear infinite;
       }
+      
       .leaflet-container {
-        background: #f8fafc;
+        background: #f1f5f9;
+      }
+      
+      /* High contrast roads and buildings */
+      .leaflet-tile-pane {
+        filter: contrast(1.1) brightness(0.98);
       }
     `;
     document.head.appendChild(el);
@@ -232,17 +261,29 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       zoomControl: false,
       attributionControl: false,
     });
-    // Modern "Positron" style tiles (cleaner than Google for fleet)
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+    
+    // Use a more detailed map style with better road/building visibility
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/positron/{z}/{x}/{y}{r}.png", {
       maxZoom: 20,
+      attribution: "",
     }).addTo(map);
+    
     L.control.zoom({ position: "topright" }).addTo(map);
-    clusterLayer.current = (L as any).markerClusterGroup({
+    
+    // Driver clustering layer
+    driverClusterLayer.current = (L as any).markerClusterGroup({
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: true,
-      maxClusterRadius: 40,
+      maxClusterRadius: 50,
+      disableClusteringAtZoom: 12,
     }).addTo(map);
+    
+    // Warehouse layer (separate, always on top)
+    warehouseLayer.current = L.layerGroup().addTo(map);
+    
+    // Route layer
     routeLayer.current = L.layerGroup().addTo(map);
+    
     map.on("zoomend", () => setZoom(map.getZoom()));
     mapRef.current = map;
     return () => { map.remove(); mapRef.current = null; };
@@ -260,35 +301,55 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warehouses.length > 0]);
 
-  // ── Render Markers with Clustering ──────────────────────────────────────────
+  // ── Render Warehouse Markers (separate layer, always visible) ──────────────
   useEffect(() => {
-    const cluster = clusterLayer.current;
-    if (!cluster) return;
-    cluster.clearLayers();
-    // Warehouses
+    const layer = warehouseLayer.current;
+    if (!layer) return;
+    layer.clearLayers();
+    
     warehouses.forEach(w => {
       const icon = L.divIcon({
         className: "",
-        html: warehouseMarkerHtml(w.code, zoom),
-        iconAnchor: [16, 16],
+        html: warehouseMarkerHtml(w.code),
+        iconSize: [48, 48],
+        iconAnchor: [24, 48],
+        popupAnchor: [0, -48],
       });
-      L.marker([w.latitude, w.longitude], { icon })
+      
+      const nearbyDrivers = drivers.filter(d => {
+        if (d.current_lat == null || d.current_lon == null) return false;
+        const dist = Math.sqrt(
+          Math.pow(d.current_lat - w.latitude, 2) + 
+          Math.pow(d.current_lon - w.longitude, 2)
+        );
+        return dist < 0.05; // ~5km radius
+      }).sort((a, b) => {
+        const distA = Math.sqrt(
+          Math.pow(a.current_lat! - w.latitude, 2) + 
+          Math.pow(a.current_lon! - w.longitude, 2)
+        );
+        const distB = Math.sqrt(
+          Math.pow(b.current_lat! - w.latitude, 2) + 
+          Math.pow(b.current_lon! - w.longitude, 2)
+        );
+        return distA - distB;
+      });
+      
+      L.marker([w.latitude, w.longitude], { icon, zIndexOffset: 1000 })
         .on("click", () => {
-          if (pinnedDriver?.current_lat != null) {
-            setPanel({ kind: "loading", driver: pinnedDriver, wh: w });
-            calcRoute(
-              { lat: pinnedDriver.current_lat!, lon: pinnedDriver.current_lon! },
-              { lat: w.latitude, lon: w.longitude }
-            )
-              .then(r => setPanel({ kind: "eta", driver: pinnedDriver, wh: w, ...r }))
-              .catch(() => setPanel({ kind: "warehouse", wh: w }));
-          } else {
-            setPanel({ kind: "warehouse", wh: w });
-          }
+          setPanel({ kind: "warehouse", wh: w, nearbyDrivers });
+          mapRef.current?.flyTo([w.latitude, w.longitude], 12, { duration: 1.2 });
         })
-        .addTo(cluster);
+        .addTo(layer);
     });
-    // Drivers
+  }, [drivers, warehouses]);
+
+  // ── Render Driver Markers with Clustering ────────────────────────────────────
+  useEffect(() => {
+    const cluster = driverClusterLayer.current;
+    if (!cluster) return;
+    cluster.clearLayers();
+    
     drivers.forEach(d => {
       if (d.current_lat == null || d.current_lon == null) return;
       const sel = d.id === selectedDriverId;
@@ -310,7 +371,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
         })
         .addTo(cluster);
     });
-  }, [drivers, warehouses, selectedDriverId, pinnedDriver, zoom, jobs]);
+  }, [drivers, selectedDriverId, jobs]);
 
   // ── Route logic ────────────────────────────────────────────────────────────
   const selectedDriver = useMemo(() => drivers.find(d => d.id === selectedDriverId), [drivers, selectedDriverId]);
@@ -398,7 +459,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
             </svg>
           </div>
           <p className="text-xs text-slate-500 leading-relaxed px-4">
-            Select a driver to view their route, or click a warehouse to see details.
+            Select a driver to view their route, or click a warehouse to see nearby drivers.
           </p>
         </div>
       );
@@ -434,12 +495,12 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
         );
       }
       case "warehouse": {
-        const { wh } = panel;
+        const { wh, nearbyDrivers } = panel;
         return (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="size-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500 border border-red-100">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M3 7v14M21 7v14M2 3h20M10 21V11h4v10M7 7l5-4 5 4"/></svg>
+              <div className="size-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 border border-orange-200 font-bold text-sm">
+                🏢
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold text-slate-900 truncate">{wh.code}</div>
@@ -450,6 +511,39 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
               </button>
             </div>
             {wh.address && <div className="text-xs text-slate-500 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">{wh.address}</div>}
+            
+            {nearbyDrivers.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nearby Drivers ({nearbyDrivers.length})</div>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {nearbyDrivers.map(d => {
+                    const s = STATUS[d.status] ?? DEF_STATUS;
+                    return (
+                      <button
+                        key={d.id}
+                        onClick={() => {
+                          onSelectDriver?.(d.id);
+                          setPinned(d);
+                          setPanel({ kind: "driver", driver: d });
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors text-left"
+                      >
+                        <div className="size-6 rounded-md flex items-center justify-center font-bold text-white text-xs shrink-0" style={{ background: s.bg }}>
+                          {(d.name[0]??"?").toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold text-slate-900 truncate">{d.name}</div>
+                          <div className="text-[10px] text-slate-500">{s.label}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {nearbyDrivers.length === 0 && (
+              <div className="text-xs text-slate-400 italic text-center py-2">No drivers nearby</div>
+            )}
           </div>
         );
       }
@@ -481,7 +575,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
             <div className="flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
               <span className="text-slate-900 font-bold">{driver.name}</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-              <span className="text-red-500 font-bold">{wh.code}</span>
+              <span className="text-orange-600 font-bold">{wh.code}</span>
             </div>
           </div>
         );

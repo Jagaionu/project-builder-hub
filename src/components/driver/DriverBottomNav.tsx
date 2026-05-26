@@ -1,5 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, Map, AlertTriangle, User } from "lucide-react";
+import { Home, Map, AlertTriangle, User, Download } from "lucide-react";
+import { usePwaInstall } from "@/hooks/usePwaInstall";
+import { useState } from "react";
 
 const tabs = [
   { id: "home",   path: "/d",        label: "Home",    Icon: Home },
@@ -10,14 +12,45 @@ const tabs = [
 
 export function DriverBottomNav() {
   const location = useLocation();
+  const { isInstallable, isInstalled, promptInstall } = usePwaInstall();
+  const [installing, setInstalling] = useState(false);
   const current = tabs.find((t) =>
     t.path === "/d"
       ? location.pathname === "/d"
       : location.pathname.startsWith(t.path),
   )?.id;
 
+  const handleInstallClick = async () => {
+    setInstalling(true);
+    await promptInstall();
+    setInstalling(false);
+  };
+
   return (
     <nav className="driver-bottom-nav">
+      {/* PWA Install Button */}
+      {isInstallable && !isInstalled && (
+        <button
+          onClick={handleInstallClick}
+          disabled={installing}
+          className="driver-nav-item install-btn"
+          title="Install app on your phone"
+          style={{
+            animation: "pulse-glow 2s ease-in-out infinite",
+          }}
+        >
+          <Download
+            strokeWidth={2.5}
+            style={{
+              color: "oklch(0.62 0.22 245)",
+              filter: "drop-shadow(0 0 8px oklch(0.62 0.22 245 / 0.7))",
+            }}
+          />
+          <span style={{ fontSize: "10px", letterSpacing: "0.04em", fontWeight: 600 }}>
+            {installing ? "Installing..." : "Install"}
+          </span>
+        </button>
+      )}
       {tabs.map((t) => {
         const active = current === t.id;
         const { Icon } = t;
@@ -47,6 +80,23 @@ export function DriverBottomNav() {
           </Link>
         );
       })}
+      <style>{`
+        @keyframes pulse-glow {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+        .install-btn {
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .install-btn:hover:not(:disabled) {
+          transform: scale(1.05);
+        }
+        .install-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+      `}</style>
     </nav>
   );
 }

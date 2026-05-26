@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, useLocation, useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { DriverBottomNav } from "@/components/driver/DriverBottomNav";
+import { PwaInstallPrompt } from "@/components/driver/PwaInstallPrompt";
 import { useDriverBootstrap } from "@/hooks/useDriverBootstrap";
 import { useDriverStore } from "@/lib/driver-store";
 
@@ -31,6 +32,7 @@ function DriverLayout() {
         <Outlet />
       </main>
       {!isLogin && session && <DriverBottomNav />}
+      {!isLogin && <PwaInstallPrompt />}
     </div>
   );
 }
