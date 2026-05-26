@@ -14,6 +14,7 @@ export type ImportRow = {
 
 export type ImportResult = {
   created: number;
+  parked: string[];
   skippedDuplicate: string[];
   skippedUnknownWh: { reference: string; missing: string[] }[];
   errors: { reference: string; message: string }[];
