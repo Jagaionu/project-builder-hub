@@ -1,6 +1,46 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Gauge, Timer, type LucideIcon } from "lucide-react";
 import { useCompliance, useDrivers, useJobs, useRecentDelays } from "@/lib/hooks";
+import { supabase } from "@/integrations/supabase/client";
+
+type CantCompleteEvent = {
+  id: string;
+  timestamp: string;
+  payload: { job_reference?: string; driver_name?: string; reason?: string };
+};
+
+function useRecentCantComplete(): CantCompleteEvent[] {
+  const [rows, setRows] = useState<CantCompleteEvent[]>([]);
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      const since = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
+      const { data } = await supabase
+        .from("driver_events")
+        .select("id,timestamp,payload")
+        .eq("type", "CANT_COMPLETE" as never)
+        .gte("timestamp", since)
+        .order("timestamp", { ascending: false });
+      if (!mounted || !data) return;
+      setRows(data as unknown as CantCompleteEvent[]);
+    };
+    load();
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    const debounced = () => {
+      if (pending) clearTimeout(pending);
+      pending = setTimeout(() => void load(), 400);
+    };
+    const ch = supabase
+      .channel(`rt-cant-complete-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "driver_events" }, debounced)
+      .subscribe();
+    return () => {
+      mounted = false;
+      supabase.removeChannel(ch);
+    };
+  }, []);
+  return rows;
+}
 
 export interface AppAlert {
   id: string;
