@@ -160,7 +160,7 @@ export async function fillStopTimes(
     const t = times[i];
     if (!s.id || !t) continue;
     if (s.scheduled_at === t) continue;
-    writes.push(supabase.from("job_stops").update({ scheduled_at: t }).eq("id", s.id));
+    writes.push(Promise.resolve(supabase.from("job_stops").update({ scheduled_at: t }).eq("id", s.id)));
   }
   await Promise.all(writes);
 }

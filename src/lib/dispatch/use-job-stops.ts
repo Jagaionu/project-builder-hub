@@ -74,8 +74,9 @@ export function useJobStops(): JobStopsMap {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "job_stops" }, (payload) => {
         const row = payload.new as StopRow;
         const next: JobStopsMap = { ...cache };
-        const list = [...(next[row.job_id] ?? []), rowToStop(row)]
-          .sort((a, b) => (a as { seq: number }).seq - (b as { seq: number }).seq);
+        const existing = (next[row.job_id] ?? []) as Array<Stop & { seq?: number }>;
+        const list: Array<Stop & { seq?: number }> = [...existing, rowToStop(row)]
+          .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
         next[row.job_id] = list.map(({ seq: _seq, ...rest }) => rest);
         broadcast(next);
       })
