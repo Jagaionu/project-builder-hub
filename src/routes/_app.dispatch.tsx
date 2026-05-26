@@ -359,7 +359,9 @@ function DispatchPage() {
     if (pending.some((j) => !stopsMap[j.id])) return;
 
     const jobsForPlanner = jobs.filter((j) => !(j as { manual_override?: boolean }).manual_override);
-    const p = computePlan(jobsForPlanner, stopsMap, drivers, warehouses, compliance);
+    // Read compliance via ref so the minute-tick doesn't re-trigger the planner.
+    const p = computePlan(jobsForPlanner, stopsMap, drivers, warehouses, complianceRef.current);
+
 
     const sig = JSON.stringify({
       i: p.immediate.map((x) => [x.jobId, x.driverId]),
