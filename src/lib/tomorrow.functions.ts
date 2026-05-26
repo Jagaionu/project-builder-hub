@@ -23,17 +23,13 @@ export const planTomorrow = createServerFn({ method: "POST" })
     const tomorrow = tomorrowISO();
     const jobsQ = supabaseAdmin.from("jobs").select("*").eq("for_date", tomorrow);
     const driversQ = supabaseAdmin.from("drivers").select("*");
-    // Include shared (tenant_id IS NULL) warehouses for tenant planning,
-    // matching the RLS select policy on warehouses.
-    const whQ = tenantId
-      ? supabaseAdmin.from("warehouses").select("*").or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
-      : supabaseAdmin.from("warehouses").select("*");
+    const whQ = supabaseAdmin.from("warehouses").select("*");
     const eventsQ = supabaseAdmin.from("driver_events").select("driver_id,type,timestamp");
     const [{ data: jobs }, { data: drivers }, { data: warehouses }, { data: stops }, { data: events }, { data: ledger }] =
       await Promise.all([
         tenantId ? jobsQ.eq("tenant_id", tenantId) : jobsQ,
         tenantId ? driversQ.eq("tenant_id", tenantId) : driversQ,
-        whQ,
+        tenantId ? whQ.eq("tenant_id", tenantId) : whQ,
         supabaseAdmin.from("job_stops").select("*").order("seq"),
         tenantId ? eventsQ.eq("tenant_id", tenantId) : eventsQ,
         supabaseAdmin.from("driver_day_hours").select("*"),
@@ -81,70 +77,33 @@ export const planTomorrow = createServerFn({ method: "POST" })
 
   const plan = computeTomorrowPlan(jobList, stopsMap, driverList, whList, compliance);
 
-  // Diagnostics — surface why drivers may not match (visible in server logs)
-  const availableDrivers = driverList.filter((d) => (d as { available_tomorrow?: boolean }).available_tomorrow);
-  const eligibleDrivers = availableDrivers.filter((d) => {
-    const dd = d as Driver & { tomorrow_start_lat?: number | null; tomorrow_start_lon?: number | null };
-    const lat = dd.tomorrow_start_lat ?? d.current_lat;
-    const lon = dd.tomorrow_start_lon ?? d.current_lon;
-    return lat != null && lon != null && !compliance[d.id]?.blockAssignment;
-  });
-  console.log("[plan-tomorrow] summary", {
-    tomorrow,
-    tenantId,
-    totalJobs: jobList.length,
-    totalDrivers: driverList.length,
-    availableTomorrow: availableDrivers.length,
-    eligibleAfterCompliance: eligibleDrivers.length,
-    planned: plan.planned.length,
-    unassignable: plan.unassignable.length,
-    sampleUnassignable: plan.unassignable.slice(0, 3),
-  });
-
-  // Persist planned_* for assigned jobs; clear for unassigned.
-  // Parallelize writes and capture failures so we can report what really stuck.
+  // Persist planned_* for assigned jobs; clear for unassigned
   const desired = new Map(plan.planned.map((p) => [p.jobId, p] as const));
-  let persisted = 0;
-  const failures: Array<{ jobId: string; error: string }> = [];
-
-  await Promise.all(
-    jobList.map(async (j) => {
-      const want = desired.get(j.id);
-      if (want) {
-        const { error } = await supabaseAdmin
-          .from("jobs")
-          .update({
-            planned_driver_id: want.driverId,
-            planned_sequence: want.sequence,
-            planned_start_at: want.startAt,
-          })
-          .eq("id", j.id);
-        if (error) failures.push({ jobId: j.id, error: error.message });
-        else persisted += 1;
-      } else if (j.planned_driver_id || j.planned_sequence || j.planned_start_at) {
-        const { error } = await supabaseAdmin
-          .from("jobs")
-          .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
-          .eq("id", j.id);
-        if (error) failures.push({ jobId: j.id, error: error.message });
-      }
-    }),
-  );
-
-  if (failures.length) {
-    console.error("[plan-tomorrow] persistence failures", {
-      count: failures.length,
-      sample: failures.slice(0, 5),
-    });
+  for (const j of jobList) {
+    const want = desired.get(j.id);
+    if (want) {
+      await supabaseAdmin
+        .from("jobs")
+        .update({
+          planned_driver_id: want.driverId,
+          planned_sequence: want.sequence,
+          planned_start_at: want.startAt,
+        })
+        .eq("id", j.id);
+    } else if (j.planned_driver_id || j.planned_sequence || j.planned_start_at) {
+      await supabaseAdmin
+        .from("jobs")
+        .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
+        .eq("id", j.id);
+    }
   }
-  console.log("[plan-tomorrow] persisted", { persisted, computed: plan.planned.length });
+
+  // Drivers see tomorrow's plan in the driver app via Realtime subscriptions.
 
   return {
     tomorrow,
     totalJobs: jobList.length,
-    assigned: persisted,
-    computed: plan.planned.length,
-    persistFailures: failures.length,
+    assigned: plan.planned.length,
     unassignable: plan.unassignable,
     driversPlanned: new Set(plan.planned.map((p) => p.driverId)).size,
   };

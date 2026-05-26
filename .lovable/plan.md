@@ -1,25 +1,32 @@
-## Diagnosis
+## Problem
 
-`src/integrations/supabase/client.server.ts` throws at first use if `SUPABASE_SERVICE_ROLE_KEY` is missing from `process.env`. Several code paths hit `supabaseAdmin` during SSR/loaders (e.g. `auth-helpers.server.ts`, `drivers-delete.functions.ts`, `pairing-login.ts`), so a missing key surfaces as a 500/SSR crash → Cloudflare 502.
+Creating a company doesn't create a login. The current "invite" hint points to the Supabase dashboard, which you can't access — so there's no email/password for the company.
 
-Lovable Cloud's secret store shows `SUPABASE_SERVICE_ROLE_KEY` as present, but `.env` only has the publishable key. The Worker runtime gets env from the Cloud secret bindings, not `.env` — so the question is whether the key is actually bound to the deployed Worker.
+## Solution
 
-## Plan
+Add a small form inside each company's expanded panel in `/admin` where you type an email + password and click **Create admin user**. The user is created with email auto-confirmed and linked to that company as `admin` in one shot. You then hand those credentials to the customer.
 
-1. **Verify the key is reaching the Worker**
-   - Call `stack_modern--server-function-logs` (published) and search for `Missing Supabase environment variable` / `SUPABASE_SERVICE_ROLE_KEY`.
-   - Invoke a lightweight server fn (e.g. `/` SSR or `getDriversSnapshot`) via `stack_modern--invoke-server-function` and inspect logs.
+## What I'll build
 
-2. **If the key is genuinely missing on the Worker**
-   - Use `secrets--update_secret` for `SUPABASE_SERVICE_ROLE_KEY` so the user can paste it; this rebinds it to the Worker runtime.
+1. **Server function** `src/lib/admin-users.functions.ts` — `createCompanyAdmin({ companyId, email, password })`:
+   - Guarded by `requireSupabaseAuth` + `is_super_admin()` check (rejects non-super-admins).
+   - Validates input with Zod (valid email, password ≥ 8 chars).
+   - Uses `supabaseAdmin.auth.admin.createUser({ email, password, email_confirm: true })`.
+   - Inserts `{ user_id, company_id, role: 'admin' }` into `company_members`.
+   - Returns `{ userId, email }` on success; surfaces clean error messages (e.g. "email already registered").
+   - Register `src/start.ts` already has `attachSupabaseAuth` — no change needed.
 
-3. **Harden against this class of failure** so a missing secret degrades gracefully instead of taking down SSR:
-   - In `src/routes/_app.tsx` `beforeLoad`, the early super-admin / company-member checks already use the browser client (good). Confirm no public/SSR path needs `supabaseAdmin`.
-   - In `auth-helpers.server.ts` and the other admin-touching server fns, keep using `supabaseAdmin`, but ensure they are only ever called from `createServerFn` handlers — never imported transitively into client/SSR root render.
-   - Confirm `src/routes/__root.tsx` and `_app.tsx` don't transitively pull `client.server.ts` (per the import-graph rule). If they do, that's the real SSR crash trigger regardless of the key.
+2. **UI in `src/routes/admin.index.tsx`** — replace the current "invite" placeholder block in the company panel with:
+   - Email input
+   - Password input (with show/hide toggle and a "Generate" button that fills a 16-char random password)
+   - "Create admin user" button → calls the server fn, shows toast on success/error
+   - After success: shows a one-time summary card with the email + password and a "Copy credentials" button, so you can paste them to the customer
+   - Below it, lists existing `company_members` for that company (so you can see who already has access)
 
-4. **Validate**
-   - Re-invoke the home route and a protected server fn; check logs are clean and preview renders.
-   - Tell the user to Publish so the live site picks up the fix.
+3. **No DB schema changes** — `super_admins`, `company_members`, and the `is_super_admin()` function already exist.
 
-No code changes proposed yet beyond (potentially) breaking a bad import chain in step 3 — first I need to confirm whether the secret is bound or whether an import graph is dragging `client.server.ts` into SSR.
+## Notes
+
+- `admin@admin.com` (your super admin) stays as-is and is unrelated to per-company logins.
+- This does NOT send any email — credentials are shown to you in the UI only.
+- Password rules: min 8 chars (Supabase's HIBP check is currently disabled, so any 8+ char password works).

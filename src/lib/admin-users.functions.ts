@@ -63,14 +63,6 @@ export const createCompanyAdmin = createServerFn({ method: "POST" })
         page += 1;
       }
       if (!userIdToLink) throw new Error("Email already registered but user lookup failed");
-
-      // Rotate the password for the existing user so the value shown in the UI
-      // is the one actually stored in auth.
-      const { error: updErr } = await supabaseAdmin.auth.admin.updateUserById(userIdToLink, {
-        password: data.password,
-        email_confirm: true,
-      });
-      if (updErr) throw new Error(`Failed to update password: ${updErr.message}`);
     } else {
       throw new Error("Failed to create user");
     }

@@ -67,29 +67,17 @@ export function useWarehouses() {
   return warehouses;
 }
 
-// Default window: jobs from the past 30 days (covers active dispatch + recent
-// history). Future-dated jobs created within that window are included; older
-// jobs are intentionally excluded so the client doesn't pull the entire history
-// on every page load.
-const JOBS_WINDOW_DAYS = 30;
-
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>(cache.jobs);
   const channelNameRef = useRef(`rt-jobs-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     let mounted = true;
-    const since = new Date(Date.now() - JOBS_WINDOW_DAYS * 24 * 3600 * 1000).toISOString();
-    supabase
-      .from("jobs")
-      .select("*")
-      .gte("created_at", since)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        if (mounted && data) {
-          cache.jobs = data as Job[];
-          setJobs(cache.jobs);
-        }
-      });
+    supabase.from("jobs").select("*").order("created_at", { ascending: false }).then(({ data }) => {
+      if (mounted && data) {
+        cache.jobs = data as Job[];
+        setJobs(cache.jobs);
+      }
+    });
     const ch = supabase.channel(channelNameRef.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, (payload) => {
         setJobs((prev) => {

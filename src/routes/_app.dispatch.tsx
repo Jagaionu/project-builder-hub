@@ -63,26 +63,18 @@ type Stop = {
 
 type JobStopsMap = Record<string, Stop[]>;
 
-type StopRow = { id: string; job_id: string; kind: Stop["kind"]; warehouse_id: string; scheduled_at: string | null; arrived_at: string | null; seq: number };
-
-// Match the jobs window so we don't pull stops for archived jobs.
-const STOPS_WINDOW_DAYS = 30;
-
 function useJobStops(): JobStopsMap {
   const [map, setMap] = useState<JobStopsMap>({});
   useEffect(() => {
     let mounted = true;
-    const since = new Date(Date.now() - STOPS_WINDOW_DAYS * 24 * 3600 * 1000).toISOString();
-
-    const reload = async () => {
+    const load = async () => {
       const { data } = await supabase
         .from("job_stops")
         .select("id,job_id,kind,warehouse_id,scheduled_at,arrived_at,seq")
-        .gte("created_at", since)
         .order("seq", { ascending: true });
       if (!mounted) return;
       const m: JobStopsMap = {};
-      for (const s of (data ?? []) as StopRow[]) {
+      for (const s of (data ?? []) as Array<{ job_id: string } & Stop & { seq: number }>) {
         (m[s.job_id] ||= []).push({
           id: s.id,
           kind: s.kind,
@@ -93,63 +85,10 @@ function useJobStops(): JobStopsMap {
       }
       setMap(m);
     };
-
-    void reload();
-
+    load();
     const ch = supabase
       .channel("rt-stops")
-      .on("postgres_changes", { event: "*", schema: "public", table: "job_stops" }, (payload) => {
-        const evt = payload.eventType;
-        const newRow = payload.new as Partial<StopRow> | undefined;
-        const oldRow = payload.old as Partial<StopRow> | undefined;
-
-        // Fall back to a full reload only if we can't process the payload.
-        if (
-          (evt === "INSERT" && (!newRow?.id || !newRow.job_id)) ||
-          (evt === "UPDATE" && (!newRow?.id || !newRow.job_id)) ||
-          (evt === "DELETE" && !oldRow?.id)
-        ) {
-          void reload();
-          return;
-        }
-
-        setMap((prev) => {
-          const next: JobStopsMap = { ...prev };
-          if (evt === "DELETE") {
-            const oldId = oldRow!.id!;
-            for (const jid of Object.keys(next)) {
-              const arr = next[jid];
-              const filtered = arr.filter((s) => s.id !== oldId);
-              if (filtered.length !== arr.length) next[jid] = filtered;
-            }
-            return next;
-          }
-          const n = newRow as StopRow;
-          const stop: Stop = {
-            id: n.id,
-            kind: n.kind,
-            warehouse_id: n.warehouse_id,
-            scheduled_at: n.scheduled_at,
-            arrived_at: n.arrived_at,
-          };
-          if (evt === "INSERT") {
-            const bucket = next[n.job_id] ? [...next[n.job_id]] : [];
-            if (!bucket.some((s) => s.id === stop.id)) bucket.push(stop);
-            next[n.job_id] = bucket;
-          } else if (evt === "UPDATE") {
-            const bucket = next[n.job_id] ?? [];
-            const idx = bucket.findIndex((s) => s.id === stop.id);
-            if (idx >= 0) {
-              const copy = [...bucket];
-              copy[idx] = stop;
-              next[n.job_id] = copy;
-            } else {
-              next[n.job_id] = [...bucket, stop];
-            }
-          }
-          return next;
-        });
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_stops" }, () => load())
       .subscribe();
     return () => {
       mounted = false;
@@ -356,31 +295,16 @@ function DispatchPage() {
     } catch { /* noop */ }
   }, [statusFilter]);
 
-  // Only feed the planner active jobs — completed/cancelled history is huge
-  // and never needs re-planning. This memo dramatically shrinks the input
-  // every downstream effect depends on.
-  const plannerJobs = useMemo(
-    () => jobs.filter((j) => j.status !== "COMPLETED" && j.status !== "CANCELLED"),
-    [jobs],
-  );
-
   const plan = useMemo(
-    () => computePlan(plannerJobs, stopsMap, drivers, warehouses, compliance),
-    [plannerJobs, stopsMap, drivers, warehouses, compliance],
+    () => computePlan(jobs, stopsMap, drivers, warehouses, compliance),
+    [jobs, stopsMap, drivers, warehouses, compliance],
   );
   const plannedByJob = useMemo(
     () => new Map(plan.planned.map((item) => [item.jobId, item] as const)),
     [plan],
   );
 
-  // One-shot on mount: normalize jobs that are in an active status but have
-  // no assigned driver. Previously this ran on every `jobs` change, which
-  // could fire a write storm whenever realtime delivered an update.
-  const normalizerRanRef = useRef(false);
   useEffect(() => {
-    if (normalizerRanRef.current) return;
-    if (jobs.length === 0) return;
-    normalizerRanRef.current = true;
     const inconsistent = jobs.filter((j) => !j.assigned_driver_id && ACTIVE_JOB_STATUSES.has(j.status));
     if (inconsistent.length === 0) return;
     void (async () => {
@@ -414,19 +338,14 @@ function DispatchPage() {
     else if (opts?.manual) toast.success("Driver removed — auto-planner paused for this job");
   }
 
-  // Auto-planner — gated by a writing ref so this effect can't re-enter while
-  // its own DB writes are coming back as realtime UPDATEs, and scoped to
-  // `plannerJobs` (active jobs only) so completed history doesn't bloat work.
+  // Auto-planner — unchanged from prior Jobs page
   const planSigRef = useRef<string>("");
-  const isPlannerWritingRef = useRef(false);
   useEffect(() => {
     if (drivers.length === 0 || warehouses.length === 0) return;
-    if (isPlannerWritingRef.current) return;
-
-    const pending = plannerJobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id);
+    const pending = jobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id);
     if (pending.some((j) => !stopsMap[j.id])) return;
 
-    const jobsForPlanner = plannerJobs.filter((j) => !(j as { manual_override?: boolean }).manual_override);
+    const jobsForPlanner = jobs.filter((j) => !(j as { manual_override?: boolean }).manual_override);
     const p = computePlan(jobsForPlanner, stopsMap, drivers, warehouses, compliance);
 
     const sig = JSON.stringify({
@@ -436,50 +355,39 @@ function DispatchPage() {
     if (sig === planSigRef.current) return;
     planSigRef.current = sig;
 
-    isPlannerWritingRef.current = true;
     (async () => {
-      try {
-        for (const a of p.immediate) {
-          const job = plannerJobs.find((j) => j.id === a.jobId);
-          const driver = drivers.find((d) => d.id === a.driverId);
-          if (!job || !driver) continue;
-          if ((job as { manual_override?: boolean }).manual_override) continue;
-          await assignDriver(a.jobId, a.driverId);
-          toast.message(`Auto-assigned ${driver.name} → ${job.reference} (${a.distKm.toFixed(1)} km)`);
-          await fillStopTimes(a.jobId, job.scheduled_at ?? new Date().toISOString(), stopsMap[a.jobId] ?? [], warehouses);
-        }
-        const desired = new Map(p.planned.map((pp) => [pp.jobId, { d: pp.driverId, s: pp.sequence, t: pp.startAt }] as const));
-        const todayStr = new Date().toISOString().slice(0, 10);
-        for (const job of plannerJobs) {
-          if ((job as { manual_override?: boolean }).manual_override) continue;
-          // Never touch planned_* for jobs scheduled for a future date —
-          // those are owned by the tomorrow planner (planTomorrow).
-          const forDate = (job as { for_date?: string | null }).for_date;
-          if (forDate && forDate > todayStr) continue;
-          const want = desired.get(job.id);
-          const have = { d: job.planned_driver_id ?? null, s: job.planned_sequence ?? null, t: job.planned_start_at ?? null };
-          if (!want) {
-            if (have.d || have.s || have.t) {
-              await supabase.from("jobs")
-                .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
-                .eq("id", job.id);
-            }
-            continue;
-          }
-          if (have.d !== want.d || have.s !== want.s || have.t !== want.t) {
+      for (const a of p.immediate) {
+        const job = jobs.find((j) => j.id === a.jobId);
+        const driver = drivers.find((d) => d.id === a.driverId);
+        if (!job || !driver) continue;
+        if ((job as { manual_override?: boolean }).manual_override) continue;
+        await assignDriver(a.jobId, a.driverId);
+        toast.message(`Auto-assigned ${driver.name} → ${job.reference} (${a.distKm.toFixed(1)} km)`);
+        await fillStopTimes(a.jobId, job.scheduled_at ?? new Date().toISOString(), stopsMap[a.jobId] ?? [], warehouses);
+      }
+      const desired = new Map(p.planned.map((pp) => [pp.jobId, { d: pp.driverId, s: pp.sequence, t: pp.startAt }] as const));
+      for (const job of jobs) {
+        if ((job as { manual_override?: boolean }).manual_override) continue;
+        const want = desired.get(job.id);
+        const have = { d: job.planned_driver_id ?? null, s: job.planned_sequence ?? null, t: job.planned_start_at ?? null };
+        if (!want) {
+          if (have.d || have.s || have.t) {
             await supabase.from("jobs")
-              .update({ planned_driver_id: want.d, planned_sequence: want.s, planned_start_at: want.t })
+              .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
               .eq("id", job.id);
-            await fillStopTimes(job.id, want.t, stopsMap[job.id] ?? [], warehouses);
           }
+          continue;
         }
-      } finally {
-        // Allow the realtime echo a moment to land before re-running.
-        setTimeout(() => { isPlannerWritingRef.current = false; }, 500);
+        if (have.d !== want.d || have.s !== want.s || have.t !== want.t) {
+          await supabase.from("jobs")
+            .update({ planned_driver_id: want.d, planned_sequence: want.s, planned_start_at: want.t })
+            .eq("id", job.id);
+          await fillStopTimes(job.id, want.t, stopsMap[job.id] ?? [], warehouses);
+        }
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plannerJobs, stopsMap, drivers, warehouses, compliance]);
+  }, [jobs, stopsMap, drivers, warehouses, compliance]);
 
   async function setStatus(jobId: string, status: string) {
     const job = jobs.find((j) => j.id === jobId);
@@ -525,12 +433,8 @@ function DispatchPage() {
   const filteredJobs = useMemo(() => {
     return jobsInRange
       .filter((j) => {
-        const effective: JobStatus =
-          j.status === "PENDING" && j.planned_driver_id && !j.assigned_driver_id
-            ? "ASSIGNED"
-            : (j.status as JobStatus);
-        if (statusFilter) return effective === statusFilter;
-        return !hiddenStatuses.has(effective);
+        if (statusFilter) return j.status === statusFilter;
+        return !hiddenStatuses.has(j.status as JobStatus);
       })
       .sort((a, b) => {
         const ta = jobDate(a, stopsMap[a.id] ?? []).getTime();
@@ -544,15 +448,7 @@ function DispatchPage() {
       PENDING: 0, ASSIGNED: 0, IN_PROGRESS: 0, ARRIVED_PICKUP: 0,
       EN_ROUTE_DELIVERY: 0, COMPLETED: 0, CANCELLED: 0,
     };
-    for (const j of jobsInRange) {
-      // A PENDING job that already has a planned driver (tomorrow planner)
-      // should not be counted as Pending — it's scheduled/assigned for later.
-      const status =
-        j.status === "PENDING" && j.planned_driver_id && !j.assigned_driver_id
-          ? "ASSIGNED"
-          : (j.status as JobStatus);
-      c[status] = (c[status] ?? 0) + 1;
-    }
+    for (const j of jobsInRange) c[j.status as JobStatus] = (c[j.status as JobStatus] ?? 0) + 1;
     return c;
   }, [jobsInRange]);
 
@@ -602,28 +498,9 @@ function DispatchPage() {
     setPlanningTomorrow(true);
     try {
       const r = await runPlanTomorrow();
-      const computed = (r as { computed?: number }).computed ?? r.assigned;
-      const persistFailures = (r as { persistFailures?: number }).persistFailures ?? 0;
       const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversPlanned} drivers`;
-      if (persistFailures > 0) {
-        toast.error(`${msg} · ${persistFailures} failed to save`, {
-          description: `Computed ${computed} assignments but only ${r.assigned} were saved. Check server logs.`,
-          duration: 12000,
-        });
-      } else if (r.unassignable.length) {
-        const reasonCounts = new Map<string, number>();
-        for (const u of r.unassignable) reasonCounts.set(u.reason, (reasonCounts.get(u.reason) ?? 0) + 1);
-        const topReasons = [...reasonCounts.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 2)
-          .map(([reason, n]) => `${n}× ${reason}`)
-          .join(" · ");
-        toast.warning(`${msg} · ${r.unassignable.length} unassignable`, {
-          description: topReasons,
-          duration: 10000,
-        });
-        console.warn("[plan-tomorrow] unassignable", r.unassignable);
-      } else toast.success(msg);
+      if (r.unassignable.length) toast.warning(`${msg} · ${r.unassignable.length} unassignable`);
+      else toast.success(msg);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -682,24 +559,14 @@ function DispatchPage() {
           })}
         </div>
         <div className="flex items-center gap-2 justify-self-end">
-          <div className="relative">
-            <ToolbarButton
-              onClick={onPlanTomorrow}
-              disabled={planningTomorrow || tomorrowStats.total === 0}
-              title={tomorrowStats.total === 0 ? "No jobs scheduled for tomorrow" : "Auto-assign tomorrow's routes and notify drivers"}
-              icon={<Sparkles className="size-3.5" />}
-            >
-              {planningTomorrow ? "Planning…" : "Plan Tomorrow"}
-            </ToolbarButton>
-            {planningTomorrow && (
-              <div
-                className="pointer-events-none absolute inset-x-1 bottom-0.5 h-0.5 overflow-hidden rounded-full bg-primary/15"
-                aria-hidden="true"
-              >
-                <div className="h-full w-1/3 rounded-full bg-primary animate-[planbar_1.2s_ease-in-out_infinite]" />
-              </div>
-            )}
-          </div>
+          <ToolbarButton
+            onClick={onPlanTomorrow}
+            disabled={planningTomorrow || tomorrowStats.total === 0}
+            title={tomorrowStats.total === 0 ? "No jobs scheduled for tomorrow" : "Auto-assign tomorrow's routes and notify drivers"}
+            icon={<Sparkles className="size-3.5" />}
+          >
+            {planningTomorrow ? "Planning…" : "Plan Tomorrow"}
+          </ToolbarButton>
           <ImportCsvButton />
           <ToolbarButton onClick={() => setCreateOpen(true)} primary icon={<Plus className="size-3.5" />}>
             Create route
@@ -886,18 +753,16 @@ function DispatchPage() {
                   ? drivers.find((dr) => dr.id === (planned?.driverId ?? j.planned_driver_id))
                   : null;
                 const isMR = stops.length > 2;
-                const effectiveStatus: JobStatus | "SCHEDULED" = (!driver && j.planned_driver_id)
-                  ? "SCHEDULED"
-                  : (isJobScheduledFuture(
-                      {
-                        ...j,
-                        stops: stops.map((s, idx) => ({
-                          seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
-                          scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
-                        })),
-                      },
-                      Date.now(),
-                    ) ? "SCHEDULED" : (j.status as JobStatus));
+                const effectiveStatus = isJobScheduledFuture(
+                  {
+                    ...j,
+                    stops: stops.map((s, idx) => ({
+                      seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
+                      scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
+                    })),
+                  },
+                  Date.now(),
+                ) ? "SCHEDULED" : (j.status as JobStatus);
                 const cfg = STATUS_CONFIG[effectiveStatus];
                 const active = selectedJobId === j.id;
                 return (
@@ -946,8 +811,8 @@ function DispatchPage() {
                             ? new Date(j.scheduled_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
                             : "ASAP"}
                         </span>
-                        <span className="truncate" style={{ color: driver ? "oklch(0.68 0.10 245)" : plannedDriver ? "oklch(0.68 0.10 245)" : "oklch(0.42 0.010 245)" }}>
-                          {driver ? driver.name : plannedDriver ? plannedDriver.name : "Unassigned"}
+                        <span className="truncate" style={{ color: driver ? "oklch(0.68 0.10 245)" : plannedDriver ? "oklch(0.60 0.08 245)" : "oklch(0.42 0.010 245)" }}>
+                          {driver ? driver.name : plannedDriver ? `· ${plannedDriver.name}` : "Unassigned"}
                         </span>
                       </div>
                     </button>
@@ -1026,18 +891,16 @@ function JobDetailPanel({
   const isMR = stops.length > 2;
   const driver = drivers.find((d) => d.id === job.assigned_driver_id);
 
-  const effectiveStatus = (!driver && job.planned_driver_id)
-    ? "SCHEDULED"
-    : (isJobScheduledFuture(
-        {
-          ...job,
-          stops: stops.map((s, idx) => ({
-            seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
-            scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
-          })),
-        },
-        Date.now(),
-      ) ? "SCHEDULED" : job.status);
+  const effectiveStatus = isJobScheduledFuture(
+    {
+      ...job,
+      stops: stops.map((s, idx) => ({
+        seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
+        scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
+      })),
+    },
+    Date.now(),
+  ) ? "SCHEDULED" : job.status;
 
   const stopTimes = job.scheduled_at
     ? computeStopSchedule(stops, job.scheduled_at, warehouses)
@@ -1160,24 +1023,24 @@ function JobDetailPanel({
       <div className="mt-5 rounded-lg border border-border bg-surface p-4">
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Assigned driver</div>
         <DriverPicker
-          driverId={job.assigned_driver_id ?? job.planned_driver_id ?? null}
+          driverId={job.assigned_driver_id}
           drivers={drivers}
           compliance={compliance}
           onChange={onAssignDriver}
         />
-        {!driver && !job.planned_driver_id && planned && (
+        {!driver && (planned || job.planned_driver_id) && (
           <PlannedChip
-            driverName={drivers.find((d) => d.id === planned.driverId)?.name ?? "?"}
-            sequence={planned.sequence}
-            startAt={planned.startAt}
-            distanceKm={planned.distKm}
-            dailyHoursLeft={planned.dailyHoursLeft}
+            driverName={drivers.find((d) => d.id === (planned?.driverId ?? job.planned_driver_id))?.name ?? "?"}
+            sequence={planned?.sequence ?? job.planned_sequence ?? undefined}
+            startAt={planned?.startAt ?? job.planned_start_at ?? undefined}
+            distanceKm={planned?.distKm}
+            dailyHoursLeft={planned?.dailyHoursLeft}
           />
         )}
       </div>
 
       {/* Suggested drivers */}
-      {!driver && !job.planned_driver_id && ranked.length > 0 && (
+      {!driver && ranked.length > 0 && (
         <>
           <div className="mt-6 flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
             <Sparkles className="size-3.5 text-accent" /> Suggested drivers (closest first)
@@ -1193,7 +1056,7 @@ function JobDetailPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {ranked.slice(0, 3).map(({ driver: d, distKm, eta }, i) => {
+                {ranked.slice(0, 8).map(({ driver: d, distKm, eta }, i) => {
                   const dc = compliance[d.id];
                   const blocked = !!dc?.blockAssignment;
                   return (

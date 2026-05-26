@@ -14,18 +14,14 @@ const AuthContext = createContext<AuthState>({
   loading: true,
 });
 
-const IS_BROWSER = typeof window !== 'undefined';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     session: null,
     user: null,
-    loading: IS_BROWSER ? true : false,
+    loading: true,
   });
 
   useEffect(() => {
-    if (!IS_BROWSER) return;
-
     // Listener first, then initial session — avoids race condition.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {

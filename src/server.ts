@@ -1,4 +1,3 @@
-// Force fresh production rebuild - clear stale h3-v2 module reference
 import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
@@ -13,10 +12,9 @@ let serverEntryPromise: Promise<ServerEntry> | undefined;
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
     serverEntryPromise = import("@tanstack/react-start/server-entry").then(
-      (module) => (module.default ?? module) as ServerEntry,
+      (m) => ((m as { default?: ServerEntry }).default ?? (m as unknown as ServerEntry)),
     );
   }
-
   return serverEntryPromise;
 }
 
