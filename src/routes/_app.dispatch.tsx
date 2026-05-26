@@ -401,7 +401,7 @@ function DispatchPage() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobs, stopsMap, drivers, warehouses, compliance]);
+  }, [jobs, stopsMap, drivers, warehouses]);
 
   async function setStatus(jobId: string, status: string, opts?: { silent?: boolean }) {
     const job = jobs.find((j) => j.id === jobId);
