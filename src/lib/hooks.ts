@@ -252,12 +252,10 @@ export function useDriverDayHours(): Record<string, DriverDayHours[]> {
     };
     load();
 
+    const debouncedLoad = debounce(() => void load(), 500);
     const ch = supabase
       .channel(channelNameRef.current)
-      .on("postgres_changes", { event: "*", schema: "public", table: "driver_day_hours" }, () => {
-        console.info("[drivers][day-hours] realtime change detected");
-        void load();
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_day_hours" }, debouncedLoad)
       .subscribe();
 
     return () => {
