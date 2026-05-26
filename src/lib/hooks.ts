@@ -50,11 +50,11 @@ export function useDrivers(initialDrivers: Driver[] = []) {
       .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, (payload) => {
         setDrivers((prev) => {
           let next = prev;
-          if (payload.eventType === "INSERT") next = [...prev, payload.new as Driver];
+          if (payload.eventType === "INSERT") next = [...prev, payload.new as Driver].sort((a, b) => a.name.localeCompare(b.name));
           else if (payload.eventType === "UPDATE")
-            next = prev.map((d) => (d.id === (payload.new as Driver).id ? (payload.new as Driver) : d));
+            next = prev.map((d) => (d.id === (payload.new as Driver).id ? (payload.new as Driver) : d)).sort((a, b) => a.name.localeCompare(b.name));
           else if (payload.eventType === "DELETE")
-            next = prev.filter((d) => d.id !== (payload.old as Driver).id);
+            next = prev.filter((d) => d.id !== (payload.old as Driver).id).sort((a, b) => a.name.localeCompare(b.name));
           cache.drivers = next;
           return next;
         });

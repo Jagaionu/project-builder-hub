@@ -157,7 +157,7 @@ function DriversPage() {
     if (!confirm(`Regenerate login code for "${driverName}"?\n\nThe old code will stop working immediately. The driver will need the new code to log in.`)) return;
     try {
       // FIX: Pass driverId directly, not wrapped in { data: ... }
-      const newCode = await rotateCode(driverId);
+      const newCode = await rotateCode({ driverId });
       await navigator.clipboard?.writeText(newCode).catch(() => {});
       toast.success(`New code ${newCode} — copied to clipboard`);
     } catch (e) {
@@ -212,7 +212,7 @@ function DriversPage() {
     if (!confirm(`Delete driver "${name}"?\n\nThis removes the driver, their login, GPS history, events and shift records.`)) return;
     try {
       // FIX: Pass id directly, not wrapped in { data: ... }
-      await removeDriver(id);
+      await removeDriver({ driverId: id });
       toast.success("Driver deleted");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Delete failed");
@@ -458,7 +458,7 @@ function DriversPage() {
   );
 }
 
-function Field({
+export function Field({
   label,
   value,
   onChange,
