@@ -82,13 +82,30 @@ export const createCompanyAdmin = createServerFn({ method: "POST" })
       .eq("user_id", userIdToLink)
       .eq("company_id", data.companyId)
       .maybeSingle();
-    if (existingMember) {
-      return { userId: userIdToLink, email: data.email };
+    if (!existingMember) {
+      const { error: mErr } = await supabaseAdmin.from("company_members").insert({
+        user_id: userIdToLink,
+        company_id: data.companyId,
+        role: "admin",
+      });
+      if (mErr) {
+        if (created?.user) await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+        throw new Error(`Failed to link user to company: ${mErr.message}`);
+      }
     }
 
-    // Link to company as admin
-    const { error: mErr } = await supabaseAdmin.from("company_members").insert({
-      user_id: userIdToLink,
+    // Persist the latest password so super admins can view it later
+    // (table is locked down by RLS to super admins only).
+    await supabaseAdmin
+      .from("admin_credentials" as never)
+      .upsert(
+        { user_id: userIdToLink, email: data.email, password: data.password } as never,
+        { onConflict: "user_id" } as never,
+      );
+
+    return { userId: userIdToLink, email: data.email };
+  });
+
       company_id: data.companyId,
       role: "admin",
     });
