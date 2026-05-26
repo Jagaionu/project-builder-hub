@@ -81,6 +81,10 @@ export function useJobStops(): JobStopsMap {
         const row = payload.new as StopRow;
         const next: JobStopsMap = { ...cache };
         const existing = (next[row.job_id] ?? []) as Array<Stop & { seq?: number }>;
+        // Dedupe by id — multiple useJobStops() consumers each subscribe to
+        // realtime, so the same INSERT can be delivered N times. Without this
+        // guard the row gets appended once per active subscription.
+        if (existing.some((s) => s.id === row.id)) return;
         const list: Array<Stop & { seq?: number }> = [...existing, rowToStop(row)]
           .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
         next[row.job_id] = list.map(({ seq: _seq, ...rest }) => rest);
