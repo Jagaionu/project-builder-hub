@@ -228,10 +228,13 @@ export function computePlan(
     const fp = firstPickupWh(stops, warehouses);
     if (!fp || !stops) continue;
 
+    const isTomorrowJob = (job.for_date ?? null) === tomorrow;
+
     let best: { d: Driver; dist: number; driveAdd: number; transit: number } | null = null;
     let nearMiss: { name: string; dist: number; reason: string } | null = null;
 
     for (const d of eligible) {
+      if (isTomorrowJob && (d as Driver & { available_tomorrow?: boolean }).available_tomorrow === false) continue;
       const f = forecast[d.id];
       const dist = haversineKm(f.lat, f.lon, fp.latitude, fp.longitude);
       const transit = transitTimeHours(dist);
