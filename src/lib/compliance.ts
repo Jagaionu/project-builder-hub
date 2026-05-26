@@ -63,28 +63,18 @@ function buildSegments(events: ComplianceEvent[], nowMs: number): Seg[] {
 }
 
 // Driving hours for a shift of `durHours`, auto-deducting 45min break per 4.5h driven.
+// Driving hours for a shift of `durHours`. 
+// Removed auto-deduction logic as we now use actual transit-only driving minutes.
 export function driveHoursOf(durHours: number): number {
-  if (durHours <= 0) return 0;
-  // pattern: 4.5h drive + 0.75h break = 5.25h cycle
-  const breaks = Math.floor(durHours / 5.25);
-  return Math.max(0, durHours - 0.75 * breaks);
+  return 0; 
 }
 
 function sumDrivingInWindow(segs: Seg[], fromMs: number, toMs: number): number {
-  let total = 0;
-  for (const s of segs) {
-    const a = Math.max(s.start, fromMs);
-    const b = Math.min(s.end, toMs);
-    if (b <= a) continue;
-    const fullDur = (s.end - s.start) / H;
-    const fullDrive = driveHoursOf(fullDur);
-    const frac = (b - a) / (s.end - s.start);
-    total += fullDrive * frac;
-  }
-  return total;
+  // Logic disabled: we now use transit-only driving minutes from the ledger or projections.
+  return 0;
 }
 
-export type LedgerTotals = { daily?: number; weekly?: number; twoWeek?: number };
+export type LedgerTotals = { daily?: number; weekly?: number; twoWeek?: number; continuousDrive?: number };
 
 export function computeCompliance(
   events: ComplianceEvent[],
@@ -108,13 +98,9 @@ export function computeCompliance(
     restHours = last ? (nowMs - last.end) / H : Infinity;
   }
 
-  // Since we assume legal breaks are taken, current continuous-drive cycle =
-  // (shift duration) mod 5.25, capped at 4.5.
-  let continuousDrive = 0;
-  if (onShift) {
-    const shiftDur = (nowMs - openSeg!.start) / H;
-    continuousDrive = Math.min(shiftDur % 5.25, 4.5);
-  }
+  // Continuous driving in the current 4.5h cycle.
+  // No longer derived from shift duration. Must be provided via ledger or calculated from legs.
+  const continuousDrive = ledger?.continuousDrive ?? 0;
 
   const issues: ComplianceIssue[] = [];
   if (weekly > 56) issues.push({ level: "breach", msg: `Weekly cap exceeded (${weekly.toFixed(1)}/56h)` });

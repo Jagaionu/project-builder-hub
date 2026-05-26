@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Driver, Warehouse, Job } from "@/lib/types";
 import { computeCompliance, type Compliance, type ComplianceEvent } from "@/lib/compliance";
+import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
+import { projectedRouteDriveMinutes, effectiveDriverStatus } from "@/lib/effective-status";
 
 // Coalesce bursty realtime triggers so a flurry of inserts/updates from the
 // server doesn't fire N back-to-back full-table reloads. ~300ms feels instant
@@ -281,6 +283,9 @@ function useComplianceState(
 ): Record<string, Compliance> {
   // Tick every minute so headroom / break timers stay current.
   const [tick, setTick] = useState(0);
+  const activeJobsByDriver = useActiveJobsByDriver();
+  const drivers = useDrivers();
+
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 60_000);
     return () => clearInterval(id);
@@ -293,13 +298,38 @@ function useComplianceState(
     const weekAgo = ukDayStringLocal(new Date(now - 6 * 24 * 3600 * 1000));
     const fortnightAgo = ukDayStringLocal(new Date(now - 13 * 24 * 3600 * 1000));
     const out: Record<string, Compliance> = {};
-    const driverIds = new Set([...Object.keys(events), ...Object.keys(ledger)]);
+    const driverIds = new Set([
+      ...Object.keys(events),
+      ...Object.keys(ledger),
+      ...Object.keys(activeJobsByDriver),
+    ]);
+
     for (const driverId of driverIds) {
       const evs = events[driverId] ?? [];
       const rows = ledger[driverId] ?? [];
+      const activeJobs = activeJobsByDriver[driverId] ?? [];
+      const driver = drivers.find((d) => d.id === driverId);
+
       const todayRow = rows.find((r) => r.day === today);
       const weekRows = rows.filter((r) => r.day >= weekAgo && r.day <= today);
       const fortRows = rows.filter((r) => r.day >= fortnightAgo && r.day <= today);
+
+      // Calculate continuous drive from active routes if the driver is actually ON_ROUTE
+      let continuousDrive = 0;
+      const status = driver
+        ? effectiveDriverStatus(driver.status, activeJobs, now)
+        : "OFF_SHIFT";
+      if (status === "ON_ROUTE") {
+        for (const job of activeJobs) {
+          const proj = projectedRouteDriveMinutes(
+            job,
+            driver?.current_lat ?? null,
+            driver?.current_lon ?? null,
+          );
+          continuousDrive += proj.totalMin / 60;
+        }
+      }
+
       const totals = {
         daily: todayRow ? todayRow.drive_minutes / 60 : undefined,
         weekly: weekRows.length
@@ -308,11 +338,12 @@ function useComplianceState(
         twoWeek: fortRows.length
           ? fortRows.reduce((s, r) => s + r.drive_minutes, 0) / 60
           : undefined,
+        continuousDrive,
       };
       out[driverId] = computeCompliance(evs, now, totals);
     }
     return out;
-  }, [events, ledger, tick]);
+  }, [events, ledger, tick, activeJobsByDriver, drivers]);
 }
 
 function ukDayStringLocal(d: Date): string {

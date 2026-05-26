@@ -55,11 +55,9 @@ export function jobDriveHours(stops: PlannerStop[], warehouses: Warehouse[]): nu
   for (let i = 0; i < stops.length - 1; i++) {
     const a = warehouses.find((w) => w.id === stops[i].warehouse_id);
     const b = warehouses.find((w) => w.id === stops[i + 1].warehouse_id);
-    minutes += stopDwellMinutes(stops[i].kind);
     if (!a || !b) continue;
     minutes += Math.round(transitTimeHours(haversineKm(a.latitude, a.longitude, b.latitude, b.longitude)) * 60) + ARRIVAL_BUFFER_MINUTES;
   }
-  minutes += stopDwellMinutes(stops[stops.length - 1].kind);
   return minutes / 60;
 }
 
