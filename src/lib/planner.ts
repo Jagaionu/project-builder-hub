@@ -182,16 +182,23 @@ export function computePlan(
   const claimed = new Set<string>();
   const seqByDriver: Record<string, number> = {};
 
+  const tomorrow = tomorrowISODate(nowMs);
+
   // --- Pass 1: immediate (free drivers within radius of pickup) ---
   for (const job of pending) {
     const stops = stopsMap[job.id];
     const fp = firstPickupWh(stops, warehouses);
     if (!fp || !stops) continue;
 
+    const isTomorrowJob = (job.for_date ?? null) === tomorrow;
+
     let best: { d: Driver; dist: number; driveAdd: number } | null = null;
     for (const d of eligible) {
       if (activeByDriver[d.id]) continue;
       if (compliance[d.id]?.blockAssignment) continue;
+      // Drivers who opted out of tomorrow must not be auto-planned onto
+      // tomorrow-dated jobs (dispatcher can still manually assign them).
+      if (isTomorrowJob && (d as Driver & { available_tomorrow?: boolean }).available_tomorrow === false) continue;
       const dist = haversineKm(d.current_lat!, d.current_lon!, fp.latitude, fp.longitude);
       if (dist > AUTO_ASSIGN_RADIUS_KM) continue;
       const driveAdd = jobDriveHours(stops, warehouses) + transitTimeHours(dist);
