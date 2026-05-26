@@ -1013,9 +1013,12 @@ function JobDetailPanel({
 
 
   // Auto-complete: all stops arrived, no significant delays, and not already terminal.
+  // Track per-job so the realtime echo round-trip can't fire it twice.
+  const autoCompletedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (stops.length === 0) return;
     if (job.status === "COMPLETED" || job.status === "CANCELLED") return;
+    if (autoCompletedRef.current.has(job.id)) return;
     const allArrived = stops.every((s) => !!s.arrived_at);
     if (!allArrived) return;
     const anyDelayed = stops.some((s) => {
@@ -1025,9 +1028,11 @@ function JobDetailPanel({
       return delayMin > 5;
     });
     if (anyDelayed) return;
-    onSetStatus("COMPLETED");
+    autoCompletedRef.current.add(job.id);
+    onSetStatus("COMPLETED", { silent: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.id, job.status, stops]);
+
 
 
   return (
