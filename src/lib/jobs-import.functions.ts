@@ -30,10 +30,20 @@ export const importJobsCsv = createServerFn({ method: "POST" })
     if (!superAdmin && !tenantId) throw new Error("Forbidden");
     const out: ImportResult = {
       created: 0,
+      parked: [],
       skippedDuplicate: [],
       skippedUnknownWh: [],
       errors: [],
     };
+
+    // Pre-fetch existing parked refs to dedupe against
+    const { data: parkedExisting } = await supabaseAdmin
+      .from("pending_job_imports" as never)
+      .select("reference")
+      .eq("tenant_id", tenantId as never);
+    const parkedRefs = new Set(
+      ((parkedExisting ?? []) as { reference: string }[]).map((r) => r.reference),
+    );
 
     // Pre-fetch warehouses
     const { data: whs } = await supabaseAdmin
