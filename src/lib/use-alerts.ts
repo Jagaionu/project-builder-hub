@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Gauge, Timer, MapPin, type LucideIcon } from "lucide-react";
 import { useCompliance, useDrivers, useJobs, useRecentDelays } from "@/lib/hooks";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { ackAlert } from "./alerts.functions";
+import { toast } from "sonner";
 
 type CantCompleteEvent = {
   id: string;
@@ -82,6 +85,8 @@ function useParkedImports(): ParkedImport[] {
 
 export interface AppAlert {
   id: string;
+  dbId?: string;
+  dbType?: "event" | "parked";
   level: "critical" | "warning" | "info";
   type: string;
   message: string;
@@ -116,16 +121,12 @@ function writeAcked(set: Set<string>) {
   window.dispatchEvent(new Event(ACK_EVENT));
 }
 
-function useAcked() {
-  // FIX: initialise with empty set to avoid SSR/client hydration mismatch.
-  // localStorage is read inside useEffect (client-only) instead of in the
-  // useState initialiser, which runs on the server with no window access.
+function useAcked(alerts: AppAlert[]) {
   const [acked, setAcked] = useState<Set<string>>(new Set());
+  const runAck = useServerFn(ackAlert);
 
   useEffect(() => {
-    // Populate from storage once mounted on the client.
     setAcked(readAcked());
-
     const handler = () => setAcked(readAcked());
     window.addEventListener(ACK_EVENT, handler);
     window.addEventListener("storage", handler);
@@ -135,11 +136,22 @@ function useAcked() {
     };
   }, []);
 
-  const ack = useCallback((id: string) => {
+  const ack = useCallback(async (id: string) => {
+    const alert = alerts.find(a => a.id === id);
+    if (alert?.dbId && alert?.dbType) {
+      try {
+        await runAck({ data: { id: alert.dbId, type: alert.dbType } });
+      } catch (e) {
+        console.error("[useAlerts] failed to delete alert from DB", e);
+        toast.error("Failed to clear alert from database");
+        return;
+      }
+    }
+
     const next = new Set(readAcked());
     next.add(id);
     writeAcked(next);
-  }, []);
+  }, [alerts, runAck]);
 
   return { acked, ack };
 }
@@ -151,7 +163,6 @@ export function useAlerts() {
   const recentDelays = useRecentDelays();
   const cantCompleteEvents = useRecentCantComplete();
   const parkedImports = useParkedImports();
-  const { acked, ack } = useAcked();
 
   const all = useMemo<AppAlert[]>(() => {
     const out: AppAlert[] = [];
@@ -165,8 +176,11 @@ export function useAlerts() {
       const job = dr.job_id ? jobsById.get(dr.job_id) : null;
       const jobRef = job ? ` on ${job.reference}` : "";
       const ageMin = Math.round((now - new Date(dr.timestamp).getTime()) / 60000);
+      
       out.push({
-        id: `delay-${dr.driver_id}-${dr.timestamp}`,
+        id: `delay-${dr.id}`,
+        dbId: dr.id,
+        dbType: "event",
         level: "critical",
         type: "Delay reported",
         icon: AlertTriangle,
@@ -178,6 +192,8 @@ export function useAlerts() {
       const p = e.payload ?? {};
       out.push({
         id: `cc-${e.id}`,
+        dbId: e.id,
+        dbType: "event",
         level: "critical",
         type: "Cannot Complete",
         icon: AlertTriangle,
@@ -229,6 +245,8 @@ export function useAlerts() {
     parkedImports.forEach((p) => {
       out.push({
         id: `park-${p.id}`,
+        dbId: p.id,
+        dbType: "parked",
         level: "warning",
         type: "Unmapped lane",
         icon: MapPin,
@@ -239,6 +257,7 @@ export function useAlerts() {
     return out;
   }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents, parkedImports]);
 
+  const { acked, ack } = useAcked(all);
   const visible = useMemo(() => all.filter((a) => !acked.has(a.id)), [all, acked]);
 
   return { alerts: visible, total: all.length, ack };

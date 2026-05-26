@@ -166,6 +166,7 @@ export function useDriverEventsByDriver(): Record<string, ComplianceEvent[]> {
 }
 
 export type RecentDelay = {
+  id: string;
   driver_id: string;
   timestamp: string;
   reason: string;
@@ -177,27 +178,28 @@ export function useRecentDelays(): RecentDelay[] {
   const channelNameRef = useRef(`rt-delay-events-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     let mounted = true;
-    const load = async () => {
-      const since = new Date(Date.now() - 6 * 3600 * 1000).toISOString();
-      const { data } = await supabase
-        .from("driver_events")
-        .select("driver_id,timestamp,payload")
-        .eq("type", "DELAY_REPORT" as never)
-        .gte("timestamp", since)
-        .order("timestamp", { ascending: false });
-      if (!mounted || !data) return;
-      const next = (data as Array<{ driver_id: string; timestamp: string; payload: { reason?: string; category?: string; notes?: string; note?: string; job_id?: string } }>).map(
-        (r) => {
-          const headline = r.payload?.reason ?? r.payload?.category ?? "Delay reported";
-          const extra = (r.payload?.notes ?? r.payload?.note ?? "").trim();
-          return {
-            driver_id: r.driver_id,
-            timestamp: r.timestamp,
-            reason: extra ? `${headline} — ${extra}` : headline,
-            job_id: r.payload?.job_id,
-          };
-        },
-      );
+	    const load = async () => {
+	      const since = new Date(Date.now() - 6 * 3600 * 1000).toISOString();
+	      const { data } = await supabase
+	        .from("driver_events")
+	        .select("id,driver_id,timestamp,payload")
+	        .eq("type", "DELAY_REPORT" as never)
+	        .gte("timestamp", since)
+	        .order("timestamp", { ascending: false });
+	      if (!mounted || !data) return;
+	      const next = (data as Array<{ id: string; driver_id: string; timestamp: string; payload: { reason?: string; category?: string; notes?: string; note?: string; job_id?: string } }>).map(
+	        (r) => {
+	          const headline = r.payload?.reason ?? r.payload?.category ?? "Delay reported";
+	          const extra = (r.payload?.notes ?? r.payload?.note ?? "").trim();
+	          return {
+	            id: r.id,
+	            driver_id: r.driver_id,
+	            timestamp: r.timestamp,
+	            reason: extra ? `${headline} — ${extra}` : headline,
+	            job_id: r.payload?.job_id,
+	          };
+	        },
+	      );
 
       cache.recentDelays = next;
       setRows(next);
