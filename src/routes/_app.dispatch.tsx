@@ -334,8 +334,7 @@ function DispatchPage() {
     const payload = opts?.manual ? { ...base, manual_override: true } : base;
     const { error } = await supabase.from("jobs").update(payload as never).eq("id", jobId);
     if (error) return toast.error(error.message);
-    if (driverId) toast.success(opts?.manual ? "Driver assigned (manual)" : "Driver assigned");
-    else if (opts?.manual) toast.success("Driver removed — auto-planner paused for this job");
+    // No toast here — the UI updates immediately via realtime; toasts caused spam when bulk-assigning
   }
 
   // Auto-planner — unchanged from prior Jobs page
@@ -362,7 +361,6 @@ function DispatchPage() {
         if (!job || !driver) continue;
         if ((job as { manual_override?: boolean }).manual_override) continue;
         await assignDriver(a.jobId, a.driverId);
-        toast.message(`Auto-assigned ${driver.name} → ${job.reference} (${a.distKm.toFixed(1)} km)`);
         await fillStopTimes(a.jobId, job.scheduled_at ?? new Date().toISOString(), stopsMap[a.jobId] ?? [], warehouses);
       }
       const desired = new Map(p.planned.map((pp) => [pp.jobId, { d: pp.driverId, s: pp.sequence, t: pp.startAt }] as const));
@@ -485,10 +483,12 @@ function DispatchPage() {
   const tomorrowStats = useMemo(() => {
     const tm = startOfDay(new Date(Date.now() + 86400000));
     const tmJobs = jobs.filter((j) => sameDay(jobDate(j, stopsMap[j.id] ?? []), tm));
-    const assigned = tmJobs.filter((j) => j.planned_driver_id || j.assigned_driver_id);
+    // "assigned" = driver confirmed (status ASSIGNED+); "planned" = planner wrote planned_driver_id only (still PENDING)
+    const assigned = tmJobs.filter((j) => !!j.assigned_driver_id);
+    const plannedOnly = tmJobs.filter((j) => !j.assigned_driver_id && !!j.planned_driver_id);
     const availableDrivers = drivers.filter((d) => (d as { available_tomorrow?: boolean }).available_tomorrow === true);
     const isTomorrowView = !!dateRange?.from && sameDay(dateRange.from, tm) && sameDay(dateRange.to ?? dateRange.from, tm);
-    return { total: tmJobs.length, assigned: assigned.length, availableDrivers, isTomorrowView };
+    return { total: tmJobs.length, assigned: assigned.length, plannedOnly: plannedOnly.length, availableDrivers, isTomorrowView };
   }, [jobs, stopsMap, drivers, dateRange]);
 
   const [planningTomorrow, setPlanningTomorrow] = useState(false);
@@ -507,6 +507,42 @@ function DispatchPage() {
       setPlanningTomorrow(false);
     }
   }
+
+  // Planning overlay — blocks the entire UI while the server plan runs
+  const PlanningOverlay = planningTomorrow && typeof document !== "undefined"
+    ? createPortal(
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "oklch(0.12 0.018 245 / 0.92)",
+            backdropFilter: "blur(6px)",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1.5rem",
+          }}
+        >
+          <style>{`
+            @keyframes plan-slide { 0%{transform:translateX(-100%)} 100%{transform:translateX(320%)} }
+          `}</style>
+          <Sparkles style={{ width: 36, height: 36, color: "oklch(0.75 0.18 245)", animation: "pulse 1.5s ease-in-out infinite" }} />
+          <div style={{ textAlign: "center" }}>
+            <p style={{ fontSize: "1rem", fontWeight: 600, color: "oklch(0.93 0.006 240)", marginBottom: "0.4rem" }}>
+              Planning Tomorrow's Routes
+            </p>
+            <p style={{ fontSize: "0.75rem", color: "oklch(0.55 0.014 245)", fontFamily: "var(--font-mono)" }}>
+              Assigning drivers — please wait, do not navigate away
+            </p>
+          </div>
+          <div style={{ width: 280, height: 4, borderRadius: 9999, background: "oklch(0.24 0.018 245)", overflow: "hidden", position: "relative" }}>
+            <div style={{
+              position: "absolute", height: "100%", width: "45%",
+              background: "oklch(0.75 0.18 245)",
+              borderRadius: 9999,
+              animation: "plan-slide 1.4s cubic-bezier(0.4,0,0.6,1) infinite",
+            }} />
+          </div>
+        </div>,
+        document.body,
+      )
+    : null;
 
   const today = startOfDay(new Date());
   const isDefaultFilters =
@@ -535,6 +571,7 @@ function DispatchPage() {
 
   return (
     <div className="h-full flex flex-col">
+      {PlanningOverlay}
       <header className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4">
         <div className="min-w-0">
           <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
@@ -692,16 +729,27 @@ function DispatchPage() {
               ? "oklch(0.73 0.17 150 / 0.25)" : "oklch(0.80 0.18 72 / 0.25)",
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
               Tomorrow coverage
             </span>
+            {/* Confirmed assigned (status = ASSIGNED+) */}
             <span className="font-mono">
               <span style={{ color: tomorrowStats.assigned === tomorrowStats.total ? "oklch(0.78 0.14 150)" : "oklch(0.80 0.16 72)" }}>
                 {tomorrowStats.assigned}
               </span>
-              <span className="text-muted-foreground"> / {tomorrowStats.total} routes assigned</span>
+              <span className="text-muted-foreground"> / {tomorrowStats.total} confirmed</span>
             </span>
+            {/* Planned-only jobs (planTomorrow ran but status still PENDING) */}
+            {tomorrowStats.plannedOnly > 0 && (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="font-mono" title="Driver planned but job still PENDING — run planner writes planned_driver_id; jobs become ASSIGNED once driver confirms">
+                  <span style={{ color: "oklch(0.75 0.18 245)" }}>{tomorrowStats.plannedOnly}</span>
+                  <span className="text-muted-foreground"> planned (pending confirm)</span>
+                </span>
+              </>
+            )}
             <span className="text-muted-foreground/40">·</span>
             <span className="font-mono text-muted-foreground">
               {tomorrowStats.availableDrivers.length} driver{tomorrowStats.availableDrivers.length === 1 ? "" : "s"} available
@@ -906,9 +954,10 @@ function JobDetailPanel({
     ? computeStopSchedule(stops, job.scheduled_at, warehouses)
     : stops.map((s) => s.scheduled_at);
 
-  // Suggested drivers when unassigned
+  // Suggested drivers when unassigned — only for truly unassigned lanes
+  const isLaneAssigned = !!job.assigned_driver_id || job.status === "ASSIGNED";
   const ranked = useMemo(() => {
-    if (driver || !origin) return [];
+    if (driver || isLaneAssigned || !origin) return [];
     return drivers
       .filter((d) => d.status === "AVAILABLE" || d.status === "ON_SHIFT")
       .filter((d) => d.current_lat != null && d.current_lon != null)
@@ -917,7 +966,7 @@ function JobDetailPanel({
         return { driver: d, distKm, eta: etaMinutes(distKm) };
       })
       .sort((a, b) => a.distKm - b.distKm);
-  }, [driver, drivers, origin]);
+  }, [driver, isLaneAssigned, drivers, origin]);
 
   // Auto-validate arrivals as a fallback to GPS geofencing.
   // For each unarrived stop, if planned arrival has passed AND either
@@ -1011,12 +1060,14 @@ function JobDetailPanel({
             }).join(" → ")}
           </p>
         </div>
-        <button
-          onClick={onEdit}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs hover:bg-surface-2"
-        >
-          <Pencil className="size-3" /> Edit route
-        </button>
+        {effectiveStatus !== "COMPLETED" && (
+          <button
+            onClick={onEdit}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs hover:bg-surface-2"
+          >
+            <Pencil className="size-3" /> Edit route
+          </button>
+        )}
       </div>
 
       {/* Assigned driver */}
@@ -1040,10 +1091,10 @@ function JobDetailPanel({
       </div>
 
       {/* Suggested drivers */}
-      {!driver && ranked.length > 0 && (
+      {!isLaneAssigned && !driver && ranked.length > 0 && (
         <>
           <div className="mt-6 flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
-            <Sparkles className="size-3.5 text-accent" /> Suggested drivers (closest first)
+            <Sparkles className="size-3.5 text-accent" /> Suggested drivers (3 closest)
           </div>
           <div className="mt-3 rounded-md border border-border overflow-hidden">
             <table className="w-full text-sm">
@@ -1056,7 +1107,7 @@ function JobDetailPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {ranked.slice(0, 8).map(({ driver: d, distKm, eta }, i) => {
+                {ranked.slice(0, 3).map(({ driver: d, distKm, eta }, i) => {
                   const dc = compliance[d.id];
                   const blocked = !!dc?.blockAssignment;
                   return (
