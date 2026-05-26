@@ -132,12 +132,17 @@ export const listCompanyMembers = createServerFn({ method: "POST" })
     const results: Array<{ id: string; user_id: string; role: string; email: string | null; password: string | null; created_at: string }> = [];
     for (const m of members ?? []) {
       const { data: u } = await supabaseAdmin.auth.admin.getUserById(m.user_id);
+      const { data: cred } = await supabaseAdmin
+        .from("admin_credentials" as never)
+        .select("password")
+        .eq("user_id", m.user_id)
+        .maybeSingle();
       results.push({
         id: m.id,
         user_id: m.user_id,
         role: m.role,
         email: u.user?.email ?? null,
-        password: null,
+        password: ((cred as { password?: string } | null)?.password) ?? null,
         created_at: m.created_at,
       });
     }
