@@ -8,7 +8,7 @@ import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Link as LinkIcon, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { rotateDriverLoginCode } from "@/lib/pairing.functions";
 import { deleteDriver } from "@/lib/drivers-delete.functions";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
@@ -199,12 +199,7 @@ function DriversPage() {
     }
   }
 
-  const driverLoginUrl = (typeof window !== "undefined" ? window.location.origin : "") + "/d/login";
 
-  async function copyDriverLink() {
-    await navigator.clipboard?.writeText(driverLoginUrl).catch(() => {});
-    toast.success("Driver login link copied");
-  }
 
   return (
     <div className="h-full flex flex-col">
@@ -212,56 +207,92 @@ function DriversPage() {
         title="Drivers"
         subtitle={`${filteredDrivers.length} shown of ${drivers.length} drivers in roster`}
         right={
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2">
-              <DispatchStat
-                label="All"
-                value={driverRowsAfterSearch.length}
-                color={"oklch(0.52 0.012 245)"}
-                active={driverListFilter === "ALL"}
-                onClick={() => setDriverListFilter("ALL")}
-              />
-              <DispatchStat
-                label="On Route"
-                value={counts.ON_ROUTE}
-                color={"oklch(0.73 0.17 150)"}
-                active={driverListFilter === "ON_ROUTE"}
-                onClick={() => setDriverListFilter("ON_ROUTE")}
-              />
-              <DispatchStat
-                label="On Shift"
-                value={counts.ON_SHIFT}
-                color={"oklch(0.62 0.22 245)"}
-                active={driverListFilter === "ON_SHIFT"}
-                onClick={() => setDriverListFilter("ON_SHIFT")}
-              />
-              <DispatchStat
-                label="Off Shift"
-                value={counts.OFF_SHIFT}
-                color={"oklch(0.45 0.012 245)"}
-                active={driverListFilter === "OFF_SHIFT"}
-                onClick={() => setDriverListFilter("OFF_SHIFT")}
-              />
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors shadow-lg hover:shadow-xl"
+          >
+            <Plus className="size-4" /> New Driver
+          </button>
+        }
+      />
+
+      {/* Filter Stats Bar */}
+      <div className="px-5 py-3 border-b border-border flex items-center justify-center gap-3 bg-[oklch(0.14_0.016_245)]">
+        <DispatchStat
+          label="All"
+          value={driverRowsAfterSearch.length}
+          color={"oklch(0.52 0.012 245)"}
+          active={driverListFilter === "ALL"}
+          onClick={() => setDriverListFilter("ALL")}
+        />
+        <DispatchStat
+          label="On Route"
+          value={counts.ON_ROUTE}
+          color={"oklch(0.73 0.17 150)"}
+          active={driverListFilter === "ON_ROUTE"}
+          onClick={() => setDriverListFilter("ON_ROUTE")}
+        />
+        <DispatchStat
+          label="On Shift"
+          value={counts.ON_SHIFT}
+          color={"oklch(0.62 0.22 245)"}
+          active={driverListFilter === "ON_SHIFT"}
+          onClick={() => setDriverListFilter("ON_SHIFT")}
+        />
+        <DispatchStat
+          label="Off Shift"
+          value={counts.OFF_SHIFT}
+          color={"oklch(0.45 0.012 245)"}
+          active={driverListFilter === "OFF_SHIFT"}
+          onClick={() => setDriverListFilter("OFF_SHIFT")}
+        />
+      </div>
+
+      {/* Create form modal */}
+      {open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-xl border border-border shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95">
+            <h3 className="text-lg font-semibold mb-1">Add New Driver</h3>
+            <p className="text-xs text-muted-foreground mb-5">Create a new driver profile and generate their login code.</p>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-2">Driver Name *</label>
+                <input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g., John Smith"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-[oklch(0.17_0.018_245)] text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-2">Phone Number (Optional)</label>
+                <input
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="e.g., +44 7700 900000"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-[oklch(0.17_0.018_245)] text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex gap-3">
               <button
-                onClick={copyDriverLink}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface hover:bg-surface-2 text-xs font-medium"
-                title={driverLoginUrl}
+                onClick={() => setOpen(false)}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-surface hover:bg-surface-2 text-sm font-medium transition-colors"
               >
-                <LinkIcon className="size-3.5" /> Copy driver link
+                Cancel
               </button>
               <button
-                onClick={() => setOpen((o) => !o)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
+                onClick={add}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
               >
-                <Plus className="size-3.5" /> New Driver
+                Create Driver
               </button>
             </div>
           </div>
-        }
-      />
+        </div>
+      )}
 
       {/* Search bar */}
       <div className="px-5 py-3 border-b border-border">
@@ -283,19 +314,6 @@ function DriversPage() {
           )}
         </div>
       </div>
-
-      {/* Create form */}
-      {open && (
-        <div className="px-5 py-3 border-b border-border bg-[oklch(0.17_0.018_245)]">
-          <div className="grid grid-cols-3 gap-3 items-end max-w-2xl">
-            <Field label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-            <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
-            <button onClick={add} className="h-9 px-3 rounded bg-primary text-primary-foreground text-sm font-medium">
-              Create
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Two-column body */}
       <div className="flex-1 min-h-0 grid grid-cols-[360px_1fr]">
