@@ -135,10 +135,19 @@ async function fetchRoute(
   const coords: [number, number][] = r.geometry.coordinates.map(
     ([lon, lat]: [number, number]) => [lat, lon]
   );
+  const distKm = r.distance / 1000;
+  // Transit time formula: city segment (≤12.87 km @ 16.09 km/h) + motorway segment (>12.87 km @ 64.37 km/h)
+  const CITY_DIST   = 12.87;  // km
+  const CITY_SPEED  = 16.09;  // km/h
+  const MWY_SPEED   = 64.37;  // km/h
+  const tHours =
+    distKm <= CITY_DIST
+      ? distKm / CITY_SPEED
+      : (CITY_DIST / CITY_SPEED) + ((distKm - CITY_DIST) / MWY_SPEED);
   return {
     coords,
-    distKm: r.distance / 1000,
-    minutes: Math.round(r.duration / 60),
+    distKm,
+    minutes: Math.round(tHours * 60),
   };
 }
 
@@ -150,9 +159,11 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   const whClusterLayerRef  = useRef<any | null>(null);
   const routeLayerRef      = useRef<L.LayerGroup | null>(null);
 
-  const [panel, setPanel]       = useState<Panel>({ kind: "idle" });
-  const [routeEta, setRouteEta] = useState<RouteEta | null>(null);
+  const [panel, setPanel]         = useState<Panel>({ kind: "idle" });
+  const [routeEta, setRouteEta]   = useState<RouteEta | null>(null);
   const [isRouting, setIsRouting] = useState(false);
+  // Manual route: driver selected → user clicks any WH to get ad-hoc ETA
+  const [manualTargetWh, setManualTargetWh] = useState<Warehouse | null>(null);
 
   // ── CSS ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -257,6 +268,21 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
 
       L.marker([wh.latitude, wh.longitude], { icon, zIndexOffset: 2000 })
         .on("click", () => {
+          // If a driver is already selected: calculate ad-hoc route driver → this WH
+          if (selectedDriverId) {
+            const driver = drivers.find(d => d.id === selectedDriverId);
+            if (driver) {
+              setManualTargetWh(wh);
+              // Keep driver panel open; ETA will appear once route resolves
+              const job = jobs.find(j =>
+                j.assigned_driver_id === driver.id &&
+                ["ASSIGNED","IN_PROGRESS","ARRIVED_PICKUP","EN_ROUTE_DELIVERY"].includes(j.status)
+              );
+              setPanel({ kind: "driver", driver, job });
+              return;
+            }
+          }
+          // No driver selected: show warehouse panel
           setPanel({ kind: "warehouse", wh, nearbyDrivers });
           mapRef.current?.flyTo([wh.latitude, wh.longitude], 13, { duration: 1.2 });
         })
@@ -294,6 +320,12 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   }, [drivers, selectedDriverId, jobs, onSelectDriver]);
 
   // ── Active job / destination warehouse ───────────────────────────────────
+  // Clear manual WH target whenever the selected driver changes
+  useEffect(() => {
+    setManualTargetWh(null);
+    setRouteEta(null);
+  }, [selectedDriverId]);
+
   const selectedDriver = useMemo(
     () => drivers.find(d => d.id === selectedDriverId) ?? null,
     [drivers, selectedDriverId]
@@ -322,6 +354,9 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   }, [activeJob, warehouses]);
 
   // ── Draw route (real road geometry) ──────────────────────────────────────
+  // effectiveTarget: manual WH clicked by user takes priority over job-derived WH
+  const effectiveTarget = manualTargetWh ?? destWh;
+
   useEffect(() => {
     const layer = routeLayerRef.current;
     if (!layer || !mapRef.current) return;
@@ -330,7 +365,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
 
     if (!selectedDriver?.current_lat || !selectedDriver.current_lon) return;
 
-    if (!destWh) {
+    if (!effectiveTarget) {
       mapRef.current.flyTo(
         [selectedDriver.current_lat, selectedDriver.current_lon], 12, { duration: 1.4 }
       );
@@ -341,7 +376,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
 
     fetchRoute(
       { lat: selectedDriver.current_lat, lon: selectedDriver.current_lon },
-      { lat: destWh.latitude, lon: destWh.longitude }
+      { lat: effectiveTarget.latitude, lon: effectiveTarget.longitude }
     )
       .then(({ coords, distKm, minutes }) => {
         layer.clearLayers();
@@ -405,7 +440,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
         }).addTo(layer);
 
         // Destination dot
-        L.circleMarker([destWh.latitude, destWh.longitude], {
+        L.circleMarker([effectiveTarget.latitude, effectiveTarget.longitude], {
           radius: 8, color: "#fff", weight: 2.5, fillColor: lineColor, fillOpacity: 1,
         }).addTo(layer);
 
@@ -420,7 +455,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
       .catch(() => {
         // Fallback: straight dashed line
         const from: [number, number] = [selectedDriver.current_lat!, selectedDriver.current_lon!];
-        const to:   [number, number] = [destWh.latitude, destWh.longitude];
+        const to:   [number, number] = [effectiveTarget.latitude, effectiveTarget.longitude];
         L.polyline([from, to], {
           color: "#7c3aed", weight: 3, opacity: 0.7, dashArray: "8 8",
         }).addTo(layer);
@@ -428,7 +463,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
         mapRef.current?.flyToBounds(L.latLngBounds([from, to]), { padding: [80, 80], maxZoom: 11 });
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDriverId, activeJob?.id, destWh?.id]);
+  }, [selectedDriverId, activeJob?.id, effectiveTarget?.id]);
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   const stats = useMemo(() => ({
@@ -500,11 +535,14 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
         )}
 
         {/* Route ETA if available */}
-        {routeEta && destWh && (
+        {routeEta && effectiveTarget && (
           <div className="rounded-lg px-3 py-2 bg-slate-900 text-white flex items-center gap-0">
             <div className="flex-1 text-center">
               <p className="text-base font-black leading-none">{routeEta.distKm.toFixed(1)}</p>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">km · {destWh.code}</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                km · {effectiveTarget.code}
+                {manualTargetWh && <span className="text-orange-400"> manual</span>}
+              </p>
             </div>
             <div className="w-px h-6 bg-white/10" />
             <div className="flex-1 text-center">
@@ -514,6 +552,17 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
           </div>
         )}
 
+        {/* Manual route clear button */}
+        {manualTargetWh && routeEta && (
+          <button
+            onClick={() => { setManualTargetWh(null); setRouteEta(null); }}
+            className="w-full flex items-center justify-center gap-1.5 text-[10px] font-semibold text-slate-400 hover:text-slate-600 transition-colors py-0.5"
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            Clear manual route
+          </button>
+        )}
+
         {isRouting && (
           <div className="flex items-center gap-2.5 px-1">
             <div className="w-4 h-4 rounded-full border-2 border-slate-200 border-t-violet-500 animate-spin flex-shrink-0" />
@@ -521,7 +570,19 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
           </div>
         )}
 
-        {!job && !isRouting && (
+        {/* Hint: click any WH to calculate ad-hoc transit time */}
+        {!isRouting && !routeEta && (
+          <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-slate-50 border border-slate-100">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" className="flex-shrink-0">
+              <path d="M2 22V9l10-7 10 7v13H2z"/><path d="M9 22v-8h6v8"/>
+            </svg>
+            <p className="text-[10px] text-slate-400 leading-snug">
+              Click any warehouse to calculate transit time
+            </p>
+          </div>
+        )}
+
+        {!job && !isRouting && !manualTargetWh && (
           <p className="text-[11px] text-slate-400 italic px-0.5">No active assignment.</p>
         )}
       </div>
