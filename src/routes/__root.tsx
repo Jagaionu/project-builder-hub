@@ -11,7 +11,6 @@ import { useEffect, useRef } from "react";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth-context";
 
-import "../styles.css";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
