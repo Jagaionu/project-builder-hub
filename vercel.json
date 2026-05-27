@@ -5,7 +5,7 @@
   "outputDirectory": "dist/client",
   "rewrites": [
     {
-      "source": "/((?!_assets|icons|favicon|manifest|sw\\.js|workbox).*)",
+      "source": "/((?!assets/|icons/|favicon|manifest|robots|site\\.webmanifest|sw\\.js|workbox).*)",
       "destination": "/api/server"
     }
   ],
