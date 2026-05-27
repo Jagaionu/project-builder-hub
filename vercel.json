@@ -1,12 +1,19 @@
 {
   "version": 2,
-  "framework": "vite",
   "installCommand": "bun install --no-frozen-lockfile",
   "buildCommand": "bun run build",
+  "outputDirectory": "dist/client",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!_assets|icons|favicon|manifest|sw\\.js|workbox).*)",
       "destination": "/api/server"
     }
-  ]
+  ],
+  "functions": {
+    "api/server.js": {
+      "runtime": "nodejs20.x",
+      "maxDuration": 10,
+      "includeFiles": "dist/server/**"
+    }
+  }
 }
