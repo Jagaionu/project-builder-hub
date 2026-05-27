@@ -1,14 +1,12 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { tanstackRouterVite } from "@tanstack/router-plugin";
-import { tanstackStartVite } from "@tanstack/start-vite-plugin";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   plugins: [
-    tanstackRouterVite(),
-    tanstackStartVite({
+    tanstackStart({
       server: { entry: "src/server.ts" },
     }),
     react(),
