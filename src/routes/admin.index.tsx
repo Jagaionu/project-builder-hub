@@ -7,7 +7,7 @@ import { DEFAULT_TENANT_CONFIG } from "@/lib/types";
 import { createCompanyAdmin, listCompanyMembers } from "@/lib/admin-users.functions";
 import {
   CheckCircle, XCircle, Clock, Ban,
-  Plus, ChevronDown, ChevronUp, Save, UserPlus, Copy, Trash2,
+  Plus, ChevronDown, ChevronUp, Save, UserPlus, Copy, Trash2, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -40,6 +40,8 @@ function AdminDashboard() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newWarehouse, setNewWarehouse] = useState({ code: "", name: "", latitude: 0, longitude: 0, address: "" });
   const [showAddWarehouse, setShowAddWarehouse] = useState(false);
+  const [editingWarehouseId, setEditingWarehouseId] = useState<string | null>(null);
+  const [editingWarehouse, setEditingWarehouse] = useState({ code: "", name: "", latitude: 0, longitude: 0, address: "" });
 
   async function loadCompanies() {
     const { data, error } = await supabase
@@ -318,36 +320,140 @@ function AdminDashboard() {
 
           <div className="space-y-2">
             {warehouses.map((wh) => (
-              <div key={wh.id} className="rounded-lg border border-border bg-surface p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">{wh.code}</span>
-                      <span className="text-xs font-mono text-muted-foreground">{wh.name}</span>
+              <div key={wh.id} className={`rounded-lg border ${editingWarehouseId === wh.id ? 'border-primary/40 bg-surface' : 'border-border bg-surface'} p-4`}>
+                {editingWarehouseId === wh.id ? (
+                  <div className="space-y-3">
+                    <div className="text-xs font-semibold text-primary mb-2">Edit Warehouse</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Code</label>
+                        <input
+                          type="text"
+                          value={editingWarehouse.code}
+                          onChange={(e) => setEditingWarehouse({ ...editingWarehouse, code: e.target.value })}
+                          className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Name</label>
+                        <input
+                          type="text"
+                          value={editingWarehouse.name}
+                          onChange={(e) => setEditingWarehouse({ ...editingWarehouse, name: e.target.value })}
+                          className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
                     </div>
-                    <div className="text-[11px] text-muted-foreground mt-1 font-mono">
-                      {wh.latitude.toFixed(4)}, {wh.longitude.toFixed(4)}
-                      {wh.address && <div>{wh.address}</div>}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Latitude</label>
+                        <input
+                          type="number"
+                          step="0.0001"
+                          value={editingWarehouse.latitude}
+                          onChange={(e) => setEditingWarehouse({ ...editingWarehouse, latitude: parseFloat(e.target.value) })}
+                          className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Longitude</label>
+                        <input
+                          type="number"
+                          step="0.0001"
+                          value={editingWarehouse.longitude}
+                          onChange={(e) => setEditingWarehouse({ ...editingWarehouse, longitude: parseFloat(e.target.value) })}
+                          className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Address (optional)</label>
+                      <input
+                        type="text"
+                        value={editingWarehouse.address}
+                        onChange={(e) => setEditingWarehouse({ ...editingWarehouse, address: e.target.value })}
+                        className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!editingWarehouse.code || !editingWarehouse.name) {
+                            toast.error("Code and name are required");
+                            return;
+                          }
+                          const { error } = await supabase
+                            .from("warehouses" as never)
+                            .update({
+                              code: editingWarehouse.code.trim(),
+                              name: editingWarehouse.name.trim(),
+                              latitude: editingWarehouse.latitude,
+                              longitude: editingWarehouse.longitude,
+                              address: editingWarehouse.address.trim() || null,
+                            } as never)
+                            .eq("id", wh.id);
+                          if (error) { toast.error(error.message); return; }
+                          toast.success(`Warehouse "${editingWarehouse.code}" updated`);
+                          setEditingWarehouseId(null);
+                          loadWarehouses();
+                        }}
+                        className="rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingWarehouseId(null)}
+                        className="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (confirm(`Delete warehouse "${wh.code}"? This cannot be undone.`)) {
-                        const { error } = await supabase
-                          .from("warehouses" as never)
-                          .delete()
-                          .eq("id", wh.id);
-                        if (error) { toast.error("Failed to delete warehouse"); return; }
-                        toast.success(`Warehouse "${wh.code}" deleted`);
-                        loadWarehouses();
-                      }
-                    }}
-                    className="p-2 rounded-md text-destructive hover:bg-destructive/10 transition-colors"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">{wh.code}</span>
+                        <span className="text-xs font-mono text-muted-foreground">{wh.name}</span>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-1 font-mono">
+                        {wh.latitude.toFixed(4)}, {wh.longitude.toFixed(4)}
+                        {wh.address && <div>{wh.address}</div>}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingWarehouseId(wh.id);
+                          setEditingWarehouse({ code: wh.code, name: wh.name, latitude: wh.latitude, longitude: wh.longitude, address: wh.address || "" });
+                        }}
+                        className="p-2 rounded-md text-primary hover:bg-primary/10 transition-colors"
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (confirm(`Delete warehouse "${wh.code}"? This cannot be undone.`)) {
+                            const { error } = await supabase
+                              .from("warehouses" as never)
+                              .delete()
+                              .eq("id", wh.id);
+                            if (error) { toast.error("Failed to delete warehouse"); return; }
+                            toast.success(`Warehouse "${wh.code}" deleted`);
+                            loadWarehouses();
+                          }
+                        }}
+                        className="p-2 rounded-md text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
