@@ -11,6 +11,7 @@ import { useEffect, useRef } from "react";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth-context";
 
+import "../styles.css";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -40,8 +41,6 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
   const retriedRef = useRef(false);
 
-  // Auto-retry transient navigation errors once so a network blip during
-  // route transitions doesn't flash a hard error UI.
   useEffect(() => {
     if (retriedRef.current) return;
     retriedRef.current = true;
