@@ -17,7 +17,8 @@ export async function registerPwa() {
     host.includes("id-preview--") ||
     host.includes("preview--") ||
     host.includes("lovableproject.com") ||
-    host.includes("lovableproject-dev.com");
+    host.includes("lovableproject-dev.com") ||
+    host.includes("vercel.app") && host.includes("-preview");
 
   if (isInIframe || isPreviewHost) {
     try {
