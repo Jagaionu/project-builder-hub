@@ -1,6 +1,8 @@
 {
   "version": 2,
   "framework": "vite",
+  "installCommand": "bun install --no-frozen-lockfile",
+  "buildCommand": "bun run build",
   "rewrites": [
     {
       "source": "/(.*)",
