@@ -22,7 +22,7 @@ export default defineConfig({
       manifestFilename: "manifest.webmanifest",
       workbox: {
         globPatterns: ["**/*.{js,css,html}"],
-        navigateFallback: "/d/",
+        navigateFallback: "/d",
         navigateFallbackAllowlist: [/^\/d/],
         navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
         runtimeCaching: [
