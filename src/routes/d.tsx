@@ -27,7 +27,7 @@ function DriverLayout() {
   }, [session, isLogin, router]);
 
   return (
-    <div className="min-h-screen bg-background dark">
+    <div className="min-h-screen bg-background dark driver-app">
       <main className={isLogin ? "" : "pb-20 max-w-md mx-auto"}>
         <Outlet />
       </main>
