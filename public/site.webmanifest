@@ -1,9 +1,9 @@
 {
   "name": "Driver App",
   "short_name": "Driver",
-  "id": "/d/",
-  "start_url": "/d/",
-  "scope": "/d/",
+  "id": "/d",
+  "start_url": "/d",
+  "scope": "/d",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#0f172a",
