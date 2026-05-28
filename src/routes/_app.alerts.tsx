@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageHeader } from "./_app.index";
 import { Clock, Check, AlertTriangle, Info, Zap } from "lucide-react";
 import { useAlerts } from "@/lib/use-alerts";
@@ -105,8 +105,24 @@ function AlertsPage() {
                       >
                         {a.type}
                       </div>
-                      <div className="text-sm" style={{ color: cfg.text }}>
-                        {a.message}
+                      <div className="text-sm flex items-center gap-2 flex-wrap" style={{ color: cfg.text }}>
+                        <span>{a.message}</span>
+                        {/* Clickable job reference link → Dispatch tab with job pre-selected */}
+                        {a.jobRef && (
+                          <Link
+                            to="/dispatch"
+                            search={{ job: a.jobRef }}
+                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold border transition-all hover:opacity-90 shrink-0"
+                            style={{
+                              borderColor: cfg.border,
+                              color: cfg.text,
+                              background: getAlphaColor(cfg.bar, 0.12),
+                            }}
+                            title={`Open ${a.jobRef} in Dispatch`}
+                          >
+                            {a.jobRef} →
+                          </Link>
+                        )}
                       </div>
                     </div>
 

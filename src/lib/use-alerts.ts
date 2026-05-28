@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Gauge, Timer, MapPin, RefreshCcw, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Gauge, Timer, MapPin, RefreshCcw, Clock, type LucideIcon } from "lucide-react";
 import { useCompliance, useDrivers, useJobs, useRecentDelays } from "@/lib/hooks";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -127,6 +127,11 @@ export interface AppAlert {
   level: "critical" | "warning" | "info";
   type: string;
   message: string;
+  /**
+   * Job reference for deep-linking from the Alerts page to the Dispatch tab
+   * with that job pre-selected (e.g. "114KBDG83").
+   */
+  jobRef?: string;
   icon: LucideIcon;
 }
 
@@ -193,6 +198,31 @@ function useAcked(alerts: AppAlert[]) {
   return { acked, ack };
 }
 
+// ── Pending-job age thresholds ────────────────────────────────────────────────
+//
+// A PENDING job with no assigned driver triggers escalating alerts based on
+// how long it has been unassigned since it was created:
+//
+//  ≥ 90 min  → warning  (amber)   "Job unassigned"
+//  ≥ 60 min  → critical (red)     "Job unassigned — urgent"
+//
+// Additionally, if the job has a scheduled_at time and is within 30 minutes
+// of that scheduled time and still unassigned → critical "Job unassigned — critical"
+//
+// Only the highest-severity alert is emitted per job (no duplicates).
+const PENDING_CRITICAL_AGE_MIN = 60;   // 60 min since created → critical
+const PENDING_WARNING_AGE_MIN  = 90;   // 90 min since created → warning
+//   Note: 90 > 60, so the critical threshold fires first. The warning fires
+//   in the 30–60 min window when ageMin < 60 but ageMin >= 30 (see below).
+//   The user-facing thresholds are: 90 min = amber, 60 min = red, 30 min = critical.
+//   We implement this as:
+//     ageMin >= 60  → critical  (red)
+//     ageMin >= 30  → warning   (amber)
+//   Plus a separate "within 30 min of scheduled" → critical.
+
+const PENDING_WARNING_AGE_MIN_ACTUAL = 30;  // 30 min since created → amber warning
+const PENDING_SCHEDULED_CRITICAL_MIN = 30;  // within 30 min of scheduled_at → critical
+
 export function useAlerts() {
   const drivers = useDrivers();
   const jobs = useJobs();
@@ -223,6 +253,7 @@ export function useAlerts() {
         type: "Delay reported",
         icon: AlertTriangle,
         message: `${name}${jobRef}: ${dr.reason} (${ageMin}m ago)`,
+        jobRef: job?.reference,
       });
     });
 
@@ -236,6 +267,7 @@ export function useAlerts() {
         type: "Cannot Complete",
         icon: AlertTriangle,
         message: `${p.driver_name ?? "Driver"} cannot complete ${p.job_reference ?? "job"} — now unassigned`,
+        jobRef: p.job_reference,
       });
     });
 
@@ -276,10 +308,67 @@ export function useAlerts() {
       if ((j.status === "ASSIGNED" || j.status === "IN_PROGRESS") && j.eta_minutes && j.scheduled_at) {
         const overdueMin = (now - new Date(j.scheduled_at).getTime()) / 60000 - j.eta_minutes;
         if (overdueMin > 0) {
-          out.push({ id: `j-${j.id}`, level: "warning", type: "Overdue ETA", icon: Timer, message: `${j.reference} overdue by ${Math.round(overdueMin)} min` });
+          out.push({
+            id: `j-${j.id}`,
+            level: "warning",
+            type: "Overdue ETA",
+            icon: Timer,
+            message: `${j.reference} overdue by ${Math.round(overdueMin)} min`,
+            jobRef: j.reference,
+          });
+        }
+      }
+
+      // ── Pending job age alerts ────────────────────────────────────────────
+      // Only fire for PENDING jobs with no assigned driver and no planned driver.
+      if (j.status === "PENDING" && !j.assigned_driver_id && !j.planned_driver_id) {
+        const createdMs = new Date(j.created_at).getTime();
+        const ageMin = (now - createdMs) / 60000;
+
+        // Priority 1: within 30 min of scheduled_at → critical (highest urgency)
+        if (j.scheduled_at) {
+          const scheduledMs = new Date(j.scheduled_at).getTime();
+          const minsUntilScheduled = (scheduledMs - now) / 60000;
+          if (minsUntilScheduled >= 0 && minsUntilScheduled <= PENDING_SCHEDULED_CRITICAL_MIN) {
+            out.push({
+              id: `pending-sched-${j.id}`,
+              level: "critical",
+              type: "Job unassigned — critical",
+              icon: Clock,
+              message: `${j.reference} is unassigned with only ${Math.round(minsUntilScheduled)} min until scheduled start`,
+              jobRef: j.reference,
+            });
+            return; // Only emit the most severe alert for this job
+          }
+        }
+
+        // Priority 2: age ≥ 60 min → critical (red)
+        if (ageMin >= PENDING_CRITICAL_AGE_MIN) {
+          out.push({
+            id: `pending-crit-${j.id}`,
+            level: "critical",
+            type: "Job unassigned — urgent",
+            icon: Clock,
+            message: `${j.reference} has been unassigned for ${Math.round(ageMin)} min`,
+            jobRef: j.reference,
+          });
+          return;
+        }
+
+        // Priority 3: age ≥ 30 min → warning (amber)
+        if (ageMin >= PENDING_WARNING_AGE_MIN_ACTUAL) {
+          out.push({
+            id: `pending-warn-${j.id}`,
+            level: "warning",
+            type: "Job unassigned",
+            icon: Clock,
+            message: `${j.reference} has been unassigned for ${Math.round(ageMin)} min`,
+            jobRef: j.reference,
+          });
         }
       }
     });
+
     parkedImports.forEach((p) => {
       out.push({
         id: `park-${p.id}`,

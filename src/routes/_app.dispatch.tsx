@@ -1,10 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Calendar as CalendarIcon, ChevronDown, MapPin, Plus, Sparkles, Search } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { useCompliance, useDrivers, useJobs, useWarehouses, applyJobPatch } from "@/lib/hooks";
 import { computePlan, AUTO_ASSIGN_RADIUS_KM, type PlannedAssign } from "@/lib/planner";
@@ -34,7 +35,14 @@ const RouteDialog = lazy(() => import("@/components/dispatch/route-dialog"));
 
 void AUTO_ASSIGN_RADIUS_KM;
 
+// Search params schema — `job` is an optional job reference string used for
+// deep-linking from the Alerts page (e.g. /dispatch?job=114KBDG83).
+const dispatchSearchSchema = z.object({
+  job: z.string().optional(),
+});
+
 export const Route = createFileRoute("/_app/dispatch")({
+  validateSearch: dispatchSearchSchema,
   component: DispatchPage,
   head: () => ({ meta: [{ title: "Dispatch — Planning System" }] }),
 });
@@ -47,6 +55,9 @@ function DispatchPage() {
   const compliance = useCompliance();
 
   const lookups = useLookups(jobs, drivers, warehouses);
+
+  // Deep-link: if the URL contains ?job=REFERENCE, pre-select that job.
+  const { job: jobRefParam } = useSearch({ from: "/_app/dispatch" });
 
   // ── Persisted UI state ─────────────────────────────────────────────────────
   const [createOpen, setCreateOpen] = useState(false);
@@ -132,6 +143,28 @@ function DispatchPage() {
       else localStorage.removeItem("dispatch.statusFilter");
     } catch { /* noop */ }
   }, [statusFilter]);
+
+  // ── Deep-link: navigate to a specific job by reference ────────────────────
+  // When the URL contains ?job=REFERENCE (e.g. from the Alerts page), find
+  // the matching job, clear any status/date filters that would hide it, and
+  // select it. This runs once when the param and jobs are both available.
+  const deepLinkApplied = useRef(false);
+  useEffect(() => {
+    if (!jobRefParam || deepLinkApplied.current || jobs.length === 0) return;
+    const target = jobs.find((j) => j.reference === jobRefParam);
+    if (!target) return;
+    deepLinkApplied.current = true;
+
+    // Clear status filter and show all statuses so the job is visible
+    setStatusFilter(null);
+    setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"]));
+    // Clear date range to "All dates" so the job is not filtered out
+    setDateRange(undefined);
+    // Clear search
+    setSearch("");
+    // Select the job
+    setSelectedJobId(target.id);
+  }, [jobRefParam, jobs]);
 
   // ── Plan (memoized using compliance ref to avoid minute-tick churn) ────────
   const complianceRef = useRef(compliance);
@@ -322,6 +355,7 @@ function DispatchPage() {
   }, [jobsInRange, hiddenStatuses, statusFilter, stopsMap]);
 
   // Keep selection valid; default to first filtered job.
+  // But don't override a deep-link selection that was just applied.
   useEffect(() => {
     if (selectedJobId && filteredJobs.some((j) => j.id === selectedJobId)) return;
     setSelectedJobId(filteredJobs[0]?.id ?? null);

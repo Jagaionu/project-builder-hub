@@ -64,6 +64,8 @@ export const JobDetailPanel = memo(function JobDetailPanel({
       .slice(0, 3);
   }, [driver, isLaneAssigned, drivers, origin]);
 
+  // Only run auto-validation and status transitions for assigned/active jobs,
+  // never for PENDING runs — timestamps must not appear on unassigned jobs.
   useAutoValidateArrivals(job, stops, stopTimes, driver?.last_update_time ?? null);
   useAutoStatusTransition(job, stops, onSetStatus);
   useAutoComplete(job, stops, onSetStatus);
@@ -211,7 +213,9 @@ export const JobDetailPanel = memo(function JobDetailPanel({
             </div>
             {stops.map((s, idx) => {
               const wh = lookups.warehousesById.get(s.warehouse_id);
-              const arr = s.scheduled_at ?? stopTimes[idx];
+              // Only show planned times when the job is assigned/active — not for PENDING runs
+              const isAssignedOrActive = job.status !== "PENDING";
+              const arr = isAssignedOrActive ? (s.scheduled_at ?? stopTimes[idx]) : null;
               const dep = arr
                 ? new Date(new Date(arr).getTime() + stopDwellMinutes(s.kind) * 60_000).toISOString()
                 : null;
@@ -225,6 +229,17 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                 ? Math.round((new Date(s.arrived_at).getTime() - new Date(arr).getTime()) / 60_000)
                 : null;
               const isDelayed = delayMin != null && delayMin > 5;
+
+              // GPS badge: show only when the driver physically arrived via GPS.
+              // GPS arrivals write the current real timestamp (≠ planned time).
+              // The timestamp-fallback writes arrived_at = planned exactly.
+              // So: GPS is confirmed when arrived_at exists AND differs from planned time.
+              const isGpsConfirmed = !!(
+                s.arrived_at &&
+                arr &&
+                s.arrived_at !== arr
+              );
+
               return (
                 <div
                   key={idx}
@@ -247,7 +262,8 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                   <div className="col-span-3 font-mono text-foreground text-sm">{fmt(arr)}</div>
                   <div className="col-span-2 font-mono text-foreground text-sm">{fmt(dep)}</div>
                   <div className="col-span-1 font-mono">
-                    {s.arrived_at ? (
+                    {/* Only show actual arrival time when job is assigned/active */}
+                    {isAssignedOrActive && s.arrived_at ? (
                       <div className="flex flex-col items-start gap-0.5">
                         <div className="flex items-center gap-1">
                           <span className={isDelayed ? "text-amber-600" : "text-emerald-600"}>
@@ -255,7 +271,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                               hour: "2-digit", minute: "2-digit",
                             })}
                           </span>
-                          {arr && Math.abs((new Date(s.arrived_at).getTime() - new Date(arr).getTime()) / 60_000) <= 15 && (
+                          {isGpsConfirmed && (
                             <span className="inline-flex items-center px-1 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-[8px] font-bold text-orange-600">GPS</span>
                           )}
                         </div>
@@ -324,6 +340,9 @@ function useAutoValidateArrivals(
 ) {
   useEffect(() => {
     if (stops.length === 0) return;
+    // Never auto-validate arrivals for PENDING jobs — timestamps must only
+    // appear once a driver has been assigned and physically arrives.
+    if (job.status === "PENDING") return;
     if (job.status === "COMPLETED" || job.status === "CANCELLED") return;
 
     const STALE_MIN = 15;
