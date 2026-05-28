@@ -15,6 +15,7 @@ import { effectiveDriverStatus } from "@/lib/effective-status";
 import { DispatchStat } from "@/components/dispatch/toolbar";
 import { DriverQueue } from "@/components/drivers/driver-queue";
 import { DriverDetailPanel } from "@/components/drivers/driver-detail-panel";
+import { FormField } from "@/components/shared/form-field";
 
 type DriverRouteFilter = "ON_ROUTE" | "ON_SHIFT" | "OFF_SHIFT";
 const ALL_DRIVER_ROUTE_FILTERS: DriverRouteFilter[] = ["ON_ROUTE", "ON_SHIFT", "OFF_SHIFT"];
@@ -349,17 +350,5 @@ function DriversPage() {
 
 import { Users } from "lucide-react";
 
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-9 px-3 rounded border border-border bg-surface text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-      />
-    </div>
-  );
-}
-
-export { Field };
+// Re-export FormField as Field for backwards compatibility
+export { FormField as Field } from "@/components/shared/form-field";
