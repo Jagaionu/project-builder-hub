@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useDrivers, useComplianceWithLedger, useDriverDayHours } from "@/lib/hooks";
 import { getDriversSnapshot } from "@/lib/drivers.functions";
 import { StatusBadge } from "@/components/StatusBadge";
-import { PageHeader } from "./_app.index";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { toast } from "sonner";
@@ -199,54 +198,55 @@ function DriversPage() {
     }
   }
 
-
-
   return (
     <div className="h-full flex flex-col">
-      <PageHeader
-        title="Drivers"
-        subtitle={`${filteredDrivers.length} shown of ${drivers.length} drivers in roster`}
-        right={
+      {/* Header with filters in the middle */}
+      <header className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+        <div className="min-w-0">
+          <h1 className="text-base font-semibold tracking-tight">Drivers</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {filteredDrivers.length} shown of {drivers.length} drivers in roster
+          </p>
+        </div>
+        <div className="flex items-center gap-2 justify-self-center">
+          <DispatchStat
+            label="All"
+            value={driverRowsAfterSearch.length}
+            color={"oklch(0.52 0.012 245)"}
+            active={driverListFilter === "ALL"}
+            onClick={() => setDriverListFilter("ALL")}
+          />
+          <DispatchStat
+            label="On Route"
+            value={counts.ON_ROUTE}
+            color={"oklch(0.73 0.17 150)"}
+            active={driverListFilter === "ON_ROUTE"}
+            onClick={() => setDriverListFilter("ON_ROUTE")}
+          />
+          <DispatchStat
+            label="On Shift"
+            value={counts.ON_SHIFT}
+            color={"oklch(0.62 0.22 245)"}
+            active={driverListFilter === "ON_SHIFT"}
+            onClick={() => setDriverListFilter("ON_SHIFT")}
+          />
+          <DispatchStat
+            label="Off Shift"
+            value={counts.OFF_SHIFT}
+            color={"oklch(0.45 0.012 245)"}
+            active={driverListFilter === "OFF_SHIFT"}
+            onClick={() => setDriverListFilter("OFF_SHIFT")}
+          />
+        </div>
+        <div className="flex items-center gap-2 justify-self-end">
           <button
             onClick={() => setOpen((o) => !o)}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors shadow-lg hover:shadow-xl"
           >
             <Plus className="size-4" /> New Driver
           </button>
-        }
-      />
-
-      {/* Filter Stats Bar */}
-      <div className="px-5 py-3 border-b border-border flex items-center justify-center gap-3 bg-[oklch(0.14_0.016_245)]">
-        <DispatchStat
-          label="All"
-          value={driverRowsAfterSearch.length}
-          color={"oklch(0.52 0.012 245)"}
-          active={driverListFilter === "ALL"}
-          onClick={() => setDriverListFilter("ALL")}
-        />
-        <DispatchStat
-          label="On Route"
-          value={counts.ON_ROUTE}
-          color={"oklch(0.73 0.17 150)"}
-          active={driverListFilter === "ON_ROUTE"}
-          onClick={() => setDriverListFilter("ON_ROUTE")}
-        />
-        <DispatchStat
-          label="On Shift"
-          value={counts.ON_SHIFT}
-          color={"oklch(0.62 0.22 245)"}
-          active={driverListFilter === "ON_SHIFT"}
-          onClick={() => setDriverListFilter("ON_SHIFT")}
-        />
-        <DispatchStat
-          label="Off Shift"
-          value={counts.OFF_SHIFT}
-          color={"oklch(0.45 0.012 245)"}
-          active={driverListFilter === "OFF_SHIFT"}
-          onClick={() => setDriverListFilter("OFF_SHIFT")}
-        />
-      </div>
+        </div>
+      </header>
 
       {/* Create form modal */}
       {open && (
@@ -343,19 +343,6 @@ function DriversPage() {
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-export function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-9 px-3 rounded border border-border bg-surface text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-      />
     </div>
   );
 }
