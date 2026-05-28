@@ -137,9 +137,10 @@ function DriversPage() {
   async function regenerate(driverId: string, driverName: string) {
     if (!confirm(`Regenerate login code for "${driverName}"?\n\nThe old code will stop working immediately. The driver will need the new code to log in.`)) return;
     try {
-      const newCode = await rotateCode({ driverId });
-      await navigator.clipboard?.writeText(newCode).catch(() => {});
-      toast.success(`New code ${newCode} — copied to clipboard`);
+      const result = await rotateCode({ data: { driverId } });
+      const code = (result as { code: string }).code;
+      await navigator.clipboard?.writeText(code).catch(() => {});
+      toast.success(`New code ${code} — copied to clipboard`);
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -196,6 +197,18 @@ function DriversPage() {
       if (selectedDriverId === id) setSelectedDriverId(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Delete failed");
+    }
+  }
+
+  async function toggleTomorrow(driverId: string, available: boolean) {
+    const { error } = await supabase
+      .from("drivers")
+      .update({ available_tomorrow: available } as never)
+      .eq("id", driverId);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(available ? "Marked as available tomorrow" : "Marked as unavailable tomorrow");
     }
   }
 
@@ -295,6 +308,50 @@ function DriversPage() {
         </div>
       )}
 
+      {/* Edit driver modal */}
+      {editingId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-xl border border-border shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95">
+            <h3 className="text-lg font-semibold mb-1">Edit Driver</h3>
+            <p className="text-xs text-muted-foreground mb-5">Update driver name or phone number.</p>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-2">Driver Name *</label>
+                <input
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  placeholder="e.g., John Smith"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-[oklch(0.17_0.018_245)] text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-2">Phone Number (Optional)</label>
+                <input
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  placeholder="e.g., +44 7700 900000"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-[oklch(0.17_0.018_245)] text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setEditingId(null)}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-surface hover:bg-surface-2 text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEdit}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search bar */}
       <div className="px-5 py-3 border-b border-border">
         <div className="relative max-w-md">
@@ -340,6 +397,8 @@ function DriversPage() {
               activeJobs={activeJobsByDriver[selectedDriver.id] ?? []}
               onEdit={(d) => startEdit(d)}
               onDelete={remove}
+              onRegenerate={regenerate}
+              onToggleTomorrow={toggleTomorrow}
             />
           )}
         </div>

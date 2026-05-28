@@ -11,7 +11,7 @@ export const ackAlert = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ 
     id: z.string(),
-    type: z.enum(["event", "parked"])
+    type: z.enum(["event", "parked", "reimport"])
   }).parse(input))
   .handler(async ({ data, context }) => {
     const { userId } = context;
@@ -59,6 +59,29 @@ export const ackAlert = createServerFn({ method: "POST" })
 
       const { error: delErr } = await supabaseAdmin
         .from("pending_job_imports" as any)
+        .delete()
+        .eq("id", data.id);
+      if (delErr) throw new Error(delErr.message);
+    } else if (data.type === "reimport") {
+      // For reimport_alerts (duplicate VRID re-uploads), delete the row.
+      const { data: ra, error: fetchErr } = await supabaseAdmin
+        .from("reimport_alerts" as any)
+        .select("id, tenant_id")
+        .eq("id", data.id)
+        .maybeSingle();
+
+      if (fetchErr) throw new Error(fetchErr.message);
+      if (!ra) return { ok: true };
+
+      if (!(await isSuperAdmin(userId))) {
+        const callerTenant = await getUserTenantId(userId);
+        if (!callerTenant || callerTenant !== (ra as any).tenant_id) {
+          throw new Error("Forbidden");
+        }
+      }
+
+      const { error: delErr } = await supabaseAdmin
+        .from("reimport_alerts" as any)
         .delete()
         .eq("id", data.id);
       if (delErr) throw new Error(delErr.message);

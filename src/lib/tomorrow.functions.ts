@@ -39,7 +39,11 @@ export const planTomorrow = createServerFn({ method: "POST" })
       await Promise.all([
         tenantId ? jobsQ.eq("tenant_id", tenantId) : jobsQ,
         tenantId ? driversQ.eq("tenant_id", tenantId) : driversQ,
-        tenantId ? whQ.eq("tenant_id", tenantId) : whQ,
+        // Include both tenant-specific AND global (tenant_id IS NULL) warehouses.
+        // Without global warehouses the planner cannot resolve stop warehouse_ids
+        // that reference shared locations, causing those jobs to be silently
+        // marked unassignable ("No stops / pickup configured").
+        tenantId ? whQ.or(`tenant_id.eq.${tenantId},tenant_id.is.null`) : whQ,
         tenantId ? stopsQ.eq("jobs.tenant_id", tenantId) : stopsQ,
         tenantId ? eventsQ.eq("tenant_id", tenantId) : eventsQ,
         // driver_day_hours has no tenant column — keyed by driver_id and
@@ -89,22 +93,39 @@ export const planTomorrow = createServerFn({ method: "POST" })
 
   const plan = computeTomorrowPlan(jobList, stopsMap, driverList, whList, compliance);
 
-  // Bug 5: Persist planned_* — coalesce clears into one .in() and run
-  // updates in parallel instead of sequential awaits (which timed out
-  // on Cloudflare Workers when N grew).
+  // Statuses where a job is actively being executed — never touch these.
+  const ACTIVE_STATUSES = new Set(["IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY", "COMPLETED", "CANCELLED"]);
+
   const desired = new Map(plan.planned.map((p) => [p.jobId, p] as const));
   const toClear: string[] = [];
-  const toApply: Array<{ id: string; planned_driver_id: string; planned_sequence: number; planned_start_at: string }> = [];
+  const toApply: Array<{
+    id: string;
+    planned_driver_id: string;
+    planned_sequence: number;
+    planned_start_at: string;
+    assigned_driver_id: string;
+    status: "ASSIGNED";
+  }> = [];
+
   for (const j of jobList) {
     const want = desired.get(j.id);
     if (want) {
+      // Fully assign the driver — same fields the manual "Assign" button writes.
       toApply.push({
         id: j.id,
         planned_driver_id: want.driverId,
         planned_sequence: want.sequence,
         planned_start_at: want.startAt,
+        assigned_driver_id: want.driverId,
+        status: "ASSIGNED",
       });
-    } else if (j.planned_driver_id || j.planned_sequence || j.planned_start_at) {
+    } else if (
+      !j.manual_override &&
+      !ACTIVE_STATUSES.has(j.status) &&
+      (j.planned_driver_id || j.planned_sequence || j.planned_start_at || j.assigned_driver_id)
+    ) {
+      // Only clear auto-planned / auto-assigned jobs that are no longer in the plan.
+      // Jobs with manual_override or active jobs are left untouched.
       toClear.push(j.id);
     }
   }
@@ -115,7 +136,13 @@ export const planTomorrow = createServerFn({ method: "POST" })
       Promise.resolve(
         supabaseAdmin
           .from("jobs")
-          .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
+          .update({
+            planned_driver_id: null,
+            planned_sequence: null,
+            planned_start_at: null,
+            assigned_driver_id: null,
+            status: "PENDING",
+          })
           .in("id", toClear),
       ),
     );

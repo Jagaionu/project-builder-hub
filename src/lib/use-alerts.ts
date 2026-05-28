@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Gauge, Timer, MapPin, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Gauge, Timer, MapPin, RefreshCcw, type LucideIcon } from "lucide-react";
 import { useCompliance, useDrivers, useJobs, useRecentDelays } from "@/lib/hooks";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -83,10 +83,47 @@ function useParkedImports(): ParkedImport[] {
 }
 
 
+type ReimportAlert = {
+  id: string;
+  reference: string;
+  lane: string;
+  uploaded_at: string;
+};
+
+function useReimportAlerts(): ReimportAlert[] {
+  const [rows, setRows] = useState<ReimportAlert[]>([]);
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      const { data } = await supabase
+        .from("reimport_alerts" as never)
+        .select("id,reference,lane,uploaded_at")
+        .order("uploaded_at", { ascending: false });
+      if (!mounted || !data) return;
+      setRows(data as unknown as ReimportAlert[]);
+    };
+    load();
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    const debounced = () => {
+      if (pending) clearTimeout(pending);
+      pending = setTimeout(() => void load(), 400);
+    };
+    const ch = supabase
+      .channel(`rt-reimport-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "reimport_alerts" }, debounced)
+      .subscribe();
+    return () => {
+      mounted = false;
+      supabase.removeChannel(ch);
+    };
+  }, []);
+  return rows;
+}
+
 export interface AppAlert {
   id: string;
   dbId?: string;
-  dbType?: "event" | "parked";
+  dbType?: "event" | "parked" | "reimport";
   level: "critical" | "warning" | "info";
   type: string;
   message: string;
@@ -163,6 +200,7 @@ export function useAlerts() {
   const recentDelays = useRecentDelays();
   const cantCompleteEvents = useRecentCantComplete();
   const parkedImports = useParkedImports();
+  const reimportAlerts = useReimportAlerts();
 
   const all = useMemo<AppAlert[]>(() => {
     const out: AppAlert[] = [];
@@ -254,8 +292,23 @@ export function useAlerts() {
       });
     });
 
+    reimportAlerts.forEach((r) => {
+      const when = new Date(r.uploaded_at).toLocaleString([], {
+        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+      });
+      out.push({
+        id: `reimport-${r.id}`,
+        dbId: r.id,
+        dbType: "reimport",
+        level: "warning",
+        type: "Duplicate VRID",
+        icon: RefreshCcw,
+        message: `${r.reference} already exists — re-uploaded at ${when} with route ${r.lane}. Dismiss if intentional.`,
+      });
+    });
+
     return out;
-  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents, parkedImports]);
+  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents, parkedImports, reimportAlerts]);
 
   const { acked, ack } = useAcked(all);
   const visible = useMemo(() => all.filter((a) => !acked.has(a.id)), [all, acked]);

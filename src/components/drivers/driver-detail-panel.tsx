@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { Copy, Share2, Phone, Code2, CheckCircle2, Pencil, Trash2 } from "lucide-react";
+import { Copy, Share2, Phone, Code2, CheckCircle2, Pencil, Trash2, RefreshCw, CalendarCheck, CalendarX } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { Driver } from "@/lib/types";
@@ -11,11 +11,15 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
   activeJobs,
   onEdit,
   onDelete,
+  onRegenerate,
+  onToggleTomorrow,
 }: {
   driver: Driver;
   activeJobs: ActiveJob[];
   onEdit: (driver: Driver) => void;
   onDelete: (driverId: string, driverName: string) => void;
+  onRegenerate?: (driverId: string, driverName: string) => void;
+  onToggleTomorrow?: (driverId: string, available: boolean) => void;
 }) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const nowMs = Date.now();
@@ -152,6 +156,14 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                   </button>
                 </>
               )}
+              {onRegenerate && (
+                <button
+                  onClick={() => onRegenerate(driver.id, driver.name)}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
+                >
+                  <RefreshCw className="size-3" /> Regen
+                </button>
+              )}
             </div>
           </div>
           <div className="px-3 py-2.5 rounded bg-[oklch(0.17_0.018_245)] border border-[oklch(0.26_0.018_245)] font-mono text-sm text-foreground">
@@ -180,22 +192,40 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
       )}
 
       {/* Tomorrow Availability */}
-      {driver.available_tomorrow != null && (
-        <div className="rounded-lg border border-border bg-surface p-4">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
-            Tomorrow Availability
-          </div>
-          <div
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium"
-            style={{
-              background: driver.available_tomorrow ? "oklch(0.73 0.17 150 / 0.12)" : "oklch(0.45 0.012 245 / 0.12)",
-              color: driver.available_tomorrow ? "oklch(0.78 0.14 150)" : "oklch(0.52 0.012 245)",
-            }}
-          >
-            {driver.available_tomorrow ? "✓ Available" : "✗ Not available"}
-          </div>
+      <div className="rounded-lg border border-border bg-surface p-4">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
+          Tomorrow Availability
         </div>
-      )}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => onToggleTomorrow?.(driver.id, true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors border"
+            style={
+              driver.available_tomorrow === true
+                ? { background: "oklch(0.73 0.17 150 / 0.15)", color: "oklch(0.78 0.14 150)", borderColor: "oklch(0.73 0.17 150 / 0.4)" }
+                : { background: "transparent", color: "oklch(0.55 0.012 245)", borderColor: "oklch(0.3 0.012 245)" }
+            }
+          >
+            <CalendarCheck className="size-3.5" />
+            Available
+          </button>
+          <button
+            onClick={() => onToggleTomorrow?.(driver.id, false)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors border"
+            style={
+              driver.available_tomorrow === false
+                ? { background: "oklch(0.55 0.19 25 / 0.15)", color: "oklch(0.65 0.18 25)", borderColor: "oklch(0.55 0.19 25 / 0.4)" }
+                : { background: "transparent", color: "oklch(0.55 0.012 245)", borderColor: "oklch(0.3 0.012 245)" }
+            }
+          >
+            <CalendarX className="size-3.5" />
+            Not available
+          </button>
+          {driver.available_tomorrow == null && (
+            <span className="text-[11px] text-muted-foreground italic">Not set — defaults to unavailable</span>
+          )}
+        </div>
+      </div>
     </div>
   );
 });

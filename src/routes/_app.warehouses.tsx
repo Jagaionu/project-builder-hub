@@ -72,7 +72,12 @@ function WarehousesPage() {
     latitude: number;
     longitude: number;
     address: string | null;
+    tenant_id?: string | null;
   }) {
+    if (!w.tenant_id) {
+      toast.error("Global warehouses can only be edited by the system administrator.");
+      return;
+    }
     setEditingId(w.id);
     setEditForm({
       code: w.code,
@@ -339,43 +344,52 @@ function WarehousesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((w) => (
-                <tr
-                  key={w.id}
-                  onClick={() => setSelectedId((id) => (id === w.id ? null : w.id))}
-                  className={`hover:bg-surface-2/40 cursor-pointer ${selectedId === w.id ? "bg-surface-2/60" : ""}`}
-                >
-                  <td className="px-3 py-2.5 font-mono text-xs font-semibold">{w.code}</td>
-                  <td className="px-3 py-2.5">{w.name}</td>
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">{w.address ?? "—"}</td>
-                  <td className="px-3 py-2.5 text-right font-mono text-xs">
-                    {w.latitude.toFixed(4)}, {w.longitude.toFixed(4)}
-                  </td>
-                  <td className="px-3 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
-                    {selectedId === w.id ? (
-                      <div className="inline-flex items-center gap-1">
-                        <button
-                          onClick={() => {
-                            startEdit(w);
-                            setSelectedId(null);
-                          }}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border hover:bg-surface-2 text-xs"
-                        >
-                          <Pencil className="size-3.5" /> Edit
-                        </button>
-                        <button
-                          onClick={() => remove(w.id, w.name)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-destructive/40 text-destructive hover:bg-destructive/10 text-xs"
-                        >
-                          <Trash2 className="size-3.5" /> Delete
-                        </button>
-                      </div>
-                    ) : (
-                      <RowMenu onEdit={() => startEdit(w)} onDelete={() => remove(w.id, w.name)} />
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((w) => {
+                const isGlobal = !w.tenant_id;
+                return (
+                  <tr
+                    key={w.id}
+                    onClick={() => setSelectedId((id) => (id === w.id ? null : w.id))}
+                    className={`hover:bg-surface-2/40 cursor-pointer ${selectedId === w.id ? "bg-surface-2/60" : ""}`}
+                  >
+                    <td className="px-3 py-2.5 font-mono text-xs font-semibold">
+                      <span>{w.code}</span>
+                      {isGlobal && (
+                        <span className="ml-1.5 inline-flex items-center px-1 py-0.5 rounded text-[9px] font-mono font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                          GLOBAL
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5">{w.name}</td>
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground">{w.address ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-xs">
+                      {w.latitude.toFixed(4)}, {w.longitude.toFixed(4)}
+                    </td>
+                    <td className="px-3 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                      {isGlobal ? (
+                        <span className="text-[10px] text-muted-foreground/40 font-mono">system</span>
+                      ) : selectedId === w.id ? (
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            onClick={() => { startEdit(w); setSelectedId(null); }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border hover:bg-surface-2 text-xs"
+                          >
+                            <Pencil className="size-3.5" /> Edit
+                          </button>
+                          <button
+                            onClick={() => remove(w.id, w.name)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-destructive/40 text-destructive hover:bg-destructive/10 text-xs"
+                          >
+                            <Trash2 className="size-3.5" /> Delete
+                          </button>
+                        </div>
+                      ) : (
+                        <RowMenu onEdit={() => startEdit(w)} onDelete={() => remove(w.id, w.name)} />
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-3 py-8 text-center text-xs text-muted-foreground">

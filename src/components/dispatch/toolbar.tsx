@@ -51,7 +51,7 @@ export function ImportCsvButton() {
       const text = await file.text();
       const rows = csvToImportRows(text);
       if (rows.length === 0) { toast.error("No rows found in CSV"); return; }
-      const res = await runImport({ data: { rows } });
+      const res = await runImport({ data: { rows, fileName: file.name } });
       const parts: string[] = [`${res.created} created`];
       if (res.parked.length) parts.push(`${res.parked.length} parked (see Alerts)`);
       if (res.skippedDuplicate.length) parts.push(`${res.skippedDuplicate.length} duplicate`);

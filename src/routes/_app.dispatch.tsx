@@ -361,7 +361,22 @@ function DispatchPage() {
 
   const tomorrowStats = useMemo(() => {
     const tm = startOfDay(new Date(Date.now() + 86400000));
-    const tmJobs = jobs.filter((j) => sameDay(jobDate(j, stopsMap[j.id] ?? []), tm));
+    // Tomorrow as a UTC ISO date (matches how `for_date` is stored by the
+    // sync_job_for_date DB trigger and how planTomorrow queries it).
+    const tomorrowISO = (() => {
+      const t = new Date();
+      t.setUTCDate(t.getUTCDate() + 1);
+      return t.toISOString().slice(0, 10);
+    })();
+    // Use OR so both checks are applied:
+    //   • for_date === tomorrowISO  — catches imported jobs that have for_date
+    //     set by the trigger but no scheduled_at on the job row.
+    //   • sameDay(jobDate(…), tm)   — catches Route-Dialog jobs (scheduled_at
+    //     set in local time) and keeps timezone edge-cases consistent with the
+    //     visible job list, which also uses jobDate/sameDay for filtering.
+    const tmJobs = jobs.filter((j) =>
+      j.for_date === tomorrowISO || sameDay(jobDate(j, stopsMap[j.id] ?? []), tm),
+    );
     const assigned = tmJobs.filter((j) => !!j.assigned_driver_id);
     const plannedOnly = tmJobs.filter((j) => !j.assigned_driver_id && !!j.planned_driver_id);
     const availableDrivers = drivers.filter(

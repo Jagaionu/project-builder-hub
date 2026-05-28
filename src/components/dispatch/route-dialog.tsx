@@ -55,74 +55,89 @@ export default function RouteDialog({
     if (stops.some((s) => !s.warehouse_id)) return toast.error("Every stop needs a warehouse");
     setSaving(true);
 
-    const jobStartIso = startIso;
-    const autoTimes = computeStopSchedule(stops, jobStartIso, warehouses);
+    try {
+      const jobStartIso = startIso;
+      const autoTimes = computeStopSchedule(stops, jobStartIso, warehouses);
 
-    const tenant_id = await getTenantId();
-    const jobPayload = {
-      scheduled_at: jobStartIso,
-      origin_warehouse_id: stops[0].warehouse_id,
-      destination_warehouse_id: stops[stops.length - 1].warehouse_id,
-      tenant_id,
-    };
+      const tenant_id = await getTenantId();
+      const jobPayload = {
+        scheduled_at: jobStartIso,
+        origin_warehouse_id: stops[0].warehouse_id,
+        destination_warehouse_id: stops[stops.length - 1].warehouse_id,
+        tenant_id,
+      };
 
-    let targetJobId = jobId;
-    if (mode === "create") {
-      const { data, error } = await supabase
-        .from("jobs")
-        .insert(jobPayload as never)
-        .select("id")
-        .single();
-      if (error) {
-        setSaving(false);
-        console.error("[jobs.insert]", error);
-        return toast.error(`Job create failed: ${error.message}`);
+      let targetJobId = jobId;
+      if (mode === "create") {
+        const { data, error } = await supabase
+          .from("jobs")
+          .insert(jobPayload as never)
+          .select("id")
+          .single();
+        if (error) {
+          console.error("[jobs.insert]", error);
+          toast.error(`Job create failed: ${error.message}`);
+          return;
+        }
+        targetJobId = (data as { id: string }).id;
+      } else {
+        // Clear stale planning fields so the planner starts fresh after a route
+        // change — otherwise planned_driver_id / sequence remain from the old lane.
+        const editPayload = {
+          ...jobPayload,
+          planned_driver_id: null,
+          planned_sequence: null,
+          planned_start_at: null,
+        };
+        const { error } = await supabase.from("jobs").update(editPayload as never).eq("id", targetJobId!);
+        if (error) {
+          console.error("[jobs.update]", error);
+          toast.error(`Job update failed: ${error.message}`);
+          return;
+        }
       }
-      targetJobId = (data as { id: string }).id;
-    } else {
-      const { error } = await supabase.from("jobs").update(jobPayload).eq("id", targetJobId!);
-      if (error) {
-        setSaving(false);
-        console.error("[jobs.update]", error);
-        return toast.error(`Job update failed: ${error.message}`);
-      }
-    }
 
-    const { error: delErr } = await supabase.from("job_stops").delete().eq("job_id", targetJobId!);
-    if (delErr) {
+      const { error: delErr } = await supabase.from("job_stops").delete().eq("job_id", targetJobId!);
+      if (delErr) {
+        console.error("[stops.delete]", delErr);
+        toast.error(`Clear stops failed: ${delErr.message}`);
+        return;
+      }
+
+      const rows = stops.map((s, i) => ({
+        job_id: targetJobId!,
+        seq: i,
+        kind: s.kind as never,
+        warehouse_id: s.warehouse_id,
+        scheduled_at:
+          i === 0 ? (s.scheduled_at ?? autoTimes[i] ?? null) : (autoTimes[i] ?? null),
+      }));
+      const { error: stopErr } = await supabase.from("job_stops").insert(rows as never);
+      if (stopErr) {
+        console.error("[stops.insert]", stopErr, rows);
+        toast.error(`Stops insert failed: ${stopErr.message}`);
+        return;
+      }
+
+      const firstArrival = rows.map((r) => r.scheduled_at).find((s) => !!s) as string | undefined;
+      const firstDate = firstArrival ? firstArrival.slice(0, 10) : null;
+      const tomorrow = (() => {
+        const t = new Date();
+        t.setUTCDate(t.getUTCDate() + 1);
+        return t.toISOString().slice(0, 10);
+      })();
+      if (firstDate === tomorrow) {
+        toast.success("Route scheduled for tomorrow — click Plan Tomorrow to assign a driver");
+      } else {
+        toast.success(mode === "create" ? "Route created" : "Route updated");
+      }
+      onClose();
+    } catch (err) {
+      console.error("[route-dialog] submit error", err);
+      toast.error(err instanceof Error ? err.message : "Save failed — please try again");
+    } finally {
       setSaving(false);
-      console.error("[stops.delete]", delErr);
-      return toast.error(`Clear stops failed: ${delErr.message}`);
     }
-
-    const rows = stops.map((s, i) => ({
-      job_id: targetJobId!,
-      seq: i,
-      kind: s.kind as never,
-      warehouse_id: s.warehouse_id,
-      scheduled_at:
-        i === 0 ? (s.scheduled_at ?? autoTimes[i] ?? null) : (autoTimes[i] ?? null),
-    }));
-    const { error: stopErr } = await supabase.from("job_stops").insert(rows as never);
-    setSaving(false);
-    if (stopErr) {
-      console.error("[stops.insert]", stopErr, rows);
-      return toast.error(`Stops insert failed: ${stopErr.message}`);
-    }
-
-    const firstArrival = rows.map((r) => r.scheduled_at).find((s) => !!s) as string | undefined;
-    const firstDate = firstArrival ? firstArrival.slice(0, 10) : null;
-    const tomorrow = (() => {
-      const t = new Date();
-      t.setUTCDate(t.getUTCDate() + 1);
-      return t.toISOString().slice(0, 10);
-    })();
-    if (firstDate === tomorrow) {
-      toast.success("Route scheduled for tomorrow — click Plan Tomorrow to assign a driver");
-    } else {
-      toast.success(mode === "create" ? "Route created" : "Route updated");
-    }
-    onClose();
   }
 
   async function onDelete() {

@@ -12,17 +12,30 @@ export type ImportRow = {
   stopScheduledAt: (string | null)[];
 };
 
+export type ImportBatchSummary = {
+  id: string;
+  file_name: string;
+  row_count: number;
+  created_count: number;
+  parked_count: number;
+  duplicate_count: number;
+  error_count: number;
+  created_at: string;
+  expires_at: string;
+};
+
 export type ImportResult = {
   created: number;
   parked: string[];
   skippedDuplicate: string[];
   skippedUnknownWh: { reference: string; missing: string[] }[];
   errors: { reference: string; message: string }[];
+  batchId: string | null;
 };
 
 export const importJobsCsv = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { rows: ImportRow[] }) => input)
+  .inputValidator((input: { rows: ImportRow[]; fileName: string }) => input)
   .handler(async ({ data, context }): Promise<ImportResult> => {
     const { userId } = context;
     const superAdmin = await isSuperAdmin(userId);
@@ -34,7 +47,27 @@ export const importJobsCsv = createServerFn({ method: "POST" })
       skippedDuplicate: [],
       skippedUnknownWh: [],
       errors: [],
+      batchId: null,
     };
+
+    // Create the import batch record upfront so we can link rows to it.
+    let batchId: string | null = null;
+    if (tenantId) {
+      const { data: batch, error: batchErr } = await supabaseAdmin
+        .from("import_batches" as never)
+        .insert({
+          tenant_id: tenantId,
+          file_name: data.fileName,
+          row_count: data.rows.length,
+          csv_rows: data.rows,
+        } as never)
+        .select("id")
+        .single();
+      if (!batchErr && batch) {
+        batchId = (batch as { id: string }).id;
+        out.batchId = batchId;
+      }
+    }
 
     // Pre-fetch existing parked refs to dedupe against
     const { data: parkedExisting } = await supabaseAdmin
@@ -45,13 +78,34 @@ export const importJobsCsv = createServerFn({ method: "POST" })
       ((parkedExisting ?? []) as { reference: string }[]).map((r) => r.reference),
     );
 
-    // Pre-fetch warehouses
-    const { data: whs } = await supabaseAdmin
+    // Pre-fetch existing reimport alert refs (so we can upsert not multi-insert)
+    const { data: reimportExisting } = await supabaseAdmin
+      .from("reimport_alerts" as never)
+      .select("reference")
+      .eq("tenant_id", tenantId as never);
+    const reimportRefs = new Set(
+      ((reimportExisting ?? []) as { reference: string }[]).map((r) => r.reference),
+    );
+
+    // Pre-fetch warehouses visible to this tenant:
+    //   1. Global warehouses (tenant_id IS NULL) – shared across all companies
+    //   2. Tenant-specific warehouses for the current tenant
+    // Load globals first, then tenant-specific so tenant-specific overwrites
+    // when the same code exists in both (tenant-specific takes precedence).
+    const { data: globalWhs } = await supabaseAdmin
       .from("warehouses")
-      .select("id,code");
+      .select("id,code")
+      .is("tenant_id", null);
+    const { data: tenantWhs } = await supabaseAdmin
+      .from("warehouses")
+      .select("id,code")
+      .eq("tenant_id", tenantId as never);
     const whMap = new Map<string, string>();
-    for (const w of (whs ?? []) as { id: string; code: string }[]) {
+    for (const w of (globalWhs ?? []) as { id: string; code: string }[]) {
       whMap.set(w.code.toUpperCase(), w.id);
+    }
+    for (const w of (tenantWhs ?? []) as { id: string; code: string }[]) {
+      whMap.set(w.code.toUpperCase(), w.id); // tenant-specific wins
     }
 
     // Pre-fetch existing references
@@ -71,6 +125,25 @@ export const importJobsCsv = createServerFn({ method: "POST" })
           continue;
         }
         if (existingRefs.has(row.reference)) {
+          // Surface the re-upload as an alert instead of silently discarding.
+          // Upsert so repeated re-uploads update the lane and timestamp rather
+          // than stacking duplicate rows.
+          if (reimportRefs.has(row.reference)) {
+            await supabaseAdmin
+              .from("reimport_alerts" as never)
+              .update({ lane: row.lane, uploaded_at: new Date().toISOString() } as never)
+              .eq("tenant_id", tenantId as never)
+              .eq("reference", row.reference);
+          } else {
+            await supabaseAdmin
+              .from("reimport_alerts" as never)
+              .insert({
+                tenant_id: tenantId,
+                reference: row.reference,
+                lane: row.lane,
+              } as never);
+            reimportRefs.add(row.reference);
+          }
           out.skippedDuplicate.push(row.reference);
           continue;
         }
@@ -110,6 +183,7 @@ export const importJobsCsv = createServerFn({ method: "POST" })
                 equipment_type: row.equipmentType,
                 stop_scheduled_at: row.stopScheduledAt,
                 missing_codes: missing,
+                ...(batchId ? { import_batch_id: batchId } : {}),
               } as never);
             if (parkErr) {
               out.errors.push({ reference: row.reference, message: `park: ${parkErr.message}` });
@@ -137,6 +211,7 @@ export const importJobsCsv = createServerFn({ method: "POST" })
             // from the first stop's scheduled arrival.
             equipment_type: row.equipmentType,
             tenant_id: tenantId,
+            ...(batchId ? { import_batch_id: batchId } : {}),
           } as never)
           .select("id")
           .single();
@@ -166,5 +241,19 @@ export const importJobsCsv = createServerFn({ method: "POST" })
         });
       }
     }
+
+    // Update batch with final counts so the Events page shows accurate stats.
+    if (batchId) {
+      await supabaseAdmin
+        .from("import_batches" as never)
+        .update({
+          created_count:   out.created,
+          parked_count:    out.parked.length,
+          duplicate_count: out.skippedDuplicate.length,
+          error_count:     out.errors.length,
+        } as never)
+        .eq("id", batchId);
+    }
+
     return out;
   });

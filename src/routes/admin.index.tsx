@@ -54,7 +54,7 @@ function AdminDashboard() {
   async function loadWarehouses() {
     const { data, error } = await supabase
       .from("warehouses" as never)
-      .select("*")
+      .select("*, companies(name)")
       .order("code", { ascending: true });
     if (!error && data) setWarehouses(data as unknown as Warehouse[]);
   }
@@ -417,10 +417,24 @@ function AdminDashboard() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold">{wh.code}</span>
                         <span className="text-xs font-mono text-muted-foreground">{wh.name}</span>
+                        {!(wh as Warehouse & { tenant_id?: string | null }).tenant_id ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-amber-500/15 text-amber-500 border border-amber-500/20">
+                            GLOBAL
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-surface-2 text-muted-foreground border border-border">
+                            COMPANY
+                          </span>
+                        )}
                       </div>
                       <div className="text-[11px] text-muted-foreground mt-1 font-mono">
                         {wh.latitude.toFixed(4)}, {wh.longitude.toFixed(4)}
-                        {wh.address && <div>{wh.address}</div>}
+                        {wh.address && <span className="ml-2">{wh.address}</span>}
+                        {(wh as Warehouse & { companies?: { name: string } | null }).companies?.name && (
+                          <span className="ml-2 text-muted-foreground/60">
+                            — {(wh as Warehouse & { companies?: { name: string } | null }).companies!.name}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2">

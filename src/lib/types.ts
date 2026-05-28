@@ -33,6 +33,7 @@ export interface Warehouse {
   latitude: number;
   longitude: number;
   address: string | null;
+  tenant_id?: string | null;
 }
 
 export interface Job {

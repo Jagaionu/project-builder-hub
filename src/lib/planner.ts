@@ -364,19 +364,37 @@ export function computeTomorrowPlan(
 
   const eligibleIds = Object.keys(forecast);
 
-  // Nominal tomorrow 06:00 UTC start
-  const t = new Date();
-  t.setUTCDate(t.getUTCDate() + 1);
-  t.setUTCHours(6, 0, 0, 0);
-  const baseStartMs = t.getTime();
-  const driverElapsedMs: Record<string, number> = {};
+  // Nominal tomorrow 06:00 UTC — used as default driver ready-time when they
+  // have no previous job constraining them.
+  const baseStartMs = (() => {
+    const t = new Date();
+    t.setUTCDate(t.getUTCDate() + 1);
+    t.setUTCHours(6, 0, 0, 0);
+    return t.getTime();
+  })();
 
-  // Longest-first
-  const sorted = [...tomorrowJobs].sort((a, b) => {
-    const ha = jobDriveHours(stopsMap[a.id] ?? [], warehouses);
-    const hb = jobDriveHours(stopsMap[b.id] ?? [], warehouses);
-    return hb - ha;
-  });
+  // Wall-clock time each driver becomes free for their next job.
+  // This is distinct from hoursLeft (compliance drive hours): it includes
+  // loading/unloading dwell time at every stop so that chaining respects the
+  // actual job finish time (e.g. driver finishes unloading at 12:40 PM, not
+  // just when the truck arrives at the drop warehouse).
+  const driverReadyMs: Record<string, number> = {};
+  for (const did of eligibleIds) driverReadyMs[did] = baseStartMs;
+
+  // Sort jobs by their scheduled pickup time (earliest first, unscheduled last).
+  //
+  // WHY: with a longest-first sort, a job that naturally chains AFTER another
+  // (e.g. SBS2→SNG1 after a driver just dropped at SBS2) can be processed
+  // first and assigned to a different driver — breaking the chain.  Sorting
+  // chronologically ensures the planner assigns job-1 before job-2, so when
+  // job-2 is evaluated the forecast position of the job-1 driver already
+  // reflects their end location and they appear as distance-0 to the pickup.
+  const pickupMs = (job: Job): number => {
+    const s0 = stopsMap[job.id]?.[0];
+    const iso = s0?.scheduled_at ?? job.scheduled_at ?? null;
+    return iso ? new Date(iso).getTime() : Number.MAX_SAFE_INTEGER;
+  };
+  const sorted = [...tomorrowJobs].sort((a, b) => pickupMs(a) - pickupMs(b));
 
   for (const job of sorted) {
     const stops = stopsMap[job.id] ?? [];
@@ -385,9 +403,28 @@ export function computeTomorrowPlan(
       out.unassignable.push({ jobId: job.id, reason: "No stops / pickup configured" });
       continue;
     }
+
+    // jobH = driving hours only (used for compliance / hoursLeft).
     const jobH = jobDriveHours(stops, warehouses);
 
-    let best: { id: string; dist: number; total: number; transit: number; breakMs: number } | null = null;
+    // jobWallH = total wall-clock hours the driver is occupied by this job,
+    // including dwell (loading + checks at every stop). Used for chaining so
+    // the next assignment starts after the driver finishes unloading.
+    const dwellH = stops.reduce((s, st) => s + stopDwellMinutes(st.kind) / 60, 0);
+    const jobWallH = jobH + dwellH;
+
+    // Scheduled pickup time at the first stop, if the job has one.
+    const schedPickupMs = (() => {
+      const iso = stops[0]?.scheduled_at ?? job.scheduled_at ?? null;
+      if (!iso) return null;
+      const ms = new Date(iso).getTime();
+      return Number.isFinite(ms) ? ms : null;
+    })();
+
+    let best: {
+      id: string; dist: number; driveAdd: number; transit: number;
+      departMs: number; breakMs: number;
+    } | null = null;
     let nearMiss: { name: string; dist: number; reason: string } | null = null;
 
     for (const did of eligibleIds) {
@@ -395,16 +432,26 @@ export function computeTomorrowPlan(
       const dist = haversineKm(f.lat, f.lon, fp.latitude, fp.longitude);
       const transit = transitTimeHours(dist);
       const driveAdd = jobH + transit;
-      
-      const breakMs = calculateBreakDelayMs(f.continuous, driveAdd);
-      const total = driveAdd + (breakMs / 3_600_000);
 
-      if (f.hoursLeft < total) {
-        const reason = `needs ${total.toFixed(1)}h, ${f.hoursLeft.toFixed(1)}h left`;
+      const breakMs = calculateBreakDelayMs(f.continuous, driveAdd);
+
+      if (f.hoursLeft < driveAdd + breakMs / 3_600_000) {
+        const reason = `needs ${driveAdd.toFixed(1)}h drive, ${f.hoursLeft.toFixed(1)}h left`;
         if (!nearMiss || dist < nearMiss.dist) nearMiss = { name: driverById[did].name, dist, reason };
         continue;
       }
-      if (!best || dist < best.dist) best = { id: did, dist, total, transit, breakMs };
+
+      // Departure time: driver leaves as late as possible to arrive exactly at
+      // the scheduled pickup, but cannot leave before they finish their previous
+      // job (driverReadyMs). If there is no scheduled pickup time the driver
+      // departs as soon as they are free.
+      const readyMs = driverReadyMs[did];
+      const transitMs = transit * 3_600_000;
+      const departMs = schedPickupMs !== null
+        ? Math.max(readyMs, schedPickupMs - transitMs)
+        : readyMs;
+
+      if (!best || dist < best.dist) best = { id: did, dist, driveAdd, transit, departMs, breakMs };
     }
 
     if (!best) {
@@ -419,29 +466,35 @@ export function computeTomorrowPlan(
 
     const f = forecast[best.id];
     const seq = ++f.sequence;
-    const elapsedMs = driverElapsedMs[best.id] ?? 0;
-    const startMs = baseStartMs + elapsedMs + best.breakMs;
-    driverElapsedMs[best.id] = elapsedMs + (best.total * 3_600_000);
+
+    // Arrival at first pickup (may be after scheduled time if driver was busy)
+    const arrivalMs = best.departMs + best.transit * 3_600_000;
+    // Effective pickup start: whichever is later — arrival or the scheduled time
+    const pickupStartMs = schedPickupMs !== null ? Math.max(arrivalMs, schedPickupMs) : arrivalMs;
+    // Driver is free again after completing all stops including unloading dwell + any break
+    driverReadyMs[best.id] = pickupStartMs + jobWallH * 3_600_000 + best.breakMs;
 
     const c = compliance[best.id];
     const weeklyBase = c?.weekly ?? 0;
-    const nextWeekly = weeklyBase + best.total;
+    const nextWeekly = weeklyBase + best.driveAdd;
 
     out.planned.push({
       jobId: job.id,
       driverId: best.id,
       sequence: seq,
-      startAt: new Date(startMs).toISOString(),
+      startAt: new Date(best.departMs).toISOString(),
       distKm: best.dist,
-      dailyHoursLeft: Math.max(0, f.hoursLeft - best.total),
+      dailyHoursLeft: Math.max(0, f.hoursLeft - best.driveAdd),
       weeklyHoursLeft: Math.max(0, WEEKLY_CAP - nextWeekly),
     });
 
     const ld = lastDropWh(stops, warehouses);
     f.lat = ld?.latitude ?? f.lat;
     f.lon = ld?.longitude ?? f.lon;
-    f.hoursLeft -= best.total;
-    f.continuous = best.breakMs > 0 ? Math.max(0, best.total - BREAK_THRESHOLD_HOURS) : f.continuous + best.total;
+    f.hoursLeft -= best.driveAdd;
+    f.continuous = best.breakMs > 0
+      ? Math.max(0, best.driveAdd - BREAK_THRESHOLD_HOURS)
+      : f.continuous + best.driveAdd;
   }
 
   return out;

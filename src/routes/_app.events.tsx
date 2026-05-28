@@ -4,11 +4,16 @@ import {
   ChevronDown, ChevronRight,
   Play, Square, MapPin, CheckCircle2, AlertTriangle,
   Send, Ban, XCircle, Activity,
+  Upload, Trash2, FileText, Clock,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDrivers, useJobs } from "@/lib/hooks";
+import { useServerFn } from "@tanstack/react-start";
+import { deleteImportBatch } from "@/lib/delete-import-batch.functions";
+import { toast } from "sonner";
 import { PageHeader } from "./_app.index";
 import type { DriverEvent, Job } from "@/lib/types";
+import type { ImportBatchSummary } from "@/lib/jobs-import.functions";
 
 export const Route = createFileRoute("/_app/events")({
   component: EventLog,
@@ -30,12 +35,39 @@ const EVENT_CONFIG: Record<string, {
   CANT_COMPLETE:      { color: "oklch(0.63 0.22 20)",  bg: "oklch(0.63 0.22 20  / 0.10)", Icon: XCircle },
 };
 
+function useImportBatches() {
+  const [batches, setBatches] = useState<ImportBatchSummary[]>([]);
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      const { data } = await supabase
+        .from("import_batches" as never)
+        .select("id,file_name,row_count,created_count,parked_count,duplicate_count,error_count,created_at,expires_at")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (mounted && data) setBatches(data as unknown as ImportBatchSummary[]);
+    };
+    load();
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const debounced = () => { if (t) clearTimeout(t); t = setTimeout(() => void load(), 500); };
+    const ch = supabase
+      .channel(`rt-import-batches-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "import_batches" }, debounced)
+      .subscribe();
+    return () => { mounted = false; supabase.removeChannel(ch); };
+  }, []);
+  return batches;
+}
+
 function EventLog() {
   const drivers = useDrivers();
   const jobs    = useJobs();
-  const [events, setEvents]       = useState<DriverEvent[]>([]);
+  const [events, setEvents]           = useState<DriverEvent[]>([]);
   const [openDrivers, setOpenDrivers] = useState<Set<string>>(new Set());
-  const [showRaw, setShowRaw]     = useState(false);
+  const [showRaw, setShowRaw]         = useState(false);
+  const [tab, setTab]                 = useState<"driver" | "imports">("imports");
+  const batches                       = useImportBatches();
+  const runDelete                     = useServerFn(deleteImportBatch);
 
   useEffect(() => {
     supabase.from("driver_events").select("*")
@@ -47,6 +79,17 @@ function EventLog() {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
+
+  async function confirmDeleteBatch(batch: ImportBatchSummary) {
+    const msg = `Delete import "${batch.file_name}"?\n\nThis will permanently remove all ${batch.created_count} job(s) created from this file. This cannot be undone.`;
+    if (!confirm(msg)) return;
+    try {
+      const res = await runDelete({ data: { batchId: batch.id } });
+      toast.success(`Deleted ${(res as { deleted?: number }).deleted ?? batch.created_count} job(s) from "${batch.file_name}"`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Delete failed");
+    }
+  }
 
   const jobsById = useMemo(() => {
     const m: Record<string, Job> = {};
@@ -76,8 +119,10 @@ function EventLog() {
     <div className="h-full flex flex-col">
       <PageHeader
         title="Event Log"
-        subtitle={`${grouped.length} drivers · ${events.length} events`}
-        right={
+        subtitle={tab === "imports"
+          ? `${batches.length} import${batches.length !== 1 ? "s" : ""}`
+          : `${grouped.length} drivers · ${events.length} events`}
+        right={tab === "driver" ? (
           <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-muted-foreground hover:text-foreground transition-colors">
             <input
               type="checkbox" checked={showRaw}
@@ -86,11 +131,112 @@ function EventLog() {
             />
             Raw payload
           </label>
-        }
+        ) : undefined}
       />
 
+      {/* Tab bar */}
+      <div className="flex gap-0 border-b border-border px-5">
+        {(["imports", "driver"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px ${
+              tab === t
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t === "imports" ? (
+              <span className="flex items-center gap-1.5"><Upload className="size-3.5" /> Import Batches</span>
+            ) : (
+              <span className="flex items-center gap-1.5"><Activity className="size-3.5" /> Driver Events</span>
+            )}
+          </button>
+        ))}
+      </div>
+
       <div className="flex-1 overflow-y-auto p-5 space-y-2">
-        {grouped.length === 0 ? (
+        {/* ── Import Batches tab ─────────────────────────────────────────── */}
+        {tab === "imports" && (batches.length === 0 ? (
+          <div
+            className="rounded-xl border px-4 py-10 text-center"
+            style={{ background: "oklch(0.17 0.018 245)", borderColor: "oklch(0.24 0.018 245)" }}
+          >
+            <Upload className="size-8 mx-auto mb-3 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">No imports yet.</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">
+              Each CSV upload will appear here. Batches expire after 14 days.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {batches.map((b) => {
+              const expires = new Date(b.expires_at);
+              const daysLeft = Math.max(0, Math.ceil((expires.getTime() - Date.now()) / 86_400_000));
+              const uploadedAt = new Date(b.created_at);
+              return (
+                <div
+                  key={b.id}
+                  className="rounded-xl border overflow-hidden"
+                  style={{ background: "oklch(0.17 0.018 245)", borderColor: "oklch(0.22 0.018 245)" }}
+                >
+                  <div className="px-4 py-3 flex items-center gap-3">
+                    {/* File icon */}
+                    <div
+                      className="size-9 rounded-lg grid place-items-center shrink-0"
+                      style={{ background: "oklch(0.62 0.22 245 / 0.10)", border: "1px solid oklch(0.62 0.22 245 / 0.20)" }}
+                    >
+                      <FileText className="size-4" style={{ color: "oklch(0.72 0.18 245)" }} />
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sm truncate">{b.file_name}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground/60">
+                          {uploadedAt.toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" })}{" "}
+                          {uploadedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 flex-wrap text-[11px] font-mono">
+                        <span style={{ color: "oklch(0.73 0.17 150)" }}>✓ {b.created_count} created</span>
+                        {b.parked_count > 0 && (
+                          <span style={{ color: "oklch(0.80 0.16 72)" }}>⏸ {b.parked_count} parked</span>
+                        )}
+                        {b.duplicate_count > 0 && (
+                          <span className="text-muted-foreground">⟳ {b.duplicate_count} duplicate</span>
+                        )}
+                        {b.error_count > 0 && (
+                          <span style={{ color: "oklch(0.63 0.22 20)" }}>✕ {b.error_count} errors</span>
+                        )}
+                        <span
+                          className="flex items-center gap-1 text-muted-foreground/60"
+                          title={`Expires ${expires.toLocaleString()}`}
+                        >
+                          <Clock className="size-3" />
+                          {daysLeft === 0 ? "expires today" : `${daysLeft}d left`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Delete button */}
+                    <button
+                      onClick={() => confirmDeleteBatch(b)}
+                      className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-500/30 bg-red-500/5 hover:bg-red-500/15 text-red-500 text-xs font-medium transition-colors"
+                      title={`Delete all ${b.created_count} jobs from this import`}
+                    >
+                      <Trash2 className="size-3.5" />
+                      Delete all jobs
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+
+        {/* ── Driver Events tab ──────────────────────────────────────────── */}
+        {tab === "driver" && (grouped.length === 0 ? (
           <div
             className="rounded-xl border px-4 py-10 text-center"
             style={{ background: "oklch(0.17 0.018 245)", borderColor: "oklch(0.24 0.018 245)" }}
@@ -218,7 +364,7 @@ function EventLog() {
               </div>
             );
           })
-        )}
+        ))}
       </div>
     </div>
   );
