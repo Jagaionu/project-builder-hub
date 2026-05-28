@@ -51,16 +51,12 @@ function driverHtml(name: string, status: string, selected: boolean): string {
 </div>`;
 }
 
+// MODIFIED: warehouse marker – no house icon, code centered, black border
 function warehouseHtml(code: string): string {
   return `
 <div class="wh-mk">
   <div class="wh-body">
-    <svg class="wh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M2 22V9l10-7 10 7v13H2z"/>
-      <path d="M9 22v-8h6v8"/>
-      <path d="M2 9h20"/>
-    </svg>
-    <span class="wh-code">${code}</span>
+    <span class="wh-code-centered">${code}</span>
   </div>
   <div class="wh-pin"></div>
 </div>`;
@@ -77,7 +73,7 @@ function etaHtml(distKm: number, minutes: number): string {
 </div>`;
 }
 
-// ─── CSS injection ─────────────────────────────────────────────────────────
+// ─── CSS injection (updated for warehouse markers) ─────────────────────────
 const MAP_CSS = `
 .drv-mk{border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;transition:transform .15s,box-shadow .15s}
 .drv-mk:hover{transform:scale(1.12)}
@@ -85,11 +81,11 @@ const MAP_CSS = `
 .drv-pulse{position:absolute;inset:-6px;border-radius:50%;border:2px solid;opacity:0;animation:drv-ring 2.4s ease-out infinite}
 @keyframes drv-ring{0%{opacity:.7;transform:scale(.9)}100%{opacity:0;transform:scale(2)}}
 
+/* UPDATED warehouse marker: black border, centered code */
 .wh-mk{display:flex;flex-direction:column;align-items:center;cursor:pointer}
-.wh-body{background:#f97316;border:2px solid #fff;border-radius:8px;width:40px;height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;box-shadow:0 4px 14px rgba(249,115,22,.38),0 2px 5px rgba(0,0,0,.14);transition:transform .2s,box-shadow .2s}
+.wh-body{background:#f97316;border:2px solid #000;border-radius:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(249,115,22,.38),0 2px 5px rgba(0,0,0,.14);transition:transform .2s,box-shadow .2s}
 .wh-mk:hover .wh-body{transform:scale(1.1);box-shadow:0 6px 20px rgba(249,115,22,.52),0 2px 7px rgba(0,0,0,.17)}
-.wh-icon{width:17px;height:17px;color:#fff;flex-shrink:0}
-.wh-code{color:#000;font-size:9px;font-weight:900;font-family:system-ui,sans-serif;letter-spacing:.05em;line-height:1}
+.wh-code-centered{color:#000;font-size:12px;font-weight:900;font-family:system-ui,sans-serif;letter-spacing:.05em;line-height:1;text-align:center}
 .wh-pin{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #f97316;margin-top:-1px}
 
 .eta-chip{background:#1e293b;color:#f8fafc;border-radius:20px;padding:5px 12px;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;font-family:system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.35);white-space:nowrap}
@@ -238,7 +234,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warehouses.length > 0]);
 
-  // ── Warehouse markers ─────────────────────────────────────────────────────
+  // ── Warehouse markers (with manual route click handler) ─────────────────
   useEffect(() => {
     const layer = whClusterLayerRef.current;
     if (!layer) return;
@@ -268,7 +264,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
 
       L.marker([wh.latitude, wh.longitude], { icon, zIndexOffset: 2000 })
         .on("click", () => {
-          // If a driver is already selected: calculate ad-hoc route driver → this WH
+          // MANUAL ROUTE: if a driver is selected, calculate ad‑hoc route driver → this WH
           if (selectedDriverId) {
             const driver = drivers.find(d => d.id === selectedDriverId);
             if (driver) {
@@ -288,7 +284,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
         })
         .addTo(layer);
     });
-  }, [drivers, warehouses]);
+  }, [drivers, warehouses, selectedDriverId, jobs]);
 
   // ── Driver markers ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -693,7 +689,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
           <div className="flex items-center gap-2.5 bg-white/95 backdrop-blur border border-slate-200/80 px-4 py-2 rounded-2xl shadow-xl">
             <span
               className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-              style={{ background: STATUS_MAP[selectedDriver.status]?.bg ?? ROUTE_COLOR }}
+              style={{ background: STATUS_MAP[selectedDriver.status]?.bg ?? "#7c3aed" }}
             />
             <span className="text-xs font-bold text-slate-900">{selectedDriver.name}</span>
             <span className="w-px h-3 bg-slate-200 inline-block" />
@@ -744,8 +740,6 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
 }
 
 // ── Stat pill ────────────────────────────────────────────────────────────────
-const ROUTE_COLOR = "#7c3aed";
-
 function StatPill({
   color, count, label, pulse,
 }: {
