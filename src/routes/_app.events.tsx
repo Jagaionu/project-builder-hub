@@ -65,7 +65,7 @@ function EventLog() {
   const [events, setEvents]           = useState<DriverEvent[]>([]);
   const [openDrivers, setOpenDrivers] = useState<Set<string>>(new Set());
   const [showRaw, setShowRaw]         = useState(false);
-  const [tab, setTab]                 = useState<"driver" | "imports">("imports");
+  const [tab, setTab]                 = useState<"driver" | "imports">("driver");
   const batches                       = useImportBatches();
   const runDelete                     = useServerFn(deleteImportBatch);
 
@@ -136,7 +136,7 @@ function EventLog() {
 
       {/* Tab bar */}
       <div className="flex gap-0 border-b border-border px-5">
-        {(["imports", "driver"] as const).map((t) => (
+        {(["driver", "imports"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
