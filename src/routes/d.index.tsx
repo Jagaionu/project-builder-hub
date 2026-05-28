@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { useDriverStore } from "@/lib/driver-store";
@@ -33,7 +33,15 @@ function DriverHome() {
   const isOnline     = useDriverStore((s) => s.isOnline);
   const gps          = useDriverStore((s) => s.gpsPosition);
   const [shiftLoading, setShiftLoading] = useState(false);
+  // Sync availTomorrow with driver store whenever driver changes
   const [availTomorrow, setAvailTomorrow] = useState(driver?.available_tomorrow ?? false);
+  
+  // Update local state whenever driver.available_tomorrow changes from the store
+  useEffect(() => {
+    if (driver) {
+      setAvailTomorrow(driver.available_tomorrow ?? false);
+    }
+  }, [driver?.available_tomorrow]);
 
   if (!driver) {
     return (
@@ -77,10 +85,19 @@ function DriverHome() {
   };
 
   const toggleAvail = async () => {
+    if (!driver) return;
     const next = !availTomorrow;
+    // Optimistic update
     setAvailTomorrow(next);
-    await supabase.from("drivers").update({ available_tomorrow: next } as never).eq("id", driver.id);
     setDriver({ ...driver, available_tomorrow: next });
+    // Persist to database
+    const { error } = await supabase.from("drivers").update({ available_tomorrow: next } as never).eq("id", driver.id);
+    if (error) {
+      // Revert on error
+      console.error("Failed to update availability:", error);
+      setAvailTomorrow(!next);
+      setDriver({ ...driver, available_tomorrow: !next });
+    }
   };
 
   const dotColor = STATUS_DOT[driver.status] ?? "oklch(0.45 0.012 245)";
