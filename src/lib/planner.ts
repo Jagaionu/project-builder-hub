@@ -18,6 +18,9 @@ function tomorrowISODate(nowMs: number): string {
 }
 
 export const AUTO_ASSIGN_RADIUS_KM = 30;
+// Planned chaining uses a wider radius: the driver's projected end-position
+// is hours in the future so a strict 30 km cap is overly conservative.
+const CHAIN_RADIUS_KM = 80;
 const DAILY_CAP = 10;
 const WEEKLY_CAP = 56;
 const ACTIVE = new Set(["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"]);
@@ -241,7 +244,7 @@ export function computePlan(
       f.endMs += best.driveAdd * 3_600_000 + best.breakMs;
       f.daily += best.driveAdd;
       f.weekly += best.driveAdd;
-      f.continuous = best.breakMs > 0 ? best.driveAdd : f.continuous + best.driveAdd;
+      f.continuous = best.breakMs > 0 ? Math.max(0, best.driveAdd - BREAK_THRESHOLD_HOURS) : f.continuous + best.driveAdd;
     }
   }
 
@@ -267,13 +270,13 @@ export function computePlan(
       
       const breakMs = calculateBreakDelayMs(f.continuous, driveAdd);
       
-      const overRadius = dist > AUTO_ASSIGN_RADIUS_KM;
+      const overRadius = dist > CHAIN_RADIUS_KM;
       const overDaily = f.daily + driveAdd > DAILY_CAP;
       const overWeekly = f.weekly + driveAdd > WEEKLY_CAP;
       
       if (overRadius || overDaily || overWeekly) {
         const reason = overRadius
-          ? `${dist.toFixed(1)} km from end of last run`
+          ? `${dist.toFixed(1)} km from end of last run (limit ${CHAIN_RADIUS_KM} km)`
           : overDaily
             ? `would exceed daily ${(f.daily + driveAdd).toFixed(1)}/10h`
             : `would exceed weekly ${(f.weekly + driveAdd).toFixed(1)}/56h`;
@@ -302,9 +305,9 @@ export function computePlan(
       f.lat = ld?.latitude ?? f.lat;
       f.lon = ld?.longitude ?? f.lon;
       f.endMs += best.driveAdd * 3_600_000 + best.breakMs;
-      f.daily += nextDaily;
-      f.weekly += nextWeekly;
-      f.continuous = best.breakMs > 0 ? best.driveAdd : f.continuous + best.driveAdd;
+      f.daily = nextDaily;
+      f.weekly = nextWeekly;
+      f.continuous = best.breakMs > 0 ? Math.max(0, best.driveAdd - BREAK_THRESHOLD_HOURS) : f.continuous + best.driveAdd;
     } else {
       const reason = nearMiss
         ? `Closest: ${nearMiss.name} — ${nearMiss.reason}`
@@ -438,7 +441,7 @@ export function computeTomorrowPlan(
     f.lat = ld?.latitude ?? f.lat;
     f.lon = ld?.longitude ?? f.lon;
     f.hoursLeft -= best.total;
-    f.continuous = best.breakMs > 0 ? best.total : f.continuous + best.total;
+    f.continuous = best.breakMs > 0 ? Math.max(0, best.total - BREAK_THRESHOLD_HOURS) : f.continuous + best.total;
   }
 
   return out;
