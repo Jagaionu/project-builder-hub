@@ -8,7 +8,8 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { useCompliance, useDrivers, useJobs, useWarehouses, applyJobPatch } from "@/lib/hooks";
-import { computePlan, AUTO_ASSIGN_RADIUS_KM, type PlannedAssign } from "@/lib/planner";
+import { computePlan, AUTO_ASSIGN_RADIUS_KM, isDriverAvailableOnDate, type PlannedAssign } from "@/lib/planner";
+import type { DriverShift, DriverAvailabilityOverride } from "@/lib/types";
 import { planTomorrow } from "@/lib/tomorrow.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
@@ -170,13 +171,27 @@ function DispatchPage() {
   const complianceRef = useRef(compliance);
   useEffect(() => { complianceRef.current = compliance; }, [compliance]);
 
-  // Compute the plan only when *structural* inputs change. Compliance ticks
-  // every minute; we read it via ref so the plan doesn't recompute (and the
-  // detail panel doesn't reflow) just because a clock advanced.
+  const [driverShifts, setDriverShifts] = useState<Record<string, DriverShift>>({});
+  const [shiftOverrides, setShiftOverrides] = useState<DriverAvailabilityOverride[]>([]);
+
+  useEffect(() => {
+    if (drivers.length === 0) return;
+    const driverIds = drivers.map(d => d.id);
+    const today = new Date().toISOString().slice(0, 10);
+    const tomorrow = (() => { const t = new Date(); t.setUTCDate(t.getUTCDate() + 1); return t.toISOString().slice(0, 10); })();
+    Promise.all([
+      supabase.from("driver_shifts").select("*").in("driver_id", driverIds),
+      supabase.from("driver_availability_overrides").select("*").in("driver_id", driverIds).gte("date", today).lte("date", tomorrow),
+    ]).then(([{ data: shifts }, { data: overrides }]) => {
+      if (shifts) setDriverShifts(Object.fromEntries(shifts.map(s => [s.driver_id, s as DriverShift])));
+      if (overrides) setShiftOverrides(overrides as DriverAvailabilityOverride[]);
+    });
+  }, [drivers]);
+
   const plan = useMemo(
-    () => computePlan(jobs, stopsMap, drivers, warehouses, complianceRef.current),
+    () => computePlan(jobs, stopsMap, drivers, warehouses, complianceRef.current, Date.now(), driverShifts, shiftOverrides),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jobs, stopsMap, drivers, warehouses],
+    [jobs, stopsMap, drivers, warehouses, driverShifts, shiftOverrides],
   );
 
   const plannedByJob = useMemo(
@@ -413,8 +428,11 @@ function DispatchPage() {
     );
     const assigned = tmJobs.filter((j) => !!j.assigned_driver_id);
     const plannedOnly = tmJobs.filter((j) => !j.assigned_driver_id && !!j.planned_driver_id);
-    const availableDrivers = drivers.filter(
-      (d) => (d as { available_tomorrow?: boolean }).available_tomorrow === true,
+    const tomorrowStr = (() => { const t = new Date(); t.setUTCDate(t.getUTCDate() + 1); return t.toISOString().slice(0, 10); })();
+    const availableDrivers = drivers.filter(d =>
+      Object.keys(driverShifts).length > 0
+        ? isDriverAvailableOnDate(d.id, tomorrowStr, driverShifts, shiftOverrides)
+        : (d as { available_tomorrow?: boolean }).available_tomorrow === true
     );
     const isTomorrowView =
       !!dateRange?.from && sameDay(dateRange.from, tm) && sameDay(dateRange.to ?? dateRange.from, tm);
@@ -425,7 +443,7 @@ function DispatchPage() {
       availableDrivers,
       isTomorrowView,
     };
-  }, [jobs, stopsMap, drivers, dateRange]);
+  }, [jobs, stopsMap, drivers, dateRange, driverShifts, shiftOverrides]);
 
   const [planningTomorrow, setPlanningTomorrow] = useState(false);
   const runPlanTomorrow = useServerFn(planTomorrow);
