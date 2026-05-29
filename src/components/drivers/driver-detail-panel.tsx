@@ -52,7 +52,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
   };
 
   return (
-    <div className="p-6 max-w-2xl overflow-y-auto h-full">
+    <div className="p-6 h-full overflow-y-auto">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
@@ -82,62 +82,31 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
         </div>
       </div>
 
-      {/* Contact Information */}
-      <div className="rounded-lg border border-border bg-surface p-4 mb-6">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-4">
-          Contact Information
-        </div>
+      <div className="grid grid-cols-12 gap-6 items-start">
+        {/* Left Side: Info */}
+        <div className="col-span-7 space-y-6">
+          {/* Contact Information */}
+          <div className="rounded-lg border border-border bg-surface p-4">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-4">
+              Contact Information
+            </div>
 
-        {/* Phone */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <Phone className="size-3.5" /> Phone
-            </label>
-            {driver.phone && (
-              <button
-                onClick={() => copyToClipboard(driver.phone!, "Phone")}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors"
-                style={{
-                  background: copiedField === "Phone" ? "oklch(0.73 0.17 150 / 0.15)" : "oklch(0.62 0.22 245 / 0.08)",
-                  color: copiedField === "Phone" ? "oklch(0.78 0.14 150)" : "oklch(0.75 0.18 245)",
-                }}
-              >
-                {copiedField === "Phone" ? (
-                  <>
-                    <CheckCircle2 className="size-3" /> Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="size-3" /> Copy
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-          <div className="px-3 py-2.5 rounded bg-[oklch(0.17_0.018_245)] border border-[oklch(0.26_0.018_245)] font-mono text-sm text-foreground">
-            {driver.phone ?? "—"}
-          </div>
-        </div>
-
-        {/* App Code */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <Code2 className="size-3.5" /> App Code
-            </label>
-            <div className="flex items-center gap-1">
-              {code && (
-                <>
+            {/* Phone */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                  <Phone className="size-3.5" /> Phone
+                </label>
+                {driver.phone && (
                   <button
-                    onClick={() => copyToClipboard(code, "App Code")}
+                    onClick={() => copyToClipboard(driver.phone!, "Phone")}
                     className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors"
                     style={{
-                      background: copiedField === "App Code" ? "oklch(0.73 0.17 150 / 0.15)" : "oklch(0.62 0.22 245 / 0.08)",
-                      color: copiedField === "App Code" ? "oklch(0.78 0.14 150)" : "oklch(0.75 0.18 245)",
+                      background: copiedField === "Phone" ? "oklch(0.73 0.17 150 / 0.15)" : "oklch(0.62 0.22 245 / 0.08)",
+                      color: copiedField === "Phone" ? "oklch(0.78 0.14 150)" : "oklch(0.75 0.18 245)",
                     }}
                   >
-                    {copiedField === "App Code" ? (
+                    {copiedField === "Phone" ? (
                       <>
                         <CheckCircle2 className="size-3" /> Copied
                       </>
@@ -147,56 +116,96 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                       </>
                     )}
                   </button>
-                  <button
-                    onClick={shareAppCode}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors bg-blue-500/10 text-blue-500 hover:bg-blue-500/20"
-                  >
-                    <Share2 className="size-3" /> Share
-                  </button>
-                </>
-              )}
-              {onRegenerate && (
-                <button
-                  onClick={() => onRegenerate(driver.id, driver.name)}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
-                >
-                  <RefreshCw className="size-3" /> Regen
-                </button>
-              )}
+                )}
+              </div>
+              <div className="px-3 py-2 rounded bg-[oklch(0.17_0.018_245)] border border-[oklch(0.26_0.018_245)] font-mono text-sm text-foreground">
+                {driver.phone ?? "—"}
+              </div>
             </div>
-          </div>
-          <div className="px-3 py-2.5 rounded bg-[oklch(0.17_0.018_245)] border border-[oklch(0.26_0.018_245)] font-mono text-sm text-foreground">
-            {code ?? "—"}
-          </div>
-        </div>
-      </div>
 
-      {/* Location Information */}
-      {driver.current_lat != null && driver.current_lon != null && (
-        <div className="rounded-lg border border-border bg-surface p-4 mb-6">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
-            Current Location
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+            {/* App Code */}
             <div>
-              <div className="text-[10px] text-muted-foreground mb-1">Latitude</div>
-              <div className="font-mono text-sm text-foreground">{driver.current_lat.toFixed(6)}</div>
-            </div>
-            <div>
-              <div className="text-[10px] text-muted-foreground mb-1">Longitude</div>
-              <div className="font-mono text-sm text-foreground">{driver.current_lon.toFixed(6)}</div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                  <Code2 className="size-3.5" /> App Code
+                </label>
+                <div className="flex items-center gap-1">
+                  {code && (
+                    <>
+                      <button
+                        onClick={() => copyToClipboard(code, "App Code")}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors"
+                        style={{
+                          background: copiedField === "App Code" ? "oklch(0.73 0.17 150 / 0.15)" : "oklch(0.62 0.22 245 / 0.08)",
+                          color: copiedField === "App Code" ? "oklch(0.78 0.14 150)" : "oklch(0.75 0.18 245)",
+                        }}
+                      >
+                        {copiedField === "App Code" ? (
+                          <>
+                            <CheckCircle2 className="size-3" /> Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="size-3" /> Copy
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={shareAppCode}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors bg-blue-500/10 text-blue-500 hover:bg-blue-500/20"
+                      >
+                        <Share2 className="size-3" /> Share
+                      </button>
+                    </>
+                  )}
+                  {onRegenerate && (
+                    <button
+                      onClick={() => onRegenerate(driver.id, driver.name)}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
+                    >
+                      <RefreshCw className="size-3" /> Regen
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="px-3 py-2 rounded bg-[oklch(0.17_0.018_245)] border border-[oklch(0.26_0.018_245)] font-mono text-sm text-foreground">
+                {code ?? "—"}
+              </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Driver Schedule */}
-      <div className="rounded-lg border border-border bg-surface p-4">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
-          <CalendarDays className="size-3.5" />
-          Driver Schedule
+          {/* Location Information */}
+          {driver.current_lat != null && driver.current_lon != null && (
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
+                Current Location
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-[10px] text-muted-foreground mb-1">Latitude</div>
+                  <div className="font-mono text-sm text-foreground">{driver.current_lat.toFixed(6)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground mb-1">Longitude</div>
+                  <div className="font-mono text-sm text-foreground">{driver.current_lon.toFixed(6)}</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        <ShiftCalendar driverId={driver.id} isPlanner={true} />
+
+        {/* Right Side: Schedule (Smaller) */}
+        <div className="col-span-5">
+          <div className="rounded-lg border border-border bg-surface p-4">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+              <CalendarDays className="size-3.5" />
+              Driver Schedule
+            </div>
+            <div className="scale-[0.9] origin-top-left -mr-[11%]">
+              <ShiftCalendar driverId={driver.id} isPlanner={true} />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
