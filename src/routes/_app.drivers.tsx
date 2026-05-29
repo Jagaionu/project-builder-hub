@@ -398,7 +398,7 @@ function DriversPage() {
               onEdit={(d) => startEdit(d)}
               onDelete={remove}
               onRegenerate={regenerate}
-              onToggleTomorrow={toggleTomorrow}
+              
             />
           )}
         </div>
