@@ -27,7 +27,6 @@ function ProfilePage() {
         <p className="text-xs text-muted-foreground mt-0.5">{session?.user?.email}</p>
       </div>
 
-
       {/* Shift Calendar */}
       {driver && (
         <div className="mb-6">
@@ -36,9 +35,8 @@ function ProfilePage() {
             <h2 className="text-base font-bold text-foreground">My Schedule</h2>
           </div>
           <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-            Select your regular working days at the top. To take a day off, tap any
-            blue working day in the calendar. To add an extra day outside your
-            pattern, tap any grey day — it turns green.
+            Select your regular working days. Tap a working day to mark it off. Tap any grey day to
+            add it as an extra working day.
           </p>
           <ShiftCalendar driverId={driver.id} isPlanner={false} />
         </div>
@@ -54,15 +52,6 @@ function ProfilePage() {
       >
         Sign out
       </button>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between items-center px-4 py-3">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-semibold text-foreground">{value}</span>
     </div>
   );
 }

@@ -51,7 +51,8 @@ function DriversPage() {
       const parsed = JSON.parse(raw) as unknown;
       if (typeof parsed === "string") {
         if (parsed === "ALL") return "ALL";
-        if (ALL_DRIVER_ROUTE_FILTERS.includes(parsed as DriverRouteFilter)) return parsed as DriverRouteFilter;
+        if (ALL_DRIVER_ROUTE_FILTERS.includes(parsed as DriverRouteFilter))
+          return parsed as DriverRouteFilter;
         return "ALL";
       }
       if (Array.isArray(parsed)) {
@@ -135,7 +136,12 @@ function DriversPage() {
   const removeDriver = useServerFn(deleteDriver);
 
   async function regenerate(driverId: string, driverName: string) {
-    if (!confirm(`Regenerate login code for "${driverName}"?\n\nThe old code will stop working immediately. The driver will need the new code to log in.`)) return;
+    if (
+      !confirm(
+        `Regenerate login code for "${driverName}"?\n\nThe old code will stop working immediately. The driver will need the new code to log in.`,
+      )
+    )
+      return;
     try {
       const result = await rotateCode({ data: { driverId } });
       const code = (result as { code: string }).code;
@@ -149,13 +155,20 @@ function DriversPage() {
   async function add() {
     if (!form.name) return toast.error("Name required");
     const tenant_id = await getTenantId();
-    const { data, error } = await supabase.from("drivers").insert({
-      name: form.name,
-      phone: form.phone || null,
-      status: "OFF_SHIFT",
-      tenant_id,
-    }).select("id, login_code").single();
-    if (error || !data) { toast.error(error?.message ?? "Failed to add driver"); return; }
+    const { data, error } = await supabase
+      .from("drivers")
+      .insert({
+        name: form.name,
+        phone: form.phone || null,
+        status: "OFF_SHIFT",
+        tenant_id,
+      })
+      .select("id, login_code")
+      .single();
+    if (error || !data) {
+      toast.error(error?.message ?? "Failed to add driver");
+      return;
+    }
     const code = (data as { login_code?: string | null }).login_code;
     if (code) {
       await navigator.clipboard?.writeText(code).catch(() => {});
@@ -190,25 +203,21 @@ function DriversPage() {
   }
 
   async function remove(id: string, name: string) {
-    if (!confirm(`Delete driver "${name}"?\n\nThis removes the driver, their login, GPS history, events and shift records.`)) return;
+    if (
+      !confirm(
+        `Delete driver "${name}"?\n\nThis removes the driver, their login, GPS history, events and shift records.`,
+      )
+    )
+      return;
     try {
-      await (removeDriver as any)({ data: { driverId: id } });
+      const removeDriverFn = removeDriver as unknown as (args: {
+        data: { driverId: string };
+      }) => Promise<unknown>;
+      await removeDriverFn({ data: { driverId: id } });
       toast.success("Driver deleted");
       if (selectedDriverId === id) setSelectedDriverId(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Delete failed");
-    }
-  }
-
-  async function toggleTomorrow(driverId: string, available: boolean) {
-    const { error } = await supabase
-      .from("drivers")
-      .update({ available_tomorrow: available } as never)
-      .eq("id", driverId);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success(available ? "Marked as available tomorrow" : "Marked as unavailable tomorrow");
     }
   }
 
@@ -267,11 +276,15 @@ function DriversPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-surface rounded-xl border border-border shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95">
             <h3 className="text-lg font-semibold mb-1">Add New Driver</h3>
-            <p className="text-xs text-muted-foreground mb-5">Create a new driver profile and generate their login code.</p>
-            
+            <p className="text-xs text-muted-foreground mb-5">
+              Create a new driver profile and generate their login code.
+            </p>
+
             <div className="space-y-4 mb-6">
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">Driver Name *</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-2">
+                  Driver Name *
+                </label>
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -280,7 +293,9 @@ function DriversPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">Phone Number (Optional)</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-2">
+                  Phone Number (Optional)
+                </label>
                 <input
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -313,10 +328,14 @@ function DriversPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-surface rounded-xl border border-border shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95">
             <h3 className="text-lg font-semibold mb-1">Edit Driver</h3>
-            <p className="text-xs text-muted-foreground mb-5">Update driver name or phone number.</p>
+            <p className="text-xs text-muted-foreground mb-5">
+              Update driver name or phone number.
+            </p>
             <div className="space-y-4 mb-6">
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">Driver Name *</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-2">
+                  Driver Name *
+                </label>
                 <input
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
@@ -325,7 +344,9 @@ function DriversPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">Phone Number (Optional)</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-2">
+                  Phone Number (Optional)
+                </label>
                 <input
                   value={editForm.phone}
                   onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
@@ -398,7 +419,6 @@ function DriversPage() {
               onEdit={(d) => startEdit(d)}
               onDelete={remove}
               onRegenerate={regenerate}
-              
             />
           )}
         </div>

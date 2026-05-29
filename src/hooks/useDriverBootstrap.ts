@@ -8,7 +8,7 @@ import type { JobWithStops, DriverProfile } from "@/lib/driver-types";
 async function loadDriver(userId: string) {
   const { data: driver } = await supabase
     .from("drivers")
-    .select("id,user_id,name,status,available_tomorrow,last_update_time,current_lat,current_lon")
+    .select("id,user_id,name,status,last_update_time,current_lat,current_lon")
     .eq("user_id", userId)
     .maybeSingle();
   useDriverStore.getState().setDriver((driver as DriverProfile | null) ?? null);
@@ -51,18 +51,16 @@ async function registerPush(driverId: string) {
     const subJson = sub.toJSON();
     const keys = (subJson.keys ?? {}) as Record<string, string>;
     if (!subJson.endpoint || !keys.p256dh || !keys.auth) return;
-    await supabase
-      .from("driver_push_subscriptions")
-      .upsert(
-        {
-          driver_id: driverId,
-          endpoint: subJson.endpoint,
-          p256dh: keys.p256dh,
-          auth: keys.auth,
-          updated_at: new Date().toISOString(),
-        } as never,
-        { onConflict: "driver_id" },
-      );
+    await supabase.from("driver_push_subscriptions").upsert(
+      {
+        driver_id: driverId,
+        endpoint: subJson.endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+        updated_at: new Date().toISOString(),
+      } as never,
+      { onConflict: "driver_id" },
+    );
   } catch (e) {
     console.warn("[push] subscription failed", e);
   }
@@ -74,7 +72,9 @@ async function refreshJobs(driverId: string) {
   const from = today.toISOString().slice(0, 10);
   const { data: jobs } = await supabase
     .from("jobs")
-    .select("id,reference,status,for_date,planned_start_at,scheduled_at,assigned_driver_id,planned_driver_id,stops:job_stops(id,job_id,warehouse_id,kind,seq,arrived_at,scheduled_at,warehouse:warehouses(id,code,name,address,latitude,longitude))")
+    .select(
+      "id,reference,status,for_date,planned_start_at,scheduled_at,assigned_driver_id,planned_driver_id,stops:job_stops(id,job_id,warehouse_id,kind,seq,arrived_at,scheduled_at,warehouse:warehouses(id,code,name,address,latitude,longitude))",
+    )
     .or(`assigned_driver_id.eq.${driverId},planned_driver_id.eq.${driverId}`)
     .gte("for_date", from)
     .order("planned_start_at", { ascending: true, nullsFirst: true });
@@ -114,14 +114,19 @@ async function autoArriveNearby(driverId: string, p: GPSPosition) {
       arrivingStops.delete(c.stopId);
       continue;
     }
-    await supabase
-      .from("driver_events")
-      .insert({ driver_id: driverId, type: "ARRIVED", payload: { stop_id: c.stopId, auto: true } } as never);
+    await supabase.from("driver_events").insert({
+      driver_id: driverId,
+      type: "ARRIVED",
+      payload: { stop_id: c.stopId, auto: true },
+    } as never);
     useDriverStore.getState().setJobs(
       useDriverStore.getState().jobs.map((j) =>
         j.id !== c.jobId
           ? j
-          : { ...j, stops: j.stops.map((s) => (s.id === c.stopId ? { ...s, arrived_at: now } : s)) },
+          : {
+              ...j,
+              stops: j.stops.map((s) => (s.id === c.stopId ? { ...s, arrived_at: now } : s)),
+            },
       ),
     );
   }
@@ -171,8 +176,15 @@ export function useDriverBootstrap() {
       if (!movedEnough && !timeEnough) return;
       lastSent.current = p;
       const now = new Date().toISOString();
-      supabase.from("driver_positions").insert({ driver_id: driver.id, lat: p.lat, lon: p.lon }).then(() => {});
-      supabase.from("drivers").update({ current_lat: p.lat, current_lon: p.lon, last_update_time: now }).eq("id", driver.id).then(() => {});
+      supabase
+        .from("driver_positions")
+        .insert({ driver_id: driver.id, lat: p.lat, lon: p.lon })
+        .then(() => {});
+      supabase
+        .from("drivers")
+        .update({ current_lat: p.lat, current_lon: p.lon, last_update_time: now })
+        .eq("id", driver.id)
+        .then(() => {});
     };
 
     const startWatch = () => {
@@ -191,7 +203,9 @@ export function useDriverBootstrap() {
     // the most reliable way to keep updates flowing in the background.
     const acquireWakeLock = async () => {
       try {
-        const nav = navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<WakeLockSentinel> } };
+        const nav = navigator as Navigator & {
+          wakeLock?: { request: (t: "screen") => Promise<WakeLockSentinel> };
+        };
         if (!nav.wakeLock) return;
         const driver = useDriverStore.getState().driver;
         if (!driver || driver.status === "OFF_SHIFT") return;
@@ -250,9 +264,24 @@ export function useDriverBootstrap() {
     if (!driverId) return;
     const ch = supabase
       .channel(`driver-${driverId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "jobs", filter: `assigned_driver_id=eq.${driverId}` }, () => refreshJobs(driverId))
-      .on("postgres_changes", { event: "*", schema: "public", table: "jobs", filter: `planned_driver_id=eq.${driverId}` }, () => refreshJobs(driverId))
-      .on("postgres_changes", { event: "*", schema: "public", table: "job_stops" }, () => refreshJobs(driverId))
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "jobs",
+          filter: `assigned_driver_id=eq.${driverId}`,
+        },
+        () => refreshJobs(driverId),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "jobs", filter: `planned_driver_id=eq.${driverId}` },
+        () => refreshJobs(driverId),
+      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_stops" }, () =>
+        refreshJobs(driverId),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);

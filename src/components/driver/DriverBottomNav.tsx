@@ -1,12 +1,13 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, AlertTriangle, User, Download } from "lucide-react";
-import { usePwaInstall } from "@/hooks/usePwaInstall";
+import { AlertTriangle, Download, Home, Map, User } from "lucide-react";
 import { useState } from "react";
+import { usePwaInstall } from "@/hooks/usePwaInstall";
 
 const tabs = [
-  { id: "home",    path: "/d",        label: "Home",    Icon: Home },
-  { id: "report",  path: "/d/report", label: "Report",  Icon: AlertTriangle },
-  { id: "profile", path: "/d/profile",label: "Profile", Icon: User },
+  { id: "home", path: "/d", label: "Home", Icon: Home, exact: true },
+  { id: "routes", path: "/d/routes", label: "Routes", Icon: Map },
+  { id: "report", path: "/d/report", label: "Report", Icon: AlertTriangle },
+  { id: "profile", path: "/d/profile", label: "Profile", Icon: User },
 ] as const;
 
 export function DriverBottomNav() {
@@ -14,9 +15,7 @@ export function DriverBottomNav() {
   const { isInstallable, isInstalled, promptInstall } = usePwaInstall();
   const [installing, setInstalling] = useState(false);
   const current = tabs.find((t) =>
-    t.path === "/d"
-      ? location.pathname === "/d"
-      : location.pathname.startsWith(t.path),
+    t.exact ? location.pathname === t.path : location.pathname.startsWith(t.path),
   )?.id;
 
   const handleInstallClick = async () => {
@@ -29,6 +28,7 @@ export function DriverBottomNav() {
     <nav className="driver-bottom-nav">
       {isInstallable && !isInstalled && (
         <button
+          type="button"
           onClick={handleInstallClick}
           disabled={installing}
           className="driver-nav-item install-btn"
@@ -51,11 +51,7 @@ export function DriverBottomNav() {
         const active = current === t.id;
         const { Icon } = t;
         return (
-          <Link
-            key={t.id}
-            to={t.path}
-            className={`driver-nav-item${active ? " active" : ""}`}
-          >
+          <Link key={t.id} to={t.path} className={`driver-nav-item${active ? " active" : ""}`}>
             {active && (
               <span
                 className="absolute top-1.5 left-1/2 -translate-x-1/2 size-1 rounded-full"
@@ -69,7 +65,9 @@ export function DriverBottomNav() {
                 filter: active ? "drop-shadow(0 0 6px oklch(0.62 0.22 245 / 0.5))" : undefined,
               }}
             />
-            <span style={{ fontSize: "10px", letterSpacing: "0.04em", fontWeight: active ? 600 : 500 }}>
+            <span
+              style={{ fontSize: "10px", letterSpacing: "0.04em", fontWeight: active ? 600 : 500 }}
+            >
               {t.label}
             </span>
           </Link>

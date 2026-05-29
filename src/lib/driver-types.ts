@@ -1,8 +1,13 @@
 // Driver app types. Mirrors the dispatch DB schema (assigned_driver_id, job_stops).
 export type DriverStatus = "AVAILABLE" | "ON_SHIFT" | "ON_ROUTE" | "OFF_SHIFT" | "DELAYED";
 export type JobStatus =
-  | "PENDING" | "ASSIGNED" | "IN_PROGRESS" | "ARRIVED_PICKUP"
-  | "EN_ROUTE_DELIVERY" | "COMPLETED" | "CANCELLED";
+  | "PENDING"
+  | "ASSIGNED"
+  | "IN_PROGRESS"
+  | "ARRIVED_PICKUP"
+  | "EN_ROUTE_DELIVERY"
+  | "COMPLETED"
+  | "CANCELLED";
 export type StopKind = "PICKUP" | "DROP";
 
 export interface DriverWarehouse {
@@ -19,7 +24,6 @@ export interface DriverProfile {
   user_id: string | null;
   name: string;
   status: DriverStatus;
-  available_tomorrow: boolean;
   last_update_time: string | null;
   current_lat: number | null;
   current_lon: number | null;

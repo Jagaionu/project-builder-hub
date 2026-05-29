@@ -9,7 +9,13 @@
 
 import type { Driver, Warehouse, Job, DriverShift, DriverAvailabilityOverride } from "./types";
 import type { Compliance } from "./compliance";
-import { haversineKm, transitTimeHours, stopDwellMinutes, projectPosition, ARRIVAL_BUFFER_MINUTES } from "./geo";
+import {
+  haversineKm,
+  transitTimeHours,
+  stopDwellMinutes,
+  projectPosition,
+  ARRIVAL_BUFFER_MINUTES,
+} from "./geo";
 
 export function isDriverAvailableOnDate(
   driverId: string,
@@ -17,7 +23,7 @@ export function isDriverAvailableOnDate(
   shifts: Record<string, DriverShift>,
   overrides: DriverAvailabilityOverride[],
 ): boolean {
-  const override = overrides.find(o => o.driver_id === driverId && o.date === dateStr);
+  const override = overrides.find((o) => o.driver_id === driverId && o.date === dateStr);
   if (override !== undefined) return override.available;
   const shift = shifts[driverId];
   if (!shift || shift.days_of_week.length === 0) return false;
@@ -81,7 +87,10 @@ export function jobDriveHours(stops: PlannerStop[], warehouses: Warehouse[]): nu
     const a = warehouses.find((w) => w.id === stops[i].warehouse_id);
     const b = warehouses.find((w) => w.id === stops[i + 1].warehouse_id);
     if (!a || !b) continue;
-    minutes += Math.round(transitTimeHours(haversineKm(a.latitude, a.longitude, b.latitude, b.longitude)) * 60) + ARRIVAL_BUFFER_MINUTES;
+    minutes +=
+      Math.round(
+        transitTimeHours(haversineKm(a.latitude, a.longitude, b.latitude, b.longitude)) * 60,
+      ) + ARRIVAL_BUFFER_MINUTES;
   }
   return minutes / 60;
 }
@@ -97,7 +106,14 @@ function lastDropWh(stops: PlannerStop[] | undefined, warehouses: Warehouse[]) {
   return warehouses.find((w) => w.id === ld.warehouse_id) ?? null;
 }
 
-type Forecast = { lat: number; lon: number; endMs: number; daily: number; weekly: number; continuous: number };
+type Forecast = {
+  lat: number;
+  lon: number;
+  endMs: number;
+  daily: number;
+  weekly: number;
+  continuous: number;
+};
 
 function remainingJobHours(
   driver: Driver,
@@ -237,18 +253,23 @@ export function computePlan(
     for (const d of eligible) {
       if (activeByDriver[d.id]) continue;
       if (compliance[d.id]?.blockAssignment) continue;
-      if (isTomorrowJob && (d as Driver & { available_tomorrow?: boolean }).available_tomorrow === false) continue;
-      
+      if (isTomorrowJob) {
+        const isAvailableTomorrow = hasShiftData
+          ? isDriverAvailableOnDate(d.id, tomorrow, shifts, overrides)
+          : (d as Driver & { available_tomorrow?: boolean }).available_tomorrow !== false;
+        if (!isAvailableTomorrow) continue;
+      }
+
       const dist = haversineKm(d.current_lat!, d.current_lon!, fp.latitude, fp.longitude);
       if (dist > AUTO_ASSIGN_RADIUS_KM) continue;
-      
+
       const transit = transitTimeHours(dist);
       const jobH = jobDriveHours(stops, warehouses);
       const driveAdd = jobH + transit;
-      
+
       const f = forecast[d.id];
       const breakMs = calculateBreakDelayMs(f.continuous, driveAdd);
-      
+
       if (f.daily + driveAdd > DAILY_CAP) continue;
       if (f.weekly + driveAdd > WEEKLY_CAP) continue;
       if (!best || dist < best.dist) best = { d, dist, driveAdd, breakMs };
@@ -264,7 +285,10 @@ export function computePlan(
       f.endMs += best.driveAdd * 3_600_000 + best.breakMs;
       f.daily += best.driveAdd;
       f.weekly += best.driveAdd;
-      f.continuous = best.breakMs > 0 ? Math.max(0, best.driveAdd - BREAK_THRESHOLD_HOURS) : f.continuous + best.driveAdd;
+      f.continuous =
+        best.breakMs > 0
+          ? Math.max(0, best.driveAdd - BREAK_THRESHOLD_HOURS)
+          : f.continuous + best.driveAdd;
     }
   }
 
@@ -277,23 +301,34 @@ export function computePlan(
 
     const isTomorrowJob = (job.for_date ?? null) === tomorrow;
 
-    let best: { d: Driver; dist: number; driveAdd: number; transit: number; breakMs: number } | null = null;
+    let best: {
+      d: Driver;
+      dist: number;
+      driveAdd: number;
+      transit: number;
+      breakMs: number;
+    } | null = null;
     let nearMiss: { name: string; dist: number; reason: string } | null = null;
 
     for (const d of eligible) {
-      if (isTomorrowJob && (d as Driver & { available_tomorrow?: boolean }).available_tomorrow === false) continue;
+      if (isTomorrowJob) {
+        const isAvailableTomorrow = hasShiftData
+          ? isDriverAvailableOnDate(d.id, tomorrow, shifts, overrides)
+          : (d as Driver & { available_tomorrow?: boolean }).available_tomorrow !== false;
+        if (!isAvailableTomorrow) continue;
+      }
       const f = forecast[d.id];
       const dist = haversineKm(f.lat, f.lon, fp.latitude, fp.longitude);
       const transit = transitTimeHours(dist);
       const jobH = jobDriveHours(stops, warehouses);
       const driveAdd = jobH + transit;
-      
+
       const breakMs = calculateBreakDelayMs(f.continuous, driveAdd);
-      
+
       const overRadius = dist > CHAIN_RADIUS_KM;
       const overDaily = f.daily + driveAdd > DAILY_CAP;
       const overWeekly = f.weekly + driveAdd > WEEKLY_CAP;
-      
+
       if (overRadius || overDaily || overWeekly) {
         const reason = overRadius
           ? `${dist.toFixed(1)} km from end of last run (limit ${CHAIN_RADIUS_KM} km)`
@@ -327,7 +362,10 @@ export function computePlan(
       f.endMs += best.driveAdd * 3_600_000 + best.breakMs;
       f.daily = nextDaily;
       f.weekly = nextWeekly;
-      f.continuous = best.breakMs > 0 ? Math.max(0, best.driveAdd - BREAK_THRESHOLD_HOURS) : f.continuous + best.driveAdd;
+      f.continuous =
+        best.breakMs > 0
+          ? Math.max(0, best.driveAdd - BREAK_THRESHOLD_HOURS)
+          : f.continuous + best.driveAdd;
     } else {
       const reason = nearMiss
         ? `Closest: ${nearMiss.name} — ${nearMiss.reason}`
@@ -352,7 +390,13 @@ export function computeTomorrowPlan(
 ): PlanResult {
   const out: PlanResult = { immediate: [], planned: [], unassignable: [] };
 
-  type TForecast = { lat: number; lon: number; hoursLeft: number; sequence: number; continuous: number };
+  type TForecast = {
+    lat: number;
+    lon: number;
+    hoursLeft: number;
+    sequence: number;
+    continuous: number;
+  };
   const forecast: Record<string, TForecast> = {};
   const driverById: Record<string, Driver> = {};
   const tomorrowStr = tomorrowISODate(Date.now());
@@ -449,8 +493,12 @@ export function computeTomorrowPlan(
     })();
 
     let best: {
-      id: string; dist: number; driveAdd: number; transit: number;
-      departMs: number; breakMs: number;
+      id: string;
+      dist: number;
+      driveAdd: number;
+      transit: number;
+      departMs: number;
+      breakMs: number;
     } | null = null;
     let nearMiss: { name: string; dist: number; reason: string } | null = null;
 
@@ -464,7 +512,8 @@ export function computeTomorrowPlan(
 
       if (f.hoursLeft < driveAdd + breakMs / 3_600_000) {
         const reason = `needs ${driveAdd.toFixed(1)}h drive, ${f.hoursLeft.toFixed(1)}h left`;
-        if (!nearMiss || dist < nearMiss.dist) nearMiss = { name: driverById[did].name, dist, reason };
+        if (!nearMiss || dist < nearMiss.dist)
+          nearMiss = { name: driverById[did].name, dist, reason };
         continue;
       }
 
@@ -474,9 +523,8 @@ export function computeTomorrowPlan(
       // departs as soon as they are free.
       const readyMs = driverReadyMs[did];
       const transitMs = transit * 3_600_000;
-      const departMs = schedPickupMs !== null
-        ? Math.max(readyMs, schedPickupMs - transitMs)
-        : readyMs;
+      const departMs =
+        schedPickupMs !== null ? Math.max(readyMs, schedPickupMs - transitMs) : readyMs;
 
       if (!best || dist < best.dist) best = { id: did, dist, driveAdd, transit, departMs, breakMs };
     }
@@ -519,9 +567,10 @@ export function computeTomorrowPlan(
     f.lat = ld?.latitude ?? f.lat;
     f.lon = ld?.longitude ?? f.lon;
     f.hoursLeft -= best.driveAdd;
-    f.continuous = best.breakMs > 0
-      ? Math.max(0, best.driveAdd - BREAK_THRESHOLD_HOURS)
-      : f.continuous + best.driveAdd;
+    f.continuous =
+      best.breakMs > 0
+        ? Math.max(0, best.driveAdd - BREAK_THRESHOLD_HOURS)
+        : f.continuous + best.driveAdd;
   }
 
   return out;
