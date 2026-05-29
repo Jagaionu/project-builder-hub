@@ -36,6 +36,7 @@ export type PlannerStop = {
   kind: "PICKUP" | "DROP";
   warehouse_id: string;
   arrived_at?: string | null;
+  scheduled_at?: string | null;
 };
 export type StopsMap = Record<string, PlannerStop[]>;
 
