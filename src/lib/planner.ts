@@ -7,9 +7,23 @@
 //   for the closest reachable next pickup that still fits HGV daily/weekly.
 // Pass 3 — Leftovers: jobs no driver can take are returned as `unassignable`.
 
-import type { Driver, Warehouse, Job } from "./types";
+import type { Driver, Warehouse, Job, DriverShift, DriverAvailabilityOverride } from "./types";
 import type { Compliance } from "./compliance";
 import { haversineKm, transitTimeHours, stopDwellMinutes, projectPosition, ARRIVAL_BUFFER_MINUTES } from "./geo";
+
+export function isDriverAvailableOnDate(
+  driverId: string,
+  dateStr: string,
+  shifts: Record<string, DriverShift>,
+  overrides: DriverAvailabilityOverride[],
+): boolean {
+  const override = overrides.find(o => o.driver_id === driverId && o.date === dateStr);
+  if (override !== undefined) return override.available;
+  const shift = shifts[driverId];
+  if (!shift || shift.days_of_week.length === 0) return false;
+  const iso = new Date(dateStr + "T12:00:00").getDay();
+  return shift.days_of_week.includes(iso);
+}
 
 function tomorrowISODate(nowMs: number): string {
   const t = new Date(nowMs);
@@ -144,14 +158,19 @@ export function computePlan(
   warehouses: Warehouse[],
   compliance: Record<string, Compliance>,
   nowMs: number = Date.now(),
+  shifts: Record<string, DriverShift> = {},
+  overrides: DriverAvailabilityOverride[] = [],
 ): PlanResult {
   const out: PlanResult = { immediate: [], planned: [], unassignable: [] };
+  const todayStr = new Date(nowMs).toISOString().slice(0, 10);
+  const hasShiftData = Object.keys(shifts).length > 0;
 
   const eligible = drivers.filter(
     (d) =>
       (d.status === "AVAILABLE" || d.status === "ON_SHIFT" || d.status === "ON_ROUTE") &&
       d.current_lat != null &&
-      d.current_lon != null,
+      d.current_lon != null &&
+      (!hasShiftData || isDriverAvailableOnDate(d.id, todayStr, shifts, overrides)),
   );
 
   // Drivers currently on an active job
@@ -328,12 +347,16 @@ export function computeTomorrowPlan(
   drivers: Driver[],
   warehouses: Warehouse[],
   compliance: Record<string, Compliance>,
+  shifts: Record<string, DriverShift> = {},
+  overrides: DriverAvailabilityOverride[] = [],
 ): PlanResult {
   const out: PlanResult = { immediate: [], planned: [], unassignable: [] };
 
   type TForecast = { lat: number; lon: number; hoursLeft: number; sequence: number; continuous: number };
   const forecast: Record<string, TForecast> = {};
   const driverById: Record<string, Driver> = {};
+  const tomorrowStr = tomorrowISODate(Date.now());
+  const hasShiftData = Object.keys(shifts).length > 0;
 
   for (const d of drivers) {
     const dd = d as Driver & {
@@ -341,7 +364,10 @@ export function computeTomorrowPlan(
       tomorrow_start_lat?: number | null;
       tomorrow_start_lon?: number | null;
     };
-    if (!dd.available_tomorrow) continue;
+    const isAvailable = hasShiftData
+      ? isDriverAvailableOnDate(d.id, tomorrowStr, shifts, overrides)
+      : dd.available_tomorrow === true;
+    if (!isAvailable) continue;
     const startLat = dd.tomorrow_start_lat ?? d.current_lat ?? null;
     const startLon = dd.tomorrow_start_lon ?? d.current_lon ?? null;
     if (startLat == null || startLon == null) continue;
