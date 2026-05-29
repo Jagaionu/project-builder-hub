@@ -42,11 +42,17 @@ export const JobDetailPanel = memo(function JobDetailPanel({
     ) ? "SCHEDULED" : job.status;
   }, [job, stops]);
 
+  // Use planned_start_at in preference (actual driver departure after planning),
+  // falling back to scheduled_at (raw original schedule). This ensures the
+  // computed stop-arrival times match what the planner committed to the DB.
   const stopTimes = useMemo(
-    () => job.scheduled_at
-      ? computeStopSchedule(stops, job.scheduled_at, warehouses)
-      : stops.map((s) => s.scheduled_at),
-    [job.scheduled_at, stops, warehouses],
+    () => {
+      const basis = job.planned_start_at ?? job.scheduled_at;
+      return basis
+        ? computeStopSchedule(stops, basis, warehouses)
+        : stops.map((s) => s.scheduled_at);
+    },
+    [job.planned_start_at, job.scheduled_at, stops, warehouses],
   );
 
   const isLaneAssigned = !!job.assigned_driver_id || job.status === "ASSIGNED";

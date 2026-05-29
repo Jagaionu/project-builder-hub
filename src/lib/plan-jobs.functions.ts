@@ -19,6 +19,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getUserTenantId, isSuperAdmin } from "@/lib/auth-helpers.server";
 import { computePlanForDate, type StopsMap } from "@/lib/planner";
 import { computeCompliance, type ComplianceEvent } from "@/lib/compliance";
+import { computeStopSchedule } from "@/lib/geo";
 import type { Driver, DriverAvailabilityOverride, DriverShift, Warehouse, Job } from "@/lib/types";
 
 const ACTIVE_STATUSES = new Set([
@@ -266,6 +267,30 @@ export const planJobs = createServerFn({ method: "POST" })
     for (const u of toApply) {
       const { id, ...patch } = u;
       writes.push(Promise.resolve(supabaseAdmin.from("jobs").update(patch).eq("id", id)));
+
+      // Fill job_stops.scheduled_at so the detail panel can display planned
+      // arrival / departure times for each stop without needing a client-side
+      // computeStopSchedule call. Use planned_start_at (actual driver departure
+      // time) as the time basis — more accurate than job.scheduled_at.
+      const jobStops = stopsMap[id] ?? [];
+      if (jobStops.length > 0 && patch.planned_start_at) {
+        const times = computeStopSchedule(jobStops, patch.planned_start_at, whList);
+        for (let i = 0; i < jobStops.length; i++) {
+          const t = times[i];
+          if (!t) continue;
+          // stopsMap entries don't carry the stop row id — fetch by job_id + seq.
+          // We write by job_id + seq to avoid a separate id lookup.
+          writes.push(
+            Promise.resolve(
+              supabaseAdmin
+                .from("job_stops")
+                .update({ scheduled_at: t })
+                .eq("job_id", id)
+                .eq("seq", i + 1),
+            ),
+          );
+        }
+      }
     }
 
     await Promise.all(writes);
