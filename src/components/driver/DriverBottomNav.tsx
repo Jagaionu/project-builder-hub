@@ -1,13 +1,14 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, Map, AlertTriangle, User, Download } from "lucide-react";
+import { Home, Map, AlertTriangle, User, Download, Calendar } from "lucide-react";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { useState } from "react";
 
 const tabs = [
-  { id: "home",   path: "/d",        label: "Home",    Icon: Home },
-  { id: "routes", path: "/d/routes", label: "Routes",  Icon: Map },
-  { id: "report", path: "/d/report", label: "Report",  Icon: AlertTriangle },
-  { id: "profile",path: "/d/profile",label: "Profile", Icon: User },
+  { id: "home",    path: "/d",        label: "Home",    Icon: Home },
+  { id: "routes",  path: "/d/routes", label: "Routes",  Icon: Map },
+  { id: "shift",   path: "/d/shift",  label: "Shift",   Icon: Calendar },
+  { id: "report",  path: "/d/report", label: "Report",  Icon: AlertTriangle },
+  { id: "profile", path: "/d/profile",label: "Profile", Icon: User },
 ] as const;
 
 export function DriverBottomNav() {
