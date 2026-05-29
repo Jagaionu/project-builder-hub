@@ -9,7 +9,16 @@ export const Route = createFileRoute("/d/report")({
   component: ReportPage,
 });
 
-const CATEGORIES = ["Vehicle issue", "Traffic delay", "Customer issue", "Accident", "Other"] as const;
+const CATEGORIES = [
+  "Vehicle issue",
+  "Traffic delay",
+  "Running late",
+  "Road closure",
+  "Cargo / load issue",
+  "Customer issue",
+  "Accident",
+  "Other",
+] as const;
 
 function ReportPage() {
   const driver = useDriverStore((s) => s.driver);

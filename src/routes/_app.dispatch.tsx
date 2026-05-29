@@ -11,6 +11,7 @@ import { useCompliance, useDrivers, useJobs, useWarehouses, applyJobPatch } from
 import { computePlan, type PlannedAssign } from "@/lib/planner";
 import type { DriverShift, DriverAvailabilityOverride } from "@/lib/types";
 import { planJobs } from "@/lib/plan-jobs.functions";
+import { fetchShiftsByDriver } from "@/lib/driver-shifts";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { cn } from "@/lib/utils";
@@ -209,16 +210,15 @@ function DispatchPage() {
       return t.toISOString().slice(0, 10);
     })();
     Promise.all([
-      supabase.from("driver_shifts").select("*").in("driver_id", driverIds),
+      fetchShiftsByDriver(supabase, driverIds),
       supabase
         .from("driver_availability_overrides")
         .select("*")
         .in("driver_id", driverIds)
         .gte("date", today)
         .lte("date", tomorrow),
-    ]).then(([{ data: shifts }, { data: overrides }]) => {
-      if (shifts)
-        setDriverShifts(Object.fromEntries(shifts.map((s) => [s.driver_id, s as DriverShift])));
+    ]).then(([shiftsByDriver, { data: overrides }]) => {
+      setDriverShifts(shiftsByDriver);
       if (overrides) setShiftOverrides(overrides as DriverAvailabilityOverride[]);
     });
   }, [drivers]);

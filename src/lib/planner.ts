@@ -600,27 +600,3 @@ export function computePlanForDate(
 
   return out;
 }
-
-// Backwards-compat alias — still used by tomorrow.functions.ts.
-// New code should call computePlanForDate directly.
-export function computeTomorrowPlan(
-  tomorrowJobs: Job[],
-  stopsMap: StopsMap,
-  drivers: Driver[],
-  warehouses: Warehouse[],
-  compliance: Record<string, Compliance>,
-  shifts: Record<string, DriverShift> = {},
-  overrides: DriverAvailabilityOverride[] = [],
-): PlanResult {
-  const tomorrowStr = tomorrowISODate(Date.now());
-  return computePlanForDate(
-    tomorrowStr,
-    tomorrowJobs,
-    stopsMap,
-    drivers,
-    warehouses,
-    compliance,
-    shifts,
-    overrides,
-  );
-}

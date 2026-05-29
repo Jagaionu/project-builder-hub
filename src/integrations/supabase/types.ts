@@ -373,6 +373,50 @@ export type Database = {
           },
         ]
       }
+      driver_shift_templates: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          driver_id: string
+          end_time: string
+          id: string
+          is_primary: boolean
+          start_time: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          driver_id: string
+          end_time?: string
+          id?: string
+          is_primary?: boolean
+          start_time?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          driver_id?: string
+          end_time?: string
+          id?: string
+          is_primary?: boolean
+          start_time?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_shift_templates_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           available_tomorrow: boolean

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import type { DriverAvailabilityOverride, DriverShift } from "@/lib/types";
+import { fetchShiftDays, saveShiftDays } from "@/lib/driver-shifts";
+import type { DriverAvailabilityOverride } from "@/lib/types";
 
 const DAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_ISO = [1, 2, 3, 4, 5, 6, 0];
@@ -29,7 +30,6 @@ function todayLocalDateString() {
 }
 
 export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProps) {
-  const [shift, setShift] = useState<DriverShift | null>(null);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [savedDays, setSavedDays] = useState<number[]>([]);
   const [overrides, setOverrides] = useState<DriverAvailabilityOverride[]>([]);
@@ -43,23 +43,10 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
     let cancelled = false;
 
     async function load() {
-      const { data } = await supabase
-        .from("driver_shifts")
-        .select("*")
-        .eq("driver_id", driverId)
-        .maybeSingle();
-
+      const loaded = await fetchShiftDays(supabase, driverId);
       if (cancelled) return;
-      if (data) {
-        const loaded = [...(data.days_of_week ?? [])].sort((a, b) => a - b);
-        setShift(data as DriverShift);
-        setSelectedDays(loaded);
-        setSavedDays(loaded);
-      } else {
-        setShift(null);
-        setSelectedDays([]);
-        setSavedDays([]);
-      }
+      setSelectedDays(loaded);
+      setSavedDays(loaded);
     }
 
     load();
@@ -108,25 +95,13 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
   const savePattern = async () => {
     setSaving(true);
     const days = [...selectedDays].sort((a, b) => a - b);
-    const { data } = await supabase
-      .from("driver_shifts")
-      .upsert(
-        {
-          driver_id: driverId,
-          days_of_week: days,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "driver_id" },
-      )
-      .select()
-      .single();
-
-    if (data) {
-      setShift(data as DriverShift);
+    try {
+      await saveShiftDays(supabase, driverId, days);
       setSelectedDays(days);
       setSavedDays(days);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const toggleDateOverride = async (dateStr: string, dayOfWeek: number) => {

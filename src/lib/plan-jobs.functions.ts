@@ -20,6 +20,7 @@ import { getUserTenantId, isSuperAdmin } from "@/lib/auth-helpers.server";
 import { computePlanForDate, type StopsMap } from "@/lib/planner";
 import { computeCompliance, type ComplianceEvent } from "@/lib/compliance";
 import { computeStopSchedule } from "@/lib/geo";
+import { fetchShiftsByDriver } from "@/lib/driver-shifts";
 import type { Driver, DriverAvailabilityOverride, DriverShift, Warehouse, Job } from "@/lib/types";
 
 const ACTIVE_STATUSES = new Set([
@@ -138,8 +139,8 @@ export const planJobs = createServerFn({ method: "POST" })
         new Set(jobList.map((j) => j.for_date).filter((d): d is string => d != null)),
       );
 
-      const [{ data: shifts }, { data: overrides }] = await Promise.all([
-        supabaseAdmin.from("driver_shifts").select("*").in("driver_id", driverIds),
+      const [shiftsByDriver, { data: overrides }] = await Promise.all([
+        fetchShiftsByDriver(supabaseAdmin, driverIds),
         targetDates.length > 0
           ? supabaseAdmin
               .from("driver_availability_overrides")
@@ -149,9 +150,7 @@ export const planJobs = createServerFn({ method: "POST" })
           : Promise.resolve({ data: [] }),
       ]);
 
-      driverShifts = Object.fromEntries(
-        ((shifts ?? []) as DriverShift[]).map((s) => [s.driver_id, s]),
-      );
+      driverShifts = shiftsByDriver;
       allOverrides = (overrides ?? []) as DriverAvailabilityOverride[];
     }
 

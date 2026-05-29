@@ -118,10 +118,28 @@ export const DEFAULT_TENANT_CONFIG: TenantConfig = {
   brandColor: null,
 }
 
+// Aggregated weekly availability for a driver, derived from the per-day
+// driver_shift_templates rows. days_of_week is the set of weekdays the driver
+// works (0=Sun..6=Sat). This shape is what the planner's availability check
+// consumes; the underlying storage is now driver_shift_templates.
 export interface DriverShift {
   id: string;
   driver_id: string;
   days_of_week: number[]; // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  created_at: string;
+  updated_at: string;
+}
+
+// One row per (driver, day_of_week, start_time) in driver_shift_templates.
+// Supports split shifts (multiple rows per day) and per-day start/end times.
+export interface DriverShiftTemplate {
+  id: string;
+  tenant_id: string | null;
+  driver_id: string;
+  day_of_week: number; // 0=Sun..6=Sat
+  start_time: string;  // "HH:MM[:SS]"
+  end_time: string;    // "HH:MM[:SS]"; end < start = crosses midnight
+  is_primary: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -18,7 +18,6 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as DIndexRouteImport } from './routes/d.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
-import { Route as DRoutesRouteImport } from './routes/d.routes'
 import { Route as DReportRouteImport } from './routes/d.report'
 import { Route as DProfileRouteImport } from './routes/d.profile'
 import { Route as DLoginRouteImport } from './routes/d.login'
@@ -75,11 +74,6 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
-const DRoutesRoute = DRoutesRouteImport.update({
-  id: '/routes',
-  path: '/routes',
-  getParentRoute: () => DRoute,
-} as any)
 const DReportRoute = DReportRouteImport.update({
   id: '/report',
   path: '/report',
@@ -121,9 +115,9 @@ const AppAlertsRoute = AppAlertsRouteImport.update({
   getParentRoute: () => AppRoute,
 } as any)
 const DRoutesJobIdRoute = DRoutesJobIdRouteImport.update({
-  id: '/$jobId',
-  path: '/$jobId',
-  getParentRoute: () => DRoutesRoute,
+  id: '/routes/$jobId',
+  path: '/routes/$jobId',
+  getParentRoute: () => DRoute,
 } as any)
 const ApiPublicPairingLoginRoute = ApiPublicPairingLoginRouteImport.update({
   id: '/api/public/pairing-login',
@@ -152,7 +146,6 @@ export interface FileRoutesByFullPath {
   '/d/login': typeof DLoginRoute
   '/d/profile': typeof DProfileRoute
   '/d/report': typeof DReportRoute
-  '/d/routes': typeof DRoutesRouteWithChildren
   '/admin/': typeof AdminIndexRoute
   '/d/': typeof DIndexRoute
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
@@ -171,7 +164,6 @@ export interface FileRoutesByTo {
   '/d/login': typeof DLoginRoute
   '/d/profile': typeof DProfileRoute
   '/d/report': typeof DReportRoute
-  '/d/routes': typeof DRoutesRouteWithChildren
   '/': typeof AppIndexRoute
   '/admin': typeof AdminIndexRoute
   '/d': typeof DIndexRoute
@@ -195,7 +187,6 @@ export interface FileRoutesById {
   '/d/login': typeof DLoginRoute
   '/d/profile': typeof DProfileRoute
   '/d/report': typeof DReportRoute
-  '/d/routes': typeof DRoutesRouteWithChildren
   '/_app/': typeof AppIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/d/': typeof DIndexRoute
@@ -220,7 +211,6 @@ export interface FileRouteTypes {
     | '/d/login'
     | '/d/profile'
     | '/d/report'
-    | '/d/routes'
     | '/admin/'
     | '/d/'
     | '/api/public/pairing-login'
@@ -239,7 +229,6 @@ export interface FileRouteTypes {
     | '/d/login'
     | '/d/profile'
     | '/d/report'
-    | '/d/routes'
     | '/'
     | '/admin'
     | '/d'
@@ -262,7 +251,6 @@ export interface FileRouteTypes {
     | '/d/login'
     | '/d/profile'
     | '/d/report'
-    | '/d/routes'
     | '/_app/'
     | '/admin/'
     | '/d/'
@@ -347,13 +335,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/d/routes': {
-      id: '/d/routes'
-      path: '/routes'
-      fullPath: '/d/routes'
-      preLoaderRoute: typeof DRoutesRouteImport
-      parentRoute: typeof DRoute
-    }
     '/d/report': {
       id: '/d/report'
       path: '/report'
@@ -412,10 +393,10 @@ declare module '@tanstack/react-router' {
     }
     '/d/routes/$jobId': {
       id: '/d/routes/$jobId'
-      path: '/$jobId'
+      path: '/routes/$jobId'
       fullPath: '/d/routes/$jobId'
       preLoaderRoute: typeof DRoutesJobIdRouteImport
-      parentRoute: typeof DRoutesRoute
+      parentRoute: typeof DRoute
     }
     '/api/public/pairing-login': {
       id: '/api/public/pairing-login'
@@ -464,31 +445,20 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
-interface DRoutesRouteChildren {
-  DRoutesJobIdRoute: typeof DRoutesJobIdRoute
-}
-
-const DRoutesRouteChildren: DRoutesRouteChildren = {
-  DRoutesJobIdRoute: DRoutesJobIdRoute,
-}
-
-const DRoutesRouteWithChildren =
-  DRoutesRoute._addFileChildren(DRoutesRouteChildren)
-
 interface DRouteChildren {
   DLoginRoute: typeof DLoginRoute
   DProfileRoute: typeof DProfileRoute
   DReportRoute: typeof DReportRoute
-  DRoutesRoute: typeof DRoutesRouteWithChildren
   DIndexRoute: typeof DIndexRoute
+  DRoutesJobIdRoute: typeof DRoutesJobIdRoute
 }
 
 const DRouteChildren: DRouteChildren = {
   DLoginRoute: DLoginRoute,
   DProfileRoute: DProfileRoute,
   DReportRoute: DReportRoute,
-  DRoutesRoute: DRoutesRouteWithChildren,
   DIndexRoute: DIndexRoute,
+  DRoutesJobIdRoute: DRoutesJobIdRoute,
 }
 
 const DRouteWithChildren = DRoute._addFileChildren(DRouteChildren)

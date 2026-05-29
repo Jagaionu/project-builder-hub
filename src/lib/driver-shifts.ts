@@ -1,0 +1,118 @@
+// Helpers for reading / writing driver weekly availability on top of the
+// normalized driver_shift_templates table (one row per day, with start/end
+// times and split-shift support).
+//
+// The planner and dispatch UI still reason about availability as a simple
+// set of working weekdays (days_of_week). These helpers translate between
+// that aggregate view and the per-day template rows, so callers don't need
+// to know the storage shape.
+//
+// Works with either the anon `supabase` client or the service-role
+// `supabaseAdmin` client — both expose the same `.from()` query builder.
+
+import type { DriverShift, DriverShiftTemplate } from "@/lib/types";
+
+// Minimal structural type for the bits of the Supabase client we use here.
+// Avoids coupling to the specific generated client type so the same helper
+// works for both browser and server clients.
+type AnySupabase = {
+  from: (table: string) => any;
+};
+
+const DEFAULT_START = "06:00:00";
+const DEFAULT_END = "18:00:00";
+
+/**
+ * Fetch per-day shift templates for the given drivers and aggregate them into
+ * the DriverShift shape (one entry per driver with a days_of_week set).
+ *
+ * A driver with no template rows is simply absent from the result — the
+ * planner treats "no shift record" as an open schedule (available).
+ */
+export async function fetchShiftsByDriver(
+  client: AnySupabase,
+  driverIds: string[],
+): Promise<Record<string, DriverShift>> {
+  if (driverIds.length === 0) return {};
+
+  const { data } = await client
+    .from("driver_shift_templates")
+    .select("*")
+    .in("driver_id", driverIds);
+
+  const rows = (data ?? []) as DriverShiftTemplate[];
+  const byDriver: Record<string, DriverShift> = {};
+
+  for (const row of rows) {
+    const existing = byDriver[row.driver_id];
+    if (existing) {
+      if (!existing.days_of_week.includes(row.day_of_week)) {
+        existing.days_of_week.push(row.day_of_week);
+      }
+      // Keep the most recent updated_at across the driver's rows.
+      if (row.updated_at > existing.updated_at) existing.updated_at = row.updated_at;
+    } else {
+      byDriver[row.driver_id] = {
+        id: row.driver_id, // synthetic — the aggregate has no single row id
+        driver_id: row.driver_id,
+        days_of_week: [row.day_of_week],
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      };
+    }
+  }
+
+  for (const ds of Object.values(byDriver)) {
+    ds.days_of_week.sort((a, b) => a - b);
+  }
+
+  return byDriver;
+}
+
+/**
+ * Fetch a single driver's working weekdays (sorted). Empty array = no pattern.
+ */
+export async function fetchShiftDays(
+  client: AnySupabase,
+  driverId: string,
+): Promise<number[]> {
+  const map = await fetchShiftsByDriver(client, [driverId]);
+  return map[driverId]?.days_of_week ?? [];
+}
+
+/**
+ * Replace a driver's weekly working-day pattern.
+ *
+ * Strategy: delete the driver's existing primary template rows, then insert
+ * one row per selected weekday using default start/end times. Existing custom
+ * times are intentionally reset to defaults here because the current UI only
+ * captures day selection — a future time-aware editor can write richer rows.
+ *
+ * tenant_id is filled by the sync_tenant_from_driver() DB trigger if omitted,
+ * but we pass it when known to avoid relying solely on the trigger.
+ */
+export async function saveShiftDays(
+  client: AnySupabase,
+  driverId: string,
+  days: number[],
+  tenantId?: string | null,
+): Promise<void> {
+  const unique = Array.from(new Set(days)).filter((d) => d >= 0 && d <= 6).sort((a, b) => a - b);
+
+  // Clear the driver's existing pattern, then re-insert. Simpler and more
+  // predictable than diffing, and the row count per driver is tiny (<= 7).
+  await client.from("driver_shift_templates").delete().eq("driver_id", driverId);
+
+  if (unique.length === 0) return;
+
+  const rows = unique.map((day) => ({
+    driver_id: driverId,
+    day_of_week: day,
+    start_time: DEFAULT_START,
+    end_time: DEFAULT_END,
+    is_primary: true,
+    ...(tenantId ? { tenant_id: tenantId } : {}),
+  }));
+
+  await client.from("driver_shift_templates").insert(rows);
+}
