@@ -1,16 +1,13 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, Map, AlertTriangle, User, Download, Calendar } from "lucide-react";
+import { Home, Map, AlertTriangle, User, Download } from "lucide-react";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { useState } from "react";
-
 const tabs = [
-  { id: "home",    path: "/d",        label: "Home",    Icon: Home },
-  { id: "routes",  path: "/d/routes", label: "Routes",  Icon: Map },
-  { id: "shift",   path: "/d/shift",  label: "Shift",   Icon: Calendar },
-  { id: "report",  path: "/d/report", label: "Report",  Icon: AlertTriangle },
-  { id: "profile", path: "/d/profile",label: "Profile", Icon: User },
+  { id: "home",   path: "/d",        label: "Home",    Icon: Home },
+  { id: "routes", path: "/d/routes", label: "Routes",  Icon: Map },
+  { id: "report", path: "/d/report", label: "Report",  Icon: AlertTriangle },
+  { id: "profile",path: "/d/profile",label: "Profile", Icon: User },
 ] as const;
-
 export function DriverBottomNav() {
   const location = useLocation();
   const { isInstallable, isInstalled, promptInstall } = usePwaInstall();
@@ -20,13 +17,11 @@ export function DriverBottomNav() {
       ? location.pathname === "/d"
       : location.pathname.startsWith(t.path),
   )?.id;
-
   const handleInstallClick = async () => {
     setInstalling(true);
     await promptInstall();
     setInstalling(false);
   };
-
   return (
     <nav className="driver-bottom-nav">
       {/* PWA Install Button */}
@@ -59,7 +54,7 @@ export function DriverBottomNav() {
           <Link
             key={t.id}
             to={t.path}
-            className={`driver-nav-item${active ? " active" : ""}`}
+            className={driver-nav-item${active ? " active" : ""}}
           >
             {/* Active indicator dot */}
             {active && (
@@ -81,7 +76,7 @@ export function DriverBottomNav() {
           </Link>
         );
       })}
-      <style>{`
+      <style>{
         @keyframes pulse-glow {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.7; }
@@ -97,7 +92,7 @@ export function DriverBottomNav() {
           opacity: 0.6;
           cursor: not-allowed;
         }
-      `}</style>
+      }</style>
     </nav>
   );
 }
