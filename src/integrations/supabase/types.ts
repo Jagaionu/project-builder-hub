@@ -109,6 +109,41 @@ export type Database = {
           },
         ]
       }
+      driver_availability_overrides: {
+        Row: {
+          available: boolean
+          created_at: string
+          date: string
+          driver_id: string
+          id: string
+          set_by: string
+        }
+        Insert: {
+          available: boolean
+          created_at?: string
+          date: string
+          driver_id: string
+          id?: string
+          set_by: string
+        }
+        Update: {
+          available?: boolean
+          created_at?: string
+          date?: string
+          driver_id?: string
+          id?: string
+          set_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_availability_overrides_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_day_hours: {
         Row: {
           actual_driving_minutes: number
@@ -301,6 +336,38 @@ export type Database = {
             foreignKeyName: "driver_registrations_driver_id_fkey"
             columns: ["driver_id"]
             isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_shifts: {
+        Row: {
+          created_at: string
+          days_of_week: number[]
+          driver_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          days_of_week?: number[]
+          driver_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          days_of_week?: number[]
+          driver_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_shifts_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: true
             referencedRelation: "drivers"
             referencedColumns: ["id"]
           },

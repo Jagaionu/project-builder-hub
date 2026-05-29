@@ -1,13 +1,16 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, Map, AlertTriangle, User, Download } from "lucide-react";
+import { Home, Map, AlertTriangle, User, Download, Calendar } from "lucide-react";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { useState } from "react";
+
 const tabs = [
-  { id: "home",   path: "/d",        label: "Home",    Icon: Home },
-  { id: "routes", path: "/d/routes", label: "Routes",  Icon: Map },
-  { id: "report", path: "/d/report", label: "Report",  Icon: AlertTriangle },
-  { id: "profile",path: "/d/profile",label: "Profile", Icon: User },
+  { id: "home",    path: "/d",        label: "Home",    Icon: Home },
+  { id: "routes",  path: "/d/routes", label: "Routes",  Icon: Map },
+  { id: "shift",   path: "/d/shift",  label: "Shift",   Icon: Calendar },
+  { id: "report",  path: "/d/report", label: "Report",  Icon: AlertTriangle },
+  { id: "profile", path: "/d/profile",label: "Profile", Icon: User },
 ] as const;
+
 export function DriverBottomNav() {
   const location = useLocation();
   const { isInstallable, isInstalled, promptInstall } = usePwaInstall();
@@ -17,23 +20,22 @@ export function DriverBottomNav() {
       ? location.pathname === "/d"
       : location.pathname.startsWith(t.path),
   )?.id;
+
   const handleInstallClick = async () => {
     setInstalling(true);
     await promptInstall();
     setInstalling(false);
   };
+
   return (
     <nav className="driver-bottom-nav">
-      {/* PWA Install Button */}
       {isInstallable && !isInstalled && (
         <button
           onClick={handleInstallClick}
           disabled={installing}
           className="driver-nav-item install-btn"
           title="Install app on your phone"
-          style={{
-            animation: "pulse-glow 2s ease-in-out infinite",
-          }}
+          style={{ animation: "pulse-glow 2s ease-in-out infinite" }}
         >
           <Download
             strokeWidth={2.5}
@@ -54,9 +56,8 @@ export function DriverBottomNav() {
           <Link
             key={t.id}
             to={t.path}
-            className={driver-nav-item${active ? " active" : ""}}
+            className={`driver-nav-item${active ? " active" : ""}`}
           >
-            {/* Active indicator dot */}
             {active && (
               <span
                 className="absolute top-1.5 left-1/2 -translate-x-1/2 size-1 rounded-full"
@@ -76,23 +77,15 @@ export function DriverBottomNav() {
           </Link>
         );
       })}
-      <style>{
+      <style>{`
         @keyframes pulse-glow {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.7; }
         }
-        .install-btn {
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        .install-btn:hover:not(:disabled) {
-          transform: scale(1.05);
-        }
-        .install-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-      }</style>
+        .install-btn { cursor: pointer; transition: all 0.2s ease; }
+        .install-btn:hover:not(:disabled) { transform: scale(1.05); }
+        .install-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+      `}</style>
     </nav>
   );
 }
