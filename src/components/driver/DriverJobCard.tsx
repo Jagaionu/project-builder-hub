@@ -7,47 +7,89 @@ interface Props {
   showTomorrow?: boolean;
 }
 
-export const STATUS_CONFIG: Record<string, {
-  label: string;
-  color: string;
-  bg: string;
-  dot: string;
-}> = {
-  PENDING:           { label: "Planned",     color: "oklch(0.58 0.016 245)",  bg: "oklch(0.22 0.018 245)",        dot: "oklch(0.45 0.012 245)" },
-  ASSIGNED:          { label: "Assigned",    color: "oklch(0.75 0.18 245)",   bg: "oklch(0.62 0.22 245 / 0.12)", dot: "oklch(0.62 0.22 245)" },
-  IN_PROGRESS:       { label: "In Progress", color: "oklch(0.78 0.14 150)",   bg: "oklch(0.73 0.17 150 / 0.10)", dot: "oklch(0.73 0.17 150)" },
-  ARRIVED_PICKUP:    { label: "At Pickup",   color: "oklch(0.80 0.16 72)",    bg: "oklch(0.80 0.18 72  / 0.10)", dot: "oklch(0.80 0.18 72)" },
-  EN_ROUTE_DELIVERY: { label: "En Route",    color: "oklch(0.75 0.18 245)",   bg: "oklch(0.62 0.22 245 / 0.12)", dot: "oklch(0.62 0.22 245)" },
-  COMPLETED:         { label: "Completed",   color: "oklch(0.73 0.14 150)",   bg: "oklch(0.73 0.17 150 / 0.08)", dot: "oklch(0.73 0.17 150)" },
-  CANCELLED:         { label: "Cancelled",   color: "oklch(0.63 0.18 20)",    bg: "oklch(0.63 0.22 20  / 0.08)", dot: "oklch(0.63 0.22 20)" },
+export const STATUS_CONFIG: Record<
+  string,
+  {
+    label: string;
+    color: string;
+    bg: string;
+    dot: string;
+  }
+> = {
+  PENDING: {
+    label: "Planned",
+    color: "oklch(0.58 0.016 245)",
+    bg: "oklch(0.22 0.018 245)",
+    dot: "oklch(0.45 0.012 245)",
+  },
+  ASSIGNED: {
+    label: "Assigned",
+    color: "oklch(0.75 0.18 245)",
+    bg: "oklch(0.62 0.22 245 / 0.12)",
+    dot: "oklch(0.62 0.22 245)",
+  },
+  IN_PROGRESS: {
+    label: "In Progress",
+    color: "oklch(0.78 0.14 150)",
+    bg: "oklch(0.73 0.17 150 / 0.10)",
+    dot: "oklch(0.73 0.17 150)",
+  },
+  ARRIVED_PICKUP: {
+    label: "In Progress",
+    color: "oklch(0.78 0.14 150)",
+    bg: "oklch(0.73 0.17 150 / 0.10)",
+    dot: "oklch(0.73 0.17 150)",
+  },
+  EN_ROUTE_DELIVERY: {
+    label: "In Progress",
+    color: "oklch(0.78 0.14 150)",
+    bg: "oklch(0.73 0.17 150 / 0.10)",
+    dot: "oklch(0.73 0.17 150)",
+  },
+  COMPLETED: {
+    label: "Completed",
+    color: "oklch(0.73 0.14 150)",
+    bg: "oklch(0.73 0.17 150 / 0.08)",
+    dot: "oklch(0.73 0.17 150)",
+  },
+  CANCELLED: {
+    label: "Cancelled",
+    color: "oklch(0.63 0.18 20)",
+    bg: "oklch(0.63 0.22 20  / 0.08)",
+    dot: "oklch(0.63 0.22 20)",
+  },
 };
 
 export function DriverJobCard({ job, showTomorrow }: Props) {
   const navigate = useNavigate();
-  const cfg    = STATUS_CONFIG[job.status] ?? STATUS_CONFIG.PENDING;
-  const stops  = job.stops ?? [];
+  const cfg = STATUS_CONFIG[job.status] ?? STATUS_CONFIG.PENDING;
+  const stops = job.stops ?? [];
   const pickups = stops.filter((s) => s.kind === "PICKUP");
-  const drops   = stops.filter((s) => s.kind === "DROP");
+  const drops = stops.filter((s) => s.kind === "DROP");
   const arrived = stops.filter((s) => s.arrived_at).length;
-  const total   = stops.length;
+  const total = stops.length;
   const startWh = pickups[0]?.warehouse;
-  const endWh   = drops[drops.length - 1]?.warehouse;
-  const isActive = ["IN_PROGRESS","ARRIVED_PICKUP","EN_ROUTE_DELIVERY"].includes(job.status);
+  const endWh = drops[drops.length - 1]?.warehouse;
+  const isActive = ["IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(job.status);
 
   const time = job.planned_start_at
     ? new Date(job.planned_start_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : job.scheduled_at
-    ? new Date(job.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : null;
+      ? new Date(job.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : null;
 
   return (
     <button
       onClick={() => navigate({ to: "/d/routes/$jobId", params: { jobId: job.id } })}
       className="driver-job-card w-full text-left"
-      style={isActive ? {
-        borderColor: "oklch(0.62 0.22 245 / 0.45)",
-        boxShadow: "0 0 0 1px oklch(0.62 0.22 245 / 0.12), 0 8px 24px oklch(0 0 0 / 0.35)",
-      } : {}}
+      style={
+        isActive
+          ? {
+              borderColor: "oklch(0.62 0.22 245 / 0.45)",
+              boxShadow: "0 0 0 1px oklch(0.62 0.22 245 / 0.12), 0 8px 24px oklch(0 0 0 / 0.35)",
+            }
+          : {}
+      }
     >
       {/* Active job — top accent line */}
       {isActive && (
@@ -65,8 +107,10 @@ export function DriverJobCard({ job, showTomorrow }: Props) {
           <div className="min-w-0">
             <p className="font-semibold text-sm text-foreground leading-tight">{job.reference}</p>
             {showTomorrow && (
-              <p className="text-[11px] font-mono uppercase tracking-widest mt-0.5"
-                style={{ color: "oklch(0.62 0.22 245)" }}>
+              <p
+                className="text-[11px] font-mono uppercase tracking-widest mt-0.5"
+                style={{ color: "oklch(0.62 0.22 245)" }}
+              >
                 Tomorrow
               </p>
             )}
@@ -112,7 +156,10 @@ export function DriverJobCard({ job, showTomorrow }: Props) {
           {/* Arrow */}
           <div
             className="shrink-0 size-7 rounded-full grid place-items-center"
-            style={{ background: "oklch(0.22 0.018 245)", border: "1px solid oklch(0.26 0.018 245)" }}
+            style={{
+              background: "oklch(0.22 0.018 245)",
+              border: "1px solid oklch(0.26 0.018 245)",
+            }}
           >
             <ArrowRight className="size-3.5 text-muted-foreground" />
           </div>
@@ -141,9 +188,10 @@ export function DriverJobCard({ job, showTomorrow }: Props) {
                 className="progress-fill"
                 style={{
                   width: `${(arrived / total) * 100}%`,
-                  background: arrived === total
-                    ? "oklch(0.73 0.17 150)"
-                    : "linear-gradient(90deg, oklch(0.62 0.22 245), oklch(0.73 0.17 150))",
+                  background:
+                    arrived === total
+                      ? "oklch(0.73 0.17 150)"
+                      : "linear-gradient(90deg, oklch(0.62 0.22 245), oklch(0.73 0.17 150))",
                 }}
               />
             </div>

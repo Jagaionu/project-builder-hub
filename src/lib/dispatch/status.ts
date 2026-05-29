@@ -47,16 +47,16 @@ export const STATUS_CONFIG: Record<
     color: "oklch(0.62 0.22 245)",
   },
   ARRIVED_PICKUP: {
-    label: "Arrived Pickup",
-    dot: "bg-cyan-400",
-    badge: "text-cyan-500 bg-cyan-500/10",
-    color: "oklch(0.80 0.18 72)",
+    label: "In Progress",
+    dot: "bg-violet-400",
+    badge: "text-violet-500 bg-violet-500/10",
+    color: "oklch(0.62 0.22 245)",
   },
   EN_ROUTE_DELIVERY: {
-    label: "En Route Delivery",
-    dot: "bg-indigo-400",
-    badge: "text-indigo-500 bg-indigo-500/10",
-    color: "oklch(0.75 0.18 245)",
+    label: "In Progress",
+    dot: "bg-violet-400",
+    badge: "text-violet-500 bg-violet-500/10",
+    color: "oklch(0.62 0.22 245)",
   },
   COMPLETED: {
     label: "Completed",
@@ -82,8 +82,6 @@ export const STATUS_BOX_KEYS: JobStatus[] = [
   "PENDING",
   "ASSIGNED",
   "IN_PROGRESS",
-  "ARRIVED_PICKUP",
-  "EN_ROUTE_DELIVERY",
   "COMPLETED",
   "CANCELLED",
 ];

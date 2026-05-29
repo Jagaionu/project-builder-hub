@@ -437,12 +437,24 @@ function DispatchPage() {
       inRange.push(j);
     }
 
+    // Consolidate counts for "In Progress"
+    counts.IN_PROGRESS += counts.ARRIVED_PICKUP + counts.EN_ROUTE_DELIVERY;
+
     return { jobsInRange: inRange, statusCounts: counts };
   }, [jobs, stopsMap, search, dateRange, lookups.warehousesById, lookups.driversById]);
 
   const filteredJobs = useMemo(() => {
     const filtered = jobsInRange.filter((j) => {
-      if (statusFilter) return j.status === statusFilter;
+      if (statusFilter) {
+        if (statusFilter === "IN_PROGRESS") {
+          return (
+            j.status === "IN_PROGRESS" ||
+            j.status === "ARRIVED_PICKUP" ||
+            j.status === "EN_ROUTE_DELIVERY"
+          );
+        }
+        return j.status === statusFilter;
+      }
       return !hiddenStatuses.has(j.status as JobStatus);
     });
     filtered.sort((a, b) => {

@@ -6,7 +6,13 @@ import { getTenantId } from "@/lib/tenant-insert";
 import { useDriverStore } from "@/lib/driver-store";
 import { DriverStopTimeline } from "@/components/driver/DriverStopTimeline";
 import { STATUS_CONFIG } from "@/components/driver/DriverJobCard";
-import { haversineKm, transitTimeHours, jobTotalMinutes, stopDwellMinutes, ARRIVAL_BUFFER_MINUTES } from "@/lib/geo";
+import {
+  haversineKm,
+  transitTimeHours,
+  jobTotalMinutes,
+  stopDwellMinutes,
+  ARRIVAL_BUFFER_MINUTES,
+} from "@/lib/geo";
 
 export const Route = createFileRoute("/d/routes/$jobId")({
   head: () => ({ meta: [{ title: "Route — Driver" }] }),
@@ -27,7 +33,9 @@ function JobDetail() {
     return (
       <div className="p-6">
         <p className="text-muted-foreground">Route not found.</p>
-        <Link to="/d" className="text-primary text-sm mt-2 inline-block">← Back to home</Link>
+        <Link to="/d" className="text-primary text-sm mt-2 inline-block">
+          ← Back to home
+        </Link>
       </div>
     );
   }
@@ -46,7 +54,8 @@ function JobDetail() {
     .map((s) => ({ kind: s.kind, warehouse_id: s.warehouse_id }));
 
   const totalMin = stopsForCalc.length ? jobTotalMinutes(stopsForCalc, whs) : 0;
-  const totalLabel = totalMin >= 60 ? `${Math.floor(totalMin / 60)}h ${totalMin % 60}m` : `${totalMin}m`;
+  const totalLabel =
+    totalMin >= 60 ? `${Math.floor(totalMin / 60)}h ${totalMin % 60}m` : `${totalMin}m`;
 
   // ETA at final stop = "now + remaining transit + remaining dwell"
   let etaFinalMs: number | null = null;
@@ -73,27 +82,54 @@ function JobDetail() {
   if (sortedStops.length > 0) etaFinalMs = cursorMs;
 
   const dateStr = job.for_date
-    ? new Date(job.for_date + "T00:00:00").toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })
+    ? new Date(job.for_date + "T00:00:00").toLocaleDateString([], {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      })
     : job.planned_start_at
-    ? new Date(job.planned_start_at).toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })
-    : null;
+      ? new Date(job.planned_start_at).toLocaleDateString([], {
+          weekday: "long",
+          month: "short",
+          day: "numeric",
+        })
+      : null;
   const startTime = job.planned_start_at
     ? new Date(job.planned_start_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : job.scheduled_at
-    ? new Date(job.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : null;
+      ? new Date(job.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : null;
   const chain = sortedStops.map((s) => s.warehouse?.code ?? "?").join(" → ");
 
   const statusCfg = STATUS_CONFIG[job.status] ?? STATUS_CONFIG.PENDING;
 
   const cantComplete = async () => {
     if (!driver) return;
-    if (typeof window !== "undefined" && !window.confirm("Mark this route as can't complete?")) return;
+    if (typeof window !== "undefined" && !window.confirm("Mark this route as can't complete?"))
+      return;
     setBusy(true);
     try {
-      await supabase.from("jobs").update({ status: "PENDING", assigned_driver_id: null, planned_driver_id: null } as never).eq("id", job.id);
-      await supabase.from("drivers").update({ status: "AVAILABLE" } as never).eq("id", driver.id);
-      await supabase.from("driver_events").insert({ driver_id: driver.id, type: "CANT_COMPLETE", payload: { job_id: job.id, job_reference: job.reference, driver_name: driver.name, reason: "Driver reported cannot complete" }, tenant_id: await getTenantId() } as never);
+      await supabase
+        .from("jobs")
+        .update({ status: "PENDING", assigned_driver_id: null, planned_driver_id: null } as never)
+        .eq("id", job.id);
+      await supabase
+        .from("drivers")
+        .update({ status: "AVAILABLE" } as never)
+        .eq("id", driver.id);
+      await supabase
+        .from("driver_events")
+        .insert({
+          driver_id: driver.id,
+          type: "CANT_COMPLETE",
+          payload: {
+            job_id: job.id,
+            job_reference: job.reference,
+            driver_name: driver.name,
+            reason: "Driver reported cannot complete",
+          },
+          tenant_id: await getTenantId(),
+        } as never);
       toast.success("Reported — dispatcher notified");
       navigate({ to: "/d" });
     } catch (e) {
@@ -123,20 +159,33 @@ function JobDetail() {
   };
 
   const complete = async () => {
-    await supabase.from("jobs").update({ status: "COMPLETED" } as never).eq("id", job.id);
-    if (driver) await supabase.from("drivers").update({ status: "AVAILABLE" } as never).eq("id", driver.id);
+    await supabase
+      .from("jobs")
+      .update({ status: "COMPLETED" } as never)
+      .eq("id", job.id);
+    if (driver)
+      await supabase
+        .from("drivers")
+        .update({ status: "AVAILABLE" } as never)
+        .eq("id", driver.id);
     navigate({ to: "/d" });
   };
 
-  
-  const showCantComplete = job.status === "IN_PROGRESS" || job.status === "ARRIVED_PICKUP" || job.status === "EN_ROUTE_DELIVERY";
+  const showCantComplete =
+    job.status === "IN_PROGRESS" ||
+    job.status === "ARRIVED_PICKUP" ||
+    job.status === "EN_ROUTE_DELIVERY";
 
   return (
     <div className="pt-6 px-4 max-w-md mx-auto pb-12">
-      <button onClick={() => navigate({ to: "/d" })} className="text-primary text-sm mb-4">← Home</button>
+      <button onClick={() => navigate({ to: "/d" })} className="text-primary text-sm mb-4">
+        ← Home
+      </button>
       <div className="flex items-center justify-between gap-3 mb-1">
         <h1 className="text-2xl font-bold text-foreground">{job.reference}</h1>
-        <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${statusCfg.bg} ${statusCfg.color}`}>
+        <span
+          className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${statusCfg.bg} ${statusCfg.color}`}
+        >
           {statusCfg.label}
         </span>
       </div>
@@ -154,13 +203,14 @@ function JobDetail() {
         </div>
       )}
 
-
       <div className="mb-6 bg-card border border-border rounded-2xl p-4 space-y-2 text-sm">
         {dateStr && (
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground">📅</span>
             <span className="font-semibold text-foreground">{dateStr}</span>
-            {startTime && <span className="text-muted-foreground font-mono">· start {startTime}</span>}
+            {startTime && (
+              <span className="text-muted-foreground font-mono">· start {startTime}</span>
+            )}
           </div>
         )}
         {chain && (
@@ -171,7 +221,9 @@ function JobDetail() {
         )}
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">⏱</span>
-          <span className="text-foreground">Total transit + dwell: <span className="font-semibold">{totalLabel}</span></span>
+          <span className="text-foreground">
+            Total transit + dwell: <span className="font-semibold">{totalLabel}</span>
+          </span>
         </div>
         {etaFinalMs != null && !allDone && (
           <div className="flex items-center gap-2">
@@ -179,7 +231,10 @@ function JobDetail() {
             <span className="text-foreground">
               ETA final stop:{" "}
               <span className="font-semibold font-mono">
-                {new Date(etaFinalMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                {new Date(etaFinalMs).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </span>
               {!gps && <span className="text-xs text-muted-foreground ml-1">(awaiting GPS)</span>}
             </span>
@@ -199,12 +254,12 @@ function JobDetail() {
             .is("arrived_at", null);
           if (error) return;
 
-          // If this is the first stop, move job to ARRIVED_PICKUP
-          if (stopId === sortedStops[0]?.id && job.status === "ASSIGNED") {
-            await supabase.from("jobs").update({ status: "ARRIVED_PICKUP" } as never).eq("id", job.id);
-          } else if (job.status === "ASSIGNED") {
-            // Any other stop arrival also implies IN_PROGRESS
-            await supabase.from("jobs").update({ status: "IN_PROGRESS" } as never).eq("id", job.id);
+          // Transition to IN_PROGRESS on arrival
+          if (job.status === "ASSIGNED") {
+            await supabase
+              .from("jobs")
+              .update({ status: "IN_PROGRESS" } as never)
+              .eq("id", job.id);
           }
 
           await supabase.from("driver_events").insert({
@@ -221,14 +276,18 @@ function JobDetail() {
       </p>
 
       {allDone && job.status !== "COMPLETED" && (
-        <button onClick={complete}
-          className="mt-4 w-full bg-success text-success-foreground font-bold py-4 rounded-xl active:scale-[0.99] transition">
+        <button
+          onClick={complete}
+          className="mt-4 w-full bg-success text-success-foreground font-bold py-4 rounded-xl active:scale-[0.99] transition"
+        >
           Complete route
         </button>
       )}
 
       <div className="mt-6 bg-card border border-border rounded-2xl p-4">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Notes</label>
+        <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+          Notes
+        </label>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}

@@ -322,10 +322,7 @@ function useAutoStatusTransition(
       return;
     }
 
-    if (firstArrived && job.status === "ASSIGNED") {
-      // If first stop arrived, it must be at least ARRIVED_PICKUP
-      onSetStatusRef.current("ARRIVED_PICKUP", { silent: true });
-    } else if (anyArrived && job.status === "ASSIGNED") {
+    if (anyArrived && job.status === "ASSIGNED") {
       // Any arrival means it's no longer just "Assigned"
       onSetStatusRef.current("IN_PROGRESS", { silent: true });
     }
