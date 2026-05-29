@@ -1,10 +1,11 @@
 import { memo, useState } from "react";
-import { Copy, Share2, Phone, Code2, CheckCircle2, Pencil, Trash2, RefreshCw, CalendarCheck, CalendarX } from "lucide-react";
+import { Copy, Share2, Phone, Code2, CheckCircle2, Pencil, Trash2, RefreshCw, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { Driver } from "@/lib/types";
 import { effectiveDriverStatus } from "@/lib/effective-status";
 import type { ActiveJob } from "@/lib/use-driver-routes";
+import { ShiftCalendar } from "@/components/driver/ShiftCalendar";
 
 export const DriverDetailPanel = memo(function DriverDetailPanel({
   driver,
@@ -12,14 +13,12 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
   onEdit,
   onDelete,
   onRegenerate,
-  onToggleTomorrow,
 }: {
   driver: Driver;
   activeJobs: ActiveJob[];
   onEdit: (driver: Driver) => void;
   onDelete: (driverId: string, driverName: string) => void;
   onRegenerate?: (driverId: string, driverName: string) => void;
-  onToggleTomorrow?: (driverId: string, available: boolean) => void;
 }) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const nowMs = Date.now();
@@ -191,40 +190,13 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
         </div>
       )}
 
-      {/* Tomorrow Availability */}
+      {/* Driver Schedule */}
       <div className="rounded-lg border border-border bg-surface p-4">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
-          Tomorrow Availability
+        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+          <CalendarDays className="size-3.5" />
+          Driver Schedule
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => onToggleTomorrow?.(driver.id, true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors border"
-            style={
-              driver.available_tomorrow === true
-                ? { background: "oklch(0.73 0.17 150 / 0.15)", color: "oklch(0.78 0.14 150)", borderColor: "oklch(0.73 0.17 150 / 0.4)" }
-                : { background: "transparent", color: "oklch(0.55 0.012 245)", borderColor: "oklch(0.3 0.012 245)" }
-            }
-          >
-            <CalendarCheck className="size-3.5" />
-            Available
-          </button>
-          <button
-            onClick={() => onToggleTomorrow?.(driver.id, false)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors border"
-            style={
-              driver.available_tomorrow === false
-                ? { background: "oklch(0.55 0.19 25 / 0.15)", color: "oklch(0.65 0.18 25)", borderColor: "oklch(0.55 0.19 25 / 0.4)" }
-                : { background: "transparent", color: "oklch(0.55 0.012 245)", borderColor: "oklch(0.3 0.012 245)" }
-            }
-          >
-            <CalendarX className="size-3.5" />
-            Not available
-          </button>
-          {driver.available_tomorrow == null && (
-            <span className="text-[11px] text-muted-foreground italic">Not set — defaults to unavailable</span>
-          )}
-        </div>
+        <ShiftCalendar driverId={driver.id} isPlanner={true} />
       </div>
     </div>
   );
