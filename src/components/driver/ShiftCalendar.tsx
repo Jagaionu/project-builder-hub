@@ -49,7 +49,7 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
         .eq("driver_id", driverId)
         .gte("date", start)
         .lte("date", end);
-      if (data) setOverrides(data);
+      if (data) setOverrides(data as DriverAvailabilityOverride[]);
     }
     load();
   }, [driverId, currentMonth]);
@@ -103,7 +103,7 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
         })
         .select()
         .single();
-      if (data) setOverrides(prev => [...prev, data]);
+      if (data) setOverrides(prev => [...prev, data as DriverAvailabilityOverride]);
     }
   };
 
