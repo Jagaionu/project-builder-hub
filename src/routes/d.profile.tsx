@@ -27,16 +27,6 @@ function ProfilePage() {
         <p className="text-xs text-muted-foreground mt-0.5">{session?.user?.email}</p>
       </div>
 
-      {/* Status row */}
-      <div className="bg-card border border-border rounded-2xl divide-y divide-border mb-6">
-        <Row label="Status" value={driver?.status ?? "—"} />
-        <Row
-          label="Last update"
-          value={driver?.last_update_time
-            ? new Date(driver.last_update_time).toLocaleString()
-            : "—"}
-        />
-      </div>
 
       {/* Shift Calendar */}
       {driver && (
