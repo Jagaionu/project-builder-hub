@@ -116,5 +116,22 @@ export const DEFAULT_TENANT_CONFIG: TenantConfig = {
   customBranding: false,
   brandName: null,
   brandColor: null,
+}
+
+export interface DriverShift {
+  id: string;
+  driver_id: string;
+  days_of_week: number[]; // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DriverAvailabilityOverride {
+  id: string;
+  driver_id: string;
+  date: string; // YYYY-MM-DD
+  available: boolean;
+  set_by: 'driver' | 'planner';
+  created_at: string;
 };
 
