@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Gauge, Timer, MapPin, RefreshCcw, Clock, type LucideIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  Gauge,
+  Timer,
+  MapPin,
+  RefreshCcw,
+  Clock,
+  type LucideIcon,
+} from "lucide-react";
 import { useCompliance, useDrivers, useJobs, useRecentDelays } from "@/lib/hooks";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -35,7 +43,11 @@ function useRecentCantComplete(): CantCompleteEvent[] {
     };
     const ch = supabase
       .channel(`rt-cant-complete-${Math.random().toString(36).slice(2)}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "driver_events" }, debounced)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "driver_events" },
+        debounced,
+      )
       .subscribe();
     return () => {
       mounted = false;
@@ -72,7 +84,11 @@ function useParkedImports(): ParkedImport[] {
     };
     const ch = supabase
       .channel(`rt-parked-${Math.random().toString(36).slice(2)}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "pending_job_imports" }, debounced)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "pending_job_imports" },
+        debounced,
+      )
       .subscribe();
     return () => {
       mounted = false;
@@ -81,7 +97,6 @@ function useParkedImports(): ParkedImport[] {
   }, []);
   return rows;
 }
-
 
 type ReimportAlert = {
   id: string;
@@ -178,22 +193,25 @@ function useAcked(alerts: AppAlert[]) {
     };
   }, []);
 
-  const ack = useCallback(async (id: string) => {
-    const alert = alerts.find(a => a.id === id);
-    if (alert?.dbId && alert?.dbType) {
-      try {
-        await runAck({ data: { id: alert.dbId, type: alert.dbType } });
-      } catch (e) {
-        console.error("[useAlerts] failed to delete alert from DB", e);
-        toast.error("Failed to clear alert from database");
-        return;
+  const ack = useCallback(
+    async (id: string) => {
+      const alert = alerts.find((a) => a.id === id);
+      if (alert?.dbId && alert?.dbType) {
+        try {
+          await runAck({ data: { id: alert.dbId, type: alert.dbType } });
+        } catch (e) {
+          console.error("[useAlerts] failed to delete alert from DB", e);
+          toast.error("Failed to clear alert from database");
+          return;
+        }
       }
-    }
 
-    const next = new Set(readAcked());
-    next.add(id);
-    writeAcked(next);
-  }, [alerts, runAck]);
+      const next = new Set(readAcked());
+      next.add(id);
+      writeAcked(next);
+    },
+    [alerts, runAck],
+  );
 
   return { acked, ack };
 }
@@ -210,18 +228,17 @@ function useAcked(alerts: AppAlert[]) {
 // of that scheduled time and still unassigned → critical "Job unassigned — critical"
 //
 // Only the highest-severity alert is emitted per job (no duplicates).
-const PENDING_CRITICAL_AGE_MIN = 60;   // 60 min since created → critical
-const PENDING_WARNING_AGE_MIN  = 90;   // 90 min since created → warning
-//   Note: 90 > 60, so the critical threshold fires first. The warning fires
-//   in the 30–60 min window when ageMin < 60 but ageMin >= 30 (see below).
-//   The user-facing thresholds are: 90 min = amber, 60 min = red, 30 min = critical.
-//   We implement this as:
-//     ageMin >= 60  → critical  (red)
-//     ageMin >= 30  → warning   (amber)
-//   Plus a separate "within 30 min of scheduled" → critical.
-
-const PENDING_WARNING_AGE_MIN_ACTUAL = 30;  // 30 min since created → amber warning
-const PENDING_SCHEDULED_CRITICAL_MIN = 30;  // within 30 min of scheduled_at → critical
+// ── Pending-job pickup thresholds ──────────────────────────────────────────
+//
+// A PENDING job with no assigned driver triggers alerts based on its scheduled
+// pickup time:
+//
+//  ≤ 90 min until pickup → warning  (amber)
+//  ≤ 60 min until pickup → critical (red)
+//
+// Only the highest-severity alert is emitted per job.
+const PENDING_PICKUP_WARNING_MIN = 90;
+const PENDING_PICKUP_CRITICAL_MIN = 60;
 
 export function useAlerts() {
   const drivers = useDrivers();
@@ -244,7 +261,7 @@ export function useAlerts() {
       const job = dr.job_id ? jobsById.get(dr.job_id) : null;
       const jobRef = job ? ` on ${job.reference}` : "";
       const ageMin = Math.round((now - new Date(dr.timestamp).getTime()) / 60000);
-      
+
       out.push({
         id: `delay-${dr.id}`,
         dbId: dr.id,
@@ -273,11 +290,18 @@ export function useAlerts() {
 
     drivers.forEach((d) => {
       if (d.status === "DELAYED") {
-        out.push({ id: `d-${d.id}`, level: "critical", type: "Delay reported", icon: AlertTriangle, message: `${d.name} flagged DELAYED` });
+        out.push({
+          id: `d-${d.id}`,
+          level: "critical",
+          type: "Delay reported",
+          icon: AlertTriangle,
+          message: `${d.name} flagged DELAYED`,
+        });
       }
       if (d.status === "OFF_SHIFT") {
         const activeJobs = jobs.filter(
-          (j) => j.assigned_driver_id === d.id &&
+          (j) =>
+            j.assigned_driver_id === d.id &&
             ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
         );
         if (activeJobs.length > 0) {
@@ -305,7 +329,11 @@ export function useAlerts() {
     });
 
     jobs.forEach((j) => {
-      if ((j.status === "ASSIGNED" || j.status === "IN_PROGRESS") && j.eta_minutes && j.scheduled_at) {
+      if (
+        (j.status === "ASSIGNED" || j.status === "IN_PROGRESS") &&
+        j.eta_minutes &&
+        j.scheduled_at
+      ) {
         const overdueMin = (now - new Date(j.scheduled_at).getTime()) / 60000 - j.eta_minutes;
         if (overdueMin > 0) {
           out.push({
@@ -319,52 +347,37 @@ export function useAlerts() {
         }
       }
 
-      // ── Pending job age alerts ────────────────────────────────────────────
+      // ── Pending job pickup alerts ─────────────────────────────────────────
       // Only fire for PENDING jobs with no assigned driver and no planned driver.
       if (j.status === "PENDING" && !j.assigned_driver_id && !j.planned_driver_id) {
-        const createdMs = new Date(j.created_at).getTime();
-        const ageMin = (now - createdMs) / 60000;
-
-        // Priority 1: within 30 min of scheduled_at → critical (highest urgency)
         if (j.scheduled_at) {
           const scheduledMs = new Date(j.scheduled_at).getTime();
           const minsUntilScheduled = (scheduledMs - now) / 60000;
-          if (minsUntilScheduled >= 0 && minsUntilScheduled <= PENDING_SCHEDULED_CRITICAL_MIN) {
+
+          // Priority 1: ≤ 60 min until pickup → critical (red)
+          if (minsUntilScheduled >= 0 && minsUntilScheduled <= PENDING_PICKUP_CRITICAL_MIN) {
             out.push({
-              id: `pending-sched-${j.id}`,
+              id: `pending-crit-${j.id}`,
               level: "critical",
               type: "Job unassigned — critical",
               icon: Clock,
               message: `${j.reference} is unassigned with only ${Math.round(minsUntilScheduled)} min until scheduled start`,
               jobRef: j.reference,
             });
-            return; // Only emit the most severe alert for this job
+            return;
           }
-        }
 
-        // Priority 2: age ≥ 60 min → critical (red)
-        if (ageMin >= PENDING_CRITICAL_AGE_MIN) {
-          out.push({
-            id: `pending-crit-${j.id}`,
-            level: "critical",
-            type: "Job unassigned — urgent",
-            icon: Clock,
-            message: `${j.reference} has been unassigned for ${Math.round(ageMin)} min`,
-            jobRef: j.reference,
-          });
-          return;
-        }
-
-        // Priority 3: age ≥ 30 min → warning (amber)
-        if (ageMin >= PENDING_WARNING_AGE_MIN_ACTUAL) {
-          out.push({
-            id: `pending-warn-${j.id}`,
-            level: "warning",
-            type: "Job unassigned",
-            icon: Clock,
-            message: `${j.reference} has been unassigned for ${Math.round(ageMin)} min`,
-            jobRef: j.reference,
-          });
+          // Priority 2: ≤ 90 min until pickup → warning (amber)
+          if (minsUntilScheduled >= 0 && minsUntilScheduled <= PENDING_PICKUP_WARNING_MIN) {
+            out.push({
+              id: `pending-warn-${j.id}`,
+              level: "warning",
+              type: "Job unassigned",
+              icon: Clock,
+              message: `${j.reference} is unassigned with only ${Math.round(minsUntilScheduled)} min until scheduled start`,
+              jobRef: j.reference,
+            });
+          }
         }
       }
     });
@@ -383,7 +396,10 @@ export function useAlerts() {
 
     reimportAlerts.forEach((r) => {
       const when = new Date(r.uploaded_at).toLocaleString([], {
-        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       });
       out.push({
         id: `reimport-${r.id}`,
@@ -414,9 +430,8 @@ export function useUnassignedJobCount() {
   const jobs = useJobs();
   return useMemo(
     () =>
-      jobs.filter(
-        (j) => j.status === "PENDING" && !j.assigned_driver_id && !j.planned_driver_id,
-      ).length,
+      jobs.filter((j) => j.status === "PENDING" && !j.assigned_driver_id && !j.planned_driver_id)
+        .length,
     [jobs],
   );
 }

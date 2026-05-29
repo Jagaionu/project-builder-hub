@@ -10,25 +10,28 @@ export const Route = createFileRoute("/_app/alerts")({
 
 const LEVEL_CONFIG = {
   critical: {
-    bg:     "oklch(0.63 0.22 20 / 0.08)",
+    bg: "oklch(0.63 0.22 20 / 0.08)",
     border: "oklch(0.63 0.22 20 / 0.35)",
-    text:   "oklch(0.72 0.18 20)",
-    bar:    "oklch(0.63 0.22 20)",
-    Icon:   Zap,
+    text: "oklch(0.95 0.006 240)", // Standard light text
+    iconColor: "oklch(0.72 0.18 20)", // Keep the icon red
+    bar: "oklch(0.63 0.22 20)",
+    Icon: AlertTriangle, // Keep AlertTriangle for critical
   },
   warning: {
-    bg:     "oklch(0.80 0.18 72 / 0.08)",
+    bg: "oklch(0.80 0.18 72 / 0.08)",
     border: "oklch(0.80 0.18 72 / 0.35)",
-    text:   "oklch(0.80 0.16 72)",
-    bar:    "oklch(0.80 0.18 72)",
-    Icon:   AlertTriangle,
+    text: "oklch(0.95 0.006 240)", // Standard light text
+    iconColor: "oklch(0.80 0.16 72)", // Keep the icon amber
+    bar: "oklch(0.80 0.18 72)",
+    Icon: Clock, // Use Clock for warning
   },
   info: {
-    bg:     "oklch(0.68 0.16 230 / 0.08)",
+    bg: "oklch(0.68 0.16 230 / 0.08)",
     border: "oklch(0.68 0.16 230 / 0.30)",
-    text:   "oklch(0.73 0.13 230)",
-    bar:    "oklch(0.68 0.16 230)",
-    Icon:   Info,
+    text: "oklch(0.95 0.006 240)", // Standard light text
+    iconColor: "oklch(0.73 0.13 230)", // Keep the icon blue
+    bar: "oklch(0.68 0.16 230)",
+    Icon: Info,
   },
 } as const;
 
@@ -44,7 +47,11 @@ function AlertsPage() {
     <div className="h-full flex flex-col">
       <PageHeader
         title="Alerts"
-        subtitle={alerts.length === 0 ? "All clear — no active alerts" : `${alerts.length} active alert${alerts.length !== 1 ? "s" : ""}`}
+        subtitle={
+          alerts.length === 0
+            ? "All clear — no active alerts"
+            : `${alerts.length} active alert${alerts.length !== 1 ? "s" : ""}`
+        }
       />
 
       <div className="flex-1 overflow-y-auto p-5">
@@ -95,17 +102,20 @@ function AlertsPage() {
                       className="size-8 rounded-lg grid place-items-center shrink-0"
                       style={{ background: getAlphaColor(cfg.bar, 0.15) }}
                     >
-                      <Icon className="size-4" style={{ color: cfg.text }} />
+                      <Icon className="size-4" style={{ color: cfg.iconColor }} />
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div
                         className="text-[10px] font-mono uppercase tracking-widest mb-0.5"
-                        style={{ color: cfg.text, opacity: 0.75 }}
+                        style={{ color: "oklch(0.55 0.014 245)", opacity: 0.75 }}
                       >
                         {a.type}
                       </div>
-                      <div className="text-sm flex items-center gap-2 flex-wrap" style={{ color: cfg.text }}>
+                      <div
+                        className="text-sm flex items-center gap-2 flex-wrap"
+                        style={{ color: cfg.text }}
+                      >
                         <span>{a.message}</span>
                         {/* Clickable job reference link → Dispatch tab with job pre-selected */}
                         {a.jobRef && (
@@ -140,8 +150,10 @@ function AlertsPage() {
                           borderColor: cfg.border,
                           color: cfg.text,
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.background = getAlphaColor(cfg.bar, 0.12))}
-                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = getAlphaColor(cfg.bar, 0.12))
+                        }
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                       >
                         <Check className="size-3" />
                         Ack
