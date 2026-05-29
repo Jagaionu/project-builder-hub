@@ -18,7 +18,6 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as DIndexRouteImport } from './routes/d.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
-import { Route as DShiftRouteImport } from './routes/d.shift'
 import { Route as DRoutesRouteImport } from './routes/d.routes'
 import { Route as DReportRouteImport } from './routes/d.report'
 import { Route as DProfileRouteImport } from './routes/d.profile'
@@ -75,11 +74,6 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
-} as any)
-const DShiftRoute = DShiftRouteImport.update({
-  id: '/shift',
-  path: '/shift',
-  getParentRoute: () => DRoute,
 } as any)
 const DRoutesRoute = DRoutesRouteImport.update({
   id: '/routes',
@@ -159,7 +153,6 @@ export interface FileRoutesByFullPath {
   '/d/profile': typeof DProfileRoute
   '/d/report': typeof DReportRoute
   '/d/routes': typeof DRoutesRouteWithChildren
-  '/d/shift': typeof DShiftRoute
   '/admin/': typeof AdminIndexRoute
   '/d/': typeof DIndexRoute
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
@@ -179,7 +172,6 @@ export interface FileRoutesByTo {
   '/d/profile': typeof DProfileRoute
   '/d/report': typeof DReportRoute
   '/d/routes': typeof DRoutesRouteWithChildren
-  '/d/shift': typeof DShiftRoute
   '/': typeof AppIndexRoute
   '/admin': typeof AdminIndexRoute
   '/d': typeof DIndexRoute
@@ -204,7 +196,6 @@ export interface FileRoutesById {
   '/d/profile': typeof DProfileRoute
   '/d/report': typeof DReportRoute
   '/d/routes': typeof DRoutesRouteWithChildren
-  '/d/shift': typeof DShiftRoute
   '/_app/': typeof AppIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/d/': typeof DIndexRoute
@@ -230,7 +221,6 @@ export interface FileRouteTypes {
     | '/d/profile'
     | '/d/report'
     | '/d/routes'
-    | '/d/shift'
     | '/admin/'
     | '/d/'
     | '/api/public/pairing-login'
@@ -250,7 +240,6 @@ export interface FileRouteTypes {
     | '/d/profile'
     | '/d/report'
     | '/d/routes'
-    | '/d/shift'
     | '/'
     | '/admin'
     | '/d'
@@ -274,7 +263,6 @@ export interface FileRouteTypes {
     | '/d/profile'
     | '/d/report'
     | '/d/routes'
-    | '/d/shift'
     | '/_app/'
     | '/admin/'
     | '/d/'
@@ -358,13 +346,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
-    }
-    '/d/shift': {
-      id: '/d/shift'
-      path: '/shift'
-      fullPath: '/d/shift'
-      preLoaderRoute: typeof DShiftRouteImport
-      parentRoute: typeof DRoute
     }
     '/d/routes': {
       id: '/d/routes'
@@ -499,7 +480,6 @@ interface DRouteChildren {
   DProfileRoute: typeof DProfileRoute
   DReportRoute: typeof DReportRoute
   DRoutesRoute: typeof DRoutesRouteWithChildren
-  DShiftRoute: typeof DShiftRoute
   DIndexRoute: typeof DIndexRoute
 }
 
@@ -508,7 +488,6 @@ const DRouteChildren: DRouteChildren = {
   DProfileRoute: DProfileRoute,
   DReportRoute: DReportRoute,
   DRoutesRoute: DRoutesRouteWithChildren,
-  DShiftRoute: DShiftRoute,
   DIndexRoute: DIndexRoute,
 }
 
