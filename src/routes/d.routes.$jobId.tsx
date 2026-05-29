@@ -27,7 +27,7 @@ function JobDetail() {
     return (
       <div className="p-6">
         <p className="text-muted-foreground">Route not found.</p>
-        <Link to="/d/routes" className="text-primary text-sm mt-2 inline-block">← Back to routes</Link>
+        <Link to="/d" className="text-primary text-sm mt-2 inline-block">← Back to home</Link>
       </div>
     );
   }
@@ -86,9 +86,6 @@ function JobDetail() {
 
   const statusCfg = STATUS_CONFIG[job.status] ?? STATUS_CONFIG.PENDING;
 
-
-
-
   const cantComplete = async () => {
     if (!driver) return;
     if (typeof window !== "undefined" && !window.confirm("Mark this route as can't complete?")) return;
@@ -98,7 +95,7 @@ function JobDetail() {
       await supabase.from("drivers").update({ status: "AVAILABLE" } as never).eq("id", driver.id);
       await supabase.from("driver_events").insert({ driver_id: driver.id, type: "CANT_COMPLETE", payload: { job_id: job.id, job_reference: job.reference, driver_name: driver.name, reason: "Driver reported cannot complete" }, tenant_id: await getTenantId() } as never);
       toast.success("Reported — dispatcher notified");
-      navigate({ to: "/d/routes" });
+      navigate({ to: "/d" });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
       setBusy(false);
@@ -136,7 +133,7 @@ function JobDetail() {
 
   return (
     <div className="pt-6 px-4 max-w-md mx-auto pb-12">
-      <button onClick={() => navigate({ to: "/d/routes" })} className="text-primary text-sm mb-4">← Routes</button>
+      <button onClick={() => navigate({ to: "/d" })} className="text-primary text-sm mb-4">← Home</button>
       <div className="flex items-center justify-between gap-3 mb-1">
         <h1 className="text-2xl font-bold text-foreground">{job.reference}</h1>
         <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${statusCfg.bg} ${statusCfg.color}`}>
