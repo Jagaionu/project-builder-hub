@@ -10,8 +10,6 @@ const tabs = [
   { id: "report",  path: "/d/report", label: "Report",  Icon: AlertTriangle },
   { id: "profile", path: "/d/profile",label: "Profile", Icon: User },
 ] as const;
-  { id: "profile",path: "/d/profile",label: "Profile", Icon: User },
-] as const;
 
 export function DriverBottomNav() {
   const location = useLocation();
