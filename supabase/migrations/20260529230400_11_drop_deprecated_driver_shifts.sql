@@ -1,0 +1,21 @@
+-- ============================================================
+-- MIGRATION #11: Drop driver_shifts_deprecated (cleanup)
+--
+-- DO NOT RUN UNTIL the app that reads driver_shift_templates (commit
+-- 08828ff) has been deployed AND verified in production for a few days.
+--
+-- Safe because: a codebase search confirms NOTHING references driver_shifts
+-- or driver_shifts_deprecated anymore — the app reads driver_shift_templates
+-- exclusively (src/lib/driver-shifts.ts and its callers). Migration #3 kept
+-- the old table only as a temporary read-only safety net.
+--
+-- NOT included here (these legacy columns are STILL in use — do NOT drop yet):
+--   • pending_job_imports.stop_scheduled_at — still written by
+--     jobs-import.functions.ts and read by the parked-import promotion path.
+--   • import_batches.csv_rows — still written by jobs-import.functions.ts and
+--     read by the Events page UI.
+--   Drop those only after the import pipeline + Events UI are migrated to
+--   pending_import_stops / import_rows.
+-- ============================================================
+
+DROP TABLE IF EXISTS public.driver_shifts_deprecated CASCADE;

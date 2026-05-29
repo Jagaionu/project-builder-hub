@@ -419,7 +419,6 @@ export type Database = {
       }
       drivers: {
         Row: {
-          available_tomorrow: boolean
           created_at: string
           current_lat: number | null
           current_lon: number | null
@@ -433,13 +432,9 @@ export type Database = {
           status: Database["public"]["Enums"]["driver_status"]
           telegram_id: string | null
           tenant_id: string | null
-          tomorrow_start_lat: number | null
-          tomorrow_start_lon: number | null
-          tomorrow_start_updated_at: string | null
           user_id: string | null
         }
         Insert: {
-          available_tomorrow?: boolean
           created_at?: string
           current_lat?: number | null
           current_lon?: number | null
@@ -453,13 +448,9 @@ export type Database = {
           status?: Database["public"]["Enums"]["driver_status"]
           telegram_id?: string | null
           tenant_id?: string | null
-          tomorrow_start_lat?: number | null
-          tomorrow_start_lon?: number | null
-          tomorrow_start_updated_at?: string | null
           user_id?: string | null
         }
         Update: {
-          available_tomorrow?: boolean
           created_at?: string
           current_lat?: number | null
           current_lon?: number | null
@@ -473,9 +464,6 @@ export type Database = {
           status?: Database["public"]["Enums"]["driver_status"]
           telegram_id?: string | null
           tenant_id?: string | null
-          tomorrow_start_lat?: number | null
-          tomorrow_start_lon?: number | null
-          tomorrow_start_updated_at?: string | null
           user_id?: string | null
         }
         Relationships: [

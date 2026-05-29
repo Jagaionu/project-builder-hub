@@ -264,9 +264,10 @@ export function computePlan(
       if (activeByDriver[d.id]) continue;
       if (compliance[d.id]?.blockAssignment) continue;
       if (isTomorrowJob) {
+        // No shift records loaded → treat as an open schedule (available).
         const isAvailableTomorrow = hasShiftData
           ? isDriverAvailableOnDate(d.id, tomorrow, shifts, overrides)
-          : (d as Driver & { available_tomorrow?: boolean }).available_tomorrow !== false;
+          : true;
         if (!isAvailableTomorrow) continue;
       }
 
@@ -322,9 +323,10 @@ export function computePlan(
 
     for (const d of eligible) {
       if (isTomorrowJob) {
+        // No shift records loaded → treat as an open schedule (available).
         const isAvailableTomorrow = hasShiftData
           ? isDriverAvailableOnDate(d.id, tomorrow, shifts, overrides)
-          : (d as Driver & { available_tomorrow?: boolean }).available_tomorrow !== false;
+          : true;
         if (!isAvailableTomorrow) continue;
       }
       const f = forecast[d.id];
@@ -426,18 +428,13 @@ export function computePlanForDate(
   const driverById: Record<string, Driver> = {};
 
   for (const d of drivers) {
-    const dd = d as Driver & {
-      tomorrow_start_lat?: number | null;
-      tomorrow_start_lon?: number | null;
-    };
-    // Always use the calendar-based availability — no legacy available_tomorrow fallback.
+    // Calendar-based availability is the single source of truth.
     if (!isDriverAvailableOnDate(d.id, targetDate, shifts, overrides)) continue;
 
-    // For the target date use the driver's declared start position if available,
-    // otherwise fall back to their last known GPS. Drivers without any position
-    // are excluded since we cannot estimate transit times.
-    const startLat = dd.tomorrow_start_lat ?? d.current_lat ?? null;
-    const startLon = dd.tomorrow_start_lon ?? d.current_lon ?? null;
+    // Use the driver's last known GPS as the start position. Drivers without
+    // any position are excluded since we cannot estimate transit times.
+    const startLat = d.current_lat ?? null;
+    const startLon = d.current_lon ?? null;
     if (startLat == null || startLon == null) continue;
 
     const c = compliance[d.id];
