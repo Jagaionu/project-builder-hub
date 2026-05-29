@@ -23,12 +23,22 @@ export function isDriverAvailableOnDate(
   shifts: Record<string, DriverShift>,
   overrides: DriverAvailabilityOverride[],
 ): boolean {
+  // 1. Explicit overrides (holidays, sick days, extra availability) take priority.
   const override = overrides.find((o) => o.driver_id === driverId && o.date === dateStr);
   if (override !== undefined) return override.available;
+
+  // 2. Check the weekly shift schedule.
   const shift = shifts[driverId];
-  if (!shift || shift.days_of_week.length === 0) return false;
-  const iso = new Date(dateStr + "T12:00:00").getDay();
-  return shift.days_of_week.includes(iso);
+  // No shift record means no schedule configured → assume available (open policy).
+  // A planner can always add an override to block a specific day.
+  // This prevents a "nobody works" blackout when the driver_shifts table has
+  // just been created and rows haven't been seeded yet.
+  if (!shift) return true;
+  // Shift exists but zero working days = driver never works (e.g. contractor pause).
+  if (shift.days_of_week.length === 0) return false;
+
+  const dayOfWeek = new Date(dateStr + "T12:00:00").getDay();
+  return shift.days_of_week.includes(dayOfWeek);
 }
 
 function tomorrowISODate(nowMs: number): string {
@@ -377,16 +387,31 @@ export function computePlan(
   return out;
 }
 
-// ----- Tomorrow planner -----
+// ----- Date-aware planner (any date) -----
 
-export function computeTomorrowPlan(
-  tomorrowJobs: Job[],
+/**
+ * Plans all jobs for a specific date.
+ *
+ * targetDate — YYYY-MM-DD string of the day being planned.
+ * jobs       — jobs already filtered to this date (for_date === targetDate).
+ * shifts     — driver_shifts keyed by driver_id.
+ * overrides  — ALL driver_availability_overrides (any date); filtered internally by targetDate.
+ * nowMs      — current wall-clock time; used to set a sensible start floor for today's jobs.
+ *
+ * A driver with NO shift record is treated as available (open schedule).
+ * A driver with an explicit override for targetDate takes that value.
+ * A driver with days_of_week = [] is never available.
+ */
+export function computePlanForDate(
+  targetDate: string,
+  jobs: Job[],
   stopsMap: StopsMap,
   drivers: Driver[],
   warehouses: Warehouse[],
   compliance: Record<string, Compliance>,
   shifts: Record<string, DriverShift> = {},
   overrides: DriverAvailabilityOverride[] = [],
+  nowMs: number = Date.now(),
 ): PlanResult {
   const out: PlanResult = { immediate: [], planned: [], unassignable: [] };
 
@@ -399,30 +424,34 @@ export function computeTomorrowPlan(
   };
   const forecast: Record<string, TForecast> = {};
   const driverById: Record<string, Driver> = {};
-  const tomorrowStr = tomorrowISODate(Date.now());
-  const hasShiftData = Object.keys(shifts).length > 0;
 
   for (const d of drivers) {
     const dd = d as Driver & {
-      available_tomorrow?: boolean;
       tomorrow_start_lat?: number | null;
       tomorrow_start_lon?: number | null;
     };
-    const isAvailable = hasShiftData
-      ? isDriverAvailableOnDate(d.id, tomorrowStr, shifts, overrides)
-      : dd.available_tomorrow === true;
-    if (!isAvailable) continue;
+    // Always use the calendar-based availability — no legacy available_tomorrow fallback.
+    if (!isDriverAvailableOnDate(d.id, targetDate, shifts, overrides)) continue;
+
+    // For the target date use the driver's declared start position if available,
+    // otherwise fall back to their last known GPS. Drivers without any position
+    // are excluded since we cannot estimate transit times.
     const startLat = dd.tomorrow_start_lat ?? d.current_lat ?? null;
     const startLon = dd.tomorrow_start_lon ?? d.current_lon ?? null;
     if (startLat == null || startLon == null) continue;
+
     const c = compliance[d.id];
     if (c?.blockAssignment) continue;
+
+    // Daily cap: 9h is the typical HGV limit. Reduce if the driver is already
+    // close to the weekly (56h) or fortnightly (90h) cap.
     let cap = 9;
     if (c) {
       if (c.weekly >= 47) cap = Math.min(cap, 56 - c.weekly);
       if (c.twoWeek >= 81) cap = Math.min(cap, 90 - c.twoWeek);
     }
     if (cap <= 0) continue;
+
     forecast[d.id] = {
       lat: startLat,
       lon: startLon,
@@ -435,14 +464,10 @@ export function computeTomorrowPlan(
 
   const eligibleIds = Object.keys(forecast);
 
-  // Nominal tomorrow 06:00 UTC — used as default driver ready-time when they
-  // have no previous job constraining them.
-  const baseStartMs = (() => {
-    const t = new Date();
-    t.setUTCDate(t.getUTCDate() + 1);
-    t.setUTCHours(6, 0, 0, 0);
-    return t.getTime();
-  })();
+  // Drivers become available at 06:00 UTC on the target date, or immediately
+  // if planning same-day jobs that are already overdue.
+  const nominalStartMs = new Date(targetDate + "T06:00:00Z").getTime();
+  const baseStartMs = Math.max(nominalStartMs, nowMs);
 
   // Wall-clock time each driver becomes free for their next job.
   // This is distinct from hoursLeft (compliance drive hours): it includes
@@ -465,7 +490,7 @@ export function computeTomorrowPlan(
     const iso = s0?.scheduled_at ?? job.scheduled_at ?? null;
     return iso ? new Date(iso).getTime() : Number.MAX_SAFE_INTEGER;
   };
-  const sorted = [...tomorrowJobs].sort((a, b) => pickupMs(a) - pickupMs(b));
+  const sorted = [...jobs].sort((a, b) => pickupMs(a) - pickupMs(b));
 
   for (const job of sorted) {
     const stops = stopsMap[job.id] ?? [];
@@ -533,7 +558,7 @@ export function computeTomorrowPlan(
       const reason = nearMiss
         ? `Closest: ${nearMiss.name} — ${nearMiss.reason}`
         : eligibleIds.length === 0
-          ? "No drivers available for tomorrow"
+          ? `No drivers available for ${targetDate}`
           : "No eligible driver";
       out.unassignable.push({ jobId: job.id, reason });
       continue;
@@ -574,4 +599,28 @@ export function computeTomorrowPlan(
   }
 
   return out;
+}
+
+// Backwards-compat alias — still used by tomorrow.functions.ts.
+// New code should call computePlanForDate directly.
+export function computeTomorrowPlan(
+  tomorrowJobs: Job[],
+  stopsMap: StopsMap,
+  drivers: Driver[],
+  warehouses: Warehouse[],
+  compliance: Record<string, Compliance>,
+  shifts: Record<string, DriverShift> = {},
+  overrides: DriverAvailabilityOverride[] = [],
+): PlanResult {
+  const tomorrowStr = tomorrowISODate(Date.now());
+  return computePlanForDate(
+    tomorrowStr,
+    tomorrowJobs,
+    stopsMap,
+    drivers,
+    warehouses,
+    compliance,
+    shifts,
+    overrides,
+  );
 }

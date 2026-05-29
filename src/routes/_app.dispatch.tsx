@@ -8,14 +8,9 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { useCompliance, useDrivers, useJobs, useWarehouses, applyJobPatch } from "@/lib/hooks";
-import {
-  computePlan,
-  AUTO_ASSIGN_RADIUS_KM,
-  isDriverAvailableOnDate,
-  type PlannedAssign,
-} from "@/lib/planner";
+import { computePlan, type PlannedAssign } from "@/lib/planner";
 import type { DriverShift, DriverAvailabilityOverride } from "@/lib/types";
-import { planTomorrow } from "@/lib/tomorrow.functions";
+import { planJobs } from "@/lib/plan-jobs.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { cn } from "@/lib/utils";
@@ -37,16 +32,12 @@ import {
 import type { JobStatus, Job } from "@/lib/types";
 import { useLookups } from "@/lib/dispatch/lookups";
 import { useJobStops } from "@/lib/dispatch/use-job-stops";
-import { useAutoPlanner } from "@/lib/dispatch/use-auto-planner";
-
 import { DispatchStat, ImportCsvButton, ToolbarButton } from "@/components/dispatch/toolbar";
 import { JobQueue } from "@/components/dispatch/queue";
 import { JobDetailPanel } from "@/components/dispatch/detail-panel";
 
 // Lazy-loaded — dialog code only ships when the user opens create/edit.
 const RouteDialog = lazy(() => import("@/components/dispatch/route-dialog"));
-
-void AUTO_ASSIGN_RADIUS_KM;
 
 // Search params schema — `job` is an optional job reference string used for
 // deep-linking from the Alerts page (e.g. /dispatch?job=114KBDG83).
@@ -338,27 +329,20 @@ function DispatchPage() {
     }
   }
 
-  // Manual planner — wired to the "Plan now" button. Does NOT self-fire.
-  const { run: runAutoPlan } = useAutoPlanner({
-    plan,
-    jobs,
-    stopsMap,
-    warehouses,
-    assignDriver: (id, did) => assignDriver(id, did),
-  });
-  const [planningNow, setPlanningNow] = useState(false);
-  async function onPlanNow() {
-    if (planningNow) return;
-    setPlanningNow(true);
+  const runPlanJobs = useServerFn(planJobs);
+  const [planning, setPlanning] = useState(false);
+  async function onPlan() {
+    if (planning) return;
+    setPlanning(true);
     try {
-      const r = await runAutoPlan();
-      const total = r.assigned + r.planned;
-      if (total === 0) toast.info("No assignable jobs right now");
-      else toast.success(`Planned ${r.assigned} immediate · ${r.planned} chained`);
+      const r = await runPlanJobs();
+      const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversPlanned} driver${r.driversPlanned === 1 ? "" : "s"}`;
+      if (r.unassignable.length) toast.warning(`${msg} · ${r.unassignable.length} unassignable`);
+      else toast.success(msg);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
-      setPlanningNow(false);
+      setPlanning(false);
     }
   }
 
@@ -502,77 +486,16 @@ function DispatchPage() {
     [jobDays],
   );
 
-  // ── Tomorrow stats ─────────────────────────────────────────────────────────
-
-  const tomorrowStats = useMemo(() => {
-    const tm = startOfDay(new Date(Date.now() + 86400000));
-    // Tomorrow as a UTC ISO date (matches how `for_date` is stored by the
-    // sync_job_for_date DB trigger and how planTomorrow queries it).
-    const tomorrowISO = (() => {
-      const t = new Date();
-      t.setUTCDate(t.getUTCDate() + 1);
-      return t.toISOString().slice(0, 10);
-    })();
-    // Use OR so both checks are applied:
-    //   • for_date === tomorrowISO  — catches imported jobs that have for_date
-    //     set by the trigger but no scheduled_at on the job row.
-    //   • sameDay(jobDate(…), tm)   — catches Route-Dialog jobs (scheduled_at
-    //     set in local time) and keeps timezone edge-cases consistent with the
-    //     visible job list, which also uses jobDate/sameDay for filtering.
-    const tmJobs = jobs.filter(
-      (j) => j.for_date === tomorrowISO || sameDay(jobDate(j, stopsMap[j.id] ?? []), tm),
-    );
-    const assigned = tmJobs.filter((j) => !!j.assigned_driver_id);
-    const plannedOnly = tmJobs.filter((j) => !j.assigned_driver_id && !!j.planned_driver_id);
-    const tomorrowStr = (() => {
-      const t = new Date();
-      t.setUTCDate(t.getUTCDate() + 1);
-      return t.toISOString().slice(0, 10);
-    })();
-    const availableDrivers = drivers.filter((d) =>
-      Object.keys(driverShifts).length > 0
-        ? isDriverAvailableOnDate(d.id, tomorrowStr, driverShifts, shiftOverrides)
-        : (d as { available_tomorrow?: boolean }).available_tomorrow === true,
-    );
-    const isTomorrowView =
-      !!dateRange?.from &&
-      sameDay(dateRange.from, tm) &&
-      sameDay(dateRange.to ?? dateRange.from, tm);
-    return {
-      total: tmJobs.length,
-      assigned: assigned.length,
-      plannedOnly: plannedOnly.length,
-      availableDrivers,
-      isTomorrowView,
-    };
-  }, [jobs, stopsMap, drivers, dateRange, driverShifts, shiftOverrides]);
-
-  const [planningTomorrow, setPlanningTomorrow] = useState(false);
-  const runPlanTomorrow = useServerFn(planTomorrow);
-  async function onPlanTomorrow() {
-    if (planningTomorrow) return;
-    setPlanningTomorrow(true);
-    try {
-      const r = await runPlanTomorrow();
-      const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversPlanned} drivers`;
-      if (r.unassignable.length) toast.warning(`${msg} · ${r.unassignable.length} unassignable`);
-      else toast.success(msg);
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setPlanningTomorrow(false);
-    }
-  }
 
   const PlanningOverlay =
-    planningTomorrow && typeof document !== "undefined"
+    planning && typeof document !== "undefined"
       ? createPortal(
           <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-6 bg-[oklch(0.12_0.018_245/0.92)] backdrop-blur-md">
             <style>{`@keyframes plan-slide{0%{transform:translateX(-100%)}100%{transform:translateX(320%)}}`}</style>
             <div className="size-9 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
             <div className="text-center">
               <p className="text-base font-semibold text-[oklch(0.93_0.006_240)] mb-1">
-                Planning Tomorrow's Routes
+                Planning Routes
               </p>
               <p className="text-xs text-[oklch(0.55_0.014_245)] font-mono">
                 Assigning drivers — please wait, do not navigate away
@@ -633,22 +556,12 @@ function DispatchPage() {
         </div>
         <div className="flex items-center gap-2 justify-self-end">
           <ToolbarButton
-            onClick={onPlanNow}
-            disabled={planningNow}
-            title="Assign the closest available driver to each pending job"
+            onClick={onPlan}
+            disabled={planning}
+            title="Auto-assign drivers to all pending routes across every date"
+            primary
           >
-            {planningNow ? "Planning…" : "Plan now"}
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={onPlanTomorrow}
-            disabled={planningTomorrow || tomorrowStats.total === 0}
-            title={
-              tomorrowStats.total === 0
-                ? "No jobs scheduled for tomorrow"
-                : "Auto-assign tomorrow's routes and notify drivers"
-            }
-          >
-            {planningTomorrow ? "Planning…" : "Plan Tomorrow"}
+            {planning ? "Planning…" : "Plan"}
           </ToolbarButton>
           <ImportCsvButton />
           <ToolbarButton
@@ -826,65 +739,6 @@ function DispatchPage() {
           </button>
         )}
       </div>
-
-      {tomorrowStats.isTomorrowView && tomorrowStats.total > 0 && (
-        <div
-          className="mx-5 mt-3 rounded-xl border px-4 py-2.5 flex items-center justify-between text-xs fade-up"
-          style={{
-            background:
-              tomorrowStats.assigned === tomorrowStats.total
-                ? "oklch(0.73 0.17 150 / 0.06)"
-                : "oklch(0.80 0.18 72 / 0.06)",
-            borderColor:
-              tomorrowStats.assigned === tomorrowStats.total
-                ? "oklch(0.73 0.17 150 / 0.25)"
-                : "oklch(0.80 0.18 72 / 0.25)",
-          }}
-        >
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Tomorrow coverage
-            </span>
-            <span className="font-mono">
-              <span
-                style={{
-                  color:
-                    tomorrowStats.assigned === tomorrowStats.total
-                      ? "oklch(0.78 0.14 150)"
-                      : "oklch(0.80 0.16 72)",
-                }}
-              >
-                {tomorrowStats.assigned}
-              </span>
-              <span className="text-muted-foreground"> / {tomorrowStats.total} confirmed</span>
-            </span>
-            {tomorrowStats.plannedOnly > 0 && (
-              <>
-                <span className="text-muted-foreground/40">·</span>
-                <span
-                  className="font-mono"
-                  title="Driver planned but job still PENDING — run planner writes planned_driver_id; jobs become ASSIGNED once driver confirms"
-                >
-                  <span style={{ color: "oklch(0.75 0.18 245)" }}>{tomorrowStats.plannedOnly}</span>
-                  <span className="text-muted-foreground"> planned (pending confirm)</span>
-                </span>
-              </>
-            )}
-            <span className="text-muted-foreground/40">·</span>
-            <span className="font-mono text-muted-foreground">
-              {tomorrowStats.availableDrivers.length} driver
-              {tomorrowStats.availableDrivers.length === 1 ? "" : "s"} available
-            </span>
-          </div>
-          <button
-            onClick={onPlanTomorrow}
-            disabled={planningTomorrow}
-            className="text-xs font-medium transition-colors disabled:opacity-50 text-[oklch(0.75_0.18_245)] hover:text-[oklch(0.85_0.14_245)]"
-          >
-            {planningTomorrow ? "Planning…" : "Re-run planner →"}
-          </button>
-        </div>
-      )}
 
       {/* Two-column body */}
       <div className="flex-1 min-h-0 grid grid-cols-[360px_1fr]">
