@@ -2,7 +2,7 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar as CalendarIcon, ChevronDown, MapPin, Plus, Sparkles, Search } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronDown, MapPin, Plus, Search } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -466,7 +466,7 @@ function DispatchPage() {
     ? createPortal(
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-6 bg-[oklch(0.12_0.018_245/0.92)] backdrop-blur-md">
           <style>{`@keyframes plan-slide{0%{transform:translateX(-100%)}100%{transform:translateX(320%)}}`}</style>
-          <Sparkles className="size-9 text-[oklch(0.75_0.18_245)] animate-pulse" />
+          <div className="size-9 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
           <div className="text-center">
             <p className="text-base font-semibold text-[oklch(0.93_0.006_240)] mb-1">
               Planning Tomorrow's Routes
@@ -533,7 +533,6 @@ function DispatchPage() {
             onClick={onPlanNow}
             disabled={planningNow}
             title="Assign the closest available driver to each pending job"
-            icon={<Sparkles className="size-3.5" />}
           >
             {planningNow ? "Planning…" : "Plan now"}
           </ToolbarButton>
@@ -541,7 +540,6 @@ function DispatchPage() {
             onClick={onPlanTomorrow}
             disabled={planningTomorrow || tomorrowStats.total === 0}
             title={tomorrowStats.total === 0 ? "No jobs scheduled for tomorrow" : "Auto-assign tomorrow's routes and notify drivers"}
-            icon={<Sparkles className="size-3.5" />}
           >
             {planningTomorrow ? "Planning…" : "Plan Tomorrow"}
           </ToolbarButton>

@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef } from "react";
-import { ArrowRight, Clock, Pencil, Sparkles } from "lucide-react";
+import { ArrowRight, Clock, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { isJobScheduledFuture } from "@/lib/effective-status";
 import { computeStopSchedule, etaMinutes, haversineKm, stopDwellMinutes } from "@/lib/geo";
@@ -143,7 +143,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
       {!isLaneAssigned && !driver && ranked.length > 0 && (
         <>
           <div className="mt-6 flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
-            <Sparkles className="size-3.5 text-accent" /> Suggested drivers (3 closest)
+            Suggested drivers (3 closest)
           </div>
           <div className="mt-3 rounded-md border border-border overflow-hidden">
             <table className="w-full text-sm">
