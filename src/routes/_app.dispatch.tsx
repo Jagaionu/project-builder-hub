@@ -2,7 +2,7 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar as CalendarIcon, ChevronDown, MapPin, Plus, Search, Sparkles } from "lucide-react";
+import { BrainCircuit, Calendar as CalendarIcon, ChevronDown, MapPin, Plus, Search, Sparkles, Truck } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -534,7 +534,10 @@ function DispatchPage() {
 
       <header className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4">
         <div className="min-w-0">
-          <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
+          <div className="flex items-center gap-2">
+            <Truck className="size-5 text-primary" />
+            <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
+          </div>
           <p className="text-xs text-muted-foreground mt-0.5">
             {filteredJobs.length} shown of {jobs.length} total
           </p>
@@ -561,9 +564,9 @@ function DispatchPage() {
             disabled={planning}
             title="Auto-assign drivers to all pending routes across every date"
             primary
-            icon={<Sparkles className="size-3.5" />}
+            icon={<BrainCircuit className="size-3.5" />}
           >
-            {planning ? "Planning…" : "Plan"}
+            {planning ? "Planning…" : "Planning"}
           </ToolbarButton>
           <AuditPlanButton />
           <ImportCsvButton />
