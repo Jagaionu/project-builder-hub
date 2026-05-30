@@ -34,6 +34,7 @@ import type { JobStatus, Job } from "@/lib/types";
 import { useLookups } from "@/lib/dispatch/lookups";
 import { useJobStops } from "@/lib/dispatch/use-job-stops";
 import { DispatchStat, ImportCsvButton, ToolbarButton } from "@/components/dispatch/toolbar";
+import { AuditPlanButton } from "@/components/dispatch/audit-plan-button";
 import { JobQueue } from "@/components/dispatch/queue";
 import { JobDetailPanel } from "@/components/dispatch/detail-panel";
 
@@ -563,6 +564,7 @@ function DispatchPage() {
           >
             {planning ? "Planning…" : "Plan"}
           </ToolbarButton>
+          <AuditPlanButton />
           <ImportCsvButton />
           <ToolbarButton
             onClick={() => setCreateOpen(true)}
