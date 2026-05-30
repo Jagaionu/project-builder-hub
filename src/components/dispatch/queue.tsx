@@ -149,7 +149,7 @@ const QueueRow = memo(function QueueRow({
     >
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[11px] text-muted-foreground">{job.reference}</span>
+          <span className="font-mono text-xs font-semibold text-foreground tracking-tight">{job.reference}</span>
           {isChained && (
             <LinkIcon className="size-3 text-[color:var(--primary-bright)]" />
           )}
