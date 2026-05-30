@@ -50,7 +50,7 @@ export function Sidebar() {
       <div className="px-4 pt-5 pb-4" style={{ borderBottom: "1px solid var(--sidebar-divider)" }}>
         <div className="flex items-center gap-2.5">
           <div
-            className="size-8 rounded-lg grid place-items-center shrink-0 overflow-hidden"
+            className="size-10 rounded-xl grid place-items-center shrink-0 overflow-hidden"
             style={{
               background: flags.customBranding && flags.brandColor
                 ? flags.brandColor
@@ -58,7 +58,7 @@ export function Sidebar() {
               boxShadow: "0 2px 8px oklch(0.62 0.22 245 / 0.35)",
             }}
           >
-            <img src={brandLogo} alt={`${displayName} logo`} className="size-6 object-contain" />
+            <img src={brandLogo} alt={`${displayName} logo`} className="size-8 object-contain" />
           </div>
           <div className="min-w-0">
             <div className="text-sm font-semibold tracking-tight truncate leading-tight">
