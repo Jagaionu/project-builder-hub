@@ -7,6 +7,7 @@ import { useAlertCount, useUnassignedJobCount } from "@/lib/use-alerts";
 import { useTenant, useFeatureFlags } from "@/lib/tenant-context";
 import { signOut } from "@/lib/auth-context";
 import type { TenantModule } from "@/lib/types";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const ALL_NAV: ReadonlyArray<{
   to: string;
@@ -152,16 +153,17 @@ export function Sidebar() {
         className="px-3 py-3 space-y-2.5"
         style={{ borderTop: "1px solid var(--sidebar-divider)" }}
       >
-        {/* Realtime indicator */}
+        {/* Realtime + theme toggle */}
         <div className="flex items-center gap-2">
           <Radio className="size-3 text-success" />
           <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Realtime live
+            Realtime
           </span>
           <span
-            className="size-1.5 rounded-full bg-success ml-auto"
+            className="size-1.5 rounded-full bg-success"
             style={{ boxShadow: "0 0 4px oklch(0.73 0.17 150 / 0.7)", animation: "pulse 2s ease infinite" }}
           />
+          <div className="ml-auto"><ThemeToggle compact /></div>
         </div>
 
         {/* User row */}
