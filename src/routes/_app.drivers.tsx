@@ -289,7 +289,7 @@ function DriversPage() {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="e.g., John Smith"
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-[oklch(0.17_0.018_245)] text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
               <div>
@@ -300,7 +300,7 @@ function DriversPage() {
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="e.g., +44 7700 900000"
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-[oklch(0.17_0.018_245)] text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
             </div>
@@ -340,7 +340,7 @@ function DriversPage() {
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                   placeholder="e.g., John Smith"
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-[oklch(0.17_0.018_245)] text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
               <div>
@@ -351,7 +351,7 @@ function DriversPage() {
                   value={editForm.phone}
                   onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                   placeholder="e.g., +44 7700 900000"
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-[oklch(0.17_0.018_245)] text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
             </div>
@@ -401,11 +401,11 @@ function DriversPage() {
           selectedDriverId={selectedDriverId}
           onSelect={setSelectedDriverId}
         />
-        <div className="overflow-y-auto bg-[oklch(0.14_0.016_245)]">
+        <div className="overflow-y-auto bg-background">
           {!selectedDriver ? (
             <div className="h-full grid place-items-center">
               <div className="text-center">
-                <div className="size-12 rounded-full grid place-items-center mx-auto mb-3 bg-[oklch(0.22_0.018_245)]">
+                <div className="size-12 rounded-full grid place-items-center mx-auto mb-3 bg-secondary">
                   <Users className="size-5 text-muted-foreground/40" />
                 </div>
                 <p className="text-sm text-muted-foreground">Select a driver from the list</p>

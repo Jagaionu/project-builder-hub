@@ -121,7 +121,7 @@ function LiveDashboard() {
                   <div
                     className="rounded-lg px-3 py-2 space-y-2"
                     style={{
-                      background: "oklch(0.20 0.020 245)",
+                      background: "var(--input)",
                       border: "1px solid var(--border)",
                     }}
                   >
@@ -211,7 +211,7 @@ function MetricPill({ label, value }: { label: string; value: string }) {
       className="rounded-md px-2 py-1.5"
       style={{
         background: "var(--surface)",
-        border: "1px solid oklch(0.24 0.018 245)",
+        border: "1px solid var(--border)",
       }}
     >
       <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">{label}</div>

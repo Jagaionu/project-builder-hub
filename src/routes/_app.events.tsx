@@ -160,7 +160,7 @@ function EventLog() {
         {tab === "imports" && (batches.length === 0 ? (
           <div
             className="rounded-xl border px-4 py-10 text-center"
-            style={{ background: "var(--surface)", borderColor: "oklch(0.24 0.018 245)" }}
+            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
           >
             <Upload className="size-8 mx-auto mb-3 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">No imports yet.</p>
@@ -186,7 +186,7 @@ function EventLog() {
                       className="size-9 rounded-lg grid place-items-center shrink-0"
                       style={{ background: "oklch(0.62 0.22 245 / 0.10)", border: "1px solid oklch(0.62 0.22 245 / 0.20)" }}
                     >
-                      <FileText className="size-4" style={{ color: "oklch(0.72 0.18 245)" }} />
+                      <FileText className="size-4" style={{ color: "var(--primary-bright)" }} />
                     </div>
 
                     {/* Info */}
@@ -239,7 +239,7 @@ function EventLog() {
         {tab === "driver" && (grouped.length === 0 ? (
           <div
             className="rounded-xl border px-4 py-10 text-center"
-            style={{ background: "var(--surface)", borderColor: "oklch(0.24 0.018 245)" }}
+            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
           >
             <Activity className="size-8 mx-auto mb-3 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">No events yet.</p>
@@ -263,7 +263,7 @@ function EventLog() {
                 className="rounded-xl overflow-hidden transition-all"
                 style={{
                   background: "var(--surface)",
-                  border: `1px solid ${isOpen ? "oklch(0.28 0.020 245)" : "var(--secondary)"}`,
+                  border: `1px solid ${isOpen ? "var(--border-strong)" : "var(--secondary)"}`,
                   boxShadow: isOpen ? "0 4px 16px oklch(0 0 0 / 0.25)" : "none",
                 }}
               >
@@ -272,7 +272,7 @@ function EventLog() {
                   type="button"
                   onClick={() => toggle(driverId)}
                   className="w-full px-4 py-3 flex items-center gap-3 text-left transition-colors"
-                  style={{ background: isOpen ? "oklch(0.20 0.020 245)" : "transparent" }}
+                  style={{ background: isOpen ? "var(--input)" : "transparent" }}
                 >
                   {isOpen
                     ? <ChevronDown  className="size-4 text-muted-foreground shrink-0" />

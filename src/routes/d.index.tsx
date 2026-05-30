@@ -74,7 +74,7 @@ function DriverHome() {
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full"
             style={{
               background: "var(--surface)",
-              border: "1px solid oklch(0.24 0.018 245)",
+              border: "1px solid var(--border)",
             }}
           >
             <span
@@ -125,7 +125,7 @@ function DriverHome() {
               className="rounded-2xl p-6 text-center"
               style={{
                 background: "var(--surface)",
-                border: "1px solid oklch(0.24 0.018 245)",
+                border: "1px solid var(--border)",
               }}
             >
               <div className="text-2xl mb-2">✅</div>

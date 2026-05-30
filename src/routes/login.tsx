@@ -109,7 +109,7 @@ function LoginPage() {
           className="rounded-2xl p-7"
           style={{
             background: "var(--surface)",
-            border: "1px solid oklch(0.24 0.018 245)",
+            border: "1px solid var(--border)",
             boxShadow: "0 24px 48px oklch(0 0 0 / 0.5), inset 0 1px 0 oklch(1 0 0 / 0.04)",
           }}
         >
@@ -168,8 +168,8 @@ function LoginPage() {
               className="w-full h-10 rounded-lg text-sm font-semibold text-primary-foreground transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 background: loading
-                  ? "oklch(0.50 0.18 245)"
-                  : "linear-gradient(135deg, var(--primary), oklch(0.56 0.20 255))",
+                  ? "var(--primary)"
+                  : "linear-gradient(135deg, var(--primary), var(--primary-2))",
                 boxShadow: loading
                   ? "none"
                   : "0 4px 12px oklch(0.62 0.22 245 / 0.35), inset 0 1px 0 oklch(1 0 0 / 0.12)",

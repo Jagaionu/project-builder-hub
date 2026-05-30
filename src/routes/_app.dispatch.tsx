@@ -494,20 +494,20 @@ function DispatchPage() {
   const PlanningOverlay =
     planning && typeof document !== "undefined"
       ? createPortal(
-          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-6 bg-[oklch(0.12_0.018_245/0.92)] backdrop-blur-md">
+          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-6 bg-[color:color-mix(in_oklab,var(--color-background)_92%,transparent)] backdrop-blur-md">
             <style>{`@keyframes plan-slide{0%{transform:translateX(-100%)}100%{transform:translateX(320%)}}`}</style>
             <div className="size-9 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
             <div className="text-center">
-              <p className="text-base font-semibold text-[oklch(0.93_0.006_240)] mb-1">
+              <p className="text-base font-semibold text-foreground mb-1">
                 Planning Routes
               </p>
-              <p className="text-xs text-[oklch(0.55_0.014_245)] font-mono">
+              <p className="text-xs text-muted-foreground font-mono">
                 Assigning drivers — please wait, do not navigate away
               </p>
             </div>
-            <div className="w-72 h-1 rounded-full bg-[oklch(0.24_0.018_245)] overflow-hidden relative">
+            <div className="w-72 h-1 rounded-full bg-[color:var(--border)] overflow-hidden relative">
               <div
-                className="absolute h-full w-[45%] rounded-full bg-[oklch(0.75_0.18_245)]"
+                className="absolute h-full w-[45%] rounded-full bg-[color:var(--primary-bright)]"
                 style={{ animation: "plan-slide 1.4s cubic-bezier(0.4,0,0.6,1) infinite" }}
               />
             </div>
@@ -577,7 +577,7 @@ function DispatchPage() {
       </header>
 
       {/* Filter bar */}
-      <div className="px-5 py-2.5 flex items-center gap-2 border-b border-[oklch(0.20_0.016_245)] bg-[oklch(0.15_0.018_245/0.6)]">
+      <div className="px-5 py-2.5 flex items-center gap-2 border-b border-[color:var(--sidebar-divider)] bg-[color:color-mix(in_oklab,var(--color-background)_60%,transparent)]">
         <div className="relative flex-1">
           <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
@@ -602,7 +602,7 @@ function DispatchPage() {
             <button
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-all whitespace-nowrap",
-                "bg-[oklch(0.17_0.018_245)] border-[oklch(0.26_0.018_245)] hover:bg-[oklch(0.20_0.020_245)]",
+                "bg-surface border-border hover:bg-input",
                 dateRange ? "text-foreground" : "text-muted-foreground",
               )}
             >
@@ -678,7 +678,7 @@ function DispatchPage() {
               setStatusFilter(null);
               setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"]));
             }}
-            className="rounded-lg border px-2.5 py-1.5 text-xs text-muted-foreground transition-all bg-[oklch(0.17_0.018_245)] border-[oklch(0.26_0.018_245)] hover:text-[oklch(0.95_0.006_240)]"
+            className="rounded-lg border px-2.5 py-1.5 text-xs text-muted-foreground transition-all bg-surface border-border hover:text-foreground"
           >
             Reset
           </button>
@@ -697,11 +697,11 @@ function DispatchPage() {
           onSelect={setSelectedJobId}
         />
 
-        <div className="overflow-y-auto bg-[oklch(0.14_0.016_245)]">
+        <div className="overflow-y-auto bg-background">
           {!selectedJob ? (
             <div className="h-full grid place-items-center">
               <div className="text-center">
-                <div className="size-12 rounded-full grid place-items-center mx-auto mb-3 bg-[oklch(0.22_0.018_245)]">
+                <div className="size-12 rounded-full grid place-items-center mx-auto mb-3 bg-secondary">
                   <MapPin className="size-5 text-muted-foreground/40" />
                 </div>
                 <p className="text-sm text-muted-foreground">Select a route from the queue</p>

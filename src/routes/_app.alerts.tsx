@@ -108,7 +108,7 @@ function AlertsPage() {
                     <div className="flex-1 min-w-0">
                       <div
                         className="text-[10px] font-mono uppercase tracking-widest mb-0.5"
-                        style={{ color: "oklch(0.55 0.014 245)", opacity: 0.75 }}
+                        style={{ color: "var(--muted-foreground)", opacity: 0.75 }}
                       >
                         {a.type}
                       </div>
