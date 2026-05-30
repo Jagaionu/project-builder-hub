@@ -2,7 +2,7 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BrainCircuit, Calendar as CalendarIcon, ChevronDown, MapPin, Plus, Search, Sparkles, Truck } from "lucide-react";
+import { BrainCircuit, Calendar as CalendarIcon, ChevronDown, MapPin, Search, Truck } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { z } from "zod";
