@@ -415,3 +415,22 @@ function useAutoComplete(job: Job, stops: Stop[], onSetStatus: (s: string, opts?
     onSetStatusRef.current("COMPLETED", { silent: true });
   }, [job.id, job.status, stops]);
 }
+
+function ViewOnMapButton({ job }: { job: Job }) {
+  const navigate = useNavigate();
+  const driverId = job.assigned_driver_id ?? job.planned_driver_id ?? null;
+  const disabled = !driverId;
+  return (
+    <button
+      onClick={() => {
+        if (disabled) return;
+        navigate({ to: "/", search: { focusJob: job.id } as never });
+      }}
+      disabled={disabled}
+      title={disabled ? "Assign or plan a driver to view route on map" : "View this route on the live map"}
+      className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/15 disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      <MapPin className="size-3" /> View on map
+    </button>
+  );
+}
