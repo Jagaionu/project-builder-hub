@@ -8,6 +8,7 @@ import { useTenant, useFeatureFlags } from "@/lib/tenant-context";
 import { signOut } from "@/lib/auth-context";
 import type { TenantModule } from "@/lib/types";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import brandLogo from "@/assets/brand-logo.png";
 
 const ALL_NAV: ReadonlyArray<{
   to: string;
