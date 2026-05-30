@@ -2,7 +2,7 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BrainCircuit, Calendar as CalendarIcon, ChevronDown, MapPin, Plus, Search, Sparkles, Truck } from "lucide-react";
+import { BrainCircuit, Calendar as CalendarIcon, ChevronDown, MapPin, Search, Truck } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -534,10 +534,7 @@ function DispatchPage() {
 
       <header className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Truck className="size-5 text-primary" />
-            <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
-          </div>
+          <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             {filteredJobs.length} shown of {jobs.length} total
           </p>
@@ -573,7 +570,7 @@ function DispatchPage() {
           <ToolbarButton
             onClick={() => setCreateOpen(true)}
             primary
-            icon={<Plus className="size-3.5" />}
+            icon={<Truck className="size-3.5" />}
           >
             Create route
           </ToolbarButton>
