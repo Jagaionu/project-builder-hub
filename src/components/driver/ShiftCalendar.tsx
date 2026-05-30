@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchShiftDays, saveShiftDays } from "@/lib/driver-shifts";
 import type { DriverAvailabilityOverride } from "@/lib/types";
 
 const DAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_ISO = [1, 2, 3, 4, 5, 6, 0];
-const INSTRUCTIONS =
-  "Select your regular working days. Tap a working day to mark it off. Tap any grey day to add it as an extra working day.";
+const HELPER =
+  "Tap weekdays to set your regular pattern. Tap any calendar day to add a holiday or extra shift.";
 
 interface ShiftCalendarProps {
   driverId: string;
@@ -29,10 +30,34 @@ function todayLocalDateString() {
   return localDateString(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
+const CELL_BASE =
+  "relative aspect-square rounded-lg border text-xs font-medium flex items-center justify-center " +
+  "transition active:scale-95 hover:brightness-110 focus-visible:outline-none " +
+  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 " +
+  "focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100";
+
+function cellClass(type: DayType, isToday: boolean, isPast: boolean) {
+  const variant =
+    type === "working"
+      ? "bg-[var(--shift-working)] border-[var(--shift-working-border)] text-[var(--shift-working-fg)]"
+      : type === "holiday"
+        ? "bg-[var(--shift-holiday)] border-[var(--shift-holiday-border)] text-[var(--shift-holiday-fg)]"
+        : type === "extra"
+          ? "bg-[var(--shift-extra)] border-[var(--shift-extra-border)] text-[var(--shift-extra-fg)]"
+          : "bg-transparent border-transparent text-[var(--shift-off-fg)]";
+
+  const today = isToday
+    ? " ring-2 ring-[var(--shift-today-ring)] font-bold"
+    : "";
+  const past = isPast ? " opacity-40" : "";
+  return `${CELL_BASE} ${variant}${today}${past}`;
+}
+
 export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProps) {
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [savedDays, setSavedDays] = useState<number[]>([]);
   const [overrides, setOverrides] = useState<DriverAvailabilityOverride[]>([]);
+  const [overridesLoading, setOverridesLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -41,15 +66,12 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
 
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
+    (async () => {
       const loaded = await fetchShiftDays(supabase, driverId);
       if (cancelled) return;
       setSelectedDays(loaded);
       setSavedDays(loaded);
-    }
-
-    load();
+    })();
     return () => {
       cancelled = true;
     };
@@ -57,8 +79,8 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
 
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
+    setOverridesLoading(true);
+    (async () => {
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth();
       const start = localDateString(year, month, 1);
@@ -70,10 +92,11 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
         .gte("date", start)
         .lte("date", end);
 
-      if (!cancelled) setOverrides((data ?? []) as DriverAvailabilityOverride[]);
-    }
-
-    load();
+      if (!cancelled) {
+        setOverrides((data ?? []) as DriverAvailabilityOverride[]);
+        setOverridesLoading(false);
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -99,22 +122,39 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
       await saveShiftDays(supabase, driverId, days);
       setSelectedDays(days);
       setSavedDays(days);
+      toast.success("Weekly pattern saved");
+    } catch (err) {
+      toast.error("Couldn't save pattern", {
+        description: err instanceof Error ? err.message : "Please try again",
+      });
     } finally {
       setSaving(false);
     }
+  };
+
+  const discardPattern = () => {
+    setSelectedDays([...savedDays]);
   };
 
   const toggleDateOverride = async (dateStr: string, dayOfWeek: number) => {
     const existing = overrides.find((o) => o.date === dateStr);
     if (existing) {
       if (isPlanner && existing.set_by === "driver") return;
-      await supabase.from("driver_availability_overrides").delete().eq("id", existing.id);
-      setOverrides((prev) => prev.filter((o) => o.id !== existing.id));
+      const prev = overrides;
+      setOverrides((p) => p.filter((o) => o.id !== existing.id));
+      const { error } = await supabase
+        .from("driver_availability_overrides")
+        .delete()
+        .eq("id", existing.id);
+      if (error) {
+        setOverrides(prev);
+        toast.error("Couldn't update that day");
+      }
       return;
     }
 
     const isWorkDay = selectedDays.includes(dayOfWeek);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("driver_availability_overrides")
       .insert({
         driver_id: driverId,
@@ -125,6 +165,10 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
       .select()
       .single();
 
+    if (error) {
+      toast.error("Couldn't update that day");
+      return;
+    }
     if (data) setOverrides((prev) => [...prev, data as DriverAvailabilityOverride]);
   };
 
@@ -135,6 +179,8 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = todayLocalDateString();
   const monthName = currentMonth.toLocaleString("default", { month: "long", year: "numeric" });
+  const isCurrentMonth =
+    year === new Date().getFullYear() && month === new Date().getMonth();
 
   const getDateStatus = (dayNum: number) => {
     const date = new Date(year, month, dayNum, 12);
@@ -161,8 +207,9 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground leading-relaxed">{INSTRUCTIONS}</p>
+      <p className="text-xs text-muted-foreground leading-relaxed">{HELPER}</p>
 
+      {/* Weekly pattern */}
       <div className="bg-card border border-border rounded-xl p-4">
         <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
           Weekly Pattern
@@ -176,18 +223,12 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
                 key={day}
                 type="button"
                 onClick={() => toggleDay(iso)}
-                className="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all active:scale-95"
-                style={
-                  active
-                    ? {
-                        background: "oklch(0.62 0.22 245)",
-                        color: "white",
-                        boxShadow: "0 0 12px oklch(0.62 0.22 245 / 0.35)",
-                      }
-                    : {
-                        background: "oklch(0.25 0.01 240)",
-                        color: "oklch(0.55 0.01 240)",
-                      }
+                className={
+                  "flex-1 py-2.5 rounded-lg text-xs font-bold transition active:scale-95 " +
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+                  (active
+                    ? "bg-primary text-primary-foreground shadow-[0_0_12px_oklch(0.62_0.22_245/0.35)]"
+                    : "bg-[var(--shift-pattern-off)] text-[var(--shift-pattern-off-fg)] hover:brightness-110")
                 }
               >
                 {day.slice(0, 2)}
@@ -196,33 +237,54 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
           })}
         </div>
         {patternChanged && (
-          <button
-            type="button"
-            onClick={savePattern}
-            disabled={saving}
-            className="mt-3 w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-all active:scale-95 disabled:opacity-60"
-            style={{ background: "oklch(0.62 0.22 245)" }}
-          >
-            {saving ? "Saving…" : "Save Pattern"}
-          </button>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={discardPattern}
+              disabled={saving}
+              className="flex-1 py-2.5 rounded-lg text-sm font-semibold border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition active:scale-95 disabled:opacity-60"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={savePattern}
+              disabled={saving}
+              className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-primary text-primary-foreground transition active:scale-95 disabled:opacity-60"
+            >
+              {saving ? "Saving…" : "Save Pattern"}
+            </button>
+          </div>
         )}
       </div>
 
+      {/* Month grid */}
       <div className="bg-card border border-border rounded-xl p-4">
         <div className="flex items-center justify-between mb-4">
           <button
             type="button"
             onClick={() => setCurrentMonth(new Date(year, month - 1, 1))}
-            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Previous month"
           >
             <ChevronLeft size={16} className="text-muted-foreground" />
           </button>
-          <span className="text-sm font-semibold text-foreground">{monthName}</span>
+          <button
+            type="button"
+            onClick={() => {
+              const now = new Date();
+              setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+            }}
+            disabled={isCurrentMonth}
+            className="text-sm font-semibold text-foreground hover:text-primary transition-colors disabled:hover:text-foreground disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-2 py-0.5"
+            title={isCurrentMonth ? undefined : "Jump to today"}
+          >
+            {monthName}
+          </button>
           <button
             type="button"
             onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}
-            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Next month"
           >
             <ChevronRight size={16} className="text-muted-foreground" />
@@ -231,8 +293,11 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
 
         <div className="grid grid-cols-7 mb-1">
           {DAYS_SHORT.map((d) => (
-            <div key={d} className="text-center text-[10px] font-bold text-muted-foreground py-1">
-              {d[0]}
+            <div
+              key={d}
+              className="text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground py-1"
+            >
+              {d.slice(0, 2)}
             </div>
           ))}
         </div>
@@ -241,73 +306,55 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
           {Array.from({ length: firstOffset }).map((_, i) => (
             <div key={`e${i}`} />
           ))}
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const dayNum = i + 1;
-            const { dateStr, dayOfWeek, type, locked } = getDateStatus(dayNum);
-            const isToday = dateStr === today;
+          {overridesLoading
+            ? Array.from({ length: daysInMonth }).map((_, i) => (
+                <div
+                  key={`s${i}`}
+                  className="aspect-square rounded-lg skeleton"
+                />
+              ))
+            : Array.from({ length: daysInMonth }).map((_, i) => {
+                const dayNum = i + 1;
+                const { dateStr, dayOfWeek, type, locked } = getDateStatus(dayNum);
+                const isToday = dateStr === today;
+                const isPast = dateStr < today;
 
-            const styles: React.CSSProperties =
-              type === "working"
-                ? {
-                    background: "oklch(0.62 0.22 245 / 0.15)",
-                    borderColor: "oklch(0.62 0.22 245 / 0.35)",
-                    color: "oklch(0.85 0.05 240)",
-                  }
-                : type === "holiday"
-                  ? {
-                      background: "oklch(0.55 0.22 25 / 0.2)",
-                      borderColor: "oklch(0.55 0.22 25 / 0.4)",
-                      color: "oklch(0.65 0.18 25)",
+                return (
+                  <button
+                    key={dateStr}
+                    type="button"
+                    onClick={() => toggleDateOverride(dateStr, dayOfWeek)}
+                    disabled={locked || isPast}
+                    className={cellClass(type, isToday, isPast)}
+                    title={
+                      locked
+                        ? "Set by driver — cannot be removed"
+                        : isPast
+                          ? "Past date"
+                          : undefined
                     }
-                  : type === "extra"
-                    ? {
-                        background: "oklch(0.55 0.18 145 / 0.2)",
-                        borderColor: "oklch(0.55 0.18 145 / 0.4)",
-                        color: "oklch(0.65 0.15 145)",
-                      }
-                    : {
-                        background: "transparent",
-                        borderColor: "transparent",
-                        color: "oklch(0.45 0.01 240)",
-                      };
-
-            if (isToday) {
-              styles.outline = "2px solid oklch(0.62 0.22 245)";
-              styles.outlineOffset = "1px";
-            }
-
-            return (
-              <button
-                key={dateStr}
-                type="button"
-                onClick={() => toggleDateOverride(dateStr, dayOfWeek)}
-                disabled={locked}
-                className="relative aspect-square rounded-lg border text-xs font-medium transition-all flex items-center justify-center active:scale-95 disabled:cursor-not-allowed"
-                style={styles}
-                title={locked ? "Set by driver — cannot be removed" : undefined}
-              >
-                {dayNum}
-                {locked && <Lock size={7} className="absolute bottom-0.5 right-0.5 opacity-50" />}
-              </button>
-            );
-          })}
+                  >
+                    {dayNum}
+                    {locked && (
+                      <Lock
+                        size={7}
+                        className="absolute bottom-0.5 right-0.5 opacity-60"
+                      />
+                    )}
+                  </button>
+                );
+              })}
         </div>
 
-        <div className="flex gap-4 mt-4 flex-wrap">
+        <div className="flex gap-3 mt-4 flex-wrap">
           {[
-            { bg: "oklch(0.62 0.22 245 / 0.3)", label: "Working" },
-            { bg: "oklch(0.55 0.22 25 / 0.35)", label: "Holiday" },
-            { bg: "oklch(0.55 0.18 145 / 0.3)", label: "Extra day" },
-            { bg: "transparent", label: "Off", border: true },
-          ].map(({ bg, label, border }) => (
-            <div key={label} className="flex items-center gap-1.5">
-              <div
-                className="w-3 h-3 rounded-sm border border-border"
-                style={{
-                  background: bg,
-                  borderColor: border ? "oklch(0.35 0.01 240)" : "transparent",
-                }}
-              />
+            { cls: "bg-[var(--shift-working)] border-[var(--shift-working-border)]", label: "Working" },
+            { cls: "bg-[var(--shift-holiday)] border-[var(--shift-holiday-border)]", label: "Holiday" },
+            { cls: "bg-[var(--shift-extra)] border-[var(--shift-extra-border)]", label: "Extra" },
+            { cls: "bg-transparent border-border", label: "Off" },
+          ].map(({ cls, label }) => (
+            <div key={label} className="flex items-center gap-1.5" title={label}>
+              <div className={`w-3 h-3 rounded-sm border ${cls}`} />
               <span className="text-[10px] text-muted-foreground">{label}</span>
             </div>
           ))}
