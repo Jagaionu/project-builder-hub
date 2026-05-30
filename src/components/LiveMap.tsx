@@ -49,7 +49,7 @@ const DEF_STATUS = STATUS_MAP.ON_SHIFT;
 // ─── Marker HTML ───────────────────────────────────────────────────────────
 function driverHtml(name: string, status: string, selected: boolean): string {
   const s = STATUS_MAP[status] ?? DEF_STATUS;
-  const sz = selected ? 42 : 32;
+  const sz = selected ? 26 : 20;
   const ring = selected
     ? `box-shadow:0 0 0 3px #fff,0 0 0 5px ${s.bg},0 6px 20px ${s.glow}`
     : `box-shadow:0 0 0 2px #fff,0 3px 10px rgba(0,0,0,0.2)`;
