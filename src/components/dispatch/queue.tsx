@@ -36,11 +36,11 @@ export const JobQueue = memo(function JobQueue({
     <div
       ref={parentRef}
       className="border-r border-border overflow-y-auto h-full"
-      style={{ background: "oklch(0.155 0.017 245)" }}
+      style={{ background: "var(--background)" }}
     >
       <div
         className="px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground sticky top-0 z-10 flex items-center justify-between"
-        style={{ borderBottom: "1px solid var(--sidebar-divider)", background: "oklch(0.15 0.018 245 / 0.95)", backdropFilter: "blur(4px)" }}
+        style={{ borderBottom: "1px solid var(--sidebar-divider)", background: "color-mix(in oklab, var(--sidebar-bg-1) 95%, transparent)", backdropFilter: "blur(4px)" }}
       >
         <span>Queue</span>
         <span
@@ -143,15 +143,15 @@ const QueueRow = memo(function QueueRow({
       className={cn(
         "w-full h-full text-left px-4 py-3 transition-colors",
         active
-          ? "bg-[oklch(0.62_0.22_245/0.08)] border-l-2 border-l-[oklch(0.62_0.22_245)] pl-[calc(1rem-2px)]"
-          : "border-l-2 border-l-transparent hover:bg-[oklch(0.18_0.018_245)]",
+          ? "bg-primary/10 border-l-2 border-l-primary pl-[calc(1rem-2px)]"
+          : "border-l-2 border-l-transparent hover:bg-surface",
       )}
     >
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="flex items-center gap-2">
           <span className="font-mono text-[11px] text-muted-foreground">{job.reference}</span>
           {isChained && (
-            <LinkIcon className="size-3 text-[oklch(0.75_0.18_245)]" />
+            <LinkIcon className="size-3 text-[color:var(--primary-bright)]" />
           )}
         </div>
         <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tracking-wider", cfg.badge)}>
@@ -163,7 +163,7 @@ const QueueRow = memo(function QueueRow({
         <span
           className={cn(
             "font-semibold truncate",
-            active ? "text-[oklch(0.85_0.10_245)]" : "text-[oklch(0.88_0.008_240)]",
+            active ? "text-primary" : "text-foreground",
           )}
         >
           {o?.code ?? "?"}
@@ -172,13 +172,13 @@ const QueueRow = memo(function QueueRow({
         <span
           className={cn(
             "font-semibold truncate",
-            active ? "text-[oklch(0.85_0.10_245)]" : "text-[oklch(0.88_0.008_240)]",
+            active ? "text-primary" : "text-foreground",
           )}
         >
           {d?.code ?? "?"}
         </span>
         {isMR && (
-          <span className="ml-1 px-1 rounded text-[9px] font-mono font-bold bg-[oklch(0.80_0.18_72/0.12)] text-[oklch(0.80_0.16_72)]">
+          <span className="ml-1 px-1 rounded text-[9px] font-mono font-bold bg-warning/15 text-warning">
             +{stops.length - 2}
           </span>
         )}
@@ -195,10 +195,10 @@ const QueueRow = memo(function QueueRow({
           className={cn(
             "truncate",
             driver
-              ? "text-[oklch(0.68_0.10_245)]"
+              ? "text-primary"
               : plannedDriver
-                ? "text-[oklch(0.60_0.08_245)]"
-                : "text-[oklch(0.42_0.010_245)]",
+                ? "text-muted-foreground"
+                : "text-muted-foreground/70",
           )}
         >
           {driver ? driver.name : plannedDriver ? `· ${plannedDriver.name}` : "Unassigned"}

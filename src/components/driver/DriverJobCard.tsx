@@ -55,7 +55,7 @@ export const STATUS_CONFIG: Record<
   CANCELLED: {
     label: "Cancelled",
     color: "var(--destructive-fg)",
-    bg: "oklch(0.63 0.22 20  / 0.08)",
+    bg: "color-mix(in oklab, var(--destructive) 8%, transparent)",
     dot: "var(--destructive)",
   },
 };

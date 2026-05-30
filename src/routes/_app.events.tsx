@@ -27,12 +27,12 @@ const EVENT_CONFIG: Record<string, {
 }> = {
   START_SHIFT:        { color: "var(--success)", bg: "oklch(0.73 0.17 150 / 0.10)", Icon: Play },
   END_SHIFT:          { color: "var(--muted-foreground)",bg: "var(--secondary)",        Icon: Square },
-  END_SHIFT_BLOCKED:  { color: "var(--warning-fg)",  bg: "oklch(0.80 0.18 72  / 0.10)", Icon: Ban },
+  END_SHIFT_BLOCKED:  { color: "var(--warning-fg)",  bg: "color-mix(in oklab, var(--warning) 10%, transparent)", Icon: Ban },
   LOCATION_UPDATE:    { color: "var(--muted-foreground-2)",bg: "var(--input)",        Icon: MapPin },
   ACCEPT_JOB:         { color: "var(--success)", bg: "oklch(0.73 0.17 150 / 0.10)", Icon: CheckCircle2 },
   JOB_CARD_SENT:      { color: "var(--primary)", bg: "oklch(0.62 0.22 245 / 0.10)", Icon: Send },
-  DELAY_REPORT:       { color: "var(--warning-fg)",  bg: "oklch(0.80 0.18 72  / 0.10)", Icon: AlertTriangle },
-  CANT_COMPLETE:      { color: "var(--destructive)",  bg: "oklch(0.63 0.22 20  / 0.10)", Icon: XCircle },
+  DELAY_REPORT:       { color: "var(--warning-fg)",  bg: "color-mix(in oklab, var(--warning) 10%, transparent)", Icon: AlertTriangle },
+  CANT_COMPLETE:      { color: "var(--destructive)",  bg: "color-mix(in oklab, var(--destructive) 10%, transparent)", Icon: XCircle },
 };
 
 function useImportBatches() {

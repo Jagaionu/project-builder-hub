@@ -104,18 +104,18 @@ export function DispatchStat({
       className={cn(
         "min-w-[76px] flex-shrink-0 rounded-lg border-l-2 px-3 py-1.5 text-left transition-all cursor-pointer",
         "border-t border-r border-b",
-        "border-t-[oklch(0.24_0.018_245)] border-r-[oklch(0.24_0.018_245)] border-b-[oklch(0.24_0.018_245)]",
-        "data-[active=true]:border-t-[oklch(0.32_0.020_245)] data-[active=true]:border-r-[oklch(0.32_0.020_245)] data-[active=true]:border-b-[oklch(0.32_0.020_245)]",
-        "bg-[oklch(0.17_0.018_245)] hover:bg-[oklch(0.19_0.018_245)]",
-        "data-[active=true]:bg-[oklch(0.20_0.020_245)]",
-        active ? "shadow-[0_2px_8px_oklch(0_0_0/0.25)]" : "shadow-none",
+        "border-t-border border-r-border border-b-border",
+        "data-[active=true]:border-t-[color:var(--border-strong)] data-[active=true]:border-r-[color:var(--border-strong)] data-[active=true]:border-b-[color:var(--border-strong)]",
+        "bg-surface hover:bg-surface-2",
+        "data-[active=true]:bg-input",
+        active ? "shadow-md" : "shadow-none",
       )}
       style={{
         borderLeftColor: color,
         boxShadow: active ? `0 0 0 1px ${color}, 0 2px 8px oklch(0 0 0 / 0.25)` : undefined,
       }}
     >
-      <div className="text-[9px] font-mono uppercase tracking-[0.08em] text-[oklch(0.55_0.014_245)] leading-none whitespace-nowrap">
+      <div className="text-[9px] font-mono uppercase tracking-[0.08em] text-muted-foreground leading-none whitespace-nowrap">
         {label}
       </div>
       <div

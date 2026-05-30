@@ -29,11 +29,11 @@ export const DriverQueue = memo(function DriverQueue({
     <div
       ref={parentRef}
       className="border-r border-border overflow-y-auto h-full"
-      style={{ background: "oklch(0.155 0.017 245)" }}
+      style={{ background: "var(--background)" }}
     >
       <div
         className="px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground sticky top-0 z-10 flex items-center justify-between"
-        style={{ borderBottom: "1px solid var(--sidebar-divider)", background: "oklch(0.15 0.018 245 / 0.95)", backdropFilter: "blur(4px)" }}
+        style={{ borderBottom: "1px solid var(--sidebar-divider)", background: "color-mix(in oklab, var(--sidebar-bg-1) 95%, transparent)", backdropFilter: "blur(4px)" }}
       >
         <span>Names</span>
         <span
@@ -105,15 +105,15 @@ const DriverQueueRow = memo(function DriverQueueRow({
       className={cn(
         "w-full h-full text-left px-4 py-3 transition-colors",
         active
-          ? "bg-[oklch(0.62_0.22_245/0.08)] border-l-2 border-l-[oklch(0.62_0.22_245)] pl-[calc(1rem-2px)]"
-          : "border-l-2 border-l-transparent hover:bg-[oklch(0.18_0.018_245)]",
+          ? "bg-primary/10 border-l-2 border-l-primary pl-[calc(1rem-2px)]"
+          : "border-l-2 border-l-transparent hover:bg-surface",
       )}
     >
       <div className="flex items-center justify-between gap-2 mb-1">
         <span
           className={cn(
             "font-semibold truncate text-sm",
-            active ? "text-[oklch(0.85_0.10_245)]" : "text-[oklch(0.88_0.008_240)]",
+            active ? "text-primary" : "text-foreground",
           )}
         >
           {driver.name}

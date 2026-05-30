@@ -20,9 +20,9 @@ const driverMap: Record<DriverStatus | "SCHEDULED", { bg: string; text: string; 
       border: "oklch(0.62 0.22 245 / 0.30)",
     },
     DELAYED: {
-      bg: "oklch(0.63 0.22 20  / 0.10)",
+      bg: "color-mix(in oklab, var(--destructive) 10%, transparent)",
       text: "var(--destructive-fg)",
-      border: "oklch(0.63 0.22 20  / 0.30)",
+      border: "color-mix(in oklab, var(--destructive) 30%, transparent)",
     },
     OFF_SHIFT: {
       bg: "var(--secondary)",
@@ -38,9 +38,9 @@ const driverMap: Record<DriverStatus | "SCHEDULED", { bg: string; text: string; 
 
 const jobMap: Record<JobStatus | "SCHEDULED", { bg: string; text: string; border: string }> = {
   PENDING: {
-    bg: "oklch(0.80 0.18 72  / 0.10)",
+    bg: "color-mix(in oklab, var(--warning) 10%, transparent)",
     text: "var(--warning-fg)",
-    border: "oklch(0.80 0.18 72  / 0.30)",
+    border: "color-mix(in oklab, var(--warning) 30%, transparent)",
   },
   ASSIGNED: {
     bg: "oklch(0.68 0.16 230 / 0.10)",
@@ -68,9 +68,9 @@ const jobMap: Record<JobStatus | "SCHEDULED", { bg: string; text: string; border
     border: "oklch(0.73 0.17 150 / 0.30)",
   },
   CANCELLED: {
-    bg: "oklch(0.63 0.22 20  / 0.10)",
+    bg: "color-mix(in oklab, var(--destructive) 10%, transparent)",
     text: "var(--destructive-fg)",
-    border: "oklch(0.63 0.22 20  / 0.30)",
+    border: "color-mix(in oklab, var(--destructive) 30%, transparent)",
   },
   SCHEDULED: {
     bg: "oklch(0.62 0.22 245 / 0.08)",
