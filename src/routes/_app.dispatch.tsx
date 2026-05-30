@@ -534,10 +534,7 @@ function DispatchPage() {
 
       <header className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Truck className="size-5 text-primary" />
-            <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
-          </div>
+          <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             {filteredJobs.length} shown of {jobs.length} total
           </p>
