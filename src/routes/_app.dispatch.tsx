@@ -570,7 +570,7 @@ function DispatchPage() {
           <ToolbarButton
             onClick={() => setCreateOpen(true)}
             primary
-            icon={<Plus className="size-3.5" />}
+            icon={<Truck className="size-3.5" />}
           >
             Create route
           </ToolbarButton>
