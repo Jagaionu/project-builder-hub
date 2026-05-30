@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Map, Truck, Warehouse, ClipboardList,
-  AlertTriangle, Webhook, LogOut, Shield, Radio,
+  AlertTriangle, Webhook, LogOut, Shield, Radio, Users,
 } from "lucide-react";
 import { useAlertCount, useUnassignedJobCount } from "@/lib/use-alerts";
 import { useTenant, useFeatureFlags } from "@/lib/tenant-context";
@@ -17,8 +17,8 @@ const ALL_NAV: ReadonlyArray<{
   module: TenantModule | null;
 }> = [
   { to: "/",           label: "Live Map",   icon: Map,           module: null },
-  { to: "/dispatch",   label: "Dispatch",   icon: ClipboardList, module: "dispatch" },
-  { to: "/drivers",    label: "Drivers",    icon: Truck,         module: "drivers" },
+  { to: "/dispatch",   label: "Dispatch",   icon: Truck,         module: "dispatch" },
+  { to: "/drivers",    label: "Drivers",    icon: Users,         module: "drivers" },
   { to: "/warehouses", label: "Warehouses", icon: Warehouse,     module: "warehouses" },
   { to: "/alerts",     label: "Alerts",     icon: AlertTriangle, module: "alerts" },
   { to: "/events",     label: "Event Log",  icon: Webhook,       module: "events" },
