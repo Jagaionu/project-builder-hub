@@ -80,12 +80,12 @@ function LiveDashboard() {
         {/* Fleet panel */}
         <aside
           className="flex flex-col overflow-hidden"
-          style={{ borderLeft: "1px solid oklch(0.22 0.018 245)" }}
+          style={{ borderLeft: "1px solid var(--secondary)" }}
         >
           {/* Panel header */}
           <div
             className="px-4 py-3 shrink-0"
-            style={{ borderBottom: "1px solid oklch(0.20 0.016 245)" }}
+            style={{ borderBottom: "1px solid var(--sidebar-divider)" }}
           >
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Fleet</div>
             <div className="text-sm font-semibold mt-0.5">{drivers.length} drivers</div>
@@ -96,8 +96,8 @@ function LiveDashboard() {
             <div
               className="p-4 shrink-0"
               style={{
-                background: "oklch(0.17 0.018 245)",
-                borderBottom: "1px solid oklch(0.22 0.018 245)",
+                background: "var(--surface)",
+                borderBottom: "1px solid var(--secondary)",
               }}
             >
               <div className="flex items-start justify-between mb-3">
@@ -121,8 +121,8 @@ function LiveDashboard() {
                   <div
                     className="rounded-lg px-3 py-2 space-y-2"
                     style={{
-                      background: "oklch(0.20 0.020 245)",
-                      border: "1px solid oklch(0.26 0.018 245)",
+                      background: "var(--input)",
+                      border: "1px solid var(--border)",
                     }}
                   >
                     <div className="font-mono text-xs text-foreground">{selectedJob.reference}</div>
@@ -151,7 +151,7 @@ function LiveDashboard() {
           )}
 
           {/* Driver list */}
-          <ul className="flex-1 overflow-y-auto divide-y" style={{ borderColor: "oklch(0.20 0.016 245)" }}>
+          <ul className="flex-1 overflow-y-auto divide-y" style={{ borderColor: "var(--sidebar-divider)" }}>
             {drivers.map((d) => {
               const eff = effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs);
               const isSelected = selected === d.id;
@@ -162,9 +162,9 @@ function LiveDashboard() {
                     className="w-full text-left px-4 py-2.5 transition-colors"
                     style={{
                       background: isSelected ? "oklch(0.62 0.22 245 / 0.08)" : "transparent",
-                      borderLeft: isSelected ? "2px solid oklch(0.62 0.22 245)" : "2px solid transparent",
+                      borderLeft: isSelected ? "2px solid var(--primary)" : "2px solid transparent",
                     }}
-                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "oklch(0.17 0.018 245)"; }}
+                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "var(--surface)"; }}
                     onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -172,9 +172,9 @@ function LiveDashboard() {
                         <div
                           className="size-6 rounded-md grid place-items-center text-[10px] font-mono font-bold shrink-0"
                           style={{
-                            background: isSelected ? "oklch(0.62 0.22 245 / 0.15)" : "oklch(0.22 0.018 245)",
-                            color: isSelected ? "oklch(0.75 0.18 245)" : "oklch(0.52 0.012 245)",
-                            border: `1px solid ${isSelected ? "oklch(0.62 0.22 245 / 0.3)" : "oklch(0.26 0.018 245)"}`,
+                            background: isSelected ? "oklch(0.62 0.22 245 / 0.15)" : "var(--secondary)",
+                            color: isSelected ? "var(--primary-bright)" : "var(--muted-foreground)",
+                            border: `1px solid ${isSelected ? "oklch(0.62 0.22 245 / 0.3)" : "var(--border)"}`,
                           }}
                         >
                           {d.name.charAt(0).toUpperCase()}
@@ -210,8 +210,8 @@ function MetricPill({ label, value }: { label: string; value: string }) {
     <div
       className="rounded-md px-2 py-1.5"
       style={{
-        background: "oklch(0.17 0.018 245)",
-        border: "1px solid oklch(0.24 0.018 245)",
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
       }}
     >
       <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">{label}</div>
@@ -232,7 +232,7 @@ export function PageHeader({
   return (
     <header
       className="px-5 py-3 flex items-center justify-between shrink-0"
-      style={{ borderBottom: "1px solid oklch(0.20 0.016 245)" }}
+      style={{ borderBottom: "1px solid var(--sidebar-divider)" }}
     >
       <div>
         <h1 className="text-sm font-semibold tracking-tight">{title}</h1>

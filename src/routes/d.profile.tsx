@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useDriverStore } from "@/lib/driver-store";
 import { driverLogout } from "@/lib/driver-auth";
 import { ShiftCalendar } from "@/components/driver/ShiftCalendar";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { CalendarDays } from "lucide-react";
 
 export const Route = createFileRoute("/d/profile")({
@@ -31,13 +32,22 @@ function ProfilePage() {
       {driver && (
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
-            <CalendarDays size={18} style={{ color: "oklch(0.62 0.22 245)" }} />
+            <CalendarDays size={18} style={{ color: "var(--primary)" }} />
           <h2 className="text-base font-bold text-foreground">My Schedule</h2>
           </div>
           <ShiftCalendar driverId={driver.id} isPlanner={false} />
 
         </div>
       )}
+
+      {/* Appearance */}
+      <div className="bg-card border border-border rounded-2xl p-4 mb-4 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Appearance</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Light, dark, or follow your device</p>
+        </div>
+        <ThemeToggle />
+      </div>
 
       {/* Sign out */}
       <button

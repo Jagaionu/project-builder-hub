@@ -103,7 +103,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                     className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors"
                     style={{
                       background: copiedField === "Phone" ? "oklch(0.73 0.17 150 / 0.15)" : "oklch(0.62 0.22 245 / 0.08)",
-                      color: copiedField === "Phone" ? "oklch(0.78 0.14 150)" : "oklch(0.75 0.18 245)",
+                      color: copiedField === "Phone" ? "var(--success-fg)" : "var(--primary-bright)",
                     }}
                   >
                     {copiedField === "Phone" ? (
@@ -118,7 +118,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                   </button>
                 )}
               </div>
-              <div className="px-3 py-2 rounded bg-[oklch(0.17_0.018_245)] border border-[oklch(0.26_0.018_245)] font-mono text-sm text-foreground">
+              <div className="px-3 py-2 rounded bg-surface border border-border font-mono text-sm text-foreground">
                 {driver.phone ?? "—"}
               </div>
             </div>
@@ -137,7 +137,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                         className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors"
                         style={{
                           background: copiedField === "App Code" ? "oklch(0.73 0.17 150 / 0.15)" : "oklch(0.62 0.22 245 / 0.08)",
-                          color: copiedField === "App Code" ? "oklch(0.78 0.14 150)" : "oklch(0.75 0.18 245)",
+                          color: copiedField === "App Code" ? "var(--success-fg)" : "var(--primary-bright)",
                         }}
                       >
                         {copiedField === "App Code" ? (
@@ -168,7 +168,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                   )}
                 </div>
               </div>
-              <div className="px-3 py-2 rounded bg-[oklch(0.17_0.018_245)] border border-[oklch(0.26_0.018_245)] font-mono text-sm text-foreground">
+              <div className="px-3 py-2 rounded bg-surface border border-border font-mono text-sm text-foreground">
                 {code ?? "—"}
               </div>
             </div>

@@ -10,6 +10,7 @@ import {
 import { useEffect, useRef } from "react";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth-context";
+import { ThemeProvider, useTheme, themeBootstrapScript } from "@/lib/theme-context";
 
 import appCss from "../styles.css?url";
 
@@ -76,6 +77,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/532b9127-bc8f-4a7f-8298-e31a25825f17/id-preview-b66d18aa--de24c086-d49f-40b3-b183-98147b9f11b0.lovable.app-1779361381318.png" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
+    scripts: [
+      { children: themeBootstrapScript },
+    ],
     links: [
       { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
       { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" },
@@ -116,11 +120,19 @@ function RootComponent() {
   }, []);
 
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <Outlet />
-        <Toaster theme="dark" position="bottom-right" />
-      </QueryClientProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <QueryClientProvider client={queryClient}>
+          <Outlet />
+          <ThemedToaster />
+        </QueryClientProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
+
+function ThemedToaster() {
+  const { resolvedTheme } = useTheme();
+  return <Toaster theme={resolvedTheme} position="bottom-right" />;
+}
+

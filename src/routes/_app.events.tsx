@@ -25,14 +25,14 @@ const EVENT_CONFIG: Record<string, {
   bg: string;
   Icon: React.ElementType;
 }> = {
-  START_SHIFT:        { color: "oklch(0.73 0.17 150)", bg: "oklch(0.73 0.17 150 / 0.10)", Icon: Play },
-  END_SHIFT:          { color: "oklch(0.52 0.012 245)",bg: "oklch(0.22 0.018 245)",        Icon: Square },
-  END_SHIFT_BLOCKED:  { color: "oklch(0.80 0.16 72)",  bg: "oklch(0.80 0.18 72  / 0.10)", Icon: Ban },
-  LOCATION_UPDATE:    { color: "oklch(0.45 0.012 245)",bg: "oklch(0.20 0.018 245)",        Icon: MapPin },
-  ACCEPT_JOB:         { color: "oklch(0.73 0.17 150)", bg: "oklch(0.73 0.17 150 / 0.10)", Icon: CheckCircle2 },
-  JOB_CARD_SENT:      { color: "oklch(0.62 0.22 245)", bg: "oklch(0.62 0.22 245 / 0.10)", Icon: Send },
-  DELAY_REPORT:       { color: "oklch(0.80 0.16 72)",  bg: "oklch(0.80 0.18 72  / 0.10)", Icon: AlertTriangle },
-  CANT_COMPLETE:      { color: "oklch(0.63 0.22 20)",  bg: "oklch(0.63 0.22 20  / 0.10)", Icon: XCircle },
+  START_SHIFT:        { color: "var(--success)", bg: "oklch(0.73 0.17 150 / 0.10)", Icon: Play },
+  END_SHIFT:          { color: "var(--muted-foreground)",bg: "var(--secondary)",        Icon: Square },
+  END_SHIFT_BLOCKED:  { color: "var(--warning-fg)",  bg: "color-mix(in oklab, var(--warning) 10%, transparent)", Icon: Ban },
+  LOCATION_UPDATE:    { color: "var(--muted-foreground-2)",bg: "var(--input)",        Icon: MapPin },
+  ACCEPT_JOB:         { color: "var(--success)", bg: "oklch(0.73 0.17 150 / 0.10)", Icon: CheckCircle2 },
+  JOB_CARD_SENT:      { color: "var(--primary)", bg: "oklch(0.62 0.22 245 / 0.10)", Icon: Send },
+  DELAY_REPORT:       { color: "var(--warning-fg)",  bg: "color-mix(in oklab, var(--warning) 10%, transparent)", Icon: AlertTriangle },
+  CANT_COMPLETE:      { color: "var(--destructive)",  bg: "color-mix(in oklab, var(--destructive) 10%, transparent)", Icon: XCircle },
 };
 
 function useImportBatches() {
@@ -160,7 +160,7 @@ function EventLog() {
         {tab === "imports" && (batches.length === 0 ? (
           <div
             className="rounded-xl border px-4 py-10 text-center"
-            style={{ background: "oklch(0.17 0.018 245)", borderColor: "oklch(0.24 0.018 245)" }}
+            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
           >
             <Upload className="size-8 mx-auto mb-3 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">No imports yet.</p>
@@ -178,7 +178,7 @@ function EventLog() {
                 <div
                   key={b.id}
                   className="rounded-xl border overflow-hidden"
-                  style={{ background: "oklch(0.17 0.018 245)", borderColor: "oklch(0.22 0.018 245)" }}
+                  style={{ background: "var(--surface)", borderColor: "var(--secondary)" }}
                 >
                   <div className="px-4 py-3 flex items-center gap-3">
                     {/* File icon */}
@@ -186,7 +186,7 @@ function EventLog() {
                       className="size-9 rounded-lg grid place-items-center shrink-0"
                       style={{ background: "oklch(0.62 0.22 245 / 0.10)", border: "1px solid oklch(0.62 0.22 245 / 0.20)" }}
                     >
-                      <FileText className="size-4" style={{ color: "oklch(0.72 0.18 245)" }} />
+                      <FileText className="size-4" style={{ color: "var(--primary-bright)" }} />
                     </div>
 
                     {/* Info */}
@@ -199,15 +199,15 @@ function EventLog() {
                         </span>
                       </div>
                       <div className="flex items-center gap-3 mt-1 flex-wrap text-[11px] font-mono">
-                        <span style={{ color: "oklch(0.73 0.17 150)" }}>✓ {b.created_count} created</span>
+                        <span style={{ color: "var(--success)" }}>✓ {b.created_count} created</span>
                         {b.parked_count > 0 && (
-                          <span style={{ color: "oklch(0.80 0.16 72)" }}>⏸ {b.parked_count} parked</span>
+                          <span style={{ color: "var(--warning-fg)" }}>⏸ {b.parked_count} parked</span>
                         )}
                         {b.duplicate_count > 0 && (
                           <span className="text-muted-foreground">⟳ {b.duplicate_count} duplicate</span>
                         )}
                         {b.error_count > 0 && (
-                          <span style={{ color: "oklch(0.63 0.22 20)" }}>✕ {b.error_count} errors</span>
+                          <span style={{ color: "var(--destructive)" }}>✕ {b.error_count} errors</span>
                         )}
                         <span
                           className="flex items-center gap-1 text-muted-foreground/60"
@@ -239,7 +239,7 @@ function EventLog() {
         {tab === "driver" && (grouped.length === 0 ? (
           <div
             className="rounded-xl border px-4 py-10 text-center"
-            style={{ background: "oklch(0.17 0.018 245)", borderColor: "oklch(0.24 0.018 245)" }}
+            style={{ background: "var(--surface)", borderColor: "var(--border)" }}
           >
             <Activity className="size-8 mx-auto mb-3 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">No events yet.</p>
@@ -262,8 +262,8 @@ function EventLog() {
                 key={driverId}
                 className="rounded-xl overflow-hidden transition-all"
                 style={{
-                  background: "oklch(0.17 0.018 245)",
-                  border: `1px solid ${isOpen ? "oklch(0.28 0.020 245)" : "oklch(0.22 0.018 245)"}`,
+                  background: "var(--surface)",
+                  border: `1px solid ${isOpen ? "var(--border-strong)" : "var(--secondary)"}`,
                   boxShadow: isOpen ? "0 4px 16px oklch(0 0 0 / 0.25)" : "none",
                 }}
               >
@@ -272,7 +272,7 @@ function EventLog() {
                   type="button"
                   onClick={() => toggle(driverId)}
                   className="w-full px-4 py-3 flex items-center gap-3 text-left transition-colors"
-                  style={{ background: isOpen ? "oklch(0.20 0.020 245)" : "transparent" }}
+                  style={{ background: isOpen ? "var(--input)" : "transparent" }}
                 >
                   {isOpen
                     ? <ChevronDown  className="size-4 text-muted-foreground shrink-0" />
@@ -283,7 +283,7 @@ function EventLog() {
                     className="size-7 rounded-lg grid place-items-center text-xs font-bold font-mono shrink-0"
                     style={{
                       background: "oklch(0.62 0.22 245 / 0.12)",
-                      color: "oklch(0.75 0.18 245)",
+                      color: "var(--primary-bright)",
                       border: "1px solid oklch(0.62 0.22 245 / 0.25)",
                     }}
                   >
@@ -316,7 +316,7 @@ function EventLog() {
                 {isOpen && (
                   <ul
                     className="divide-y"
-                    style={{ borderTop: "1px solid oklch(0.22 0.018 245)", borderColor: "oklch(0.22 0.018 245)" }}
+                    style={{ borderTop: "1px solid var(--secondary)", borderColor: "var(--secondary)" }}
                   >
                     {evs.map((e) => {
                       const cfg = EVENT_CONFIG[e.type];
@@ -325,8 +325,8 @@ function EventLog() {
                         <li
                           key={e.id}
                           className="px-4 py-2.5 flex items-start gap-3 transition-colors"
-                          style={{ borderColor: "oklch(0.20 0.016 245)" }}
-                          onMouseEnter={el => (el.currentTarget.style.background = "oklch(0.20 0.018 245)")}
+                          style={{ borderColor: "var(--sidebar-divider)" }}
+                          onMouseEnter={el => (el.currentTarget.style.background = "var(--input)")}
                           onMouseLeave={el => (el.currentTarget.style.background = "transparent")}
                         >
                           {/* Time */}
@@ -337,9 +337,9 @@ function EventLog() {
                           {/* Icon */}
                           <div
                             className="size-5 rounded-md grid place-items-center shrink-0 mt-0.5"
-                            style={{ background: cfg?.bg ?? "oklch(0.20 0.018 245)" }}
+                            style={{ background: cfg?.bg ?? "var(--input)" }}
                           >
-                            <Icon className="size-3" style={{ color: cfg?.color ?? "oklch(0.52 0.012 245)" }} />
+                            <Icon className="size-3" style={{ color: cfg?.color ?? "var(--muted-foreground)" }} />
                           </div>
 
                           {/* Content */}

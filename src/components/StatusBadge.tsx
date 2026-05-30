@@ -6,75 +6,75 @@ const driverMap: Record<DriverStatus | "SCHEDULED", { bg: string; text: string; 
   {
     AVAILABLE: {
       bg: "oklch(0.73 0.17 150 / 0.10)",
-      text: "oklch(0.78 0.14 150)",
+      text: "var(--success-fg)",
       border: "oklch(0.73 0.17 150 / 0.30)",
     },
     ON_SHIFT: {
       bg: "oklch(0.68 0.16 230 / 0.10)",
-      text: "oklch(0.73 0.13 230)",
+      text: "var(--info-fg)",
       border: "oklch(0.68 0.16 230 / 0.30)",
     },
     ON_ROUTE: {
       bg: "oklch(0.62 0.22 245 / 0.12)",
-      text: "oklch(0.75 0.18 245)",
+      text: "var(--primary-bright)",
       border: "oklch(0.62 0.22 245 / 0.30)",
     },
     DELAYED: {
-      bg: "oklch(0.63 0.22 20  / 0.10)",
-      text: "oklch(0.72 0.18 20)",
-      border: "oklch(0.63 0.22 20  / 0.30)",
+      bg: "color-mix(in oklab, var(--destructive) 10%, transparent)",
+      text: "var(--destructive-fg)",
+      border: "color-mix(in oklab, var(--destructive) 30%, transparent)",
     },
     OFF_SHIFT: {
-      bg: "oklch(0.22 0.018 245)",
-      text: "oklch(0.52 0.012 245)",
-      border: "oklch(0.26 0.018 245)",
+      bg: "var(--secondary)",
+      text: "var(--muted-foreground)",
+      border: "var(--border)",
     },
     SCHEDULED: {
       bg: "oklch(0.62 0.22 245 / 0.08)",
-      text: "oklch(0.68 0.16 230)",
+      text: "var(--info)",
       border: "oklch(0.68 0.16 230 / 0.25)",
     },
   };
 
 const jobMap: Record<JobStatus | "SCHEDULED", { bg: string; text: string; border: string }> = {
   PENDING: {
-    bg: "oklch(0.80 0.18 72  / 0.10)",
-    text: "oklch(0.80 0.16 72)",
-    border: "oklch(0.80 0.18 72  / 0.30)",
+    bg: "color-mix(in oklab, var(--warning) 10%, transparent)",
+    text: "var(--warning-fg)",
+    border: "color-mix(in oklab, var(--warning) 30%, transparent)",
   },
   ASSIGNED: {
     bg: "oklch(0.68 0.16 230 / 0.10)",
-    text: "oklch(0.73 0.13 230)",
+    text: "var(--info-fg)",
     border: "oklch(0.68 0.16 230 / 0.30)",
   },
   IN_PROGRESS: {
     bg: "oklch(0.62 0.22 245 / 0.12)",
-    text: "oklch(0.75 0.18 245)",
+    text: "var(--primary-bright)",
     border: "oklch(0.62 0.22 245 / 0.30)",
   },
   ARRIVED_PICKUP: {
     bg: "oklch(0.62 0.22 245 / 0.12)",
-    text: "oklch(0.75 0.18 245)",
+    text: "var(--primary-bright)",
     border: "oklch(0.62 0.22 245 / 0.30)",
   },
   EN_ROUTE_DELIVERY: {
     bg: "oklch(0.62 0.22 245 / 0.12)",
-    text: "oklch(0.75 0.18 245)",
+    text: "var(--primary-bright)",
     border: "oklch(0.62 0.22 245 / 0.30)",
   },
   COMPLETED: {
     bg: "oklch(0.73 0.17 150 / 0.10)",
-    text: "oklch(0.78 0.14 150)",
+    text: "var(--success-fg)",
     border: "oklch(0.73 0.17 150 / 0.30)",
   },
   CANCELLED: {
-    bg: "oklch(0.63 0.22 20  / 0.10)",
-    text: "oklch(0.72 0.18 20)",
-    border: "oklch(0.63 0.22 20  / 0.30)",
+    bg: "color-mix(in oklab, var(--destructive) 10%, transparent)",
+    text: "var(--destructive-fg)",
+    border: "color-mix(in oklab, var(--destructive) 30%, transparent)",
   },
   SCHEDULED: {
     bg: "oklch(0.62 0.22 245 / 0.08)",
-    text: "oklch(0.68 0.16 230)",
+    text: "var(--info)",
     border: "oklch(0.68 0.16 230 / 0.25)",
   },
 };

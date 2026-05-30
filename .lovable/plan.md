@@ -1,88 +1,92 @@
-# Driver Schedule — Improvements
+# Add Light Mode Across the App
 
-Two phases. Phase 1 ships standalone; Phase 2 builds on it.
+The app currently has only a dark theme: `:root` in `src/styles.css` holds the dark tokens, and many components hardcode `oklch(...)` values inline that match those dark tokens. The driver PWA layout even force-applies `className="dark"`. Adding a working light mode requires three things: a real token split, a theme toggle wired everywhere, and a sweep of every hardcoded color so both themes look intentional.
 
-## Phase 1 — Design polish (no DB, no behavior change)
+## 1. Restructure color tokens
 
-**Files:** `src/styles.css`, `src/components/driver/ShiftCalendar.tsx`, `src/routes/d.profile.tsx`
+In `src/styles.css`:
 
-1. **Replace inline `oklch()` styles with semantic tokens.** Add to `src/styles.css`:
-   ```
-   --shift-working, --shift-working-border, --shift-working-fg
-   --shift-holiday, --shift-holiday-border, --shift-holiday-fg
-   --shift-extra,   --shift-extra-border,   --shift-extra-fg
-   --shift-off-fg
-   --shift-today-ring
-   ```
-   Use them via Tailwind arbitrary classes (`bg-[var(--shift-working)]`) so the calendar inherits light/dark theme correctly.
+- Move the current dark palette (lines ~68–131) into a `.dark { ... }` selector.
+- Replace `:root { ... }` with a true **light** palette covering every token currently defined: `--background`, `--surface`, `--surface-2`, `--surface-3`, `--foreground`, `--card`, `--popover`, `--primary`, `--secondary`, `--muted`, `--accent`, `--destructive`, `--success`, `--warning`, `--info`, `--border`, `--input`, `--ring`, all `--shift-*` tokens.
+- Add the missing shadow + glow tokens for light (the existing shadow scale uses `oklch(0 0 0 / 0.25..0.45)` — keep but lower opacity in light to avoid heavy bands).
+- Add `.dark { color-scheme: dark; }` (exists) and `:root { color-scheme: light; }`.
+- Light palette direction: near-white background (`oklch(0.99 0.003 245)`), subtle blue-tinted surface layers, dark slate text, same electric blue primary at slightly higher chroma so it still pops on light, semantic colors retuned for AA contrast on white.
 
-2. **Strip all inline `style={{ background, color, borderColor, outline }}` blocks** from `ShiftCalendar` and replace with a small `cellClass(type, isToday)` helper that returns Tailwind classes.
+## 2. Refactor hardcoded inline colors
 
-3. **Dedupe instructions.** Remove the `INSTRUCTIONS` block + repeated paragraph from `d.profile.tsx`. Keep one short helper line above the weekday-pattern row inside `ShiftCalendar`.
+Several components inline `style={{ background: "oklch(0.15 ...)" }}` literals that only work on dark. These have to become token references (`var(--surface)`, `var(--border)`, etc.) or Tailwind classes (`bg-surface`, `border-border`) so they flip with the theme.
 
-4. **Single-row weekday header.** Drop the second `Mo Tu We…` row; reuse the same labels for the pattern row and the month grid.
+Files to sweep (counts of `oklch(` literals):
 
-5. **Better today indicator.** Solid 2px ring in `--shift-today-ring` + bold weight on the date number; remove the easy-to-miss outline-offset trick.
+- `src/components/Sidebar.tsx` (32) — brand header, nav-item active strip, badges, footer user row, divider, all need tokenization.
+- `src/components/StatusBadge.tsx` (42) — status color map; expose as semantic tokens (`--status-available`, `--status-delayed`, …) or split into per-theme values via `.dark` overrides.
+- `src/components/driver/DriverJobCard.tsx` (29), `DriverBottomNav.tsx` (5).
+- `src/components/dispatch/queue.tsx`, `toolbar.tsx`, `drivers/driver-queue.tsx`, `drivers/driver-detail-panel.tsx`.
+- `src/routes/_app.events.tsx`, `_app.alerts.tsx`, `_app.index.tsx`, `_app.drivers.tsx`, `_app.dispatch.tsx`, `login.tsx`, `d.index.tsx`, `d.profile.tsx`.
+- `src/lib/dispatch/status.ts` — status → color map; convert to token names.
+- Tailwind classes to fix: `bg-white`, `text-white`, `bg-black` in `LiveMap.tsx`, `PwaInstallPrompt.tsx`, `_app.drivers.tsx`, `dispatch/toolbar.tsx` → use semantic equivalents.
 
-6. **Hover + keyboard focus states** on every date cell (`hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring`).
+Strategy per element:
 
-7. **Loading skeleton.** While the month overrides query is loading, show a 6×7 grid of muted rounded squares instead of empty cells.
+- If the literal matches an existing token (e.g. `oklch(0.17 0.018 245)` ↔ `--surface`), replace with `var(--surface)` / `bg-surface`.
+- If it's a one-off tint (e.g. `oklch(0.62 0.22 245 / 0.12)` for "active nav"), introduce a named token like `--primary-soft` so both themes get a tasteful tint.
+- Keep all "color/glow" tokens semantic (`--shadow-glow-primary`) and define separate values under `.dark`.
 
-8. **Legend cleanup.** Single inline row, smaller swatches, no wrap on the driver-detail panel width. Add `title` tooltips.
+## 3. Theme provider + toggle
 
-9. **"Today" shortcut + month label is clickable** to jump back to current month.
+New file `src/lib/theme-context.tsx`:
 
-10. **Save Pattern → confirm + discard pair.** Show both buttons side by side only when `patternChanged`. "Discard" resets `selectedDays` to `savedDays`. Add a success toast on save.
+- `ThemeProvider` reading `localStorage.theme` (`"light" | "dark" | "system"`, default `"system"`).
+- Effect that toggles `document.documentElement.classList` (`dark`) and updates on `prefers-color-scheme` change when `"system"`.
+- Inline pre-hydration script in `src/routes/__root.tsx` `head.scripts` (or a small `<script>` injected in `RootShell`) to set the class **before** first paint — avoids the flash of dark on a light-preferring user.
+- `useTheme()` hook returns `{ theme, resolvedTheme, setTheme }`.
 
-## Phase 2 — Functionality (depends on Phase 1 tokens)
+Wire-up:
 
-### 2a. Per-day split shifts (UI for existing `driver_shift_templates`)
+- Wrap `<AuthProvider>` in `RootComponent` with `<ThemeProvider>`.
+- New `src/components/ThemeToggle.tsx` (Sun/Moon/Monitor icons from lucide) shown in:
+  - Dispatch app: `Sidebar.tsx` footer next to the user row.
+  - Driver PWA: small icon-only button in `d.profile.tsx` settings list.
+- Update Sonner: `<Toaster theme={resolvedTheme} ... />` instead of hardcoded `"dark"`.
 
-Long-press (mobile) / right-click or click a small ⏱ badge (desktop) on a weekday in the **Weekly Pattern** row opens a popover with:
-- One or more time intervals (start/end pickers, `<input type="time">` for simplicity).
-- "Add interval" button (writes additional `driver_shift_templates` rows for that `day_of_week` with `is_primary=false`).
-- "Remove interval" trashcan per row.
+## 4. Driver PWA scoping
 
-New helpers in `src/lib/driver-shifts.ts`:
-- `fetchShiftIntervals(client, driverId)` → `Record<day_of_week, {id, start, end, isPrimary}[]>`
-- `saveShiftIntervals(client, driverId, day, intervals[])` → deletes that day's rows, re-inserts with `is_primary=true` on the first, `false` on the rest.
+`src/routes/d.tsx` currently does `className="min-h-screen bg-background dark driver-app"`. Remove the literal `dark` so the driver app follows the chosen theme. Then re-test all driver screens (`d.index`, `d.profile`, `d.report`, `d.routes.$jobId`, `d.login`) and any inline-styled card.
 
-Replace `saveShiftDays` callers with the interval-aware path; the existing "days only" toggle still works (writes a single default 06:00–18:00 interval, marked `is_primary=true`).
+`DriverBottomNav` CSS in `styles.css` uses `oklch(0.15 0.018 245 / 0.92)` — replace with `color-mix(in oklab, var(--background) 92%, transparent)` so it works on both themes.
 
-Render time chips inline on each weekday button when the user has non-default intervals (e.g. `Wed · 06–10, 14–18`).
+## 5. Map (Leaflet) handling
 
-### 2b. Planner override with audit log
+`src/styles.css` applies `filter: invert(100%) hue-rotate(180deg) ...` to the tile pane globally — this assumes a dark theme map.
 
-Extend `driver_availability_overrides` with two columns:
-- `overridden_by_user_id uuid null` — planner who flipped a driver-set row
-- `overridden_at timestamptz null`
+- Scope it: `.dark .leaflet-tile-pane { filter: ... }` only.
+- In light mode, let the default OSM tiles render naturally; restyle popups, controls, and zoom buttons via tokens.
+- `LiveMap.tsx` has 39 hardcoded color classes — audit its overlays/legends and convert.
 
-When `isPlanner=true` and an existing override has `set_by='driver'`, allow the toggle (currently blocked). On delete, instead of `DELETE`, do an `UPDATE` setting `set_by='planner'`, `overridden_by_user_id=auth.uid()`, `overridden_at=now()`. On the driver app, show a small "Changed by dispatch" badge on those days so the driver knows.
+## 6. Polish + audit
 
-No new table — single migration just adds the two columns + a partial index. RLS already permits the write under existing `manage overrides` policy.
+- Glass card, status dots, badges, scrollbar thumb, sidebar brand gradient, page-transition shadows — re-derive each from tokens so light mode gets a soft "frosted white on warm background" feel, not a literal palette inversion.
+- Table headers in `.table-container thead th` use `oklch(0.15 0.018 245 / 0.95)` — make it `var(--surface)` with backdrop-blur.
+- Toast border tints (success/error/warning) already use semantic-ish oklch — fine, just verify contrast.
+- Focus rings already use `var(--color-primary)` — works in both themes.
 
-### 2c. Small quality wins
+## 7. QA pass
 
-- **Past-date guard.** Disable date cells whose `dateStr < today` (no click handler, lower opacity). The cron rollover should handle history; manual editing of yesterday's availability is never intended.
-- **Optimistic override toggle** with rollback on error; currently the UI mutates state only after `await`.
-- **TanStack Query** for `['shift-overrides', driverId, year, month]` and `['shift-templates', driverId]` to dedupe the planner-panel + driver-app fetches and cache across month nav.
-- **Realtime subscription** on `driver_availability_overrides` filtered by `driver_id` so planner and driver views stay in sync without a refresh.
+For every route under `/_app/*`, `/d/*`, `/login`, `/admin`, `/suspended`:
 
-## Out of scope
-
-- Bulk date-range select / vacation picker — separate request if needed.
-- Conflict warning against already-assigned jobs — separate request; needs cross-table read in the calendar.
-- Push notification when planner overrides — separate.
+- Switch theme, eyeball each page, check: text legibility, border visibility, hover states, badges, charts (if any), modals/popovers, sidebar selected state, driver bottom nav, map overlays, login screen, error/empty states.
+- Use the browser preview at 411x776 (driver) and a wide viewport (dispatch).
+- Fix per-component contrast issues until both themes are clean.
 
 ## Technical notes
 
-- Phase 1 touches presentation only. No new packages.
-- Phase 2a writes multiple rows per `(driver_id, day_of_week)`; `fetchShiftsByDriver` already tolerates this (deduplicates into `days_of_week`). Planner availability logic in `src/lib/planner.ts` is unaffected.
-- Phase 2b is a single additive migration:
-  ```sql
-  ALTER TABLE public.driver_availability_overrides
-    ADD COLUMN overridden_by_user_id uuid,
-    ADD COLUMN overridden_at timestamptz;
-  ```
-  No GRANT/RLS changes needed (columns inherit the table's policies).
-- Time inputs use native `<input type="time">` — no datepicker dependency, works on mobile.
+- Default theme = `"system"`. No DB or schema changes.
+- All tokens stay in `oklch()` for perceptual uniformity.
+- Tailwind v4 with `@custom-variant dark (&:is(.dark *))` is already set up, so `dark:bg-...` utilities work; we'll prefer semantic tokens (`bg-surface`) over `dark:` variants to keep components theme-agnostic.
+- No new dependencies — icons come from `lucide-react` already in use.
+
+## Out of scope
+
+- Per-user theme persistence in the database (localStorage only).
+- Reskinning charts/icons beyond color tokens.
+- Changing brand identity, fonts, or layout.

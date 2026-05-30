@@ -18,45 +18,45 @@ export const STATUS_CONFIG: Record<
 > = {
   PENDING: {
     label: "Planned",
-    color: "oklch(0.58 0.016 245)",
-    bg: "oklch(0.22 0.018 245)",
-    dot: "oklch(0.45 0.012 245)",
+    color: "var(--muted-foreground)",
+    bg: "var(--secondary)",
+    dot: "var(--muted-foreground-2)",
   },
   ASSIGNED: {
     label: "Assigned",
-    color: "oklch(0.75 0.18 245)",
+    color: "var(--primary-bright)",
     bg: "oklch(0.62 0.22 245 / 0.12)",
-    dot: "oklch(0.62 0.22 245)",
+    dot: "var(--primary)",
   },
   IN_PROGRESS: {
     label: "In Progress",
-    color: "oklch(0.78 0.14 150)",
+    color: "var(--success-fg)",
     bg: "oklch(0.73 0.17 150 / 0.10)",
-    dot: "oklch(0.73 0.17 150)",
+    dot: "var(--success)",
   },
   ARRIVED_PICKUP: {
     label: "In Progress",
-    color: "oklch(0.78 0.14 150)",
+    color: "var(--success-fg)",
     bg: "oklch(0.73 0.17 150 / 0.10)",
-    dot: "oklch(0.73 0.17 150)",
+    dot: "var(--success)",
   },
   EN_ROUTE_DELIVERY: {
     label: "In Progress",
-    color: "oklch(0.78 0.14 150)",
+    color: "var(--success-fg)",
     bg: "oklch(0.73 0.17 150 / 0.10)",
-    dot: "oklch(0.73 0.17 150)",
+    dot: "var(--success)",
   },
   COMPLETED: {
     label: "Completed",
-    color: "oklch(0.73 0.14 150)",
+    color: "var(--success-fg)",
     bg: "oklch(0.73 0.17 150 / 0.08)",
-    dot: "oklch(0.73 0.17 150)",
+    dot: "var(--success)",
   },
   CANCELLED: {
     label: "Cancelled",
-    color: "oklch(0.63 0.18 20)",
-    bg: "oklch(0.63 0.22 20  / 0.08)",
-    dot: "oklch(0.63 0.22 20)",
+    color: "var(--destructive-fg)",
+    bg: "color-mix(in oklab, var(--destructive) 8%, transparent)",
+    dot: "var(--destructive)",
   },
 };
 
@@ -96,7 +96,7 @@ export function DriverJobCard({ job, showTomorrow }: Props) {
         <div
           className="h-0.5 w-full"
           style={{
-            background: "linear-gradient(90deg, oklch(0.62 0.22 245), oklch(0.73 0.17 150))",
+            background: "linear-gradient(90deg, var(--primary), var(--success))",
           }}
         />
       )}
@@ -109,7 +109,7 @@ export function DriverJobCard({ job, showTomorrow }: Props) {
             {showTomorrow && (
               <p
                 className="text-[11px] font-mono uppercase tracking-widest mt-0.5"
-                style={{ color: "oklch(0.62 0.22 245)" }}
+                style={{ color: "var(--primary)" }}
               >
                 Tomorrow
               </p>
@@ -157,8 +157,8 @@ export function DriverJobCard({ job, showTomorrow }: Props) {
           <div
             className="shrink-0 size-7 rounded-full grid place-items-center"
             style={{
-              background: "oklch(0.22 0.018 245)",
-              border: "1px solid oklch(0.26 0.018 245)",
+              background: "var(--secondary)",
+              border: "1px solid var(--border)",
             }}
           >
             <ArrowRight className="size-3.5 text-muted-foreground" />
@@ -190,8 +190,8 @@ export function DriverJobCard({ job, showTomorrow }: Props) {
                   width: `${(arrived / total) * 100}%`,
                   background:
                     arrived === total
-                      ? "oklch(0.73 0.17 150)"
-                      : "linear-gradient(90deg, oklch(0.62 0.22 245), oklch(0.73 0.17 150))",
+                      ? "var(--success)"
+                      : "linear-gradient(90deg, var(--primary), var(--success))",
                 }}
               />
             </div>
