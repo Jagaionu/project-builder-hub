@@ -58,7 +58,7 @@ export function Sidebar() {
               boxShadow: "0 2px 8px oklch(0.62 0.22 245 / 0.35)",
             }}
           >
-            <img src={brandLogo} alt={`${displayName} logo`} className="size-8 object-contain" />
+            <img src={brandLogo} alt={`${displayName} logo`} className="size-14 object-contain" />
           </div>
           <div className="min-w-0">
             <div className="text-sm font-semibold tracking-tight truncate leading-tight">
