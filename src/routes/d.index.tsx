@@ -17,11 +17,11 @@ const STATUS_LABEL: Record<string, string> = {
   DELAYED: "Delayed",
 };
 const STATUS_DOT: Record<string, string> = {
-  AVAILABLE: "oklch(0.73 0.17 150)",
-  ON_SHIFT: "oklch(0.62 0.22 245)",
-  ON_ROUTE: "oklch(0.73 0.17 150)",
-  OFF_SHIFT: "oklch(0.45 0.012 245)",
-  DELAYED: "oklch(0.80 0.18 72)",
+  AVAILABLE: "var(--success)",
+  ON_SHIFT: "var(--primary)",
+  ON_ROUTE: "var(--success)",
+  OFF_SHIFT: "var(--muted-foreground-2)",
+  DELAYED: "var(--warning)",
 };
 
 function DriverHome() {
@@ -48,7 +48,7 @@ function DriverHome() {
   const activeJobs = jobs.filter((j) => !["COMPLETED", "CANCELLED"].includes(j.status));
   const completedJobs = jobs.filter((j) => j.status === "COMPLETED");
 
-  const dotColor = STATUS_DOT[driver.status] ?? "oklch(0.45 0.012 245)";
+  const dotColor = STATUS_DOT[driver.status] ?? "var(--muted-foreground-2)";
 
   return (
     <div
@@ -59,7 +59,7 @@ function DriverHome() {
       <div
         className="px-5 pt-6 pb-5"
         style={{
-          background: "linear-gradient(180deg, oklch(0.17 0.018 245) 0%, transparent 100%)",
+          background: "linear-gradient(180deg, var(--surface) 0%, transparent 100%)",
         }}
       >
         <div className="flex items-start justify-between">
@@ -73,7 +73,7 @@ function DriverHome() {
           <div
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full"
             style={{
-              background: "oklch(0.17 0.018 245)",
+              background: "var(--surface)",
               border: "1px solid oklch(0.24 0.018 245)",
             }}
           >
@@ -102,9 +102,9 @@ function DriverHome() {
           <span className="mx-1 opacity-30">·</span>
           <MapPin
             className="size-3"
-            style={{ color: gps ? "oklch(0.73 0.17 150)" : "oklch(0.45 0.012 245)" }}
+            style={{ color: gps ? "var(--success)" : "var(--muted-foreground-2)" }}
           />
-          <span style={{ color: gps ? "oklch(0.73 0.17 150)" : undefined }}>
+          <span style={{ color: gps ? "var(--success)" : undefined }}>
             {gps ? `GPS live · ${gps.lat.toFixed(4)}, ${gps.lon.toFixed(4)}` : "No GPS"}
           </span>
         </div>
@@ -124,7 +124,7 @@ function DriverHome() {
             <div
               className="rounded-2xl p-6 text-center"
               style={{
-                background: "oklch(0.17 0.018 245)",
+                background: "var(--surface)",
                 border: "1px solid oklch(0.24 0.018 245)",
               }}
             >

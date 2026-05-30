@@ -40,19 +40,19 @@ export function Sidebar() {
     <aside
       className="w-56 shrink-0 flex flex-col"
       style={{
-        background: "linear-gradient(180deg, oklch(0.15 0.018 245) 0%, oklch(0.13 0.016 245) 100%)",
-        borderRight: "1px solid oklch(0.22 0.018 245)",
+        background: "linear-gradient(180deg, var(--sidebar-bg-1) 0%, var(--background) 100%)",
+        borderRight: "1px solid var(--secondary)",
       }}
     >
       {/* ── Brand header ── */}
-      <div className="px-4 pt-5 pb-4" style={{ borderBottom: "1px solid oklch(0.20 0.016 245)" }}>
+      <div className="px-4 pt-5 pb-4" style={{ borderBottom: "1px solid var(--sidebar-divider)" }}>
         <div className="flex items-center gap-2.5">
           <div
             className="size-8 rounded-lg grid place-items-center font-mono font-bold text-sm text-primary-foreground shrink-0"
             style={{
               background: flags.customBranding && flags.brandColor
                 ? flags.brandColor
-                : "linear-gradient(135deg, oklch(0.62 0.22 245), oklch(0.55 0.20 260))",
+                : "linear-gradient(135deg, var(--primary), var(--primary-2))",
               boxShadow: "0 2px 8px oklch(0.62 0.22 245 / 0.35)",
             }}
           >
@@ -73,7 +73,7 @@ export function Sidebar() {
             style={{
               background: "oklch(0.80 0.18 72 / 0.08)",
               border: "1px solid oklch(0.80 0.18 72 / 0.25)",
-              color: "oklch(0.80 0.18 72)",
+              color: "var(--warning)",
             }}
           >
             Trial period
@@ -96,15 +96,15 @@ export function Sidebar() {
               to={n.to}
               className="nav-item"
               style={active ? {
-                color: "oklch(0.75 0.18 245)",
+                color: "var(--primary-bright)",
                 background: "oklch(0.62 0.22 245 / 0.12)",
-                borderLeft: "2px solid oklch(0.62 0.22 245)",
+                borderLeft: "2px solid var(--primary)",
                 paddingLeft: "calc(0.75rem - 2px)",
               } : {}}
             >
               <Icon
                 className="size-4 shrink-0"
-                style={{ color: active ? "oklch(0.62 0.22 245)" : undefined }}
+                style={{ color: active ? "var(--primary)" : undefined }}
               />
               <span className="flex-1 truncate">{n.label}</span>
               {badgeCount > 0 && (
@@ -114,7 +114,7 @@ export function Sidebar() {
                     background: n.to === "/alerts"
                       ? "oklch(0.63 0.22 20 / 0.9)"
                       : "oklch(0.62 0.22 245 / 0.9)",
-                    color: "oklch(0.98 0.004 240)",
+                    color: "var(--primary-foreground)",
                     boxShadow: n.to === "/alerts"
                       ? "0 0 6px oklch(0.63 0.22 20 / 0.4)"
                       : "0 0 6px oklch(0.62 0.22 245 / 0.4)",
@@ -129,18 +129,18 @@ export function Sidebar() {
 
         {isSuperAdmin && (
           <>
-            <div className="my-2 mx-1" style={{ height: 1, background: "oklch(0.20 0.016 245)" }} />
+            <div className="my-2 mx-1" style={{ height: 1, background: "var(--sidebar-divider)" }} />
             <Link
               to="/admin"
               className="nav-item"
               style={path.startsWith("/admin") ? {
-                color: "oklch(0.75 0.18 245)",
+                color: "var(--primary-bright)",
                 background: "oklch(0.62 0.22 245 / 0.12)",
-                borderLeft: "2px solid oklch(0.62 0.22 245)",
+                borderLeft: "2px solid var(--primary)",
                 paddingLeft: "calc(0.75rem - 2px)",
               } : {}}
             >
-              <Shield className="size-4 shrink-0" style={{ color: "oklch(0.62 0.22 245)" }} />
+              <Shield className="size-4 shrink-0" style={{ color: "var(--primary)" }} />
               <span className="flex-1">Admin Panel</span>
             </Link>
           </>
@@ -150,7 +150,7 @@ export function Sidebar() {
       {/* ── Footer ── */}
       <div
         className="px-3 py-3 space-y-2.5"
-        style={{ borderTop: "1px solid oklch(0.20 0.016 245)" }}
+        style={{ borderTop: "1px solid var(--sidebar-divider)" }}
       >
         {/* Realtime indicator */}
         <div className="flex items-center gap-2">
@@ -167,15 +167,15 @@ export function Sidebar() {
         {/* User row */}
         <div
           className="flex items-center gap-2 rounded-lg px-2 py-2 transition-colors"
-          style={{ background: "oklch(0.17 0.018 245)" }}
+          style={{ background: "var(--surface)" }}
         >
           {/* Avatar */}
           <div
             className="size-6 rounded-md grid place-items-center shrink-0 text-[10px] font-mono font-bold"
             style={{
-              background: "oklch(0.22 0.020 245)",
-              color: "oklch(0.65 0.016 245)",
-              border: "1px solid oklch(0.26 0.018 245)",
+              background: "var(--secondary)",
+              color: "var(--muted-foreground)",
+              border: "1px solid var(--border)",
             }}
           >
             {email.charAt(0).toUpperCase()}
@@ -183,7 +183,7 @@ export function Sidebar() {
           <div className="min-w-0 flex-1">
             <div className="text-[11px] text-muted-foreground truncate leading-tight">{email}</div>
             <div className="text-[9px] font-mono uppercase tracking-widest mt-0.5"
-              style={{ color: "oklch(0.45 0.012 245)" }}>
+              style={{ color: "var(--muted-foreground-2)" }}>
               {role}
             </div>
           </div>
@@ -191,9 +191,9 @@ export function Sidebar() {
             onClick={signOut}
             title="Sign out"
             className="size-6 shrink-0 grid place-items-center rounded-md transition-colors"
-            style={{ color: "oklch(0.45 0.012 245)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "oklch(0.63 0.22 20)")}
-            onMouseLeave={e => (e.currentTarget.style.color = "oklch(0.45 0.012 245)")}
+            style={{ color: "var(--muted-foreground-2)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "var(--destructive)")}
+            onMouseLeave={e => (e.currentTarget.style.color = "var(--muted-foreground-2)")}
           >
             <LogOut className="size-3.5" />
           </button>

@@ -33,12 +33,12 @@ export const DriverQueue = memo(function DriverQueue({
     >
       <div
         className="px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground sticky top-0 z-10 flex items-center justify-between"
-        style={{ borderBottom: "1px solid oklch(0.20 0.016 245)", background: "oklch(0.15 0.018 245 / 0.95)", backdropFilter: "blur(4px)" }}
+        style={{ borderBottom: "1px solid var(--sidebar-divider)", background: "oklch(0.15 0.018 245 / 0.95)", backdropFilter: "blur(4px)" }}
       >
         <span>Names</span>
         <span
           className="inline-flex items-center justify-center size-5 rounded-full text-[10px] font-mono font-bold"
-          style={{ background: "oklch(0.62 0.22 245 / 0.12)", color: "oklch(0.75 0.18 245)" }}
+          style={{ background: "oklch(0.62 0.22 245 / 0.12)", color: "var(--primary-bright)" }}
         >
           {drivers.length}
         </span>
@@ -70,7 +70,7 @@ export const DriverQueue = memo(function DriverQueue({
                   right: 0,
                   height: `${vi.size}px`,
                   transform: `translateY(${vi.start}px)`,
-                  borderBottom: "1px solid oklch(0.20 0.016 245)",
+                  borderBottom: "1px solid var(--sidebar-divider)",
                 }}
               >
                 <DriverQueueRow

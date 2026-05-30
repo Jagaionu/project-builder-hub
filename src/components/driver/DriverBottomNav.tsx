@@ -37,7 +37,7 @@ export function DriverBottomNav() {
           <Download
             strokeWidth={2.5}
             style={{
-              color: "oklch(0.62 0.22 245)",
+              color: "var(--primary)",
               filter: "drop-shadow(0 0 8px oklch(0.62 0.22 245 / 0.7))",
             }}
           />
@@ -54,13 +54,13 @@ export function DriverBottomNav() {
             {active && (
               <span
                 className="absolute top-1.5 left-1/2 -translate-x-1/2 size-1 rounded-full"
-                style={{ background: "oklch(0.62 0.22 245)" }}
+                style={{ background: "var(--primary)" }}
               />
             )}
             <Icon
               strokeWidth={active ? 2.5 : 1.8}
               style={{
-                color: active ? "oklch(0.62 0.22 245)" : undefined,
+                color: active ? "var(--primary)" : undefined,
                 filter: active ? "drop-shadow(0 0 6px oklch(0.62 0.22 245 / 0.5))" : undefined,
               }}
             />

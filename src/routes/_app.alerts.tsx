@@ -12,25 +12,25 @@ const LEVEL_CONFIG = {
   critical: {
     bg: "oklch(0.63 0.22 20 / 0.08)",
     border: "oklch(0.63 0.22 20 / 0.35)",
-    text: "oklch(0.95 0.006 240)", // Standard light text
-    iconColor: "oklch(0.72 0.18 20)", // Keep the icon red
-    bar: "oklch(0.63 0.22 20)",
+    text: "var(--foreground)", // Standard light text
+    iconColor: "var(--destructive-fg)", // Keep the icon red
+    bar: "var(--destructive)",
     Icon: AlertTriangle, // Keep AlertTriangle for critical
   },
   warning: {
     bg: "oklch(0.80 0.18 72 / 0.08)",
     border: "oklch(0.80 0.18 72 / 0.35)",
-    text: "oklch(0.95 0.006 240)", // Standard light text
-    iconColor: "oklch(0.80 0.16 72)", // Keep the icon amber
-    bar: "oklch(0.80 0.18 72)",
+    text: "var(--foreground)", // Standard light text
+    iconColor: "var(--warning-fg)", // Keep the icon amber
+    bar: "var(--warning)",
     Icon: Clock, // Use Clock for warning
   },
   info: {
     bg: "oklch(0.68 0.16 230 / 0.08)",
     border: "oklch(0.68 0.16 230 / 0.30)",
-    text: "oklch(0.95 0.006 240)", // Standard light text
-    iconColor: "oklch(0.73 0.13 230)", // Keep the icon blue
-    bar: "oklch(0.68 0.16 230)",
+    text: "var(--foreground)", // Standard light text
+    iconColor: "var(--info-fg)", // Keep the icon blue
+    bar: "var(--info)",
     Icon: Info,
   },
 } as const;
@@ -67,11 +67,11 @@ function AlertsPage() {
               className="size-12 rounded-full grid place-items-center mx-auto mb-4"
               style={{ background: "oklch(0.73 0.17 150 / 0.12)" }}
             >
-              <Check className="size-6" style={{ color: "oklch(0.78 0.14 150)" }} />
+              <Check className="size-6" style={{ color: "var(--success-fg)" }} />
             </div>
             <div
               className="text-sm font-semibold font-mono uppercase tracking-widest"
-              style={{ color: "oklch(0.78 0.14 150)" }}
+              style={{ color: "var(--success-fg)" }}
             >
               All clear
             </div>

@@ -40,12 +40,12 @@ export const JobQueue = memo(function JobQueue({
     >
       <div
         className="px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground sticky top-0 z-10 flex items-center justify-between"
-        style={{ borderBottom: "1px solid oklch(0.20 0.016 245)", background: "oklch(0.15 0.018 245 / 0.95)", backdropFilter: "blur(4px)" }}
+        style={{ borderBottom: "1px solid var(--sidebar-divider)", background: "oklch(0.15 0.018 245 / 0.95)", backdropFilter: "blur(4px)" }}
       >
         <span>Queue</span>
         <span
           className="inline-flex items-center justify-center size-5 rounded-full text-[10px] font-mono font-bold"
-          style={{ background: "oklch(0.62 0.22 245 / 0.12)", color: "oklch(0.75 0.18 245)" }}
+          style={{ background: "oklch(0.62 0.22 245 / 0.12)", color: "var(--primary-bright)" }}
         >
           {jobs.length}
         </span>
@@ -77,7 +77,7 @@ export const JobQueue = memo(function JobQueue({
                   right: 0,
                   height: `${vi.size}px`,
                   transform: `translateY(${vi.start}px)`,
-                  borderBottom: "1px solid oklch(0.20 0.016 245)",
+                  borderBottom: "1px solid var(--sidebar-divider)",
                 }}
               >
                 <QueueRow

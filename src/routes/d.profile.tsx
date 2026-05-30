@@ -31,7 +31,7 @@ function ProfilePage() {
       {driver && (
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
-            <CalendarDays size={18} style={{ color: "oklch(0.62 0.22 245)" }} />
+            <CalendarDays size={18} style={{ color: "var(--primary)" }} />
           <h2 className="text-base font-bold text-foreground">My Schedule</h2>
           </div>
           <ShiftCalendar driverId={driver.id} isPlanner={false} />

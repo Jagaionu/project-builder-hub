@@ -67,7 +67,7 @@ function LoginPage() {
           radial-gradient(ellipse 80% 60% at 50% -10%,
             oklch(0.62 0.22 245 / 0.12) 0%,
             transparent 70%),
-          oklch(0.13 0.016 245)
+          var(--background)
         `,
       }}
     >
@@ -90,7 +90,7 @@ function LoginPage() {
           <div
             className="size-10 rounded-xl grid place-items-center font-mono font-bold text-base text-primary-foreground"
             style={{
-              background: "linear-gradient(135deg, oklch(0.62 0.22 245), oklch(0.55 0.20 260))",
+              background: "linear-gradient(135deg, var(--primary), var(--primary-2))",
               boxShadow: "0 4px 16px oklch(0.62 0.22 245 / 0.4), inset 0 1px 0 oklch(1 0 0 / 0.15)",
             }}
           >
@@ -108,7 +108,7 @@ function LoginPage() {
         <div
           className="rounded-2xl p-7"
           style={{
-            background: "oklch(0.17 0.018 245)",
+            background: "var(--surface)",
             border: "1px solid oklch(0.24 0.018 245)",
             boxShadow: "0 24px 48px oklch(0 0 0 / 0.5), inset 0 1px 0 oklch(1 0 0 / 0.04)",
           }}
@@ -124,7 +124,7 @@ function LoginPage() {
               style={{
                 background: "oklch(0.63 0.22 20 / 0.08)",
                 border:     "1px solid oklch(0.63 0.22 20 / 0.3)",
-                color:      "oklch(0.72 0.18 20)",
+                color:      "var(--destructive-fg)",
               }}
             >
               {error}
@@ -169,7 +169,7 @@ function LoginPage() {
               style={{
                 background: loading
                   ? "oklch(0.50 0.18 245)"
-                  : "linear-gradient(135deg, oklch(0.62 0.22 245), oklch(0.56 0.20 255))",
+                  : "linear-gradient(135deg, var(--primary), oklch(0.56 0.20 255))",
                 boxShadow: loading
                   ? "none"
                   : "0 4px 12px oklch(0.62 0.22 245 / 0.35), inset 0 1px 0 oklch(1 0 0 / 0.12)",
