@@ -92,24 +92,26 @@ export function applyJobPatch(jobId: string, patch: Partial<Job>) {
   broadcastJobs(next);
 }
 
+// Explicit refetch used after server-side bulk writes (CSV import, Plan) where
+// we can't rely on the Supabase realtime echo arriving. Re-runs the same bounded
+// query as the initial load and fans the result out to every useJobs() subscriber.
+export async function reloadJobs() {
+  const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const { data } = await supabase
+    .from("jobs")
+    .select("*")
+    .or(`for_date.gte.${since},for_date.is.null`)
+    .order("created_at", { ascending: false })
+    .limit(2000);
+  if (data) broadcastJobs(data as Job[]);
+}
+
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>(cache.jobs);
   const channelNameRef = useRef(`rt-jobs-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     jobsSubscribers.add(setJobs);
-    let mounted = true;
-    // Bounded window: last 30 days + future + any unscheduled.
-    // Avoids fetching the entire jobs history (which grew linearly with usage).
-    const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-    supabase
-      .from("jobs")
-      .select("*")
-      .or(`for_date.gte.${since},for_date.is.null`)
-      .order("created_at", { ascending: false })
-      .limit(2000)
-      .then(({ data }) => {
-        if (mounted && data) broadcastJobs(data as Job[]);
-      });
+    void reloadJobs();
     const ch = supabase.channel(channelNameRef.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, (payload) => {
         let next = cache.jobs;
@@ -122,7 +124,6 @@ export function useJobs() {
       })
       .subscribe();
     return () => {
-      mounted = false;
       jobsSubscribers.delete(setJobs);
       supabase.removeChannel(ch);
     };

@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { importJobsCsv } from "@/lib/jobs-import.functions";
 import { csvToImportRows } from "@/lib/csv-import";
+import { reloadJobs } from "@/lib/hooks";
+import { reloadJobStops } from "@/lib/dispatch/use-job-stops";
 
 // ── ToolbarButton ───────────────────────────────────────────────────────────
 
@@ -52,6 +54,9 @@ export function ImportCsvButton() {
       const rows = csvToImportRows(text);
       if (rows.length === 0) { toast.error("No rows found in CSV"); return; }
       const res = await runImport({ data: { rows, fileName: file.name } });
+      // Import writes server-side via supabaseAdmin; refetch so the new routes
+      // appear immediately instead of waiting on a realtime echo / manual reload.
+      await Promise.all([reloadJobs(), reloadJobStops()]);
       const parts: string[] = [`${res.created} created`];
       if (res.parked.length) parts.push(`${res.parked.length} parked (see Alerts)`);
       if (res.skippedDuplicate.length) parts.push(`${res.skippedDuplicate.length} duplicate`);

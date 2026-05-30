@@ -219,16 +219,18 @@ export const JobDetailPanel = memo(function JobDetailPanel({
             </div>
             {stops.map((s, idx) => {
               const wh = lookups.warehousesById.get(s.warehouse_id);
-              // Only show planned times when the job is assigned/active — not for PENDING runs
               const isAssignedOrActive = job.status !== "PENDING";
-              const arr = isAssignedOrActive ? (s.scheduled_at ?? stopTimes[idx]) : null;
+              // Planned arrival/departure come from the CSV-imported schedule and
+              // are shown for every status (including PENDING) so dispatch can see
+              // the timings before a driver is assigned.
+              const arr = s.scheduled_at ?? stopTimes[idx];
               const dep = arr
                 ? new Date(new Date(arr).getTime() + stopDwellMinutes(s.kind) * 60_000).toISOString()
                 : null;
               const fmt = (iso: string | null | undefined) =>
                 iso
                   ? new Date(iso).toLocaleString(undefined, {
-                      day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+                      day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false,
                     })
                   : "—";
               const delayMin = s.arrived_at && arr
@@ -274,7 +276,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                         <div className="flex items-center gap-1">
                           <span className={isDelayed ? "text-amber-600" : "text-emerald-600"}>
                             {new Date(s.arrived_at).toLocaleTimeString([], {
-                              hour: "2-digit", minute: "2-digit",
+                              hour: "2-digit", minute: "2-digit", hour12: false,
                             })}
                           </span>
                           {isGpsConfirmed && (
@@ -297,7 +299,9 @@ export const JobDetailPanel = memo(function JobDetailPanel({
       <div className="mt-4 text-[11px] text-muted-foreground flex items-center gap-1.5">
         <Clock className="size-3" />
         {job.scheduled_at
-          ? `Scheduled ${new Date(job.scheduled_at).toLocaleString()}`
+          ? `Scheduled ${new Date(job.scheduled_at).toLocaleString(undefined, {
+              day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false,
+            })}`
           : "No scheduled start"}
       </div>
     </div>

@@ -88,6 +88,7 @@ export const PlannedChip = memo(function PlannedChip({
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        hour12: false,
       })
     : null;
   const isChained = sequence && sequence > 1;

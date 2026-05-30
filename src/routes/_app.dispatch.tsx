@@ -7,7 +7,7 @@ import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { useCompliance, useDrivers, useJobs, useWarehouses, applyJobPatch } from "@/lib/hooks";
+import { useCompliance, useDrivers, useJobs, useWarehouses, applyJobPatch, reloadJobs } from "@/lib/hooks";
 import { computePlan, type PlannedAssign } from "@/lib/planner";
 import type { DriverShift, DriverAvailabilityOverride } from "@/lib/types";
 import { planJobs } from "@/lib/plan-jobs.functions";
@@ -32,7 +32,7 @@ import {
 } from "@/lib/dispatch/status";
 import type { JobStatus, Job } from "@/lib/types";
 import { useLookups } from "@/lib/dispatch/lookups";
-import { useJobStops } from "@/lib/dispatch/use-job-stops";
+import { useJobStops, reloadJobStops } from "@/lib/dispatch/use-job-stops";
 import { DispatchStat, ImportCsvButton, ToolbarButton } from "@/components/dispatch/toolbar";
 import { AuditPlanButton } from "@/components/dispatch/audit-plan-button";
 import { JobQueue } from "@/components/dispatch/queue";
@@ -337,6 +337,9 @@ function DispatchPage() {
     setPlanning(true);
     try {
       const r = await runPlanJobs();
+      // Plan writes server-side via supabaseAdmin; don't wait on the realtime
+      // echo — pull the fresh jobs + stops so the queue/detail repaint at once.
+      await Promise.all([reloadJobs(), reloadJobStops()]);
       const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversPlanned} driver${r.driversPlanned === 1 ? "" : "s"}`;
       if (r.unassignable.length) toast.warning(`${msg} · ${r.unassignable.length} unassignable`);
       else toast.success(msg);

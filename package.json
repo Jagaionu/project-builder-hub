@@ -10,7 +10,8 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "setup:super-admin": "node --env-file=.env scripts/setup-super-admin.mjs"
   },
   "dependencies": {
 

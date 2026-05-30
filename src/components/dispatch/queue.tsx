@@ -187,7 +187,7 @@ const QueueRow = memo(function QueueRow({
         <span className="font-mono">
           {job.scheduled_at
             ? new Date(job.scheduled_at).toLocaleString(undefined, {
-                day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+                day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false,
               })
             : "ASAP"}
         </span>

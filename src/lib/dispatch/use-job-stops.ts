@@ -48,32 +48,36 @@ function rowToStop(s: StopRow): Stop & { seq: number } {
  * Stops are kept sorted by `seq` ascending per job — the planner and
  * detail panel rely on positional indexing.
  */
+/**
+ * Explicit refetch of all job stops. Used after server-side bulk writes
+ * (CSV import, Plan) where the Supabase realtime echo can't be relied on.
+ * Mirrors the initial load query and fans out to every useJobStops() consumer.
+ */
+export async function reloadJobStops() {
+  // Bounded window: stops scheduled in the last 30 days, plus any without
+  // a scheduled_at (unscheduled / brand-new imports). Mirrors useJobs()
+  // so we don't pull stops for jobs we'll never display.
+  const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("job_stops")
+    .select("id,job_id,kind,warehouse_id,scheduled_at,arrived_at,seq")
+    .or(`scheduled_at.gte.${since},scheduled_at.is.null`)
+    .order("seq", { ascending: true })
+    .limit(5000);
+  if (error || !data) return;
+  const m: JobStopsMap = {};
+  for (const row of data as StopRow[]) {
+    (m[row.job_id] ||= []).push(rowToStop(row));
+  }
+  broadcast(m);
+}
+
 export function useJobStops(): JobStopsMap {
   const [map, setMap] = useState<JobStopsMap>(cache);
 
   useEffect(() => {
     subscribers.add(setMap);
-    let mounted = true;
-
-    const load = async () => {
-      // Bounded window: stops scheduled in the last 30 days, plus any without
-      // a scheduled_at (unscheduled / brand-new imports). Mirrors useJobs()
-      // so we don't pull stops for jobs we'll never display.
-      const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
-      const { data, error } = await supabase
-        .from("job_stops")
-        .select("id,job_id,kind,warehouse_id,scheduled_at,arrived_at,seq")
-        .or(`scheduled_at.gte.${since},scheduled_at.is.null`)
-        .order("seq", { ascending: true })
-        .limit(5000);
-      if (!mounted || error || !data) return;
-      const m: JobStopsMap = {};
-      for (const row of data as StopRow[]) {
-        (m[row.job_id] ||= []).push(rowToStop(row));
-      }
-      broadcast(m);
-    };
-    void load();
+    void reloadJobStops();
 
     const channel = supabase
       .channel(`rt-stops-${Math.random().toString(36).slice(2)}`)
@@ -108,7 +112,6 @@ export function useJobStops(): JobStopsMap {
       .subscribe();
 
     return () => {
-      mounted = false;
       subscribers.delete(setMap);
       void supabase.removeChannel(channel);
     };
