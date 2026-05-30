@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef } from "react";
-import { ArrowRight, Clock, Pencil } from "lucide-react";
+import { ArrowRight, Clock, MapPin, Pencil } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { isJobScheduledFuture } from "@/lib/effective-status";
 import { computeStopSchedule, etaMinutes, haversineKm, stopDwellMinutes } from "@/lib/geo";
@@ -113,14 +114,17 @@ export const JobDetailPanel = memo(function JobDetailPanel({
             }).join(" → ")}
           </p>
         </div>
-        {effectiveStatus !== "COMPLETED" && (
-          <button
-            onClick={onEdit}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs hover:bg-surface-2"
-          >
-            <Pencil className="size-3" /> Edit route
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          <ViewOnMapButton job={job} />
+          {effectiveStatus !== "COMPLETED" && (
+            <button
+              onClick={onEdit}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs hover:bg-surface-2"
+            >
+              <Pencil className="size-3" /> Edit route
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mt-5 rounded-lg border border-border bg-surface p-4">
