@@ -578,7 +578,7 @@ function DispatchPage() {
 
       {/* Filter bar */}
       <div className="px-5 py-2.5 flex items-center gap-2 border-b border-[color:var(--sidebar-divider)] bg-[color:color-mix(in_oklab,var(--color-background)_60%,transparent)]">
-        <div className="relative flex-1">
+        <div className="relative w-[360px]">
           <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
             type="text"
