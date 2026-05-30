@@ -6,12 +6,23 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 // @ts-ignore
 import "leaflet.markercluster";
 import type { Driver, Warehouse, Job } from "@/lib/types";
+import type { JobStopsMap } from "@/lib/dispatch/use-job-stops";
+import type { DriverPosition } from "@/lib/use-driver-positions";
+import { haversineKm } from "@/lib/geo";
+
+// GPS considered inactive after 15 min with no fresh ping → route greys out.
+const GPS_STALE_MS = 15 * 60 * 1000;
+const GPS_STALE_COLOR = "#94a3b8"; // grey: "GPS not being used"
+// Within 300 m of the pickup ⇒ treat as arrived (ETA ≈ 0) and switch phase.
+const PICKUP_RADIUS_KM = 0.3;
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 interface Props {
   drivers: Driver[];
   warehouses: Warehouse[];
   jobs: Job[];
+  jobStops?: JobStopsMap;
+  breadcrumbs?: DriverPosition[];
   selectedDriverId?: string | null;
   onSelectDriver?: (id: string) => void;
 }
@@ -114,13 +125,15 @@ const MAP_CSS = `
 `;
 
 // ─── OSRM real-road routing ────────────────────────────────────────────────
+// Accepts an ordered list of waypoints so a multi-stop route (e.g. SNG1 → SBS2,
+// or a multi-drop run) is routed along real roads through every stop in order.
 async function fetchRoute(
-  from: { lat: number; lon: number },
-  to:   { lat: number; lon: number }
+  points: { lat: number; lon: number }[]
 ): Promise<{ coords: [number, number][]; distKm: number; minutes: number }> {
+  const coordStr = points.map((p) => `${p.lon},${p.lat}`).join(";");
   const url =
     `https://router.project-osrm.org/route/v1/driving/` +
-    `${from.lon},${from.lat};${to.lon},${to.lat}` +
+    `${coordStr}` +
     `?overview=full&geometries=geojson`;
   const res = await fetch(url);
   if (!res.ok) throw new Error("routing unavailable");
@@ -148,12 +161,13 @@ async function fetchRoute(
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
-export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectDriver }: Props) {
-  const containerRef       = useRef<HTMLDivElement | null>(null);
-  const mapRef             = useRef<L.Map | null>(null);
-  const clusterLayerRef    = useRef<any | null>(null);
-  const whClusterLayerRef  = useRef<any | null>(null);
-  const routeLayerRef      = useRef<L.LayerGroup | null>(null);
+export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, selectedDriverId, onSelectDriver }: Props) {
+  const containerRef        = useRef<HTMLDivElement | null>(null);
+  const mapRef              = useRef<L.Map | null>(null);
+  const clusterLayerRef     = useRef<any | null>(null);
+  const whClusterLayerRef   = useRef<any | null>(null);
+  const routeLayerRef       = useRef<L.LayerGroup | null>(null);
+  const breadcrumbLayerRef  = useRef<L.LayerGroup | null>(null);
 
   const [panel, setPanel]         = useState<Panel>({ kind: "idle" });
   const [routeEta, setRouteEta]   = useState<RouteEta | null>(null);
@@ -217,6 +231,7 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
     }).addTo(map);
 
     routeLayerRef.current = L.layerGroup().addTo(map);
+    breadcrumbLayerRef.current = L.layerGroup().addTo(map);
 
     mapRef.current = map;
     return () => { map.remove(); mapRef.current = null; };
@@ -337,129 +352,218 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
     [jobs, selectedDriverId]
   );
 
-  const destWh = useMemo(() => {
-    if (!activeJob) return null;
-    const pickupPhase = ["ASSIGNED", "IN_PROGRESS"].includes(activeJob.status);
-    return (
-      warehouses.find(w =>
-        pickupPhase
-          ? w.id === activeJob.origin_warehouse_id
-          : w.id === activeJob.destination_warehouse_id
-      ) ?? null
-    );
-  }, [activeJob, warehouses]);
+  // Ordered stop coordinates of the active job (A → B → C … → Drop), each
+  // tagged with whether the driver has already arrived (GPS-confirmed).
+  const stopCoords = useMemo(() => {
+    if (!activeJob) return [] as { lat: number; lon: number; code: string; arrived: boolean }[];
+    const stops = jobStops?.[activeJob.id] ?? [];
+    const pts: { lat: number; lon: number; code: string; arrived: boolean }[] = [];
+    if (stops.length >= 2) {
+      for (const s of stops) {
+        const wh = warehouses.find((w) => w.id === s.warehouse_id);
+        if (wh) pts.push({ lat: wh.latitude, lon: wh.longitude, code: wh.code, arrived: !!s.arrived_at });
+      }
+    } else {
+      // Fallback to the origin/destination columns when stops aren't loaded.
+      const o = warehouses.find((w) => w.id === activeJob.origin_warehouse_id);
+      const d = warehouses.find((w) => w.id === activeJob.destination_warehouse_id);
+      if (o) pts.push({ lat: o.latitude, lon: o.longitude, code: o.code, arrived: false });
+      if (d) pts.push({ lat: d.latitude, lon: d.longitude, code: d.code, arrived: false });
+    }
+    return pts;
+  }, [activeJob, jobStops, warehouses]);
 
-  // ── Draw route (real road geometry) ──────────────────────────────────────
-  // effectiveTarget: manual WH clicked by user takes priority over job-derived WH
-  const effectiveTarget = manualTargetWh ?? destWh;
+  // Has the driver reached the first pickup? True when GPS-confirmed (stop has
+  // arrived_at) OR physically within PICKUP_RADIUS_KM of it (ETA ≈ 0). This is
+  // the trigger to switch from "follow driver → pickup" to "pickup → drop".
+  const arrivedPickup = useMemo(() => {
+    const first = stopCoords[0];
+    if (!first) return false;
+    if (first.arrived) return true;
+    if (selectedDriver?.current_lat != null && selectedDriver.current_lon != null) {
+      return (
+        haversineKm(selectedDriver.current_lat, selectedDriver.current_lon, first.lat, first.lon) <
+        PICKUP_RADIUS_KM
+      );
+    }
+    return false;
+  }, [stopCoords, selectedDriver?.current_lat, selectedDriver?.current_lon]);
+
+  // Waypoints to route along, per phase:
+  //  • manual target   → driver → clicked warehouse
+  //  • before pickup   → driver → first pickup (follow the driver in)
+  //  • after pickup    → A → B → C … → Drop (multi-stop chain)
+  const routePoints = useMemo(() => {
+    const driverPos =
+      selectedDriver?.current_lat != null && selectedDriver.current_lon != null
+        ? { lat: selectedDriver.current_lat, lon: selectedDriver.current_lon }
+        : null;
+    if (manualTargetWh && driverPos) {
+      return [driverPos, { lat: manualTargetWh.latitude, lon: manualTargetWh.longitude }];
+    }
+    if (stopCoords.length >= 2) {
+      if (!arrivedPickup && driverPos) {
+        return [driverPos, { lat: stopCoords[0].lat, lon: stopCoords[0].lon }];
+      }
+      return stopCoords.map((s) => ({ lat: s.lat, lon: s.lon }));
+    }
+    return [] as { lat: number; lon: number }[];
+  }, [manualTargetWh, stopCoords, arrivedPickup, selectedDriver?.current_lat, selectedDriver?.current_lon]);
+
+  // Endpoint label for the side panel — reflects the current phase.
+  const routeTarget = useMemo(() => {
+    if (manualTargetWh) return { code: manualTargetWh.code, manual: true };
+    if (stopCoords.length >= 2) {
+      const idx = arrivedPickup ? stopCoords.length - 1 : 0;
+      return { code: stopCoords[idx].code, manual: false };
+    }
+    return null;
+  }, [manualTargetWh, stopCoords, arrivedPickup]);
+
+  // ── Fetch road geometry (expensive: OSRM call) ────────────────────────────
+  // Kept separate from drawing so the line can be recoloured (GPS staleness)
+  // without re-hitting the routing API.
+  const [routeGeom, setRouteGeom] = useState<
+    { coords: [number, number][]; points: { lat: number; lon: number }[] } | null
+  >(null);
 
   useEffect(() => {
-    const layer = routeLayerRef.current;
-    if (!layer || !mapRef.current) return;
-    layer.clearLayers();
-    setRouteEta(null);
+    if (!mapRef.current) return;
 
-    if (!selectedDriver?.current_lat || !selectedDriver.current_lon) return;
-
-    if (!effectiveTarget) {
-      mapRef.current.flyTo(
-        [selectedDriver.current_lat, selectedDriver.current_lon], 12, { duration: 1.4 }
-      );
+    if (routePoints.length < 2) {
+      setRouteGeom(null);
+      setRouteEta(null);
+      if (selectedDriver?.current_lat != null && selectedDriver.current_lon != null) {
+        mapRef.current.flyTo(
+          [selectedDriver.current_lat, selectedDriver.current_lon], 12, { duration: 1.4 },
+        );
+      }
       return;
     }
 
     setIsRouting(true);
-
-    fetchRoute(
-      { lat: selectedDriver.current_lat, lon: selectedDriver.current_lon },
-      { lat: effectiveTarget.latitude, lon: effectiveTarget.longitude }
-    )
+    let cancelled = false;
+    fetchRoute(routePoints)
       .then(({ coords, distKm, minutes }) => {
-        layer.clearLayers();
-
-        const s = STATUS_MAP[selectedDriver.status] ?? DEF_STATUS;
-        const isDelayed = selectedDriver.status === "DELAYED";
-        const lineColor = isDelayed ? "#dc2626" : s.bg;
-
-        // Glow / halo underlay
-        L.polyline(coords, {
-          color: lineColor,
-          weight: 14,
-          opacity: 0.12,
-          lineCap: "round",
-          lineJoin: "round",
-        }).addTo(layer);
-
-        // White border (road feel)
-        L.polyline(coords, {
-          color: "#fff",
-          weight: 7,
-          opacity: 0.7,
-          lineCap: "round",
-          lineJoin: "round",
-        }).addTo(layer);
-
-        // Main coloured route
-        L.polyline(coords, {
-          color: lineColor,
-          weight: 5,
-          opacity: 0.95,
-          lineCap: "round",
-          lineJoin: "round",
-        }).addTo(layer);
-
-        // Animated dashes overlay
-        L.polyline(coords, {
-          color: "#fff",
-          weight: 2,
-          opacity: 0.9,
-          lineCap: "round",
-          dashArray: "1 16",
-          className: "route-anim",
-        }).addTo(layer);
-
-        // ETA chip at midpoint
-        const mid = coords[Math.floor(coords.length / 2)];
-        L.marker(mid, {
-          icon: L.divIcon({
-            className: "",
-            html: etaHtml(distKm, minutes),
-            iconAnchor: [80, 16],
-          }),
-          interactive: false,
-          zIndexOffset: 3000,
-        }).addTo(layer);
-
-        // Origin dot
-        L.circleMarker([selectedDriver.current_lat!, selectedDriver.current_lon!], {
-          radius: 7, color: "#fff", weight: 2, fillColor: lineColor, fillOpacity: 1,
-        }).addTo(layer);
-
-        // Destination dot
-        L.circleMarker([effectiveTarget.latitude, effectiveTarget.longitude], {
-          radius: 8, color: "#fff", weight: 2.5, fillColor: lineColor, fillOpacity: 1,
-        }).addTo(layer);
-
+        if (cancelled) return;
+        setRouteGeom({ coords, points: routePoints });
         setRouteEta({ distKm, minutes });
         setIsRouting(false);
-
         mapRef.current?.flyToBounds(
-          L.latLngBounds(coords),
-          { padding: [90, 90], maxZoom: 11, duration: 1.6 }
+          L.latLngBounds(coords), { padding: [90, 90], maxZoom: 11, duration: 1.6 },
         );
       })
       .catch(() => {
-        // Fallback: straight dashed line
-        const from: [number, number] = [selectedDriver.current_lat!, selectedDriver.current_lon!];
-        const to:   [number, number] = [effectiveTarget.latitude, effectiveTarget.longitude];
-        L.polyline([from, to], {
-          color: "#7c3aed", weight: 3, opacity: 0.7, dashArray: "8 8",
-        }).addTo(layer);
+        if (cancelled) return;
+        // Fallback: straight segments through the waypoints.
+        const latlngs = routePoints.map((p) => [p.lat, p.lon] as [number, number]);
+        setRouteGeom({ coords: latlngs, points: routePoints });
+        setRouteEta(null);
         setIsRouting(false);
-        mapRef.current?.flyToBounds(L.latLngBounds([from, to]), { padding: [80, 80], maxZoom: 11 });
+        mapRef.current?.flyToBounds(L.latLngBounds(latlngs), { padding: [80, 80], maxZoom: 11 });
       });
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDriverId, activeJob?.id, effectiveTarget?.id]);
+  }, [routePoints]);
+
+  // Re-evaluate GPS staleness once a minute so the line greys out live.
+  const [gpsTick, setGpsTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setGpsTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // ── Draw route (cheap: redraws from cached geometry) ──────────────────────
+  useEffect(() => {
+    const layer = routeLayerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    if (!routeGeom) return;
+    void gpsTick; // dependency: forces recolour when GPS goes stale
+
+    // Grey when GPS hasn't pinged in 15 min — signals "GPS not being used".
+    const lastUpdate = selectedDriver?.last_update_time
+      ? new Date(selectedDriver.last_update_time).getTime()
+      : 0;
+    const gpsStale = !lastUpdate || Date.now() - lastUpdate > GPS_STALE_MS;
+    const s = STATUS_MAP[selectedDriver?.status ?? ""] ?? DEF_STATUS;
+    const isDelayed = selectedDriver?.status === "DELAYED";
+    const lineColor = gpsStale ? GPS_STALE_COLOR : isDelayed ? "#dc2626" : s.bg;
+
+    const { coords, points } = routeGeom;
+
+    // Glow / halo underlay
+    L.polyline(coords, {
+      color: lineColor, weight: 14, opacity: 0.12, lineCap: "round", lineJoin: "round",
+    }).addTo(layer);
+    // White border (road feel)
+    L.polyline(coords, {
+      color: "#fff", weight: 7, opacity: 0.7, lineCap: "round", lineJoin: "round",
+    }).addTo(layer);
+    // Main coloured route
+    L.polyline(coords, {
+      color: lineColor, weight: 5, opacity: 0.95, lineCap: "round", lineJoin: "round",
+    }).addTo(layer);
+    // Animated dashes overlay (skip when greyed to reinforce "not live")
+    if (!gpsStale) {
+      L.polyline(coords, {
+        color: "#fff", weight: 2, opacity: 0.9, lineCap: "round",
+        dashArray: "1 16", className: "route-anim",
+      }).addTo(layer);
+    }
+
+    // ETA chip at midpoint (only when we have a real ETA)
+    if (routeEta) {
+      const mid = coords[Math.floor(coords.length / 2)];
+      L.marker(mid, {
+        icon: L.divIcon({ className: "", html: etaHtml(routeEta.distKm, routeEta.minutes), iconAnchor: [80, 16] }),
+        interactive: false,
+        zIndexOffset: 3000,
+      }).addTo(layer);
+    }
+
+    // Stop dots: emphasised endpoints, smaller intermediate stops.
+    points.forEach((p, i) => {
+      const isFirst = i === 0;
+      const isLast = i === points.length - 1;
+      L.circleMarker([p.lat, p.lon], {
+        radius: isFirst || isLast ? (isLast ? 8 : 7) : 5,
+        color: "#fff",
+        weight: isLast ? 2.5 : isFirst ? 2 : 1.5,
+        fillColor: lineColor,
+        fillOpacity: isFirst || isLast ? 1 : 0.9,
+      }).addTo(layer);
+    });
+  }, [routeGeom, routeEta, gpsTick, selectedDriver?.last_update_time, selectedDriver?.status]);
+
+  // ── GPS breadcrumb trail (orange circles) ────────────────────────────────
+  // One small orange dot per received coordinate so you can see where the
+  // selected driver has been along the road. Latest ping is emphasised.
+  useEffect(() => {
+    const layer = breadcrumbLayerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    if (!selectedDriverId || !breadcrumbs || breadcrumbs.length === 0) return;
+
+    const last = breadcrumbs.length - 1;
+    breadcrumbs.forEach((b, i) => {
+      const isLatest = i === last;
+      L.circleMarker([b.lat, b.lon], {
+        radius: isLatest ? 6 : 4,
+        color: "#fff",
+        weight: isLatest ? 2 : 1,
+        fillColor: "#f97316",
+        fillOpacity: isLatest ? 1 : 0.85,
+      })
+        .bindTooltip(
+          new Date(b.created_at).toLocaleTimeString([], {
+            hour: "2-digit", minute: "2-digit", hour12: false,
+          }),
+          { direction: "top" },
+        )
+        .addTo(layer);
+    });
+  }, [breadcrumbs, selectedDriverId]);
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   const stats = useMemo(() => ({
@@ -531,13 +635,13 @@ export function LiveMap({ drivers, warehouses, jobs, selectedDriverId, onSelectD
         )}
 
         {/* Route ETA if available */}
-        {routeEta && effectiveTarget && (
+        {routeEta && routeTarget && (
           <div className="rounded-lg px-3 py-2 bg-slate-900 text-white flex items-center gap-0">
             <div className="flex-1 text-center">
               <p className="text-base font-black leading-none">{routeEta.distKm.toFixed(1)}</p>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
-                km · {effectiveTarget.code}
-                {manualTargetWh && <span className="text-orange-400"> manual</span>}
+                km · {routeTarget.code}
+                {routeTarget.manual && <span className="text-orange-400"> manual</span>}
               </p>
             </div>
             <div className="w-px h-6 bg-white/10" />

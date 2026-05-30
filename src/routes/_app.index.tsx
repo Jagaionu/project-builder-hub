@@ -8,6 +8,7 @@ import { ClientOnly } from "@/components/ClientOnly";
 import { haversineKm, etaMinutes } from "@/lib/geo";
 import { ArrowLeft, Navigation, Clock, Radio, X } from "lucide-react";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
+import { useDriverPositions } from "@/lib/use-driver-positions";
 import { effectiveDriverStatus } from "@/lib/effective-status";
 
 const LiveMap = lazy(() => import("@/components/LiveMap").then((m) => ({ default: m.LiveMap })));
@@ -82,6 +83,9 @@ function LiveDashboard() {
 
   const selectedDriver = drivers.find((d) => d.id === selected) ?? null;
   const selectedDriverActiveJobs = selected ? activeJobsByDriver[selected] ?? [] : [];
+  // GPS breadcrumb trail for the selected driver — refetched whenever a new
+  // ping lands (last_update_time bumps via the drivers realtime stream).
+  const breadcrumbs = useDriverPositions(selected, selectedDriver?.last_update_time ?? null);
   const selectedJob = useMemo(
     () => jobs.find((j) => j.assigned_driver_id === selected &&
       ["ASSIGNED","IN_PROGRESS","ARRIVED_PICKUP","EN_ROUTE_DELIVERY"].includes(j.status)),
@@ -141,6 +145,8 @@ function LiveDashboard() {
                 drivers={mapDrivers}
                 warehouses={mapWarehouses}
                 jobs={mapJobs}
+                jobStops={stopsMap}
+                breadcrumbs={breadcrumbs}
                 selectedDriverId={selected}
                 onSelectDriver={setSelected}
               />
@@ -207,6 +213,12 @@ function LiveDashboard() {
                       <div className="grid grid-cols-2 gap-1.5">
                         <MetricPill label="Dist" value={`${distKm.toFixed(1)} km`} />
                         <MetricPill label="ETA"  value={`${etaMinutes(distKm)} min`} />
+                      </div>
+                    )}
+                    {selectedDriver.current_lat != null && selectedDriver.current_lon != null && (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <MetricPill label="Lat" value={selectedDriver.current_lat.toFixed(6)} />
+                        <MetricPill label="Lon" value={selectedDriver.current_lon.toFixed(6)} />
                       </div>
                     )}
                   </div>
