@@ -1,17 +1,24 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense, useMemo, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { z } from "zod";
 import { useDrivers, useJobs, useWarehouses } from "@/lib/hooks";
+import { useJobStops } from "@/lib/dispatch/use-job-stops";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ClientOnly } from "@/components/ClientOnly";
 import { haversineKm, etaMinutes } from "@/lib/geo";
-import { Navigation, Clock, Radio } from "lucide-react";
+import { ArrowLeft, Navigation, Clock, Radio, X } from "lucide-react";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
 import { effectiveDriverStatus } from "@/lib/effective-status";
 
 const LiveMap = lazy(() => import("@/components/LiveMap").then((m) => ({ default: m.LiveMap })));
 
+const indexSearchSchema = z.object({
+  focusJob: z.string().optional(),
+});
+
 export const Route = createFileRoute("/_app/")({
   component: LiveDashboard,
+  validateSearch: indexSearchSchema,
   head: () => ({
     meta: [
       { title: "Live Map — Planning System" },
