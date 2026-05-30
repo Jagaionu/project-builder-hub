@@ -110,6 +110,24 @@
   --border: oklch(0.26 0.018 245);
   --input:  oklch(0.20 0.018 245);
   --ring:   oklch(0.62 0.22 245);
+
+  /* Shift calendar — semantic tokens used by ShiftCalendar */
+  --shift-working:        oklch(0.62 0.22 245 / 0.15);
+  --shift-working-border: oklch(0.62 0.22 245 / 0.45);
+  --shift-working-fg:     oklch(0.85 0.05 240);
+
+  --shift-holiday:        oklch(0.55 0.22 25 / 0.20);
+  --shift-holiday-border: oklch(0.55 0.22 25 / 0.45);
+  --shift-holiday-fg:     oklch(0.72 0.18 25);
+
+  --shift-extra:          oklch(0.55 0.18 145 / 0.20);
+  --shift-extra-border:   oklch(0.55 0.18 145 / 0.45);
+  --shift-extra-fg:       oklch(0.72 0.15 145);
+
+  --shift-off-fg:            oklch(0.50 0.012 240);
+  --shift-today-ring:        oklch(0.62 0.22 245);
+  --shift-pattern-off:       oklch(0.25 0.01 240);
+  --shift-pattern-off-fg:    oklch(0.55 0.01 240);
 }
 
 /* ─────────────────────────────────────────────

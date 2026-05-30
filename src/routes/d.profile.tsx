@@ -32,13 +32,10 @@ function ProfilePage() {
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <CalendarDays size={18} style={{ color: "oklch(0.62 0.22 245)" }} />
-            <h2 className="text-base font-bold text-foreground">My Schedule</h2>
+          <h2 className="text-base font-bold text-foreground">My Schedule</h2>
           </div>
-          <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-            Select your regular working days. Tap a working day to mark it off. Tap any grey day to
-            add it as an extra working day.
-          </p>
           <ShiftCalendar driverId={driver.id} isPlanner={false} />
+
         </div>
       )}
 
