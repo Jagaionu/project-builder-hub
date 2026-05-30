@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useDriverStore } from "@/lib/driver-store";
 import { driverLogout } from "@/lib/driver-auth";
 import { ShiftCalendar } from "@/components/driver/ShiftCalendar";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { CalendarDays } from "lucide-react";
 
 export const Route = createFileRoute("/d/profile")({
@@ -38,6 +39,15 @@ function ProfilePage() {
 
         </div>
       )}
+
+      {/* Appearance */}
+      <div className="bg-card border border-border rounded-2xl p-4 mb-4 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Appearance</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Light, dark, or follow your device</p>
+        </div>
+        <ThemeToggle />
+      </div>
 
       {/* Sign out */}
       <button
