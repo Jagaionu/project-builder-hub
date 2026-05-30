@@ -26,17 +26,34 @@ export function ToolbarButton({
       disabled={disabled}
       title={title}
       className={cn(
-        "inline-flex items-center gap-1 rounded px-2 py-1.5 text-[11px] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed",
+        "inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium tracking-tight",
+        "transition-all duration-150 ease-out",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+        "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
+        "active:scale-[0.98]",
         primary
-          ? "bg-primary text-primary-foreground shadow-sm hover:shadow-md"
-          : "bg-surface border border-border text-foreground hover:bg-surface-2 shadow-sm",
+          ? [
+              "bg-primary text-primary-foreground",
+              "shadow-[0_1px_0_0_color-mix(in_oklab,white_15%,transparent)_inset,0_1px_2px_0_color-mix(in_oklab,black_30%,transparent)]",
+              "hover:bg-[color:color-mix(in_oklab,var(--color-primary)_92%,white)]",
+            ].join(" ")
+          : [
+              "bg-surface text-foreground border border-border",
+              "shadow-[0_1px_0_0_color-mix(in_oklab,white_4%,transparent)_inset,0_1px_2px_0_color-mix(in_oklab,black_20%,transparent)]",
+              "hover:bg-surface-2 hover:border-[color:var(--border-strong)] hover:text-foreground",
+            ].join(" "),
       )}
     >
-      {icon && <span className="size-3">{icon}</span>}
-      {children}
+      {icon && (
+        <span className={cn("inline-flex items-center justify-center [&_svg]:size-3.5", primary ? "opacity-90" : "text-muted-foreground")}>
+          {icon}
+        </span>
+      )}
+      <span className="leading-none">{children}</span>
     </button>
   );
 }
+
 
 // ── ImportCsvButton ─────────────────────────────────────────────────────────
 
