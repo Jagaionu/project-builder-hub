@@ -1,2 +1,9 @@
 User-agent: *
-Disallow: /
+Allow: /$
+Allow: /login
+Disallow: /d
+Disallow: /admin
+Disallow: /api/
+Disallow: /_app
+
+Sitemap: https://theprimeroute.co.uk/sitemap.xml
