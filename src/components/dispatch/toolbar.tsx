@@ -119,7 +119,7 @@ export function DispatchStat({
         {label}
       </div>
       <div
-        className="font-mono font-bold leading-none mt-1 text-[1.35rem] tabular-nums text-white"
+        className="font-mono font-bold leading-none mt-1 text-[1.35rem] tabular-nums text-foreground"
       >
         {value}
       </div>
