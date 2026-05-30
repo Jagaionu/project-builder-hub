@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { Sidebar } from "@/components/Sidebar";
+import { AIChatWidget } from "@/components/ai/ChatWidget";
 import { TenantProvider } from "@/lib/tenant-context";
 import { supabase } from "@/integrations/supabase/client";
 import type { AuthContext, Company, MemberRole } from "@/lib/types";
@@ -83,6 +84,7 @@ function AppLayout() {
         <main className="flex-1 min-w-0 overflow-hidden">
           <Outlet />
         </main>
+        <AIChatWidget />
       </div>
     </TenantProvider>
   );
