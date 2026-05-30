@@ -564,9 +564,9 @@ function DispatchPage() {
             disabled={planning}
             title="Auto-assign drivers to all pending routes across every date"
             primary
-            icon={<Sparkles className="size-3.5" />}
+            icon={<BrainCircuit className="size-3.5" />}
           >
-            {planning ? "Planning…" : "Plan"}
+            {planning ? "Planning…" : "Planning"}
           </ToolbarButton>
           <AuditPlanButton />
           <ImportCsvButton />
