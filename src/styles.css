@@ -7,11 +7,6 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ─────────────────────────────────────────────
-   GOOGLE FONTS (loaded above to satisfy CSS @import-first rule)
-   ───────────────────────────────────────────── */
-
-
-/* ─────────────────────────────────────────────
    THEME TOKENS → TAILWIND UTILITIES
    ───────────────────────────────────────────── */
 @theme inline {
@@ -50,68 +45,167 @@
   --color-warning:           var(--warning);
   --color-info:              var(--info);
 
-  /* Shadow scale */
-  --shadow-xs:  0 1px 2px 0 oklch(0 0 0 / 0.25);
-  --shadow-sm:  0 1px 3px 0 oklch(0 0 0 / 0.3), 0 1px 2px -1px oklch(0 0 0 / 0.3);
-  --shadow-md:  0 4px 6px -1px oklch(0 0 0 / 0.35), 0 2px 4px -2px oklch(0 0 0 / 0.35);
-  --shadow-lg:  0 10px 15px -3px oklch(0 0 0 / 0.4), 0 4px 6px -4px oklch(0 0 0 / 0.4);
-  --shadow-xl:  0 20px 25px -5px oklch(0 0 0 / 0.45), 0 8px 10px -6px oklch(0 0 0 / 0.45);
+  /* Shadow scale (driven by per-theme --shadow-color) */
+  --shadow-xs:  0 1px 2px 0 var(--shadow-color-soft);
+  --shadow-sm:  0 1px 3px 0 var(--shadow-color-soft), 0 1px 2px -1px var(--shadow-color-soft);
+  --shadow-md:  0 4px 6px -1px var(--shadow-color), 0 2px 4px -2px var(--shadow-color);
+  --shadow-lg:  0 10px 15px -3px var(--shadow-color), 0 4px 6px -4px var(--shadow-color);
+  --shadow-xl:  0 20px 25px -5px var(--shadow-color-strong), 0 8px 10px -6px var(--shadow-color-strong);
   --shadow-glow-primary: 0 0 20px oklch(0.62 0.22 245 / 0.25);
   --shadow-glow-success: 0 0 20px oklch(0.73 0.17 150 / 0.25);
   --shadow-glow-destructive: 0 0 20px oklch(0.65 0.22 20 / 0.25);
 }
 
 /* ─────────────────────────────────────────────
-   COLOUR PALETTE  —  Deep professional dark
-   Every colour in oklch(lightness chroma hue)
+   LIGHT THEME  (default :root)
    ───────────────────────────────────────────── */
 :root {
+  color-scheme: light;
   --radius: 0.5rem;
 
-  /* Backgrounds — layered elevation */
-  --background:  oklch(0.13 0.016 245);   /* deepest layer  */
-  --surface:     oklch(0.17 0.018 245);   /* cards, panels  */
-  --surface-2:   oklch(0.205 0.020 245);  /* hover / raised */
-  --surface-3:   oklch(0.245 0.022 245);  /* highest layer  */
+  /* Backgrounds — layered elevation, near-white with subtle blue tint */
+  --background:  oklch(0.99 0.003 245);
+  --surface:     oklch(1.00 0.000 0);
+  --surface-2:   oklch(0.97 0.006 245);
+  --surface-3:   oklch(0.94 0.010 245);
+
+  /* Sidebar gradient stops (used by Sidebar component) */
+  --sidebar-bg-1: oklch(0.98 0.006 245);
+  --sidebar-bg-2: oklch(0.96 0.008 245);
+  --sidebar-divider: oklch(0.88 0.010 245);
 
   /* Text */
-  --foreground:  oklch(0.95 0.006 240);
-  --card-foreground:   oklch(0.95 0.006 240);
-  --popover-foreground:oklch(0.95 0.006 240);
+  --foreground:        oklch(0.20 0.020 245);
+  --card-foreground:   oklch(0.20 0.020 245);
+  --popover-foreground:oklch(0.20 0.020 245);
 
   /* Card / Popover surfaces */
   --card:    var(--surface);
+  --popover: oklch(1 0 0);
+
+  /* Primary — electric blue, slightly deeper for contrast on white */
+  --primary:            oklch(0.55 0.22 245);
+  --primary-foreground: oklch(0.99 0.004 240);
+  --primary-bright:     oklch(0.50 0.22 245);
+  --primary-2:          oklch(0.50 0.20 260);
+
+  /* Secondary */
+  --secondary:            oklch(0.94 0.010 245);
+  --secondary-foreground: oklch(0.25 0.020 245);
+
+  /* Muted */
+  --muted:            oklch(0.94 0.010 245);
+  --muted-foreground: oklch(0.48 0.018 245);
+  --muted-foreground-2: oklch(0.58 0.016 245);
+
+  /* Accent — amber */
+  --accent:            oklch(0.72 0.18 72);
+  --accent-foreground: oklch(0.20 0.020 245);
+
+  /* Semantic */
+  --destructive:            oklch(0.58 0.22 20);
+  --destructive-foreground: oklch(0.99 0.004 240);
+  --destructive-fg:         oklch(0.50 0.22 20);
+  --success:                oklch(0.58 0.17 150);
+  --success-fg:             oklch(0.42 0.16 150);
+  --warning:                oklch(0.70 0.18 72);
+  --warning-fg:             oklch(0.50 0.18 72);
+  --info:                   oklch(0.55 0.16 230);
+  --info-fg:                oklch(0.42 0.14 230);
+
+  /* Structural */
+  --border:         oklch(0.88 0.010 245);
+  --border-strong:  oklch(0.80 0.012 245);
+  --border-stronger:oklch(0.72 0.014 245);
+  --input:          oklch(1.00 0 0);
+  --ring:           oklch(0.55 0.22 245);
+
+  /* Glass / blur fills */
+  --glass-bg: oklch(1 0 0 / 0.75);
+
+  /* Shadow colors */
+  --shadow-color-soft:   oklch(0.20 0.020 245 / 0.06);
+  --shadow-color:        oklch(0.20 0.020 245 / 0.10);
+  --shadow-color-strong: oklch(0.20 0.020 245 / 0.16);
+
+  /* Shift calendar */
+  --shift-working:        oklch(0.55 0.22 245 / 0.12);
+  --shift-working-border: oklch(0.55 0.22 245 / 0.45);
+  --shift-working-fg:     oklch(0.38 0.18 245);
+
+  --shift-holiday:        oklch(0.58 0.22 25 / 0.16);
+  --shift-holiday-border: oklch(0.58 0.22 25 / 0.45);
+  --shift-holiday-fg:     oklch(0.48 0.20 25);
+
+  --shift-extra:          oklch(0.58 0.18 145 / 0.18);
+  --shift-extra-border:   oklch(0.58 0.18 145 / 0.45);
+  --shift-extra-fg:       oklch(0.40 0.16 145);
+
+  --shift-off-fg:         oklch(0.55 0.012 240);
+  --shift-today-ring:     oklch(0.55 0.22 245);
+  --shift-pattern-off:    oklch(0.92 0.008 240);
+  --shift-pattern-off-fg: oklch(0.58 0.012 240);
+}
+
+/* ─────────────────────────────────────────────
+   DARK THEME (applied via .dark on <html>)
+   ───────────────────────────────────────────── */
+.dark {
+  color-scheme: dark;
+
+  --background:  oklch(0.13 0.016 245);
+  --surface:     oklch(0.17 0.018 245);
+  --surface-2:   oklch(0.205 0.020 245);
+  --surface-3:   oklch(0.245 0.022 245);
+
+  --sidebar-bg-1: oklch(0.15 0.018 245);
+  --sidebar-bg-2: oklch(0.13 0.016 245);
+  --sidebar-divider: oklch(0.20 0.016 245);
+
+  --foreground:        oklch(0.95 0.006 240);
+  --card-foreground:   oklch(0.95 0.006 240);
+  --popover-foreground:oklch(0.95 0.006 240);
+
+  --card:    var(--surface);
   --popover: oklch(0.18 0.020 245);
 
-  /* Primary — electric blue, punchy but not harsh */
   --primary:            oklch(0.62 0.22 245);
   --primary-foreground: oklch(0.98 0.004 240);
+  --primary-bright:     oklch(0.75 0.18 245);
+  --primary-2:          oklch(0.55 0.20 260);
 
-  /* Secondary — subtle raised surface */
   --secondary:            oklch(0.22 0.020 245);
   --secondary-foreground: oklch(0.88 0.008 240);
 
-  /* Muted */
   --muted:            oklch(0.22 0.018 245);
   --muted-foreground: oklch(0.58 0.016 245);
+  --muted-foreground-2: oklch(0.45 0.012 245);
 
-  /* Accent — amber, used for highlights & warnings */
   --accent:            oklch(0.80 0.18 72);
   --accent-foreground: oklch(0.13 0.016 245);
 
-  /* Semantic */
   --destructive:            oklch(0.63 0.22 20);
   --destructive-foreground: oklch(0.98 0.004 240);
-  --success:  oklch(0.73 0.17 150);
-  --warning:  oklch(0.80 0.18 72);
-  --info:     oklch(0.68 0.16 230);
+  --destructive-fg:         oklch(0.72 0.18 20);
+  --success:                oklch(0.73 0.17 150);
+  --success-fg:             oklch(0.78 0.14 150);
+  --warning:                oklch(0.80 0.18 72);
+  --warning-fg:             oklch(0.80 0.16 72);
+  --info:                   oklch(0.68 0.16 230);
+  --info-fg:                oklch(0.73 0.13 230);
 
-  /* Structural */
-  --border: oklch(0.26 0.018 245);
-  --input:  oklch(0.20 0.018 245);
-  --ring:   oklch(0.62 0.22 245);
+  --border:         oklch(0.26 0.018 245);
+  --border-strong:  oklch(0.30 0.020 245);
+  --border-stronger:oklch(0.35 0.020 245);
+  --input:          oklch(0.20 0.018 245);
+  --ring:           oklch(0.62 0.22 245);
 
-  /* Shift calendar — semantic tokens used by ShiftCalendar */
+  --glass-bg: oklch(0.17 0.018 245 / 0.85);
+
+  --shadow-color-soft:   oklch(0 0 0 / 0.25);
+  --shadow-color:        oklch(0 0 0 / 0.35);
+  --shadow-color-strong: oklch(0 0 0 / 0.45);
+
   --shift-working:        oklch(0.62 0.22 245 / 0.15);
   --shift-working-border: oklch(0.62 0.22 245 / 0.45);
   --shift-working-fg:     oklch(0.85 0.05 240);
@@ -133,7 +227,6 @@
 /* ─────────────────────────────────────────────
    BASE RESET & GLOBAL STYLES
    ───────────────────────────────────────────── */
-.dark { color-scheme: dark; }
 
 @layer base {
   *, *::before, *::after {
@@ -147,9 +240,7 @@
   }
 
   html {
-    /* Smooth scrolling everywhere */
     scroll-behavior: smooth;
-    /* Prevent layout shift from scrollbar appearing */
     scrollbar-gutter: stable;
   }
 
@@ -170,34 +261,30 @@
     font-family: var(--font-sans);
   }
 
-  /* Refined text selection */
   ::selection {
     background-color: oklch(0.62 0.22 245 / 0.35);
     color: var(--color-foreground);
   }
 
-  /* Custom scrollbar — subtle and dark-theme-native */
+  /* Custom scrollbar — theme-aware */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: oklch(0.30 0.018 245);
+    background: var(--border-strong);
     border-radius: 999px;
     transition: background 0.2s ease;
   }
-  ::-webkit-scrollbar-thumb:hover { background: oklch(0.40 0.020 245); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-stronger); }
   ::-webkit-scrollbar-corner { background: transparent; }
 
-  /* Typography scale */
   h1, h2, h3, h4, h5, h6 {
     font-weight: 600;
     letter-spacing: -0.02em;
     line-height: 1.2;
   }
 
-  /* Mono utility */
   .font-mono { font-family: var(--font-mono); }
 
-  /* Focus ring — consistent across all interactive elements */
   :focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
@@ -207,8 +294,6 @@
 
 /* ─────────────────────────────────────────────
    GLOBAL TRANSITIONS
-   Apply smooth transitions to all common
-   interactive elements automatically.
    ───────────────────────────────────────────── */
 @layer base {
   a, button, [role="button"],
@@ -220,7 +305,6 @@
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* Slightly longer for larger elements like panels/cards */
   dialog, [role="dialog"], [data-panel] {
     transition-duration: 200ms;
   }
@@ -230,23 +314,20 @@
    COMPONENT UTILITY CLASSES
    ───────────────────────────────────────────── */
 
-/* Glass card — for overlays, tooltips, popovers */
 .glass {
-  background: oklch(0.17 0.018 245 / 0.85);
+  background: var(--glass-bg);
   backdrop-filter: blur(12px) saturate(1.4);
   -webkit-backdrop-filter: blur(12px) saturate(1.4);
-  border: 1px solid oklch(0.30 0.020 245 / 0.6);
+  border: 1px solid var(--border-strong);
 }
 
-/* Subtle inner glow on elevated cards */
 .card-glow {
   box-shadow:
     inset 0 1px 0 0 oklch(1 0 0 / 0.04),
-    0 4px 6px -1px oklch(0 0 0 / 0.35),
-    0 2px 4px -2px oklch(0 0 0 / 0.35);
+    0 4px 6px -1px var(--shadow-color),
+    0 2px 4px -2px var(--shadow-color);
 }
 
-/* Gradient border — for highlighted/active cards */
 .border-gradient {
   position: relative;
   border: 1px solid transparent;
@@ -259,12 +340,11 @@
   border-radius: inherit;
   background: linear-gradient(135deg,
     oklch(0.62 0.22 245 / 0.5) 0%,
-    oklch(0.26 0.018 245) 50%,
+    var(--border) 50%,
     oklch(0.73 0.17 150 / 0.3) 100%);
   z-index: -1;
 }
 
-/* Status dot — reusable pulsing indicator */
 .status-dot {
   display: inline-block;
   width: 7px; height: 7px;
@@ -273,7 +353,6 @@
 }
 .status-dot-pulse { animation: pulse-ring 2s ease infinite; }
 
-/* Table row hover — smooth */
 .table-row-hover {
   transition: background-color 120ms ease;
 }
@@ -281,7 +360,6 @@
   background-color: var(--color-surface-2);
 }
 
-/* Sidebar nav item */
 .nav-item {
   display: flex;
   align-items: center;
@@ -308,7 +386,6 @@
   background-color: oklch(0.62 0.22 245 / 0.18);
 }
 
-/* Stat card */
 .stat-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -317,11 +394,10 @@
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 .stat-card:hover {
-  border-color: oklch(0.35 0.020 245);
-  box-shadow: 0 4px 12px oklch(0 0 0 / 0.3);
+  border-color: var(--border-stronger);
+  box-shadow: var(--shadow-md);
 }
 
-/* Input fields */
 .field-input {
   width: 100%;
   height: 2.25rem;
@@ -334,14 +410,13 @@
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 .field-input::placeholder { color: var(--color-muted-foreground); }
-.field-input:hover { border-color: oklch(0.35 0.020 245); }
+.field-input:hover { border-color: var(--border-stronger); }
 .field-input:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px oklch(0.62 0.22 245 / 0.15);
 }
 
-/* Badge variants */
 .badge-base {
   display: inline-flex;
   align-items: center;
@@ -353,14 +428,13 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.badge-primary  { background: oklch(0.62 0.22 245 / 0.15); color: oklch(0.75 0.18 245); border: 1px solid oklch(0.62 0.22 245 / 0.3); }
-.badge-success  { background: oklch(0.73 0.17 150 / 0.12); color: oklch(0.78 0.14 150); border: 1px solid oklch(0.73 0.17 150 / 0.3); }
-.badge-warning  { background: oklch(0.80 0.18 72  / 0.12); color: oklch(0.80 0.16 72);  border: 1px solid oklch(0.80 0.18 72  / 0.3); }
-.badge-danger   { background: oklch(0.63 0.22 20  / 0.12); color: oklch(0.72 0.18 20);  border: 1px solid oklch(0.63 0.22 20  / 0.3); }
-.badge-muted    { background: oklch(0.22 0.018 245);        color: var(--color-muted-foreground); border: 1px solid var(--color-border); }
-.badge-info     { background: oklch(0.68 0.16 230 / 0.12); color: oklch(0.75 0.14 230); border: 1px solid oklch(0.68 0.16 230 / 0.3); }
+.badge-primary  { background: oklch(0.62 0.22 245 / 0.15); color: var(--primary-bright); border: 1px solid oklch(0.62 0.22 245 / 0.3); }
+.badge-success  { background: oklch(0.73 0.17 150 / 0.12); color: var(--success-fg); border: 1px solid oklch(0.73 0.17 150 / 0.3); }
+.badge-warning  { background: oklch(0.80 0.18 72  / 0.12); color: var(--warning-fg);  border: 1px solid oklch(0.80 0.18 72  / 0.3); }
+.badge-danger   { background: oklch(0.63 0.22 20  / 0.12); color: var(--destructive-fg);  border: 1px solid oklch(0.63 0.22 20  / 0.3); }
+.badge-muted    { background: var(--secondary); color: var(--color-muted-foreground); border: 1px solid var(--color-border); }
+.badge-info     { background: oklch(0.68 0.16 230 / 0.12); color: var(--info-fg); border: 1px solid oklch(0.68 0.16 230 / 0.3); }
 
-/* Progress bar */
 .progress-track {
   height: 4px;
   background: var(--color-surface-3);
@@ -373,7 +447,6 @@
   transition: width 400ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Divider */
 .divider {
   height: 1px;
   background: linear-gradient(90deg,
@@ -383,7 +456,6 @@
     transparent);
 }
 
-/* Skeleton loader */
 .skeleton {
   background: linear-gradient(90deg,
     var(--color-surface) 25%,
@@ -394,7 +466,6 @@
   border-radius: var(--radius-md);
 }
 
-/* Scanline texture (keep for retro/industrial feel on certain panels) */
 .scanline {
   background-image: repeating-linear-gradient(
     0deg,
@@ -407,8 +478,6 @@
 
 /* ─────────────────────────────────────────────
    PAGE TRANSITIONS
-   Wrap page content in .page-enter to get
-   a smooth fade+slide on route changes.
    ───────────────────────────────────────────── */
 .page-enter {
   animation: page-in 220ms cubic-bezier(0.4, 0, 0.2, 1) both;
@@ -416,13 +485,9 @@
 .page-exit {
   animation: page-out 180ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
-
-/* Slide in from right (for detail pages) */
 .slide-in-right {
   animation: slide-right-in 240ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
-
-/* Fade up — for cards/lists that load in */
 .fade-up {
   animation: fade-up-in 280ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
@@ -466,12 +531,12 @@
 }
 
 /* ─────────────────────────────────────────────
-   MAP OVERRIDES (Leaflet dark theme)
+   MAP OVERRIDES (Leaflet) — dark inversion scoped
    ───────────────────────────────────────────── */
 .leaflet-container {
   background: var(--color-background) !important;
 }
-.leaflet-tile-pane {
+.dark .leaflet-tile-pane {
   filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
 }
 .leaflet-bar a {
@@ -481,6 +546,7 @@
 }
 .leaflet-popup-content-wrapper, .leaflet-popup-tip {
   background: var(--color-surface-2) !important;
+  color: var(--color-foreground) !important;
 }
 .leaflet-popup-content {
   margin: 10px 14px !important;
@@ -492,7 +558,6 @@
    MAP MARKERS
    ───────────────────────────────────────────── */
 
-/* Driver dot — live GPS position */
 .driver-marker {
   position: relative;
   width: 14px; height: 14px;
@@ -510,7 +575,6 @@
   animation: ping-slow 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
-/* Status variants */
 .driver-marker.status-DELAYED {
   background: var(--color-destructive);
   box-shadow: 0 0 0 1px var(--color-destructive), 0 0 14px oklch(0.63 0.22 20 / 0.55);
@@ -538,7 +602,6 @@
   animation-duration: 3s;
 }
 
-/* Warehouse square marker */
 .warehouse-marker {
   width: 24px; height: 24px;
   border-radius: 5px;
@@ -550,15 +613,14 @@
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 10px;
-  box-shadow: 0 2px 10px oklch(0 0 0 / 0.45);
+  box-shadow: var(--shadow-md);
   transition: transform 150ms ease, box-shadow 150ms ease;
 }
 .warehouse-marker:hover {
   transform: scale(1.1);
-  box-shadow: 0 4px 16px oklch(0 0 0 / 0.5);
+  box-shadow: var(--shadow-lg);
 }
 
-/* Route path line */
 .route-line {
   stroke: var(--color-primary);
   stroke-width: 3;
@@ -579,10 +641,10 @@
   position: fixed;
   bottom: 0; left: 0; right: 0;
   height: 64px;
-  background: oklch(0.15 0.018 245 / 0.92);
+  background: color-mix(in oklab, var(--color-background) 92%, transparent);
   backdrop-filter: blur(16px) saturate(1.6);
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  border-top: 1px solid oklch(0.26 0.018 245 / 0.6);
+  border-top: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -629,16 +691,16 @@
 }
 .driver-job-card:active { transform: scale(0.985); }
 .driver-job-card:hover {
-  border-color: oklch(0.35 0.020 245);
-  box-shadow: 0 8px 24px oklch(0 0 0 / 0.35);
+  border-color: var(--border-stronger);
+  box-shadow: var(--shadow-lg);
 }
 .driver-job-card.active-job {
   border-color: oklch(0.62 0.22 245 / 0.5);
-  box-shadow: 0 0 0 1px oklch(0.62 0.22 245 / 0.15), 0 8px 24px oklch(0 0 0 / 0.35);
+  box-shadow: 0 0 0 1px oklch(0.62 0.22 245 / 0.15), var(--shadow-lg);
 }
 
 /* ─────────────────────────────────────────────
-   SHIFT TOGGLE — the big driver on/off button
+   SHIFT TOGGLE
    ───────────────────────────────────────────── */
 .shift-toggle-off {
   background: var(--color-surface-2);
@@ -717,7 +779,7 @@
 .table-container thead th {
   position: sticky;
   top: 0;
-  background: oklch(0.15 0.018 245 / 0.95);
+  background: color-mix(in oklab, var(--color-surface) 95%, transparent);
   backdrop-filter: blur(4px);
   padding: 0.5rem 0.75rem;
   text-align: left;
@@ -731,7 +793,7 @@
   white-space: nowrap;
 }
 .table-container tbody tr {
-  border-bottom: 1px solid oklch(0.26 0.018 245 / 0.5);
+  border-bottom: 1px solid var(--color-border);
   transition: background-color 100ms ease;
 }
 .table-container tbody tr:last-child { border-bottom: none; }
