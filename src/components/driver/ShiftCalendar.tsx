@@ -7,8 +7,6 @@ import type { DriverAvailabilityOverride } from "@/lib/types";
 
 const DAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_ISO = [1, 2, 3, 4, 5, 6, 0];
-const HELPER =
-  "Tap weekdays to set your regular pattern. Tap any calendar day to add a holiday or extra shift.";
 
 interface ShiftCalendarProps {
   driverId: string;
@@ -31,9 +29,9 @@ function todayLocalDateString() {
 }
 
 const CELL_BASE =
-  "relative aspect-square rounded-lg border text-xs font-medium flex items-center justify-center " +
+  "relative aspect-square rounded-md border text-[10px] font-medium flex items-center justify-center " +
   "transition active:scale-95 hover:brightness-110 focus-visible:outline-none " +
-  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 " +
+  "focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 " +
   "focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100";
 
 function cellClass(type: DayType, isToday: boolean, isPast: boolean) {
@@ -47,7 +45,7 @@ function cellClass(type: DayType, isToday: boolean, isPast: boolean) {
           : "bg-transparent border-transparent text-[var(--shift-off-fg)]";
 
   const today = isToday
-    ? " ring-2 ring-[var(--shift-today-ring)] font-bold"
+    ? " ring-1 ring-[var(--shift-today-ring)] font-bold"
     : "";
   const past = isPast ? " opacity-40" : "";
   return `${CELL_BASE} ${variant}${today}${past}`;
@@ -178,7 +176,7 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
   const firstOffset = firstDay === 0 ? 6 : firstDay - 1;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = todayLocalDateString();
-  const monthName = currentMonth.toLocaleString("default", { month: "long", year: "numeric" });
+  const monthName = currentMonth.toLocaleString("default", { month: "short", year: "numeric" });
   const isCurrentMonth =
     year === new Date().getFullYear() && month === new Date().getMonth();
 
@@ -206,15 +204,13 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
   };
 
   return (
-    <div className="space-y-4">
-      <p className="text-xs text-muted-foreground leading-relaxed">{HELPER}</p>
-
+    <div className="space-y-3">
       {/* Weekly pattern */}
-      <div className="bg-card border border-border rounded-xl p-4">
-        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+      <div className="bg-card/50 border border-border/50 rounded-lg p-3">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
           Weekly Pattern
         </p>
-        <div className="flex gap-1.5">
+        <div className="flex gap-1">
           {DAYS_SHORT.map((day, i) => {
             const iso = DAY_ISO[i];
             const active = selectedDays.includes(iso);
@@ -224,11 +220,11 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
                 type="button"
                 onClick={() => toggleDay(iso)}
                 className={
-                  "flex-1 py-2.5 rounded-lg text-xs font-bold transition active:scale-95 " +
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+                  "flex-1 py-1.5 rounded-md text-[10px] font-bold transition active:scale-95 " +
+                  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
                   (active
-                    ? "bg-primary text-primary-foreground shadow-[0_0_12px_oklch(0.62_0.22_245/0.35)]"
-                    : "bg-[var(--shift-pattern-off)] text-[var(--shift-pattern-off-fg)] hover:brightness-110")
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted/30 text-muted-foreground hover:bg-muted/50")
                 }
               >
                 {day.slice(0, 2)}
@@ -237,12 +233,12 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
           })}
         </div>
         {patternChanged && (
-          <div className="mt-3 flex gap-2">
+          <div className="mt-2 flex gap-1.5">
             <button
               type="button"
               onClick={discardPattern}
               disabled={saving}
-              className="flex-1 py-2.5 rounded-lg text-sm font-semibold border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition active:scale-95 disabled:opacity-60"
+              className="flex-1 py-1 rounded-md text-[10px] font-semibold border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition active:scale-95 disabled:opacity-60"
             >
               Discard
             </button>
@@ -250,24 +246,24 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
               type="button"
               onClick={savePattern}
               disabled={saving}
-              className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-primary text-primary-foreground transition active:scale-95 disabled:opacity-60"
+              className="flex-1 py-1 rounded-md text-[10px] font-semibold bg-primary text-primary-foreground transition active:scale-95 disabled:opacity-60"
             >
-              {saving ? "Saving…" : "Save Pattern"}
+              {saving ? "…" : "Save"}
             </button>
           </div>
         )}
       </div>
 
       {/* Month grid */}
-      <div className="bg-card border border-border rounded-xl p-4">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-card/50 border border-border/50 rounded-lg p-3">
+        <div className="flex items-center justify-between mb-2">
           <button
             type="button"
             onClick={() => setCurrentMonth(new Date(year, month - 1, 1))}
-            className="p-1.5 rounded-lg hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="p-1 rounded-md hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             aria-label="Previous month"
           >
-            <ChevronLeft size={16} className="text-muted-foreground" />
+            <ChevronLeft size={14} className="text-muted-foreground" />
           </button>
           <button
             type="button"
@@ -276,7 +272,7 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
               setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
             }}
             disabled={isCurrentMonth}
-            className="text-sm font-semibold text-foreground hover:text-primary transition-colors disabled:hover:text-foreground disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-2 py-0.5"
+            className="text-[11px] font-bold text-foreground hover:text-primary transition-colors disabled:hover:text-foreground disabled:cursor-default focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded px-1.5 py-0.5"
             title={isCurrentMonth ? undefined : "Jump to today"}
           >
             {monthName}
@@ -284,18 +280,18 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
           <button
             type="button"
             onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}
-            className="p-1.5 rounded-lg hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="p-1 rounded-md hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             aria-label="Next month"
           >
-            <ChevronRight size={16} className="text-muted-foreground" />
+            <ChevronRight size={14} className="text-muted-foreground" />
           </button>
         </div>
 
-        <div className="grid grid-cols-7 mb-1">
+        <div className="grid grid-cols-7 mb-0.5">
           {DAYS_SHORT.map((d) => (
             <div
               key={d}
-              className="text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground py-1"
+              className="text-center text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 py-0.5"
             >
               {d.slice(0, 2)}
             </div>
@@ -310,7 +306,7 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
             ? Array.from({ length: daysInMonth }).map((_, i) => (
                 <div
                   key={`s${i}`}
-                  className="aspect-square rounded-lg skeleton"
+                  className="aspect-square rounded-md skeleton"
                 />
               ))
             : Array.from({ length: daysInMonth }).map((_, i) => {
@@ -328,7 +324,7 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
                     className={cellClass(type, isToday, isPast)}
                     title={
                       locked
-                        ? "Set by driver — cannot be removed"
+                        ? "Set by driver"
                         : isPast
                           ? "Past date"
                           : undefined
@@ -337,7 +333,7 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
                     {dayNum}
                     {locked && (
                       <Lock
-                        size={7}
+                        size={6}
                         className="absolute bottom-0.5 right-0.5 opacity-60"
                       />
                     )}
@@ -346,16 +342,16 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
               })}
         </div>
 
-        <div className="flex gap-3 mt-4 flex-wrap">
+        <div className="flex gap-2 mt-3 flex-wrap">
           {[
             { cls: "bg-[var(--shift-working)] border-[var(--shift-working-border)]", label: "Working" },
             { cls: "bg-[var(--shift-holiday)] border-[var(--shift-holiday-border)]", label: "Holiday" },
             { cls: "bg-[var(--shift-extra)] border-[var(--shift-extra-border)]", label: "Extra" },
             { cls: "bg-transparent border-border", label: "Off" },
           ].map(({ cls, label }) => (
-            <div key={label} className="flex items-center gap-1.5" title={label}>
-              <div className={`w-3 h-3 rounded-sm border ${cls}`} />
-              <span className="text-[10px] text-muted-foreground">{label}</span>
+            <div key={label} className="flex items-center gap-1" title={label}>
+              <div className={`w-2 h-2 rounded-full border ${cls}`} />
+              <span className="text-[9px] text-muted-foreground/80">{label}</span>
             </div>
           ))}
         </div>

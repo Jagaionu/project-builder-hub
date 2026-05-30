@@ -194,16 +194,14 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
           )}
         </div>
 
-        {/* Right Side: Schedule (Smaller) */}
+        {/* Right Side: Schedule */}
         <div className="col-span-5">
           <div className="rounded-lg border border-border bg-surface p-4">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
               <CalendarDays className="size-3.5" />
               Driver Schedule
             </div>
-            <div className="scale-[0.9] origin-top-left -mr-[11%]">
-              <ShiftCalendar driverId={driver.id} isPlanner={true} />
-            </div>
+            <ShiftCalendar driverId={driver.id} isPlanner={true} />
           </div>
         </div>
       </div>

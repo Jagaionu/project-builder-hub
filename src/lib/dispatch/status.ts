@@ -47,13 +47,13 @@ export const STATUS_CONFIG: Record<
     color: "oklch(0.62 0.22 245)",
   },
   ARRIVED_PICKUP: {
-    label: "In Progress",
+    label: "Arrived Pickup",
     dot: "bg-violet-400",
     badge: "text-violet-500 bg-violet-500/10",
     color: "oklch(0.62 0.22 245)",
   },
   EN_ROUTE_DELIVERY: {
-    label: "In Progress",
+    label: "En Route Delivery",
     dot: "bg-violet-400",
     badge: "text-violet-500 bg-violet-500/10",
     color: "oklch(0.62 0.22 245)",
