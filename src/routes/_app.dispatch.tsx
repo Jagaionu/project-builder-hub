@@ -522,10 +522,7 @@ function DispatchPage() {
     !statusFilter &&
     hiddenStatuses.size === 2 &&
     hiddenStatuses.has("COMPLETED") &&
-    hiddenStatuses.has("CANCELLED") &&
-    !!dateRange?.from &&
-    sameDay(dateRange.from, today) &&
-    sameDay(dateRange.to ?? dateRange.from, today);
+    hiddenStatuses.has("CANCELLED");
 
   const editingJob = editJobId ? (lookups.jobsById.get(editJobId) ?? null) : null;
 
@@ -581,11 +578,30 @@ function DispatchPage() {
 
       {/* Filter bar */}
       <div className="px-5 py-2.5 flex items-center gap-2 border-b border-[oklch(0.20_0.016_245)] bg-[oklch(0.15_0.018_245/0.6)]">
+        <div className="relative flex-1">
+          <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filter by reference, driver, status…"
+            className="w-full h-9 pl-9 pr-8 rounded-md border border-border bg-surface text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
         <Popover>
           <PopoverTrigger asChild>
             <button
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-all",
+                "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-all whitespace-nowrap",
                 "bg-[oklch(0.17_0.018_245)] border-[oklch(0.26_0.018_245)] hover:bg-[oklch(0.20_0.020_245)]",
                 dateRange ? "text-foreground" : "text-muted-foreground",
               )}
@@ -595,7 +611,7 @@ function DispatchPage() {
               <ChevronDown className="size-3" />
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
+          <PopoverContent className="w-auto p-0" align="end">
             <div className="flex items-center gap-1 border-b border-border px-2 py-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
               <button
                 onClick={() => {
@@ -655,88 +671,12 @@ function DispatchPage() {
           </PopoverContent>
         </Popover>
 
-        <div className="relative flex-1 max-w-md">
-          <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter by reference, driver, status…"
-            className="w-full h-9 pl-9 pr-8 rounded-md border border-border bg-surface text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-
-        <div ref={statusMenuRef} className="relative">
-          <button
-            onClick={() => setStatusMenuOpen((o) => !o)}
-            className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs text-foreground transition-all bg-[oklch(0.17_0.018_245)] border-[oklch(0.26_0.018_245)] hover:bg-[oklch(0.20_0.020_245)]"
-          >
-            Statuses
-            <span className="font-mono text-[10px] text-muted-foreground">
-              {JOB_STATUSES.length - hiddenStatuses.size}/{JOB_STATUSES.length}
-            </span>
-            <ChevronDown className="size-3" />
-          </button>
-          {statusMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 z-30 w-56 rounded-xl overflow-hidden bg-[oklch(0.19_0.020_245)] border border-[oklch(0.28_0.020_245)] shadow-[0_8px_24px_oklch(0_0_0/0.45)]">
-              <div className="flex items-center justify-between px-2 py-1.5 border-b border-border text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                <span>Show statuses</span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setHiddenStatuses(new Set())}
-                    className="hover:text-foreground"
-                  >
-                    All
-                  </button>
-                  <button
-                    onClick={() => setHiddenStatuses(new Set(JOB_STATUSES))}
-                    className="hover:text-foreground"
-                  >
-                    None
-                  </button>
-                </div>
-              </div>
-              {JOB_STATUSES.map((s) => {
-                const shown = !hiddenStatuses.has(s);
-                return (
-                  <label
-                    key={s}
-                    className="flex items-center gap-2 px-2.5 py-1.5 text-xs hover:bg-surface-2 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={shown}
-                      onChange={() => toggleStatus(s)}
-                      className="size-3.5 accent-primary"
-                    />
-                    <span className={`size-1.5 rounded-full ${STATUS_CONFIG[s].dot}`} />
-                    <span className="flex-1">{STATUS_CONFIG[s].label}</span>
-                    <span className="font-mono text-[10px] text-muted-foreground">
-                      {statusCounts[s] ?? 0}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
         {!isDefaultFilters && (
           <button
             onClick={() => {
-              const t = startOfDay(new Date());
               setSearch("");
               setStatusFilter(null);
               setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"]));
-              setDateRange({ from: t, to: t });
             }}
             className="rounded-lg border px-2.5 py-1.5 text-xs text-muted-foreground transition-all bg-[oklch(0.17_0.018_245)] border-[oklch(0.26_0.018_245)] hover:text-[oklch(0.95_0.006_240)]"
           >
