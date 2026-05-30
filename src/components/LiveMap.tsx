@@ -310,7 +310,7 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
     drivers.forEach(d => {
       if (d.current_lat == null || d.current_lon == null) return;
       const sel = d.id === selectedDriverId;
-      const sz  = sel ? 42 : 32;
+      const sz  = sel ? 26 : 20;
       const icon = L.divIcon({
         className: "",
         html: driverHtml(d.name, d.status, sel),
