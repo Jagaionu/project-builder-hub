@@ -1,17 +1,24 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense, useMemo, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { z } from "zod";
 import { useDrivers, useJobs, useWarehouses } from "@/lib/hooks";
+import { useJobStops } from "@/lib/dispatch/use-job-stops";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ClientOnly } from "@/components/ClientOnly";
 import { haversineKm, etaMinutes } from "@/lib/geo";
-import { Navigation, Clock, Radio } from "lucide-react";
+import { ArrowLeft, Navigation, Clock, Radio, X } from "lucide-react";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
 import { effectiveDriverStatus } from "@/lib/effective-status";
 
 const LiveMap = lazy(() => import("@/components/LiveMap").then((m) => ({ default: m.LiveMap })));
 
+const indexSearchSchema = z.object({
+  focusJob: z.string().optional(),
+});
+
 export const Route = createFileRoute("/_app/")({
   component: LiveDashboard,
+  validateSearch: indexSearchSchema,
   head: () => ({
     meta: [
       { title: "Live Map — Planning System" },
@@ -24,9 +31,54 @@ function LiveDashboard() {
   const drivers            = useDrivers();
   const warehouses         = useWarehouses();
   const jobs               = useJobs();
+  const stopsMap           = useJobStops();
   const activeJobsByDriver = useActiveJobsByDriver();
+  const { focusJob: focusJobId } = Route.useSearch();
+  const navigate = useNavigate();
   const [selected, setSelected] = useState<string | null>(null);
   const nowMs = Date.now();
+
+  // Resolve focused job + driver (drives the filter + auto-selection).
+  const focusedJob = useMemo(
+    () => (focusJobId ? jobs.find((j) => j.id === focusJobId) ?? null : null),
+    [jobs, focusJobId],
+  );
+  const focusedDriverId = focusedJob
+    ? focusedJob.assigned_driver_id ?? focusedJob.planned_driver_id ?? null
+    : null;
+
+  // When entering focus mode, auto-select the assigned driver.
+  useEffect(() => {
+    if (focusedDriverId) setSelected(focusedDriverId);
+  }, [focusedDriverId]);
+
+  // Build the set of warehouse ids relevant to the focused job (all stops,
+  // falling back to origin+destination on the job row).
+  const focusWhIds = useMemo(() => {
+    if (!focusedJob) return null;
+    const ids = new Set<string>();
+    const stops = stopsMap[focusedJob.id] ?? [];
+    for (const s of stops) ids.add(s.warehouse_id);
+    if (ids.size === 0) {
+      if (focusedJob.origin_warehouse_id) ids.add(focusedJob.origin_warehouse_id);
+      if (focusedJob.destination_warehouse_id) ids.add(focusedJob.destination_warehouse_id);
+    }
+    return ids;
+  }, [focusedJob, stopsMap]);
+
+  // Filtered data passed to the map when focus is active.
+  const mapDrivers = useMemo(
+    () => (focusedDriverId ? drivers.filter((d) => d.id === focusedDriverId) : drivers),
+    [drivers, focusedDriverId],
+  );
+  const mapWarehouses = useMemo(
+    () => (focusWhIds ? warehouses.filter((w) => focusWhIds.has(w.id)) : warehouses),
+    [warehouses, focusWhIds],
+  );
+  const mapJobs = useMemo(
+    () => (focusedJob ? [focusedJob] : jobs),
+    [jobs, focusedJob],
+  );
 
   const selectedDriver = drivers.find((d) => d.id === selected) ?? null;
   const selectedDriverActiveJobs = selected ? activeJobsByDriver[selected] ?? [] : [];
@@ -49,14 +101,33 @@ function LiveDashboard() {
   return (
     <div className="h-full flex flex-col">
       <PageHeader
-        title="Live Operations"
-        subtitle="Real-time fleet visibility"
+        title={focusedJob ? `Focused · ${focusedJob.reference}` : "Live Operations"}
+        subtitle={focusedJob ? "Showing only this VRID's driver and stops" : "Real-time fleet visibility"}
         right={
-          <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
-            <Radio className="size-3 text-success" />
-            <span>Live</span>
-            <span className="size-1.5 rounded-full bg-success animate-pulse" />
-          </div>
+          focusedJob ? (
+            <div className="flex items-center gap-2">
+              <Link
+                to="/dispatch"
+                search={{ job: focusedJob.reference } as never}
+                className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/15"
+              >
+                <ArrowLeft className="size-3" /> Back to VRID
+              </Link>
+              <button
+                onClick={() => navigate({ to: "/", search: {} as never })}
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1.5 text-xs hover:bg-surface-2"
+                title="Clear focus"
+              >
+                <X className="size-3" /> Clear
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
+              <Radio className="size-3 text-success" />
+              <span>Live</span>
+              <span className="size-1.5 rounded-full bg-success animate-pulse" />
+            </div>
+          )
         }
       />
 
@@ -67,15 +138,16 @@ function LiveDashboard() {
           <ClientOnly fallback={<MapPlaceholder />}>
             <Suspense fallback={<MapPlaceholder />}>
               <LiveMap
-                drivers={drivers}
-                warehouses={warehouses}
-                jobs={jobs}
+                drivers={mapDrivers}
+                warehouses={mapWarehouses}
+                jobs={mapJobs}
                 selectedDriverId={selected}
                 onSelectDriver={setSelected}
               />
             </Suspense>
           </ClientOnly>
         </div>
+
 
         {/* Fleet panel */}
         <aside

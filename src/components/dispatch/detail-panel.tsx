@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef } from "react";
-import { ArrowRight, Clock, Pencil } from "lucide-react";
+import { ArrowRight, Clock, MapPin, Pencil } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { isJobScheduledFuture } from "@/lib/effective-status";
 import { computeStopSchedule, etaMinutes, haversineKm, stopDwellMinutes } from "@/lib/geo";
@@ -113,14 +114,17 @@ export const JobDetailPanel = memo(function JobDetailPanel({
             }).join(" → ")}
           </p>
         </div>
-        {effectiveStatus !== "COMPLETED" && (
-          <button
-            onClick={onEdit}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs hover:bg-surface-2"
-          >
-            <Pencil className="size-3" /> Edit route
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          <ViewOnMapButton job={job} />
+          {effectiveStatus !== "COMPLETED" && (
+            <button
+              onClick={onEdit}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs hover:bg-surface-2"
+            >
+              <Pencil className="size-3" /> Edit route
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mt-5 rounded-lg border border-border bg-surface p-4">
@@ -410,4 +414,23 @@ function useAutoComplete(job: Job, stops: Stop[], onSetStatus: (s: string, opts?
     autoCompletedJobs.add(job.id);
     onSetStatusRef.current("COMPLETED", { silent: true });
   }, [job.id, job.status, stops]);
+}
+
+function ViewOnMapButton({ job }: { job: Job }) {
+  const navigate = useNavigate();
+  const driverId = job.assigned_driver_id ?? job.planned_driver_id ?? null;
+  const disabled = !driverId;
+  return (
+    <button
+      onClick={() => {
+        if (disabled) return;
+        navigate({ to: "/", search: { focusJob: job.id } as never });
+      }}
+      disabled={disabled}
+      title={disabled ? "Assign or plan a driver to view route on map" : "View this route on the live map"}
+      className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/15 disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      <MapPin className="size-3" /> View on map
+    </button>
+  );
 }
