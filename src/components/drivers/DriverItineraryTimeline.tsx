@@ -127,7 +127,7 @@ function buildRows(driver: Driver, jobs: ActiveJob[]): TimelineRow[] {
 
       rows.push({
         kind: "leg",
-        fromLabel,
+        fromLabel: curLabel,
         toLabel,
         km,
         minutes: mins,
