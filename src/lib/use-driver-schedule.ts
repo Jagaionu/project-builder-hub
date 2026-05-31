@@ -76,7 +76,7 @@ export function useDriverSchedule(driverIds: string[]): Record<string, ScheduleS
 
     // Realtime: refetch the affected source on any change, then recompute.
     const refetchTemplates = async () => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("driver_shift_templates")
         .select("driver_id, day_of_week")
         .in("driver_id", driverIds)
@@ -87,7 +87,7 @@ export function useDriverSchedule(driverIds: string[]): Record<string, ScheduleS
     };
 
     const refetchOverrides = async () => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("driver_availability_overrides")
         .select("driver_id, available")
         .in("driver_id", driverIds)
