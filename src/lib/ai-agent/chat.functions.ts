@@ -14,7 +14,7 @@ const chatInputSchema = z.object({
 export type AiChatPendingAction = {
   id: string;
   type: string;
-  params: Record<string, unknown>;
+  params: Record<string, any>;
 };
 
 export type AiChatResult = {

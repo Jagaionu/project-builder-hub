@@ -10,7 +10,7 @@ const confirmInputSchema = z.object({
 
 export type ConfirmActionResult = {
   success: true;
-  result: unknown;
+  result: any;
 };
 
 export const confirmAction = createServerFn({ method: "POST" })
