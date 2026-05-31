@@ -1,14 +1,5 @@
 // DriverItineraryTimeline.tsx
-//
-// Chronological "Today's Itinerary" for the driver detail panel.
-// Shows every leg + stop the planner assigned to this driver today:
-//   leg  → <from> ── X km · Y min ──▶ <to>   (departure → arrival)
-//   stop → warehouse code/name, kind, planned arrival, dwell, ✓ actual
-//
-// Pure presentational. All distance/time via haversineKm + etaMinutes
-// (same 55 kph average the planner uses). No DB writes.
-
-import { MapPin, ArrowRight, CheckCircle2, Clock, Package, Truck } from "lucide-react";
+import { MapPin, ArrowRight, CheckCircle2, Clock, Package, Truck, Info } from "lucide-react";
 import type { Driver } from "@/lib/types";
 import type { ActiveJob, ActiveStop } from "@/lib/use-driver-routes";
 import { haversineKm, etaMinutes } from "@/lib/driver-gps";
@@ -32,7 +23,6 @@ function todayLocal(): string {
   return `${y}-${m}-${day}`;
 }
 
-/** The date string to use for "is this job today?" check. */
 function jobDate(job: ActiveJob): string | null {
   if (job.for_date) return job.for_date.slice(0, 10);
   const first = [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq)[0];
@@ -42,11 +32,10 @@ function jobDate(job: ActiveJob): string | null {
   return null;
 }
 
-/** Sort key: planned_start_at → first stop scheduled_at → scheduled_at */
 function jobSortMs(job: ActiveJob): number {
   const iso =
     job.planned_start_at ??
-    [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq)[0]?.scheduled_at ??
+    ...(job.stops ?? [])].sort((a, b) => a.seq - b.seq)[0]?.scheduled_at ??
     job.scheduled_at;
   if (!iso) return Infinity;
   const t = new Date(iso).getTime();
@@ -62,7 +51,7 @@ type LegRow = {
   km: number;
   minutes: number;
   departsAt: string | null;
-  arrivesAt: string | null; // derived
+  arrivesAt: string | null;
 };
 
 type StopRow = {
@@ -72,22 +61,17 @@ type StopRow = {
   stopKind: "PICKUP" | "DROP";
   plannedAt: string | null;
   arrivedAt: string | null;
-  dwellMinutes: number | null; // gap until next departure
+  dwellMinutes: number | null;
 };
 
 type SeparatorRow = {
   kind: "separator";
-  label: string; // "Next job · JOB-XXXXXX"
+  label: string;
 };
 
 type TimelineRow = LegRow | StopRow | SeparatorRow;
 
-// ─── build timeline rows from jobs ──────────────────────────────────────────
-
-function buildRows(
-  driver: Driver,
-  jobs: ActiveJob[],
-): TimelineRow[] {
+function buildRows(driver: Driver, jobs: ActiveJob[]): TimelineRow[] {
   const today = todayLocal();
   const todayJobs = jobs
     .filter((j) => jobDate(j) === today)
@@ -96,12 +80,9 @@ function buildRows(
   if (todayJobs.length === 0) return [];
 
   const rows: TimelineRow[] = [];
-
-  // Cursor: where the driver physically is at this point in the chain.
   let curLat = driver.current_lat;
   let curLon = driver.current_lon;
-  let curLabel = "Current position";
-  // Cursor time: derived from planned departures / arrivals.
+  let curLabel = "Current Position";
   let curTimeIso: string | null = null;
 
   for (let ji = 0; ji < todayJobs.length; ji++) {
@@ -109,18 +90,20 @@ function buildRows(
     const stops = [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq);
 
     if (ji > 0) {
-      rows.push({ kind: "separator", label: `Next job · ${(job as { reference?: string }).reference ?? job.id.slice(0, 8).toUpperCase()}` });
+      rows.push({ 
+        kind: "separator", 
+        label: `Next Job · ${(job as { reference?: string }).reference ?? job.id.slice(0, 8).toUpperCase()}` 
+      });
     }
 
     for (let si = 0; si < stops.length; si++) {
       const stop = stops[si];
       const wh = stop.warehouse;
 
-      const toLabel = wh ? `${wh.code}` : "Unknown";
+      const toLabel = wh ? `${wh.code}` : "Unknown Warehouse";
       const toLat = wh?.latitude ?? null;
       const toLon = wh?.longitude ?? null;
 
-      // ── leg from cursor → this stop ──────────────────────────────────────
       let km = 0;
       let mins = 0;
       if (curLat != null && curLon != null && toLat != null && toLon != null) {
@@ -128,13 +111,11 @@ function buildRows(
         mins = etaMinutes(km);
       }
 
-      // Departure time for this leg = curTimeIso (or planned_start_at for first stop of first job)
       let departsAt: string | null = curTimeIso;
       if (si === 0 && ji === 0) {
         departsAt = job.planned_start_at ?? curTimeIso;
       }
 
-      // Arrival = departure + travel
       let arrivesAt: string | null = null;
       if (departsAt) {
         const depMs = new Date(departsAt).getTime();
@@ -142,12 +123,11 @@ function buildRows(
           arrivesAt = new Date(depMs + mins * 60_000).toISOString();
         }
       }
-      // Always prefer the planner's scheduled_at as the authoritative arrival
       if (stop.scheduled_at) arrivesAt = stop.scheduled_at;
 
       rows.push({
         kind: "leg",
-        fromLabel: curLabel,
+        fromLabel,
         toLabel,
         km,
         minutes: mins,
@@ -155,28 +135,23 @@ function buildRows(
         arrivesAt,
       });
 
-      // ── stop row ─────────────────────────────────────────────────────────
-      // Dwell = gap between this stop's arrival and next departure
-      // "next departure" ≈ next stop's scheduled_at (or +15 min default)
       let dwellMinutes: number | null = null;
       const nextStop = stops[si + 1] ?? todayJobs[ji + 1]?.stops?.[0];
       if (stop.scheduled_at && nextStop?.scheduled_at) {
-        const diff =
-          (new Date(nextStop.scheduled_at).getTime() - new Date(stop.scheduled_at).getTime()) / 60_000;
+        const diff = (new Date(nextStop.scheduled_at).getTime() - new Date(stop.scheduled_at).getTime()) / 60_000;
         if (diff > 0) dwellMinutes = Math.round(diff);
       }
 
       rows.push({
         kind: "stop",
         code: wh?.code ?? "?",
-        name: null, // warehouses in ActiveStop don't carry `name`; code is enough
+        name: null,
         stopKind: stop.kind,
         plannedAt: stop.scheduled_at,
         arrivedAt: stop.arrived_at,
         dwellMinutes,
       });
 
-      // Advance cursor to this warehouse
       curLat = toLat;
       curLon = toLon;
       curLabel = toLabel;
@@ -187,46 +162,57 @@ function buildRows(
   return rows;
 }
 
-// ─── sub-components ──────────────────────────────────────────────────────────
+// ─── Tooltip Component ──────────────────────────────────────────────────────
 
-function LegRow({ row }: { row: LegRow }) {
+function Tooltip({ children, content }: { children: React.ReactNode; content: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 py-1 px-1">
-      {/* connector line + truck icon */}
-      <div className="flex flex-col items-center self-stretch mr-1">
-        <div className="w-px flex-1 bg-border" />
-        <div
-          className="size-6 rounded-full flex items-center justify-center shrink-0 my-1"
-          style={{ background: "oklch(0.62 0.22 245 / 0.10)", border: "1px solid oklch(0.62 0.22 245 / 0.30)" }}
-        >
-          <Truck className="size-3" style={{ color: "var(--primary-bright)" }} />
-        </div>
-        <div className="w-px flex-1 bg-border" />
+    <div className="group relative inline-block">
+      {children}
+      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-md border border-border bg-popover p-2 text-xs text-popover-foreground shadow-md opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+        {content}
+        <div className="absolute top-full left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 border-b border-r border-border bg-popover" />
+      </div>
+    </div>
+  );
+}
+
+// ─── redesigned layout rows ─────────────────────────────────────────────────
+
+function LegRowItem({ row }: { row: LegRow }) {
+  return (
+    <div className="relative flex items-center gap-4 pl-3 pr-1 py-3 group/leg">
+      {/* Schematic Line Assembly */}
+      <div className="absolute left-[21px] top-0 bottom-0 w-0.5 border-l-2 border-dashed border-muted/60" />
+      
+      {/* Minor Icon Placement */}
+      <div className="z-10 flex size-5 items-center justify-center rounded-full border border-muted-foreground/20 bg-background shadow-sm text-muted-foreground">
+        <Truck className="size-3" />
       </div>
 
-      <div className="flex-1 min-w-0 py-1">
-        {/* route line */}
-        <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground flex-wrap">
-          <span className="text-foreground font-medium truncate max-w-[120px]">{row.fromLabel}</span>
-          <ArrowRight className="size-3 shrink-0 text-muted-foreground" />
-          <span className="text-foreground font-medium truncate max-w-[120px]">{row.toLabel}</span>
+      {/* Simplified Main UI String */}
+      <div className="flex flex-1 items-center justify-between text-xs font-mono">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <span>Transit</span>
+          <ArrowRight className="size-3 text-muted-foreground/50" />
+          <span className="text-foreground font-semibold">{row.toLabel}</span>
         </div>
-        {/* metrics */}
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="text-[11px] font-mono" style={{ color: "var(--primary-bright)" }}>
-            {fmtKm(row.km)} · {row.minutes} min
-          </span>
-          {(row.departsAt || row.arrivesAt) && (
-            <span className="text-[11px] text-muted-foreground font-mono">
-              {fmtTime(row.departsAt)}
-              {row.arrivesAt && (
-                <>
-                  {" → "}
-                  {fmtTime(row.arrivesAt)}
-                </>
-              )}
-            </span>
-          )}
+
+        <div className="flex items-center gap-3">
+          <span className="font-semibold text-primary">{row.minutes} min</span>
+          
+          <Tooltip 
+            content={
+              <div className="space-y-1 font-sans">
+                <p className="font-semibold text-foreground border-b pb-1 mb-1">Route Vector Data</p>
+                <p><span className="text-muted-foreground">Origin:</span> {row.fromLabel}</p>
+                <p><span className="text-muted-foreground">Destination:</span> {row.toLabel}</p>
+                <p><span className="text-muted-foreground">Est. Distance:</span> {fmtKm(row.km)}</p>
+                <p><span className="text-muted-foreground">Planned Window:</span> {fmtTime(row.departsAt)} - {fmtTime(row.arrivesAt)}</p>
+              </div>
+            }
+          >
+            <Info className="size-3.5 text-muted-foreground/60 hover:text-foreground cursor-pointer" />
+          </Tooltip>
         </div>
       </div>
     </div>
@@ -235,86 +221,87 @@ function LegRow({ row }: { row: LegRow }) {
 
 function StopRowItem({ row }: { row: StopRow }) {
   const isPickup = row.stopKind === "PICKUP";
-  const dotColor = isPickup
-    ? "oklch(0.73 0.17 150 / 0.20)"
-    : "oklch(0.62 0.22 245 / 0.12)";
-  const dotBorder = isPickup
-    ? "oklch(0.73 0.17 150 / 0.50)"
-    : "oklch(0.62 0.22 245 / 0.40)";
-  const kindColor = isPickup ? "var(--success-fg)" : "var(--primary-bright)";
-
+  
   return (
-    <div className="flex items-start gap-2 py-1 px-1">
-      {/* dot */}
-      <div className="flex flex-col items-center self-stretch mr-1">
-        <div className="w-px flex-1 bg-border" />
-        <div
-          className="size-5 rounded-full flex items-center justify-center shrink-0 my-1"
-          style={{ background: dotColor, border: `1px solid ${dotBorder}` }}
-        >
-          {row.arrivedAt ? (
-            <CheckCircle2 className="size-3" style={{ color: "var(--success-fg)" }} />
-          ) : (
-            <MapPin className="size-3" style={{ color: kindColor }} />
-          )}
-        </div>
-        <div className="w-px flex-1 bg-border" />
+    <div className="relative flex items-start gap-4 pl-3 pr-1 py-2 group/stop">
+      {/* Continuous Axis Line Lineage */}
+      <div className="absolute left-[21px] top-0 bottom-0 w-0.5 bg-border" />
+      
+      {/* Node Anchor */}
+      <div className={`z-10 flex size-5 shrink-0 items-center justify-center rounded-full border shadow-sm transition-colors
+        ${row.arrivedAt 
+          ? "border-emerald-500 bg-emerald-50 text-emerald-600" 
+          : isPickup 
+            ? "border-amber-500 bg-amber-50 text-amber-600" 
+            : "border-blue-500 bg-blue-50 text-blue-600"
+        }`}
+      >
+        {row.arrivedAt ? <CheckCircle2 className="size-3" /> : <MapPin className="size-3" />}
       </div>
 
-      <div className="flex-1 min-w-0 py-1">
-        {/* warehouse + kind */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-mono text-sm font-semibold text-foreground">{row.code}</span>
-          <span
-            className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded"
-            style={{ background: dotColor, color: kindColor, border: `1px solid ${dotBorder}` }}
-          >
-            {isPickup ? "Pickup" : "Drop-off"}
-          </span>
-          {row.arrivedAt && (
-            <span
-              className="flex items-center gap-1 text-[10px] font-mono"
-              style={{ color: "var(--success-fg)" }}
+      {/* Simplified Structural Board */}
+      <div className="flex-1 min-w-0 bg-muted/30 border border-border/60 hover:border-border rounded-md px-3 py-2 flex items-center justify-between transition-all">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-2">
+            <span className="font-mono font-bold text-sm text-foreground tracking-tight">{row.code}</span>
+            <span className={`text-[10px] font-medium font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border
+              ${isPickup 
+                ? "bg-amber-50/60 border-amber-200 text-amber-700" 
+                : "bg-blue-50/60 border-blue-200 text-blue-700"
+              }`}
             >
-              <CheckCircle2 className="size-3" />
-              {fmtTime(row.arrivedAt)}
+              {isPickup ? "Pickup" : "Drop-off"}
             </span>
-          )}
+          </div>
+          
+          <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
+            <span className="flex items-center gap-1"><Clock className="size-3" /> ETA {fmtTime(row.plannedAt)}</span>
+            {row.dwellMinutes != null && row.dwellMinutes > 0 && (
+              <span className="flex items-center gap-1 text-muted-foreground/80"><Package className="size-3" /> {row.dwellMinutes}m dwell</span>
+            )}
+          </div>
         </div>
 
-        {/* times */}
-        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-          {row.plannedAt && (
-            <span className="text-[11px] text-muted-foreground font-mono flex items-center gap-1">
-              <Clock className="size-3" />
-              Planned {fmtTime(row.plannedAt)}
+        {/* Informative Interaction Node */}
+        <div className="flex items-center gap-2">
+          {row.arrivedAt && (
+            <span className="text-[11px] font-mono font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">
+              Arrived {fmtTime(row.arrivedAt)}
             </span>
           )}
-          {row.dwellMinutes != null && row.dwellMinutes > 0 && (
-            <span className="text-[11px] text-muted-foreground font-mono flex items-center gap-1">
-              <Package className="size-3" />
-              {row.dwellMinutes} min dwell
-            </span>
-          )}
+          
+          <Tooltip 
+            content={
+              <div className="space-y-1 font-sans">
+                <p className="font-semibold text-foreground border-b pb-1 mb-1">Stop Execution Detail</p>
+                <p><span className="text-muted-foreground">Node Code:</span> {row.code}</p>
+                <p><span className="text-muted-foreground">Operation:</span> {row.stopKind}</p>
+                <p><span className="text-muted-foreground">Target Slot:</span> {fmtTime(row.plannedAt)}</p>
+                <p><span className="text-muted-foreground">Actual Time:</span> {row.arrivedAt ? fmtTime(row.arrivedAt) : "Pending Activation"}</p>
+              </div>
+            }
+          >
+            <Info className="size-3.5 text-muted-foreground/60 hover:text-foreground cursor-pointer" />
+          </Tooltip>
         </div>
       </div>
     </div>
   );
 }
 
-function SeparatorRow({ row }: { row: SeparatorRow }) {
+function SeparatorRowItem({ row }: { row: SeparatorRow }) {
   return (
-    <div className="flex items-center gap-3 py-2 px-1">
-      <div className="flex-1 h-px bg-border" />
-      <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground whitespace-nowrap px-1">
+    <div className="relative flex items-center py-4 pl-3">
+      <div className="absolute left-[21px] top-0 bottom-0 w-0.5 bg-border" />
+      <div className="z-10 -ml-1 h-2 w-2 rounded-full bg-border" />
+      <span className="ml-4 font-mono text-[10px] uppercase tracking-widest text-muted-foreground bg-background pr-2 font-bold">
         {row.label}
       </span>
-      <div className="flex-1 h-px bg-border" />
     </div>
   );
 }
 
-// ─── main component ──────────────────────────────────────────────────────────
+// ─── main layout shell ──────────────────────────────────────────────────────
 
 interface DriverItineraryTimelineProps {
   driver: Driver;
@@ -325,20 +312,22 @@ export function DriverItineraryTimeline({ driver, jobs }: DriverItineraryTimelin
   const rows = buildRows(driver, jobs);
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-4">
-      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
-        <Truck className="size-3.5" />
-        Today's Itinerary
+    <div className="rounded-xl border border-border bg-card p-5 text-card-foreground shadow-sm">
+      <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2 border-b border-border pb-3">
+        <Truck className="size-4 text-primary" />
+        Driver Workflow Schematic
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-xs text-muted-foreground font-mono py-2">No jobs planned for today</p>
+        <div className="flex flex-col items-center justify-center py-8 border border-dashed rounded-lg border-muted bg-muted/10">
+          <p className="text-xs text-muted-foreground font-mono">No assignments found for current processing date</p>
+        </div>
       ) : (
-        <div className="flex flex-col">
+        <div className="relative flex flex-col pl-1">
           {rows.map((row, i) => {
-            if (row.kind === "leg") return <LegRow key={`leg-${i}`} row={row} />;
+            if (row.kind === "leg") return <LegRowItem key={`leg-${i}`} row={row} />;
             if (row.kind === "stop") return <StopRowItem key={`stop-${i}`} row={row} />;
-            return <SeparatorRow key={`sep-${i}`} row={row} />;
+            return <SeparatorRowItem key={`sep-${i}`} row={row} />;
           })}
         </div>
       )}
