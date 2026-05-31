@@ -25,10 +25,10 @@ export const openaiProvider: LLMProvider = {
       model: "gpt-4o",
       messages: messages as OpenAI.ChatCompletionMessageParam[],
       tools: functions?.length
-        ? functions.map((fn) => ({
+        ? (functions.map((fn) => ({
             type: "function" as const,
             function: fn,
-          }))
+          })) as any)
         : undefined,
       tool_choice: functions?.length ? "auto" : undefined,
     });
@@ -47,10 +47,10 @@ export const openaiProvider: LLMProvider = {
       model: "gpt-4o",
       messages: messages as OpenAI.ChatCompletionMessageParam[],
       tools: functions?.length
-        ? functions.map((fn) => ({
+        ? (functions.map((fn) => ({
             type: "function" as const,
             function: fn,
-          }))
+          })) as any)
         : undefined,
       tool_choice: functions?.length ? "auto" : undefined,
       stream: true,

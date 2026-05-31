@@ -14,7 +14,7 @@ const chatInputSchema = z.object({
 export type AiChatPendingAction = {
   id: string;
   type: string;
-  params: Record<string, unknown>;
+  params: Record<string, any>;
 };
 
 export type AiChatResult = {
@@ -37,7 +37,7 @@ async function getConversationHistory(
   sessionId?: string,
 ): Promise<ChatMessage[]> {
   if (!sessionId) return [];
-  const { data } = await supabaseAdmin
+  const { data } = await (supabaseAdmin as any)
     .from("ai_conversations")
     .select("role, content")
     .eq("tenant_id", tenantId)
@@ -45,7 +45,7 @@ async function getConversationHistory(
     .eq("session_id", sessionId)
     .order("created_at", { ascending: true })
     .limit(10);
-  return (data ?? []).map((row) => ({
+  return ((data ?? []) as Array<{ role: string; content: string }>).map((row) => ({
     role: row.role as ChatMessage["role"],
     content: row.content,
   }));
@@ -58,7 +58,7 @@ async function saveToConversation(
   role: string,
   content: string,
 ) {
-  await supabaseAdmin.from("ai_conversations").insert({
+  await (supabaseAdmin as any).from("ai_conversations").insert({
     tenant_id: tenantId,
     user_id: userId,
     session_id: sessionId,
@@ -94,7 +94,7 @@ export const aiChat = createServerFn({ method: "POST" })
       const actionType = functionCall.name.replace("propose_", "");
       const params = parseFunctionArgs(functionCall.arguments);
 
-      const { data: inserted, error: insertError } = await supabaseAdmin
+      const { data: inserted, error: insertError } = await (supabaseAdmin as any)
         .from("ai_pending_actions")
         .insert({
           tenant_id: tenantId,
@@ -109,7 +109,7 @@ export const aiChat = createServerFn({ method: "POST" })
         console.error("Failed to store pending action", insertError);
         responseText = "Sorry, I couldn't prepare that action. Please try again.";
       } else {
-        pendingAction = { id: inserted.id, type: actionType, params };
+        pendingAction = { id: (inserted as { id: string }).id, type: actionType, params };
         responseText = `I can ${actionType.replace(/_/g, " ")} for you. Please review and confirm below.`;
       }
     }

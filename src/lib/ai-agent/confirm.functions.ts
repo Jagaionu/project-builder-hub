@@ -10,7 +10,7 @@ const confirmInputSchema = z.object({
 
 export type ConfirmActionResult = {
   success: true;
-  result: unknown;
+  result: any;
 };
 
 export const confirmAction = createServerFn({ method: "POST" })
@@ -21,7 +21,7 @@ export const confirmAction = createServerFn({ method: "POST" })
     const tenantId = await getUserTenantId(userId);
     if (!tenantId) throw new Error("Forbidden");
 
-    const { data: deleted, error } = await supabaseAdmin
+    const { data: deleted, error } = await (supabaseAdmin as any)
       .from("ai_pending_actions")
       .delete()
       .eq("id", data.action_id)
@@ -34,7 +34,7 @@ export const confirmAction = createServerFn({ method: "POST" })
       throw new Error("Action not found or expired");
     }
 
-    const action = deleted[0];
+    const action = deleted[0] as { action_type: string; params: Record<string, unknown> };
     const { executeAction } = await import("./actions.server");
     const result = await executeAction(
       action.action_type,

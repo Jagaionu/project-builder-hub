@@ -80,7 +80,7 @@ export async function assignDriverToJob(
 
   await supabaseAdmin.from("drivers").update({ status: "ON_ROUTE" }).eq("id", driverId);
 
-  await supabaseAdmin.from("driver_events").insert({
+  await (supabaseAdmin as any).from("driver_events").insert({
     driver_id: driverId,
     type: "JOB_ASSIGNED",
     payload: { job_id: jobId, manual: opts.manual ?? false, source: "ai_agent" },
