@@ -37,7 +37,7 @@ async function getConversationHistory(
   sessionId?: string,
 ): Promise<ChatMessage[]> {
   if (!sessionId) return [];
-  const { data } = await supabaseAdmin
+  const { data } = await (supabaseAdmin as any)
     .from("ai_conversations")
     .select("role, content")
     .eq("tenant_id", tenantId)
@@ -45,7 +45,7 @@ async function getConversationHistory(
     .eq("session_id", sessionId)
     .order("created_at", { ascending: true })
     .limit(10);
-  return (data ?? []).map((row) => ({
+  return ((data ?? []) as Array<{ role: string; content: string }>).map((row) => ({
     role: row.role as ChatMessage["role"],
     content: row.content,
   }));
@@ -58,7 +58,7 @@ async function saveToConversation(
   role: string,
   content: string,
 ) {
-  await supabaseAdmin.from("ai_conversations").insert({
+  await (supabaseAdmin as any).from("ai_conversations").insert({
     tenant_id: tenantId,
     user_id: userId,
     session_id: sessionId,
