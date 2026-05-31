@@ -18,7 +18,7 @@ export async function answerQuestion(
 ) {
   const qEmbedding = await embed(question);
 
-  const { data: chunks, error: rpcError } = await supabaseAdmin.rpc("match_ai_knowledge_rrf", {
+  const { data: chunks, error: rpcError } = await (supabaseAdmin as any).rpc("match_ai_knowledge_rrf", {
     query_text: question,
     query_embedding: qEmbedding,
     match_count: 6,
@@ -52,7 +52,7 @@ export async function answerQuestion(
     totalTokens = messages.reduce((sum, m) => sum + enc.encode(m.content).length, 0);
   }
 
-  const { data: log, error: logError } = await supabaseAdmin
+  const { data: log, error: logError } = await (supabaseAdmin as any)
     .from("ai_query_logs")
     .insert({
       tenant_id: tenantId,
@@ -64,7 +64,7 @@ export async function answerQuestion(
     .single();
 
   if (logError) console.error("Failed to insert query log", logError);
-  const logId = log?.id;
+  const logId = (log as { id: string } | null)?.id;
   const startTime = Date.now();
 
   const response = await llmProvider.chat(messages, functions);
@@ -72,7 +72,7 @@ export async function answerQuestion(
 
   if (logId) {
     const responseTokens = response.content ? enc.encode(response.content).length : 0;
-    await supabaseAdmin
+    await (supabaseAdmin as any)
       .from("ai_query_logs")
       .update({
         latency_ms: endTime - startTime,
