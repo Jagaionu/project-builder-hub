@@ -718,6 +718,8 @@ function DispatchPage() {
               compliance={compliance}
               lookups={lookups}
               planned={plannedByJob.get(selectedJob.id) ?? null}
+              driverShifts={driverShifts}
+              shiftOverrides={shiftOverrides}
               onAssignDriver={(id) => assignDriver(selectedJob.id, id, { manual: true })}
               onSetStatus={(s, opts) => {
                 void setStatus(selectedJob.id, s, opts);

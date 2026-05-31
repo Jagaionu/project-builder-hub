@@ -64,7 +64,7 @@ export interface DriverEvent {
 export type SubscriptionStatus = "active" | "trial" | "suspended" | "cancelled";
 export type CompanyPlan = "starter" | "pro" | "enterprise";
 export type MemberRole = "admin" | "member";
-export type TenantModule = "dispatch" | "jobs" | "drivers" | "warehouses" | "alerts" | "events";
+export type TenantModule = "dispatch" | "jobs" | "drivers" | "warehouses" | "alerts" | "events" | "maps" | "ai_agent";
 
 export interface TenantConfig {
   modules: TenantModule[];
@@ -105,7 +105,7 @@ export interface AuthContext {
 }
 
 export const DEFAULT_TENANT_CONFIG: TenantConfig = {
-  modules: ["dispatch", "jobs", "drivers", "warehouses", "alerts", "events"],
+  modules: ["dispatch", "jobs", "drivers", "warehouses", "alerts", "events", "maps", "ai_agent"],
   maxDrivers: 20,
   maxWarehouses: 5,
   showComplianceModule: true,

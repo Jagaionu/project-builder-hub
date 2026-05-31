@@ -5,10 +5,12 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { computePlanForDate, type StopsMap } from "@/lib/planner";
 import { computeCompliance, type ComplianceEvent } from "@/lib/compliance";
-import { computeStopSchedule } from "@/lib/geo";
+import { computeStopSchedule, haversineKm } from "@/lib/geo";
 import { fetchShiftsByDriver } from "@/lib/driver-shifts";
 import type { Driver, DriverAvailabilityOverride, DriverShift, Warehouse, Job } from "@/lib/types";
 
+// Statuses that mean a job is actively being executed by a driver right now.
+// These are NEVER reset — you cannot un-assign a driver who is already driving.
 const ACTIVE_STATUSES = new Set([
   "IN_PROGRESS",
   "ARRIVED_PICKUP",
@@ -25,28 +27,95 @@ export type PlanJobsResult = {
   driversPlanned: number;
 };
 
+// Helper: Calculate urgency score (lower = more urgent).
+// Uses the job's first pickup warehouse coordinates for the proximity factor.
+function urgencyScore(
+  job: Job,
+  firstPickupLat: number,
+  firstPickupLon: number,
+  driverList: Driver[],
+  nowMs: number,
+): number {
+  const scheduled = job.scheduled_at ? new Date(job.scheduled_at).getTime() : Infinity;
+  const timeUntil = scheduled - nowMs;
+
+  // Find nearest driver distance to this job's first pickup
+  const distances = driverList
+    .filter(d => d.current_lat != null && d.current_lon != null)
+    .map(d => haversineKm(firstPickupLat, firstPickupLon, d.current_lat!, d.current_lon!));
+
+  const minDist = distances.length > 0 ? Math.min(...distances) : 50;
+
+  // Composite: 70% time sensitivity, 30% proximity
+  const timeFactor = Math.max(0, Math.min(1, timeUntil / (2 * 3600_000))); // 2h window
+  const distFactor = Math.min(1, minDist / 50); // 50km = "far"
+
+  return (timeFactor * 0.7) + (distFactor * 0.3);
+}
+
 export async function planJobsForTenant(tenantId: string | null): Promise<PlanJobsResult> {
   const nowMs = Date.now();
   const eventsSince = new Date(nowMs - 14 * 24 * 3600 * 1000).toISOString();
 
-  const jobsQ = supabaseAdmin
+  // ── STEP 1: Reset all previously auto-planned assignments back to PENDING ──
+  
+  let resetQuery = supabaseAdmin
+    .from("jobs")
+    .update({
+      status: "PENDING",
+      assigned_driver_id: null,
+      planned_driver_id: null,
+      planned_sequence: null,
+      planned_start_at: null,
+    })
+    .eq("status", "ASSIGNED")
+    .eq("manual_override", false);
+
+  if (tenantId) {
+    resetQuery = resetQuery.eq("tenant_id", tenantId);
+  }
+
+  const { error: resetError, data: resetIds } = await resetQuery.select("id");
+  if (resetError) throw new Error(`Failed to reset assignments: ${resetError.message}`);
+  const cleared = (resetIds ?? []).length;
+
+  // ── STEP 2: Load all data (jobs, drivers, warehouses, compliance) ──────────
+
+  let jobsQ = supabaseAdmin
     .from("jobs")
     .select("*")
     .eq("status", "PENDING")
     .is("assigned_driver_id", null)
-    .is("manual_override", false);
+    .order("id", { ascending: true });
 
-  const stopsQ = supabaseAdmin
+  let stopsQ = supabaseAdmin
     .from("job_stops")
     .select("*, jobs!inner(tenant_id)")
-    .order("seq");
+    .order("seq", { ascending: true });
 
-  const driversQ = supabaseAdmin.from("drivers").select("*");
-  const whQ = supabaseAdmin.from("warehouses").select("*");
-  const eventsQ = supabaseAdmin
+  let driversQ = supabaseAdmin
+    .from("drivers")
+    .select("*")
+    .order("id", { ascending: true });
+
+  let whQ = supabaseAdmin
+    .from("warehouses")
+    .select("*")
+    .order("id", { ascending: true });
+
+  let eventsQ = supabaseAdmin
     .from("driver_events")
     .select("driver_id,type,timestamp")
-    .gte("timestamp", eventsSince);
+    .gte("timestamp", eventsSince)
+    .order("timestamp", { ascending: true });
+
+  if (tenantId) {
+    jobsQ = jobsQ.eq("tenant_id", tenantId);
+    driversQ = driversQ.eq("tenant_id", tenantId);
+    whQ = whQ.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
+    stopsQ = stopsQ.eq("jobs.tenant_id", tenantId);
+    eventsQ = eventsQ.eq("tenant_id", tenantId);
+  }
 
   const [
     { data: jobs },
@@ -56,11 +125,11 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
     { data: events },
     { data: ledger },
   ] = await Promise.all([
-    tenantId ? jobsQ.eq("tenant_id", tenantId) : jobsQ,
-    tenantId ? driversQ.eq("tenant_id", tenantId) : driversQ,
-    tenantId ? whQ.or(`tenant_id.eq.${tenantId},tenant_id.is.null`) : whQ,
-    tenantId ? stopsQ.eq("jobs.tenant_id", tenantId) : stopsQ,
-    tenantId ? eventsQ.eq("tenant_id", tenantId) : eventsQ,
+    jobsQ,
+    driversQ,
+    whQ,
+    stopsQ,
+    eventsQ,
     supabaseAdmin.from("driver_day_hours").select("*"),
   ]);
 
@@ -85,6 +154,7 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
       timestamp: e.timestamp as string,
     });
   }
+
   const ledgerByDriver: Record<string, { day: string; drive_minutes: number }[]> = {};
   for (const r of ledger ?? []) {
     (ledgerByDriver[r.driver_id as string] ||= []).push({
@@ -92,19 +162,22 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
       drive_minutes: r.drive_minutes as number,
     });
   }
+
   const today = new Date(nowMs).toISOString().slice(0, 10);
   const weekAgo = new Date(nowMs - 6 * 86400_000).toISOString().slice(0, 10);
   const fortnightAgo = new Date(nowMs - 13 * 86400_000).toISOString().slice(0, 10);
+  
   const compliance: Record<string, ReturnType<typeof computeCompliance>> = {};
   for (const d of driverList) {
     const rows = ledgerByDriver[d.id] ?? [];
     const todayRow = rows.find((r) => r.day === today);
     const weekRows = rows.filter((r) => r.day >= weekAgo && r.day <= today);
     const fortRows = rows.filter((r) => r.day >= fortnightAgo && r.day <= today);
+    
     compliance[d.id] = computeCompliance(eventsByDriver[d.id] ?? [], nowMs, {
-      daily: todayRow ? todayRow.drive_minutes / 60 : undefined,
-      weekly: weekRows.length ? weekRows.reduce((s, r) => s + r.drive_minutes, 0) / 60 : undefined,
-      twoWeek: fortRows.length ? fortRows.reduce((s, r) => s + r.drive_minutes, 0) / 60 : undefined,
+      daily: todayRow ? todayRow.drive_minutes / 60 : 0,
+      weekly: weekRows.length ? weekRows.reduce((s, r) => s + r.drive_minutes, 0) / 60 : 0,
+      twoWeek: fortRows.length ? fortRows.reduce((s, r) => s + r.drive_minutes, 0) / 60 : 0,
     });
   }
 
@@ -131,6 +204,8 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
     driverShifts = shiftsByDriver;
     allOverrides = (overrides ?? []) as DriverAvailabilityOverride[];
   }
+
+  // ── STEP 3: Group jobs by date and run the planner ────────────────────────
 
   const byDate = new Map<string, Job[]>();
   const noDate: Job[] = [];
@@ -159,7 +234,30 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
     status: "ASSIGNED";
   }> = [];
 
-  for (const [dateStr, dateJobs] of byDate) {
+  const sortedDates = Array.from(byDate.keys()).sort();
+
+  for (const dateStr of sortedDates) {
+    const dateJobs = byDate.get(dateStr)!;
+    
+    // ENHANCEMENT: Sort jobs by Urgency Score (Proximity + Time Sensitivity).
+    // Build a lookup of first-pickup coordinates from stopsMap + warehouses.
+    const jobPickupLoc = new Map<string, { lat: number; lon: number }>();
+    for (const job of dateJobs) {
+      const stops = stopsMap[job.id] ?? [];
+      const fp = stops.find(s => s.kind === "PICKUP") ?? stops[0];
+      if (!fp) continue;
+      const wh = whList.find(w => w.id === fp.warehouse_id);
+      if (wh) jobPickupLoc.set(job.id, { lat: wh.latitude, lon: wh.longitude });
+    }
+
+    dateJobs.sort((a, b) => {
+      const locA = jobPickupLoc.get(a.id);
+      const locB = jobPickupLoc.get(b.id);
+      const scoreA = urgencyScore(a, locA?.lat ?? 0, locA?.lon ?? 0, driverList, nowMs);
+      const scoreB = urgencyScore(b, locB?.lat ?? 0, locB?.lon ?? 0, driverList, nowMs);
+      return scoreA - scoreB || a.id.localeCompare(b.id);
+    });
+
     const result = computePlanForDate(
       dateStr,
       dateJobs,
@@ -185,48 +283,9 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
     allUnassignable.push(...result.unassignable);
   }
 
-  const assignedIds = new Set(toApply.map((a) => a.id));
-  const toClear: string[] = [];
-
-  const { data: stalePlanned } = await (tenantId
-    ? supabaseAdmin
-        .from("jobs")
-        .select("id,status,manual_override,planned_driver_id,planned_sequence,planned_start_at,assigned_driver_id")
-        .eq("tenant_id", tenantId)
-        .eq("status", "ASSIGNED")
-        .is("manual_override", false)
-    : supabaseAdmin
-        .from("jobs")
-        .select("id,status,manual_override,planned_driver_id,planned_sequence,planned_start_at,assigned_driver_id")
-        .eq("status", "ASSIGNED")
-        .is("manual_override", false));
-
-  for (const j of stalePlanned ?? []) {
-    if (!assignedIds.has(j.id as string)) {
-      if (!ACTIVE_STATUSES.has(j.status as string)) {
-        toClear.push(j.id as string);
-      }
-    }
-  }
+  // ── STEP 4: Write all assignments ─────────────────────────────────────────
 
   const writes: Array<Promise<unknown>> = [];
-
-  if (toClear.length) {
-    writes.push(
-      Promise.resolve(
-        supabaseAdmin
-          .from("jobs")
-          .update({
-            planned_driver_id: null,
-            planned_sequence: null,
-            planned_start_at: null,
-            assigned_driver_id: null,
-            status: "PENDING",
-          })
-          .in("id", toClear),
-      ),
-    );
-  }
 
   for (const u of toApply) {
     const { id, ...patch } = u;
@@ -257,7 +316,7 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
     totalJobs: jobList.length,
     assigned: toApply.length,
     unassignable: allUnassignable,
-    cleared: toClear.length,
+    cleared: cleared ?? 0,
     driversPlanned: new Set(toApply.map((a) => a.assigned_driver_id)).size,
   };
 }

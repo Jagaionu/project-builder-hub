@@ -1,11 +1,19 @@
 import OpenAI from "openai";
 import type { ChatMessage, FunctionDefinition, LLMProvider } from "./types";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function getOpenAI(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || apiKey.includes("your-openai") || apiKey === "sk-your-openai-key") {
+    throw new Error(
+      "OPENAI_API_KEY is not configured. Add it to .env locally or Vercel Environment Variables (server-only, no VITE_ prefix).",
+    );
+  }
+  return new OpenAI({ apiKey });
+}
 
 export const openaiProvider: LLMProvider = {
   async embed(text: string): Promise<number[]> {
-    const resp = await openai.embeddings.create({
+    const resp = await getOpenAI().embeddings.create({
       model: "text-embedding-3-small",
       input: text,
     });
@@ -13,7 +21,7 @@ export const openaiProvider: LLMProvider = {
   },
 
   async chat(messages: ChatMessage[], functions?: FunctionDefinition[]) {
-    const resp = await openai.chat.completions.create({
+    const resp = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: messages as OpenAI.ChatCompletionMessageParam[],
       tools: functions?.length
@@ -35,7 +43,7 @@ export const openaiProvider: LLMProvider = {
   },
 
   async streamChat(messages: ChatMessage[], onToken: (token: string) => void, functions?: FunctionDefinition[]) {
-    const stream = await openai.chat.completions.create({
+    const stream = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: messages as OpenAI.ChatCompletionMessageParam[],
       tools: functions?.length

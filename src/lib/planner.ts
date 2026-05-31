@@ -191,11 +191,15 @@ export function computePlan(
   const todayStr = new Date(nowMs).toISOString().slice(0, 10);
   const hasShiftData = Object.keys(shifts).length > 0;
 
+  // Calendar-based availability is the single source of truth for eligibility.
+  // Live driver.status (OFF_SHIFT, AVAILABLE, etc.) is NOT a gate — a driver
+  // may be off-shift now but scheduled via their calendar for later today.
+  // Only calendar, GPS position, and compliance checks matter.
   const eligible = drivers.filter(
     (d) =>
-      (d.status === "AVAILABLE" || d.status === "ON_SHIFT" || d.status === "ON_ROUTE") &&
       d.current_lat != null &&
       d.current_lon != null &&
+      !compliance[d.id]?.blockAssignment &&
       (!hasShiftData || isDriverAvailableOnDate(d.id, todayStr, shifts, overrides)),
   );
 
@@ -259,6 +263,14 @@ export function computePlan(
 
     const isTomorrowJob = (job.for_date ?? null) === tomorrow;
 
+    // Scheduled pickup time at the first stop, if the job has one.
+    const schedPickupMs = (() => {
+      const iso = stops[0]?.scheduled_at ?? job.scheduled_at ?? null;
+      if (!iso) return null;
+      const ms = new Date(iso).getTime();
+      return Number.isFinite(ms) ? ms : null;
+    })();
+
     let best: { d: Driver; dist: number; driveAdd: number; breakMs: number } | null = null;
     for (const d of eligible) {
       if (activeByDriver[d.id]) continue;
@@ -280,6 +292,15 @@ export function computePlan(
 
       const f = forecast[d.id];
       const breakMs = calculateBreakDelayMs(f.continuous, driveAdd);
+
+      // IMPOSSIBLE ROUTE GUARD: Check if the required speed to make the pickup is physically possible.
+      if (schedPickupMs !== null) {
+        const timeAvailableMs = schedPickupMs - nowMs;
+        if (timeAvailableMs > 0) {
+          const requiredSpeed = dist / (timeAvailableMs / 3600_000);
+          if (requiredSpeed > 100) continue; // Skip: requires superhuman speed
+        }
+      }
 
       if (f.daily + driveAdd > DAILY_CAP) continue;
       if (f.weekly + driveAdd > WEEKLY_CAP) continue;
@@ -532,6 +553,21 @@ export function computePlanForDate(
 
       const breakMs = calculateBreakDelayMs(f.continuous, driveAdd);
 
+      // IMPOSSIBLE ROUTE GUARD: Check if the required speed to make the pickup is physically possible.
+      const readyMs = driverReadyMs[did];
+      if (schedPickupMs !== null) {
+        const timeAvailableMs = schedPickupMs - readyMs;
+        if (timeAvailableMs > 0) {
+          const requiredSpeed = dist / (timeAvailableMs / 3600_000);
+          if (requiredSpeed > 100) {
+            const reason = `Impossible route: requires ${requiredSpeed.toFixed(0)} km/h`;
+            if (!nearMiss || dist < nearMiss.dist)
+              nearMiss = { name: driverById[did].name, dist, reason };
+            continue;
+          }
+        }
+      }
+
       if (f.hoursLeft < driveAdd + breakMs / 3_600_000) {
         const reason = `needs ${driveAdd.toFixed(1)}h drive, ${f.hoursLeft.toFixed(1)}h left`;
         if (!nearMiss || dist < nearMiss.dist)
@@ -543,7 +579,6 @@ export function computePlanForDate(
       // the scheduled pickup, but cannot leave before they finish their previous
       // job (driverReadyMs). If there is no scheduled pickup time the driver
       // departs as soon as they are free.
-      const readyMs = driverReadyMs[did];
       const transitMs = transit * 3_600_000;
       const departMs =
         schedPickupMs !== null ? Math.max(readyMs, schedPickupMs - transitMs) : readyMs;

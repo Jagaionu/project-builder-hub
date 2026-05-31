@@ -4,8 +4,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { isJobScheduledFuture } from "@/lib/effective-status";
 import { computeStopSchedule, etaMinutes, haversineKm, stopDwellMinutes } from "@/lib/geo";
+import { isDriverAvailableOnDate } from "@/lib/planner";
 import type { Compliance } from "@/lib/compliance";
-import type { Driver, Job, Warehouse } from "@/lib/types";
+import type { Driver, DriverShift, DriverAvailabilityOverride, Job, Warehouse } from "@/lib/types";
 import type { Stop } from "@/lib/dispatch/use-job-stops";
 import type { Lookups } from "@/lib/dispatch/lookups";
 import type { PlannedAssign } from "@/lib/planner";
@@ -13,6 +14,7 @@ import { ComplianceDot, DriverPicker, PlannedChip, StatusPill } from "./pickers"
 
 export const JobDetailPanel = memo(function JobDetailPanel({
   job, stops, warehouses, drivers, compliance, lookups, planned,
+  driverShifts, shiftOverrides,
   onAssignDriver, onSetStatus, onEdit,
 }: {
   job: Job;
@@ -22,6 +24,8 @@ export const JobDetailPanel = memo(function JobDetailPanel({
   compliance: Record<string, Compliance>;
   lookups: Lookups;
   planned: PlannedAssign | null;
+  driverShifts: Record<string, DriverShift>;
+  shiftOverrides: DriverAvailabilityOverride[];
   onAssignDriver: (id: string) => void;
   onSetStatus: (s: string, opts?: { silent?: boolean }) => void;
   onEdit: () => void;
@@ -60,8 +64,9 @@ export const JobDetailPanel = memo(function JobDetailPanel({
 
   const ranked = useMemo(() => {
     if (driver || isLaneAssigned || !origin) return [];
+    const targetDate = job.for_date ?? new Date().toISOString().slice(0, 10);
     return drivers
-      .filter((d) => d.status === "AVAILABLE" || d.status === "ON_SHIFT")
+      .filter((d) => isDriverAvailableOnDate(d.id, targetDate, driverShifts, shiftOverrides))
       .filter((d) => d.current_lat != null && d.current_lon != null)
       .map((d) => {
         const distKm = haversineKm(d.current_lat!, d.current_lon!, origin.latitude, origin.longitude);
@@ -69,7 +74,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
       })
       .sort((a, b) => a.distKm - b.distKm)
       .slice(0, 3);
-  }, [driver, isLaneAssigned, drivers, origin]);
+  }, [driver, isLaneAssigned, drivers, origin, job.for_date, driverShifts, shiftOverrides]);
 
   // Only run auto-validation and status transitions for assigned/active jobs,
   // never for PENDING runs — timestamps must not appear on unassigned jobs.

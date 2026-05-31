@@ -234,8 +234,7 @@ export const auditPlan = createServerFn({ method: "POST" })
       .from("jobs")
       .select("*")
       .eq("status", "PENDING")
-      .is("assigned_driver_id", null)
-      .is("manual_override", false);
+      .is("assigned_driver_id", null);  // manual_override jobs are included — adjusted time ≠ exclude from planning
 
     const stopsQ = supabaseAdmin
       .from("job_stops")
@@ -371,13 +370,8 @@ export const auditPlan = createServerFn({ method: "POST" })
       });
 
       const excluded: string[] = [];
-      if (
-        d.status !== "AVAILABLE" &&
-        d.status !== "ON_SHIFT" &&
-        d.status !== "ON_ROUTE"
-      ) {
-        excluded.push(`Status "${d.status}" not in [AVAILABLE, ON_SHIFT, ON_ROUTE]`);
-      }
+      // Status filter removed: availability is determined by shift schedule only.
+      // OFF_SHIFT now = not scheduled today, not = permanently unavailable.
       if (d.current_lat == null || d.current_lon == null) {
         excluded.push("No GPS position");
       }

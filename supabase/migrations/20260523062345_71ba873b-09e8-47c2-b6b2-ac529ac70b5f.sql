@@ -18,7 +18,7 @@ CREATE TABLE public.companies (
   plan                  TEXT NOT NULL DEFAULT 'starter'
                           CHECK (plan IN ('starter','pro','enterprise')),
   config                JSONB NOT NULL DEFAULT '{
-    "modules": ["dispatch","jobs","drivers","warehouses","alerts","events"],
+    "modules": ["dispatch","jobs","drivers","warehouses","alerts","events","maps","ai_agent"],
     "maxDrivers": 20,
     "maxWarehouses": 5,
     "showTelegramAlerts": true,

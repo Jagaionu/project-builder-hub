@@ -29,7 +29,18 @@ const STATUS_CONFIG: Record<SubscriptionStatus, { label: string; color: string; 
   cancelled: { label: "Cancelled",  color: "text-muted-foreground", icon: XCircle },
 };
 
-const ALL_MODULES: ReadonlyArray<TenantModule> = ["dispatch", "jobs", "drivers", "warehouses", "alerts", "events"];
+const ALL_MODULES: ReadonlyArray<TenantModule> = ["dispatch", "jobs", "drivers", "warehouses", "alerts", "events", "maps", "ai_agent"];
+
+const MODULE_LABELS: Record<TenantModule, string> = {
+  dispatch: "Dispatch",
+  jobs: "Jobs",
+  drivers: "Drivers",
+  warehouses: "Warehouses",
+  alerts: "Alerts",
+  events: "Events",
+  maps: "Maps",
+  ai_agent: "AI Agent",
+};
 
 function AdminDashboard() {
   const [tab, setTab] = useState<"companies" | "warehouses">("companies");
@@ -649,13 +660,13 @@ function CompanyRow({
                 <button
                   key={mod}
                   onClick={() => toggleModule(mod)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors capitalize ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
                     config.modules.includes(mod)
                       ? "bg-primary/10 text-primary border-primary/30"
                       : "border-border/50 text-muted-foreground/50 hover:text-muted-foreground"
                   }`}
                 >
-                  {mod}
+                  {MODULE_LABELS[mod]}
                 </button>
               ))}
             </div>
