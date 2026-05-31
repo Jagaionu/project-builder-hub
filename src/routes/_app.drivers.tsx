@@ -423,6 +423,7 @@ function DriversPage() {
               key={selectedDriver.id}
               driver={selectedDriver}
               activeJobs={activeJobsByDriver[selectedDriver.id] ?? []}
+              schedule={schedule[selectedDriver.id] ?? "unknown"}
               onEdit={(d) => startEdit(d)}
               onDelete={remove}
               onRegenerate={regenerate}
