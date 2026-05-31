@@ -103,8 +103,14 @@ function DriversPage() {
   }, [driverSearch]);
 
   const nowMs = Date.now();
+  const schedule = useDriverSchedule(drivers.map((d) => d.id));
   const driverRows = drivers.map((d) => {
-    const effectiveStatus = effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs);
+    const effectiveStatus = effectiveDriverStatus(
+      d.status,
+      activeJobsByDriver[d.id] ?? [],
+      nowMs,
+      schedule[d.id] ?? "unknown",
+    );
     const category: DriverRouteFilter =
       effectiveStatus === "ON_ROUTE"
         ? "ON_ROUTE"
