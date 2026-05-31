@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { useDrivers, useComplianceWithLedger, useDriverDayHours } from "@/lib/hooks";
+import { useDrivers, useComplianceWithLedger, useDriverDayHours, useWarehouses } from "@/lib/hooks";
 import { getDriversSnapshot } from "@/lib/drivers.functions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,18 +30,19 @@ export const Route = createFileRoute("/_app/drivers")({
   head: () => ({ meta: [{ title: "Drivers — Planning System" }] }),
 });
 
-type DriverForm = { name: string; phone: string };
+type DriverForm = { name: string; phone: string; home_warehouse_id: string; return_to_base_required: boolean };
 
 function DriversPage() {
   const router = useRouter();
   const { drivers: initialDrivers } = Route.useLoaderData();
   const drivers = useDrivers(initialDrivers);
+  const warehouses = useWarehouses();
   const compliance = useComplianceWithLedger(useDriverDayHours());
   const activeJobsByDriver = useActiveJobsByDriver();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<DriverForm>({ name: "", phone: "" });
+  const [form, setForm] = useState<DriverForm>({ name: "", phone: "", home_warehouse_id: "", return_to_base_required: false });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "" });
+  const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "", home_warehouse_id: "", return_to_base_required: false });
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
 
   // ── Drivers list filters (persisted) ────────────────────────────────────
@@ -170,6 +171,8 @@ function DriversPage() {
         phone: form.phone || null,
         status: "OFF_SHIFT",
         tenant_id,
+        home_warehouse_id: form.home_warehouse_id || null,
+        return_to_base_required: form.return_to_base_required,
       })
       .select("id, login_code")
       .single();
@@ -185,13 +188,18 @@ function DriversPage() {
       toast.success("Driver added");
     }
     setOpen(false);
-    setForm({ name: "", phone: "" });
+    setForm({ name: "", phone: "", home_warehouse_id: "", return_to_base_required: false });
     router.invalidate();
   }
 
-  function startEdit(d: { id: string; name: string; phone: string | null }) {
+  function startEdit(d: { id: string; name: string; phone: string | null; home_warehouse_id?: string | null; return_to_base_required?: boolean }) {
     setEditingId(d.id);
-    setEditForm({ name: d.name, phone: d.phone ?? "" });
+    setEditForm({
+      name: d.name,
+      phone: d.phone ?? "",
+      home_warehouse_id: d.home_warehouse_id ?? "",
+      return_to_base_required: d.return_to_base_required ?? false,
+    });
   }
 
   async function saveEdit() {
@@ -202,6 +210,8 @@ function DriversPage() {
       .update({
         name: editForm.name,
         phone: editForm.phone || null,
+        home_warehouse_id: editForm.home_warehouse_id || null,
+        return_to_base_required: editForm.return_to_base_required,
       })
       .eq("id", editingId);
     if (error) toast.error(error.message);
@@ -314,6 +324,47 @@ function DriversPage() {
                   className="w-full h-10 px-3 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-2">
+                  Home Warehouse (Optional)
+                </label>
+                <select
+                  value={form.home_warehouse_id}
+                  onChange={(e) => setForm({ ...form, home_warehouse_id: e.target.value })}
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">— None (free agent) —</option>
+                  {warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>{w.code} — {w.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-border bg-surface/50 px-3 py-2.5">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Return to base</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Planner will route driver back to home warehouse at end of day</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={form.return_to_base_required}
+                  disabled={!form.home_warehouse_id}
+                  onClick={() => setForm((f) => ({ ...f, return_to_base_required: !f.return_to_base_required }))}
+                  className={
+                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors " +
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
+                    "disabled:cursor-not-allowed disabled:opacity-40 " +
+                    (form.return_to_base_required && form.home_warehouse_id ? "bg-primary" : "bg-muted")
+                  }
+                >
+                  <span
+                    className={
+                      "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform " +
+                      (form.return_to_base_required && form.home_warehouse_id ? "translate-x-5" : "translate-x-0")
+                    }
+                  />
+                </button>
+              </div>
             </div>
 
             <div className="flex gap-3">
@@ -364,6 +415,47 @@ function DriversPage() {
                   placeholder="e.g., +44 7700 900000"
                   className="w-full h-10 px-3 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-2">
+                  Home Warehouse (Optional)
+                </label>
+                <select
+                  value={editForm.home_warehouse_id}
+                  onChange={(e) => setEditForm({ ...editForm, home_warehouse_id: e.target.value })}
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">— None (free agent) —</option>
+                  {warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>{w.code} — {w.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-border bg-surface/50 px-3 py-2.5">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Return to base</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Planner will route driver back to home warehouse at end of day</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={editForm.return_to_base_required}
+                  disabled={!editForm.home_warehouse_id}
+                  onClick={() => setEditForm((f) => ({ ...f, return_to_base_required: !f.return_to_base_required }))}
+                  className={
+                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors " +
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
+                    "disabled:cursor-not-allowed disabled:opacity-40 " +
+                    (editForm.return_to_base_required && editForm.home_warehouse_id ? "bg-primary" : "bg-muted")
+                  }
+                >
+                  <span
+                    className={
+                      "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform " +
+                      (editForm.return_to_base_required && editForm.home_warehouse_id ? "translate-x-5" : "translate-x-0")
+                    }
+                  />
+                </button>
               </div>
             </div>
             <div className="flex gap-3">

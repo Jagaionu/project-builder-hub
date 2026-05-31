@@ -482,19 +482,20 @@ export function computePlanForDate(
 
   const eligibleIds = Object.keys(forecast);
 
-  // Drivers become available at 06:00 UTC on the target date, or immediately
-  // if planning same-day jobs that are already overdue.
-  const nominalStartMs = new Date(targetDate + "T06:00:00Z").getTime();
-  const baseStartMs = Math.max(nominalStartMs, nowMs);
-
-  // Wall-clock time each driver becomes free for their next job.
-  // This is distinct from hoursLeft (compliance drive hours): it includes
-  // loading/unloading dwell time at every stop so that chaining respects the
-  // actual job finish time (e.g. driver finishes unloading at 12:40 PM, not
-  // just when the truck arrives at the drop warehouse).
+  // Wall-clock time each driver becomes available to start their first job.
+  // Uses the driver's actual shift start_time from driver_shift_templates.
+  // Falls back to 06:00 UTC if no shift record exists (open-schedule driver).
+  // "immediately" is still the floor — same-day jobs already overdue are not
+  // pushed back to the nominal shift start.
   const driverReadyMs: Record<string, number> = {};
-  for (const did of eligibleIds) driverReadyMs[did] = baseStartMs;
-
+  for (const did of eligibleIds) {
+    const dayOfWeek = new Date(targetDate + "T12:00:00Z").getDay();
+    const shiftStart = shifts[did]?.shiftByDay?.[dayOfWeek]?.start_time ?? "06:00:00";
+    // Normalise "HH:MM" → "HH:MM:00" so Date parsing is consistent.
+    const normStart = shiftStart.length === 5 ? shiftStart + ":00" : shiftStart;
+    const nominalStartMs = new Date(`${targetDate}T${normStart}Z`).getTime();
+    driverReadyMs[did] = Math.max(nominalStartMs, nowMs);
+  }
   // Sort jobs by their scheduled pickup time (earliest first, unscheduled last).
   //
   // WHY: with a longest-first sort, a job that naturally chains AFTER another

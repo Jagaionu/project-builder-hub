@@ -24,10 +24,12 @@ const DEFAULT_END = "18:00:00";
 
 /**
  * Fetch per-day shift templates for the given drivers and aggregate them into
- * the DriverShift shape (one entry per driver with a days_of_week set).
+ * the DriverShift shape (one entry per driver with a days_of_week set and
+ * a shiftByDay map of per-day start/end times).
  *
  * A driver with no template rows is simply absent from the result — the
- * planner treats "no shift record" as an open schedule (available).
+ * planner treats "no shift record" as an open schedule (available) and
+ * falls back to DEFAULT_START/DEFAULT_END.
  */
 export async function fetchShiftsByDriver(
   client: AnySupabase,
@@ -49,6 +51,20 @@ export async function fetchShiftsByDriver(
       if (!existing.days_of_week.includes(row.day_of_week)) {
         existing.days_of_week.push(row.day_of_week);
       }
+      // Overwrite shiftByDay for this day (uq_driver_day guarantees one row
+      // per driver/day after migration #19, but handle duplicates gracefully
+      // by keeping the is_primary row, or the latest by updated_at).
+      const prev = existing.shiftByDay[row.day_of_week];
+      if (
+        !prev ||
+        (row.is_primary && !prev) ||
+        row.updated_at > existing.updated_at
+      ) {
+        existing.shiftByDay[row.day_of_week] = {
+          start_time: row.start_time,
+          end_time: row.end_time,
+        };
+      }
       // Keep the most recent updated_at across the driver's rows.
       if (row.updated_at > existing.updated_at) existing.updated_at = row.updated_at;
     } else {
@@ -56,6 +72,12 @@ export async function fetchShiftsByDriver(
         id: row.driver_id, // synthetic — the aggregate has no single row id
         driver_id: row.driver_id,
         days_of_week: [row.day_of_week],
+        shiftByDay: {
+          [row.day_of_week]: {
+            start_time: row.start_time,
+            end_time: row.end_time,
+          },
+        },
         created_at: row.created_at,
         updated_at: row.updated_at,
       };

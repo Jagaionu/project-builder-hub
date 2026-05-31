@@ -20,6 +20,10 @@ export interface Driver {
   created_at: string;
   login_code?: string | null;
   tenant_id?: string | null;
+  /** FK → warehouses.id. The depot this driver operates from. Null = free agent (no fixed base). */
+  home_warehouse_id: string | null;
+  /** When true the planner must route this driver back to home_warehouse_id at end of day. */
+  return_to_base_required: boolean;
 }
 
 export interface Warehouse {
@@ -116,18 +120,21 @@ export const DEFAULT_TENANT_CONFIG: TenantConfig = {
 
 // Aggregated weekly availability for a driver, derived from the per-day
 // driver_shift_templates rows. days_of_week is the set of weekdays the driver
-// works (0=Sun..6=Sat). This shape is what the planner's availability check
-// consumes; the underlying storage is now driver_shift_templates.
+// works (0=Sun..6=Sat). shiftByDay provides per-day start/end times so the
+// planner can use the real shift window instead of a hardcoded 06:00 default.
+// One entry per working day — single shift per day is enforced by uq_driver_day.
 export interface DriverShift {
   id: string;
   driver_id: string;
   days_of_week: number[]; // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  /** Keyed by day_of_week (0–6). Only present for days in days_of_week. */
+  shiftByDay: Record<number, { start_time: string; end_time: string }>;
   created_at: string;
   updated_at: string;
 }
 
-// One row per (driver, day_of_week, start_time) in driver_shift_templates.
-// Supports split shifts (multiple rows per day) and per-day start/end times.
+// One row per (driver, day_of_week) in driver_shift_templates.
+// Single shift per day is enforced by the uq_driver_day unique constraint.
 export interface DriverShiftTemplate {
   id: string;
   tenant_id: string | null;

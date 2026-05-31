@@ -78,6 +78,9 @@ export function useWarehouses() {
         cache.warehouses = data as Warehouse[];
         setWarehouses(cache.warehouses);
       }
+    }).catch((err: unknown) => {
+      // eslint-disable-next-line no-console
+      console.warn("[useWarehouses] query failed:", err);
     });
   }, []);
   return warehouses;
@@ -99,14 +102,19 @@ export function applyJobPatch(jobId: string, patch: Partial<Job>) {
 // we can't rely on the Supabase realtime echo arriving. Re-runs the same bounded
 // query as the initial load and fans the result out to every useJobs() subscriber.
 export async function reloadJobs() {
-  const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-  const { data } = await supabase
-    .from("jobs")
-    .select("*")
-    .or(`for_date.gte.${since},for_date.is.null`)
-    .order("created_at", { ascending: false })
-    .limit(2000);
-  if (data) broadcastJobs(data as Job[]);
+  try {
+    const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const { data } = await supabase
+      .from("jobs")
+      .select("*")
+      .or(`for_date.gte.${since},for_date.is.null`)
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    if (data) broadcastJobs(data as Job[]);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("[reloadJobs] query failed:", err);
+  }
 }
 
 export function useJobs() {
@@ -141,19 +149,24 @@ export function useDriverEventsByDriver(): Record<string, ComplianceEvent[]> {
     let mounted = true;
     const since = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
     const load = async () => {
-      const { data } = await supabase
-        .from("driver_events")
-        .select("driver_id,type,timestamp")
-        .in("type", ["START_SHIFT", "END_SHIFT"])
-        .gte("timestamp", since)
-        .order("timestamp", { ascending: true });
-      if (!mounted || !data) return;
-      const m: Record<string, ComplianceEvent[]> = {};
-      for (const e of data as Array<{ driver_id: string; type: string; timestamp: string }>) {
-        (m[e.driver_id] ||= []).push({ type: e.type, timestamp: e.timestamp });
+      try {
+        const { data } = await supabase
+          .from("driver_events")
+          .select("driver_id,type,timestamp")
+          .in("type", ["START_SHIFT", "END_SHIFT"])
+          .gte("timestamp", since)
+          .order("timestamp", { ascending: true });
+        if (!mounted || !data) return;
+        const m: Record<string, ComplianceEvent[]> = {};
+        for (const e of data as Array<{ driver_id: string; type: string; timestamp: string }>) {
+          (m[e.driver_id] ||= []).push({ type: e.type, timestamp: e.timestamp });
+        }
+        cache.driverEvents = m;
+        setMap(m);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("[useDriverEventsByDriver] query failed:", err);
       }
-      cache.driverEvents = m;
-      setMap(m);
     };
     load();
     const debouncedLoad = debounce(load, 500);
@@ -182,31 +195,36 @@ export function useRecentDelays(): RecentDelay[] {
   const channelNameRef = useRef(`rt-delay-events-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
     let mounted = true;
-	    const load = async () => {
-	      const since = new Date(Date.now() - 6 * 3600 * 1000).toISOString();
-	      const { data } = await supabase
-	        .from("driver_events")
-	        .select("id,driver_id,timestamp,payload")
-	        .eq("type", "DELAY_REPORT" as never)
-	        .gte("timestamp", since)
-	        .order("timestamp", { ascending: false });
-	      if (!mounted || !data) return;
-	      const next = (data as Array<{ id: string; driver_id: string; timestamp: string; payload: { reason?: string; category?: string; notes?: string; note?: string; job_id?: string } }>).map(
-	        (r) => {
-	          const headline = r.payload?.reason ?? r.payload?.category ?? "Delay reported";
-	          const extra = (r.payload?.notes ?? r.payload?.note ?? "").trim();
-	          return {
-	            id: r.id,
-	            driver_id: r.driver_id,
-	            timestamp: r.timestamp,
-	            reason: extra ? `${headline} — ${extra}` : headline,
-	            job_id: r.payload?.job_id,
-	          };
-	        },
-	      );
+    const load = async () => {
+      try {
+        const since = new Date(Date.now() - 6 * 3600 * 1000).toISOString();
+        const { data } = await supabase
+          .from("driver_events")
+          .select("id,driver_id,timestamp,payload")
+          .eq("type", "DELAY_REPORT" as never)
+          .gte("timestamp", since)
+          .order("timestamp", { ascending: false });
+        if (!mounted || !data) return;
+        const next = (data as Array<{ id: string; driver_id: string; timestamp: string; payload: { reason?: string; category?: string; notes?: string; note?: string; job_id?: string } }>).map(
+          (r) => {
+            const headline = r.payload?.reason ?? r.payload?.category ?? "Delay reported";
+            const extra = (r.payload?.notes ?? r.payload?.note ?? "").trim();
+            return {
+              id: r.id,
+              driver_id: r.driver_id,
+              timestamp: r.timestamp,
+              reason: extra ? `${headline} — ${extra}` : headline,
+              job_id: r.payload?.job_id,
+            };
+          },
+        );
 
       cache.recentDelays = next;
       setRows(next);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("[useRecentDelays] query failed:", err);
+      }
     };
     load();
     const debouncedLoad = debounce(load, 500);
