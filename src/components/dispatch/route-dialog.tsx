@@ -392,8 +392,8 @@ export default function RouteDialog({
                         <div className="px-3 py-2 rounded-md border border-border/50 bg-muted/30 text-sm font-mono text-foreground flex items-center gap-2">
                           <Clock className="size-4 text-muted-foreground" />
                           {auto
-                            ? new Date(auto).toLocaleString(undefined, {
-                                day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+                            ? new Date(auto).toLocaleString("en-GB", {
+                                day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false,
                               })
                             : "—"}
                           <span className="ml-auto text-[10px] text-muted-foreground">auto</span>
