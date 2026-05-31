@@ -50,13 +50,14 @@ export function useDriverSchedule(driverIds: string[]): Record<string, ScheduleS
     };
 
     (async () => {
+      const sb = supabase as any;
       const [tplRes, ovRes] = await Promise.all([
-        supabase
+        sb
           .from("driver_shift_templates")
           .select("driver_id, day_of_week")
           .in("driver_id", driverIds)
           .eq("day_of_week", weekday),
-        supabase
+        sb
           .from("driver_availability_overrides")
           .select("driver_id, available")
           .in("driver_id", driverIds)
