@@ -1,38 +1,54 @@
 ## Goal
 
-From the dispatch detail panel of a selected VRID, jump to the Live Map page focused on **only the assigned driver and that job's route** (origin → destination warehouses). From the map, a button returns to the same VRID in dispatch.
+A driver who has **no day scheduled today** in the calendar shows **OFF_SHIFT**. A driver who **is scheduled today** shows **AVAILABLE** — but only when they're idle (raw status is `OFF_SHIFT` or `AVAILABLE`). Anything else (ON_ROUTE, ARRIVED_PICKUP, EN_ROUTE_DELIVERY, DELAYED, etc.) passes through unchanged.
+
+Display-layer only — no DB writes, no planner change.
+
+## Resolution rules
+
+For each driver, today's schedule is a tri-state:
+- `scheduled` — override row for today says `available=true`, OR no override and today's weekday is in `driver_shift_templates.day_of_week`.
+- `not_scheduled` — override says `available=false`, OR no override and today's weekday is NOT in the templates.
+- `unknown` — hook hasn't loaded yet.
+
+Override always wins over template.
 
 ## Changes
 
-### 1. Live Map route (`src/routes/_app.index.tsx`)
-- Add a `validateSearch` schema accepting `job?: string` (job id) and `from?: "dispatch"`.
-- Read the search param. If `job` is set, resolve the `Job` from `useJobs()` and:
-  - Auto-select its `assigned_driver_id` (or `planned_driver_id` as fallback).
-  - Pass a `focusJobId` prop to `<LiveMap>` so it filters what's rendered.
-- Show a sticky "← Back to VRID" button (top-left over the map, or in `PageHeader` right slot) that navigates to `/dispatch?job=<reference>` (uses existing dispatch deep-link param).
-- Show a small "Focused on {reference}" chip with a "Clear focus" action that navigates to `/` (removes the param).
+### 1. `src/lib/effective-status.ts`
 
-### 2. `src/components/LiveMap.tsx`
-- Add optional prop `focusJobId?: string | null`.
-- When `focusJobId` is set, compute:
-  - The focused job and its stops (use `job_stops` via the same hook used by dispatch, or derive from `origin_warehouse_id` / `destination_warehouse_id` already on `Job`).
-  - The focused driver id (`assigned_driver_id ?? planned_driver_id`).
-- Filter rendered markers:
-  - Drivers: only the focused driver.
-  - Warehouses: only the warehouses appearing in that job's stops (origin + destination, plus any multi-stop legs if available).
-- Draw a polyline between driver's current position → next stop → remaining stops (simple straight segments using existing `haversineKm`/leaflet polyline; no routing API).
-- Auto-fitBounds to the focused driver + warehouses on focus change.
-- When `focusJobId` becomes null, restore normal "show all" behavior.
+```ts
+export type ScheduleStatus = 'scheduled' | 'not_scheduled' | 'unknown';
+```
 
-### 3. `src/components/dispatch/detail-panel.tsx`
-- Add a "View on Map" button near the top of the panel (next to the existing edit/pencil action).
-- Disabled (with tooltip "Assign a driver first") when no `assigned_driver_id` AND no `planned_driver_id`.
-- On click: `navigate({ to: "/", search: { job: job.id, from: "dispatch" } })`.
+Extend `effectiveDriverStatus(rawStatus, jobs, nowMs, schedule = 'unknown')`:
+- Keep existing ON_ROUTE → ON_SHIFT downgrade when no job actually started.
+- Then apply a **strict whitelist** only when `rawStatus` is `OFF_SHIFT` or `AVAILABLE`:
+  - `schedule === 'not_scheduled'` → `"OFF_SHIFT"`
+  - `schedule === 'scheduled'` → `"AVAILABLE"`
+  - `schedule === 'unknown'` → return raw (backward compatible)
+- Any other raw status (ARRIVED_PICKUP, EN_ROUTE_DELIVERY, DELAYED, IN_PROGRESS, etc.) → pass through untouched, regardless of schedule.
 
-### 4. Wire-up notes
-- Dispatch already supports `?job=<reference>` deep-link, so the "Back to VRID" button uses `job.reference` to round-trip back to the same selected job.
-- No DB or schema changes. No new dependencies.
+### 2. New hook `src/lib/use-driver-schedule.ts`
 
-## Out of scope
-- Real road routing (we draw straight polylines between stops; consistent with current app which has no routing engine).
-- Persisting the focus across reloads beyond the URL param (URL is the source of truth).
+Returns `Record<driverId, ScheduleStatus>`.
+
+- Single `Promise.all` initial fetch of:
+  - `driver_shift_templates` where `day_of_week = todayWeekday`
+  - `driver_availability_overrides` where `date = today`
+  - Both filtered by current tenant via RLS; both filter `deleted_at IS NULL` defensively if the column exists on the table (skip the filter if it doesn't — schema check: `drivers` has it, the child tables don't, so this only matters when joining).
+- Merge in one pass so there's **no intermediate flash** (template-only → override-applied).
+- Two realtime channels (`driver_shift_templates`, `driver_availability_overrides`); cleanup unsubscribes BOTH on unmount via stored refs to avoid duplicate subscriptions on remount.
+- Initial value before fetch resolves: every driver is `'unknown'` → UI shows raw status during the brief load window (accepted; documented).
+
+### 3. Call sites
+
+- `src/routes/_app.drivers.tsx` — use the hook, pass `schedule[d.id] ?? 'unknown'` into `effectiveDriverStatus`. Existing OFF_SHIFT / ON_SHIFT / ON_ROUTE filter buckets continue to work.
+- `src/components/drivers/driver-detail-panel.tsx` — accept an optional `schedule?: ScheduleStatus` prop from the parent (drivers route). When absent, behaves as today.
+- Other callers of `effectiveDriverStatus` keep working — new arg is optional with `'unknown'` default.
+
+## Explicitly out of scope (documented, not bugs)
+
+- **Partial-day shifts.** `driver_shift_templates` has `start_time`/`end_time`, but the calendar UI today only captures weekday selection. We treat "scheduled today" as a whole-day boolean; a 14:00 start won't mark the driver OFF_SHIFT at 09:00. Time-window awareness is a future change.
+- **Loading flash.** During initial hook load (`'unknown'`), the badge shows raw status. No skeleton — the window is short and the next render corrects it.
+- **Persisting to `drivers.status`.** This is purely a display projection; the DB column is unchanged.
