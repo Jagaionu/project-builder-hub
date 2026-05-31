@@ -6,6 +6,7 @@ import type { Driver } from "@/lib/types";
 import { effectiveDriverStatus, type ScheduleStatus } from "@/lib/effective-status";
 import type { ActiveJob } from "@/lib/use-driver-routes";
 import { ShiftCalendar } from "@/components/driver/ShiftCalendar";
+import { DriverItineraryTimeline } from "@/components/drivers/DriverItineraryTimeline";
 
 export const DriverDetailPanel = memo(function DriverDetailPanel({
   driver,
@@ -194,6 +195,8 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
               </div>
             </div>
           )}
+
+          <DriverItineraryTimeline driver={driver} jobs={activeJobs} />
         </div>
 
         {/* Right Side: Schedule */}
