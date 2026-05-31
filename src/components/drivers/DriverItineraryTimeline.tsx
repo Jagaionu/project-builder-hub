@@ -35,7 +35,7 @@ function jobDate(job: ActiveJob): string | null {
 function jobSortMs(job: ActiveJob): number {
   const iso =
     job.planned_start_at ??
-    ...(job.stops ?? [])].sort((a, b) => a.seq - b.seq)[0]?.scheduled_at ??
+    [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq)[0]?.scheduled_at ??
     job.scheduled_at;
   if (!iso) return Infinity;
   const t = new Date(iso).getTime();
