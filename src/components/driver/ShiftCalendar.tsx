@@ -65,10 +65,15 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const loaded = await fetchShiftDays(supabase, driverId);
-      if (cancelled) return;
-      setSelectedDays(loaded);
-      setSavedDays(loaded);
+      try {
+        const loaded = await fetchShiftDays(supabase, driverId);
+        if (cancelled) return;
+        setSelectedDays(loaded);
+        setSavedDays(loaded);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("[ShiftCalendar] fetchShiftDays failed:", err);
+      }
     })();
     return () => {
       cancelled = true;
@@ -79,20 +84,26 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
     let cancelled = false;
     setOverridesLoading(true);
     (async () => {
-      const year = currentMonth.getFullYear();
-      const month = currentMonth.getMonth();
-      const start = localDateString(year, month, 1);
-      const end = localDateString(year, month, new Date(year, month + 1, 0).getDate());
-      const { data } = await supabase
-        .from("driver_availability_overrides")
-        .select("*")
-        .eq("driver_id", driverId)
-        .gte("date", start)
-        .lte("date", end);
+      try {
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        const start = localDateString(year, month, 1);
+        const end = localDateString(year, month, new Date(year, month + 1, 0).getDate());
+        const { data } = await supabase
+          .from("driver_availability_overrides")
+          .select("*")
+          .eq("driver_id", driverId)
+          .gte("date", start)
+          .lte("date", end);
 
-      if (!cancelled) {
-        setOverrides((data ?? []) as DriverAvailabilityOverride[]);
-        setOverridesLoading(false);
+        if (!cancelled) {
+          setOverrides((data ?? []) as DriverAvailabilityOverride[]);
+          setOverridesLoading(false);
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("[ShiftCalendar] overrides fetch failed:", err);
+        if (!cancelled) setOverridesLoading(false);
       }
     })();
     return () => {

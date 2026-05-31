@@ -5,13 +5,16 @@ import { StatusBadge } from "@/components/StatusBadge";
 import type { Driver } from "@/lib/types";
 import { effectiveDriverStatus, type ScheduleStatus } from "@/lib/effective-status";
 import type { ActiveJob } from "@/lib/use-driver-routes";
+import type { Compliance } from "@/lib/compliance";
 import { ShiftCalendar } from "@/components/driver/ShiftCalendar";
 import { DriverItineraryTimeline } from "@/components/drivers/DriverItineraryTimeline";
+import { DriverHoursStatus } from "@/components/drivers/DriverHoursStatus";
 
 export const DriverDetailPanel = memo(function DriverDetailPanel({
   driver,
   activeJobs,
   schedule = "unknown",
+  compliance,
   onEdit,
   onDelete,
   onRegenerate,
@@ -19,6 +22,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
   driver: Driver;
   activeJobs: ActiveJob[];
   schedule?: ScheduleStatus;
+  compliance?: Compliance | null;
   onEdit: (driver: Driver) => void;
   onDelete: (driverId: string, driverName: string) => void;
   onRegenerate?: (driverId: string, driverName: string) => void;
@@ -199,12 +203,16 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
           <DriverItineraryTimeline driver={driver} jobs={activeJobs} />
         </div>
 
-        {/* Right Side: Schedule */}
-        <div className="col-span-5">
-          <div className="rounded-lg border border-border bg-surface p-4">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+        {/* Right Side: Hours + Schedule */}
+        <div className="col-span-5 space-y-4">
+          {/* Hours Status Dashboard */}
+          <DriverHoursStatus driver={driver} compliance={compliance ?? null} />
+
+          {/* Driver Schedule (smaller calendar) */}
+          <div className="rounded border border-border bg-surface p-3">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-2">
               <CalendarDays className="size-3.5" />
-              Driver Schedule
+              Schedule
             </div>
             <ShiftCalendar driverId={driver.id} isPlanner={true} />
           </div>

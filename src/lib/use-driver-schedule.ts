@@ -49,22 +49,34 @@ export function useDriverSchedule(driverIds: string[]): Record<string, ScheduleS
       setSchedule(next);
     };
 
-    (async () => {
-      const sb = supabase as any;
-      const [tplRes, ovRes] = await Promise.all([
-        sb
-          .from("driver_shift_templates")
-          .select("driver_id, day_of_week")
-          .in("driver_id", driverIds)
-          .eq("day_of_week", weekday),
-        sb
-          .from("driver_availability_overrides")
-          .select("driver_id, available")
-          .in("driver_id", driverIds)
-          .eq("date", date),
-      ]);
-      if (cancelled) return;
+    // Wrap every async query so an RLS rejection, network blip, or auth
+    // expiry never surfaces as an unhandled rejection and crashes the page.
+    const safeWrapper = <T,>(fn: () => Promise<T>) => fn().catch((err: unknown) => {
+      // eslint-disable-next-line no-console
+      console.warn("[useDriverSchedule] query failed, using stale data:", err);
+      return undefined;
+    });
 
+    (async () => {
+      const result = await safeWrapper(async () => {
+        const sb = supabase as any;
+        return Promise.all([
+          sb
+            .from("driver_shift_templates")
+            .select("driver_id, day_of_week")
+            .in("driver_id", driverIds)
+            .eq("day_of_week", weekday),
+          sb
+            .from("driver_availability_overrides")
+            .select("driver_id, available")
+            .in("driver_id", driverIds)
+            .eq("date", date),
+        ]);
+      });
+
+      if (cancelled || !result) return;
+
+      const [tplRes, ovRes] = result;
       templateDaysRef.current = new Set(
         ((tplRes.data ?? []) as TemplateRow[]).map((r) => r.driver_id),
       );
@@ -75,7 +87,7 @@ export function useDriverSchedule(driverIds: string[]): Record<string, ScheduleS
     })();
 
     // Realtime: refetch the affected source on any change, then recompute.
-    const refetchTemplates = async () => {
+    const refetchTemplates = () => safeWrapper(async () => {
       const { data } = await (supabase as any)
         .from("driver_shift_templates")
         .select("driver_id, day_of_week")
@@ -84,9 +96,9 @@ export function useDriverSchedule(driverIds: string[]): Record<string, ScheduleS
       if (cancelled) return;
       templateDaysRef.current = new Set(((data ?? []) as TemplateRow[]).map((r) => r.driver_id));
       recompute();
-    };
+    });
 
-    const refetchOverrides = async () => {
+    const refetchOverrides = () => safeWrapper(async () => {
       const { data } = await (supabase as any)
         .from("driver_availability_overrides")
         .select("driver_id, available")
@@ -97,7 +109,7 @@ export function useDriverSchedule(driverIds: string[]): Record<string, ScheduleS
         ((data ?? []) as OverrideRow[]).map((r) => [r.driver_id, r.available]),
       );
       recompute();
-    };
+    });
 
     const tplChannel = supabase
       .channel(`drv-sched-tpl-${idsKey.slice(0, 32)}`)

@@ -47,6 +47,9 @@ export function useDrivers(initialDrivers: Driver[] = []) {
         cache.drivers = data as Driver[];
         setDrivers(cache.drivers);
       }
+    }).catch((err: unknown) => {
+      // eslint-disable-next-line no-console
+      console.warn("[useDrivers] query failed:", err);
     });
     const ch = supabase.channel(channelNameRef.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, (payload) => {

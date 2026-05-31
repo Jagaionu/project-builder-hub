@@ -32,20 +32,25 @@ export function useActiveJobsByDriver(): Record<string, ActiveJob[]> {
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      const { data } = await supabase
-        .from("jobs")
-        .select(
-          "id,status,assigned_driver_id,planned_driver_id,planned_start_at,scheduled_at,for_date,stops:job_stops(seq,kind,warehouse_id,scheduled_at,arrived_at,warehouse:warehouses(id,code,latitude,longitude))",
-        )
-        .in("status", ACTIVE as never[]);
-      if (!mounted || !data) return;
-      const m: Record<string, ActiveJob[]> = {};
-      for (const j of data as unknown as ActiveJob[]) {
-        const id = j.assigned_driver_id ?? j.planned_driver_id;
-        if (!id) continue;
-        (m[id] ||= []).push(j);
+      try {
+        const { data } = await supabase
+          .from("jobs")
+          .select(
+            "id,status,assigned_driver_id,planned_driver_id,planned_start_at,scheduled_at,for_date,stops:job_stops(seq,kind,warehouse_id,scheduled_at,arrived_at,warehouse:warehouses(id,code,latitude,longitude))",
+          )
+          .in("status", ACTIVE as never[]);
+        if (!mounted || !data) return;
+        const m: Record<string, ActiveJob[]> = {};
+        for (const j of data as unknown as ActiveJob[]) {
+          const id = j.assigned_driver_id ?? j.planned_driver_id;
+          if (!id) continue;
+          (m[id] ||= []).push(j);
+        }
+        setMap(m);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("[useActiveJobsByDriver] query failed:", err);
       }
-      setMap(m);
     };
     load();
     let pending: ReturnType<typeof setTimeout> | null = null;

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { useDrivers, useComplianceWithLedger, useDriverDayHours } from "@/lib/hooks";
@@ -33,6 +33,7 @@ export const Route = createFileRoute("/_app/drivers")({
 type DriverForm = { name: string; phone: string };
 
 function DriversPage() {
+  const router = useRouter();
   const { drivers: initialDrivers } = Route.useLoaderData();
   const drivers = useDrivers(initialDrivers);
   const compliance = useComplianceWithLedger(useDriverDayHours());
@@ -185,6 +186,7 @@ function DriversPage() {
     }
     setOpen(false);
     setForm({ name: "", phone: "" });
+    router.invalidate();
   }
 
   function startEdit(d: { id: string; name: string; phone: string | null }) {
@@ -206,6 +208,7 @@ function DriversPage() {
     else {
       toast.success("Driver updated");
       setEditingId(null);
+      router.invalidate();
     }
   }
 
@@ -223,6 +226,7 @@ function DriversPage() {
       await removeDriverFn({ data: { driverId: id } });
       toast.success("Driver deleted");
       if (selectedDriverId === id) setSelectedDriverId(null);
+      router.invalidate();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Delete failed");
     }
@@ -424,6 +428,7 @@ function DriversPage() {
               driver={selectedDriver}
               activeJobs={activeJobsByDriver[selectedDriver.id] ?? []}
               schedule={schedule[selectedDriver.id] ?? "unknown"}
+              compliance={compliance[selectedDriver.id] ?? null}
               onEdit={(d) => startEdit(d)}
               onDelete={remove}
               onRegenerate={regenerate}
