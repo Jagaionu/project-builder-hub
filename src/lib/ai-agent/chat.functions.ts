@@ -94,7 +94,7 @@ export const aiChat = createServerFn({ method: "POST" })
       const actionType = functionCall.name.replace("propose_", "");
       const params = parseFunctionArgs(functionCall.arguments);
 
-      const { data: inserted, error: insertError } = await supabaseAdmin
+      const { data: inserted, error: insertError } = await (supabaseAdmin as any)
         .from("ai_pending_actions")
         .insert({
           tenant_id: tenantId,
@@ -109,7 +109,7 @@ export const aiChat = createServerFn({ method: "POST" })
         console.error("Failed to store pending action", insertError);
         responseText = "Sorry, I couldn't prepare that action. Please try again.";
       } else {
-        pendingAction = { id: inserted.id, type: actionType, params };
+        pendingAction = { id: (inserted as { id: string }).id, type: actionType, params };
         responseText = `I can ${actionType.replace(/_/g, " ")} for you. Please review and confirm below.`;
       }
     }
