@@ -67,19 +67,38 @@ export function effectiveJobStatus(job: JobLite, nowMs: number = Date.now()): st
   return isJobScheduledFuture(job, nowMs) ? "SCHEDULED" : job.status;
 }
 
+export type ScheduleStatus = "scheduled" | "not_scheduled" | "unknown";
+
 // A driver is only "ON_ROUTE" when at least one of their active jobs has
 // actually started (first pickup time has passed or a stop was reached).
 // Otherwise display as ON_SHIFT / AVAILABLE depending on raw status.
+//
+// When `schedule` is provided and the driver is idle (raw OFF_SHIFT or
+// AVAILABLE), today's calendar projects onto the badge:
+//   not_scheduled → "OFF_SHIFT"
+//   scheduled     → "AVAILABLE"
+//   unknown       → pass through raw (loading state)
+// Other raw statuses (ARRIVED_PICKUP, EN_ROUTE_DELIVERY, DELAYED, etc.)
+// are passed through untouched regardless of schedule.
 export function effectiveDriverStatus(
   rawStatus: string,
   driverJobs: JobLite[],
   nowMs: number = Date.now(),
+  schedule: ScheduleStatus = "unknown",
 ): string {
-  if (rawStatus !== "ON_ROUTE") return rawStatus;
-  const anyStarted = driverJobs.some(
-    (j) => ACTIVE_STATUSES.has(j.status) && !isJobScheduledFuture(j, nowMs),
-  );
-  return anyStarted ? "ON_ROUTE" : "ON_SHIFT";
+  if (rawStatus === "ON_ROUTE") {
+    const anyStarted = driverJobs.some(
+      (j) => ACTIVE_STATUSES.has(j.status) && !isJobScheduledFuture(j, nowMs),
+    );
+    return anyStarted ? "ON_ROUTE" : "ON_SHIFT";
+  }
+
+  if (rawStatus === "OFF_SHIFT" || rawStatus === "AVAILABLE") {
+    if (schedule === "not_scheduled") return "OFF_SHIFT";
+    if (schedule === "scheduled") return "AVAILABLE";
+  }
+
+  return rawStatus;
 }
 
 // Projected driving minutes for the planner: deadhead from the driver's

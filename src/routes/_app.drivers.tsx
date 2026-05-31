@@ -12,6 +12,7 @@ import { rotateDriverLoginCode } from "@/lib/pairing.functions";
 import { deleteDriver } from "@/lib/drivers-delete.functions";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
 import { effectiveDriverStatus } from "@/lib/effective-status";
+import { useDriverSchedule } from "@/lib/use-driver-schedule";
 import { DispatchStat } from "@/components/dispatch/toolbar";
 import { DriverQueue } from "@/components/drivers/driver-queue";
 import { DriverDetailPanel } from "@/components/drivers/driver-detail-panel";
@@ -102,8 +103,14 @@ function DriversPage() {
   }, [driverSearch]);
 
   const nowMs = Date.now();
+  const schedule = useDriverSchedule(drivers.map((d) => d.id));
   const driverRows = drivers.map((d) => {
-    const effectiveStatus = effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs);
+    const effectiveStatus = effectiveDriverStatus(
+      d.status,
+      activeJobsByDriver[d.id] ?? [],
+      nowMs,
+      schedule[d.id] ?? "unknown",
+    );
     const category: DriverRouteFilter =
       effectiveStatus === "ON_ROUTE"
         ? "ON_ROUTE"
@@ -416,6 +423,7 @@ function DriversPage() {
               key={selectedDriver.id}
               driver={selectedDriver}
               activeJobs={activeJobsByDriver[selectedDriver.id] ?? []}
+              schedule={schedule[selectedDriver.id] ?? "unknown"}
               onEdit={(d) => startEdit(d)}
               onDelete={remove}
               onRegenerate={regenerate}

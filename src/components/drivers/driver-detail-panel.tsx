@@ -3,26 +3,28 @@ import { Copy, Share2, Phone, Code2, CheckCircle2, Pencil, Trash2, RefreshCw, Ca
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { Driver } from "@/lib/types";
-import { effectiveDriverStatus } from "@/lib/effective-status";
+import { effectiveDriverStatus, type ScheduleStatus } from "@/lib/effective-status";
 import type { ActiveJob } from "@/lib/use-driver-routes";
 import { ShiftCalendar } from "@/components/driver/ShiftCalendar";
 
 export const DriverDetailPanel = memo(function DriverDetailPanel({
   driver,
   activeJobs,
+  schedule = "unknown",
   onEdit,
   onDelete,
   onRegenerate,
 }: {
   driver: Driver;
   activeJobs: ActiveJob[];
+  schedule?: ScheduleStatus;
   onEdit: (driver: Driver) => void;
   onDelete: (driverId: string, driverName: string) => void;
   onRegenerate?: (driverId: string, driverName: string) => void;
 }) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const nowMs = Date.now();
-  const effectiveStatus = effectiveDriverStatus(driver.status, activeJobs, nowMs);
+  const effectiveStatus = effectiveDriverStatus(driver.status, activeJobs, nowMs, schedule);
   const code = (driver as { login_code?: string | null }).login_code ?? null;
 
   const copyToClipboard = async (text: string, field: string) => {
