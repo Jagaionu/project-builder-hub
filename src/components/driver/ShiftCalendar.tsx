@@ -30,7 +30,7 @@ function todayLocalDateString() {
 }
 
 const CELL_BASE =
-  "relative aspect-square rounded-md border text-[10px] font-medium flex items-center justify-center " +
+  "relative aspect-square rounded-md border text-[10px] font-medium flex flex-col items-center justify-center gap-0.5 " +
   "transition active:scale-95 hover:brightness-110 focus-visible:outline-none " +
   "focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 " +
   "focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100";
@@ -262,6 +262,9 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
                 const { dateStr, dayOfWeek, type, locked } = getDateStatus(dayNum);
                 const isToday = dateStr === today;
                 const isPast = dateStr < today;
+                const dayTimes = type === "working" ? initialTimes[dayOfWeek] : undefined;
+                const startHM = dayTimes ? dayTimes.start_time.slice(0, 5) : null;
+                const endHM = dayTimes ? dayTimes.end_time.slice(0, 5) : null;
 
                 return (
                   <button
@@ -275,10 +278,17 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
                         ? "Set by driver"
                         : isPast
                           ? "Past date"
-                          : undefined
+                          : startHM && endHM
+                            ? `${startHM}–${endHM}`
+                            : undefined
                     }
                   >
-                    {dayNum}
+                    <span className="leading-none">{dayNum}</span>
+                    {startHM && (
+                      <span className="text-[8px] font-normal opacity-80 leading-none">
+                        {startHM}
+                      </span>
+                    )}
                     {locked && (
                       <Lock
                         size={6}
