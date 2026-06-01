@@ -30,7 +30,7 @@ function todayLocalDateString() {
 }
 
 const CELL_BASE =
-  "relative aspect-square rounded-md border text-[10px] font-medium flex items-center justify-center " +
+  "relative aspect-square rounded-md border text-[10px] font-medium flex flex-col items-center justify-center gap-0.5 " +
   "transition active:scale-95 hover:brightness-110 focus-visible:outline-none " +
   "focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 " +
   "focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100";
