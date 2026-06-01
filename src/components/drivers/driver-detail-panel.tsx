@@ -210,6 +210,13 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
           {/* Hours Status Dashboard */}
           <DriverHoursStatus driver={driver} compliance={compliance ?? null} />
 
+          {/* Base warehouse */}
+          <BaseWarehouseSelector
+            driverId={driver.id}
+            homeWarehouseId={(driver as { home_warehouse_id?: string | null }).home_warehouse_id ?? null}
+            returnToBaseRequired={(driver as { return_to_base_required?: boolean }).return_to_base_required ?? false}
+          />
+
           {/* Driver Schedule (smaller calendar) */}
           <div className="rounded border border-border bg-surface p-3">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-2">
@@ -219,6 +226,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
             <ShiftCalendar driverId={driver.id} isPlanner={true} />
           </div>
         </div>
+
       </div>
     </div>
   );
