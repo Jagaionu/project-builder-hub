@@ -3,7 +3,9 @@ import { useDriverStore } from "@/lib/driver-store";
 import { driverLogout } from "@/lib/driver-auth";
 import { ShiftCalendar } from "@/components/driver/ShiftCalendar";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Warehouse as WarehouseIcon, RotateCcw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/d/profile")({
   head: () => ({ meta: [{ title: "Profile — Driver" }] }),
@@ -14,6 +16,18 @@ function ProfilePage() {
   const driver = useDriverStore((s) => s.driver);
   const session = useDriverStore((s) => s.session);
   const navigate = useNavigate();
+
+  // Resolve home warehouse name from the FK on the driver record.
+  const [homeWarehouse, setHomeWarehouse] = useState<{ code: string; name: string } | null>(null);
+  useEffect(() => {
+    if (!driver?.home_warehouse_id) { setHomeWarehouse(null); return; }
+    supabase
+      .from("warehouses")
+      .select("code,name")
+      .eq("id", driver.home_warehouse_id)
+      .maybeSingle()
+      .then(({ data }) => setHomeWarehouse(data ?? null));
+  }, [driver?.home_warehouse_id]);
 
   return (
     <div className="pt-6 px-4 pb-6">
@@ -27,6 +41,34 @@ function ProfilePage() {
         <p className="text-lg font-bold text-foreground">{driver?.name ?? "—"}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{session?.user?.email}</p>
       </div>
+
+      {/* Home warehouse + return-to-base (read-only) */}
+      {driver && (
+        <div className="bg-card border border-border rounded-2xl p-4 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <WarehouseIcon size={16} style={{ color: "var(--primary)" }} />
+            <h2 className="text-sm font-bold text-foreground">Base</h2>
+          </div>
+          {homeWarehouse ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Home warehouse</span>
+                <span className="text-sm font-semibold text-foreground">
+                  {homeWarehouse.code} — {homeWarehouse.name}
+                </span>
+              </div>
+              {driver.return_to_base_required && (
+                <div className="flex items-center gap-1.5 text-xs text-amber-500 font-medium mt-1">
+                  <RotateCcw size={12} />
+                  You are scheduled to return to base at end of each shift
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No fixed base — free agent</p>
+          )}
+        </div>
+      )}
 
       {/* Shift Calendar */}
       {driver && (

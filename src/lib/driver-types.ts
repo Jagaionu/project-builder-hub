@@ -27,6 +27,10 @@ export interface DriverProfile {
   last_update_time: string | null;
   current_lat: number | null;
   current_lon: number | null;
+  /** FK → warehouses.id. Null = free agent (no fixed base). */
+  home_warehouse_id: string | null;
+  /** When true the planner must route this driver back to home_warehouse_id at end of day. */
+  return_to_base_required: boolean;
 }
 
 export interface DriverStop {

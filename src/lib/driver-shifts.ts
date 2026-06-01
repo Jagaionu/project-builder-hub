@@ -138,3 +138,56 @@ export async function saveShiftDays(
 
   await client.from("driver_shift_templates").insert(rows);
 }
+
+export type ShiftPatternDay = { day_of_week: number; start_time: string; end_time: string };
+
+/**
+ * Fetch a single driver's full shift pattern — both the list of working
+ * weekdays and the per-day start/end times. Used by the shift time editor
+ * UI to initialise its state.
+ */
+export async function fetchShiftPattern(
+  client: AnySupabase,
+  driverId: string,
+): Promise<{ days_of_week: number[]; shiftByDay: Record<number, { start_time: string; end_time: string }> }> {
+  const map = await fetchShiftsByDriver(client, [driverId]);
+  const ds = map[driverId];
+  if (!ds) return { days_of_week: [], shiftByDay: {} };
+  return { days_of_week: ds.days_of_week, shiftByDay: ds.shiftByDay };
+}
+
+/**
+ * Replace a driver's weekly shift pattern with per-day times.
+ *
+ * Same strategy as saveShiftDays — DELETE all existing rows, then INSERT new
+ * rows. Unlike saveShiftDays, this function accepts per-day start/end times
+ * so the UI can write real shift hours instead of hardcoded defaults.
+ */
+export async function saveShiftPattern(
+  client: AnySupabase,
+  driverId: string,
+  pattern: ShiftPatternDay[],
+  tenantId?: string | null,
+): Promise<void> {
+  // Validate: filter out rows with empty times, deduplicate by day_of_week
+  const valid = pattern
+    .filter((p) => p.start_time && p.end_time)
+    .filter(
+      (p, i, arr) => arr.findIndex((x) => x.day_of_week === p.day_of_week) === i,
+    );
+
+  await client.from("driver_shift_templates").delete().eq("driver_id", driverId);
+
+  if (valid.length === 0) return;
+
+  const rows = valid.map((p) => ({
+    driver_id: driverId,
+    day_of_week: p.day_of_week,
+    start_time: p.start_time,
+    end_time: p.end_time,
+    is_primary: true,
+    ...(tenantId ? { tenant_id: tenantId } : {}),
+  }));
+
+  await client.from("driver_shift_templates").insert(rows);
+}

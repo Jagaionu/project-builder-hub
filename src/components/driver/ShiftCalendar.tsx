@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchShiftDays, saveShiftDays } from "@/lib/driver-shifts";
+import { fetchShiftPattern } from "@/lib/driver-shifts";
+import { ShiftPatternEditor } from "@/components/driver/ShiftPatternEditor";
 import type { DriverAvailabilityOverride } from "@/lib/types";
 
 const DAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -53,32 +54,35 @@ function cellClass(type: DayType, isToday: boolean, isPast: boolean) {
 
 export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProps) {
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
-  const [savedDays, setSavedDays] = useState<number[]>([]);
+  const [initialTimes, setInitialTimes] = useState<Record<number, { start_time: string; end_time: string }>>({});
   const [overrides, setOverrides] = useState<DriverAvailabilityOverride[]>([]);
   const [overridesLoading, setOverridesLoading] = useState(true);
+  const [patternVersion, setPatternVersion] = useState(0);
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [saving, setSaving] = useState(false);
+  const patternKeyRef = useRef(0);
 
+  // Load the full shift pattern (days + per-day times).
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const loaded = await fetchShiftDays(supabase, driverId);
+        const pattern = await fetchShiftPattern(supabase, driverId);
         if (cancelled) return;
-        setSelectedDays(loaded);
-        setSavedDays(loaded);
+        setSelectedDays(pattern.days_of_week);
+        setInitialTimes(pattern.shiftByDay);
       } catch (err) {
         // eslint-disable-next-line no-console
-        console.warn("[ShiftCalendar] fetchShiftDays failed:", err);
+        console.warn("[ShiftCalendar] fetchShiftPattern failed:", err);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [driverId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [driverId, patternVersion]);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,38 +115,10 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
     };
   }, [driverId, currentMonth]);
 
-  const patternChanged = useMemo(() => {
-    const current = [...selectedDays].sort((a, b) => a - b).join(",");
-    const saved = [...savedDays].sort((a, b) => a - b).join(",");
-    return current !== saved;
-  }, [selectedDays, savedDays]);
-
-  const toggleDay = (iso: number) => {
-    setSelectedDays((prev) => {
-      const next = prev.includes(iso) ? prev.filter((d) => d !== iso) : [...prev, iso];
-      return next.sort((a, b) => a - b);
-    });
-  };
-
-  const savePattern = async () => {
-    setSaving(true);
-    const days = [...selectedDays].sort((a, b) => a - b);
-    try {
-      await saveShiftDays(supabase, driverId, days);
-      setSelectedDays(days);
-      setSavedDays(days);
-      toast.success("Weekly pattern saved");
-    } catch (err) {
-      toast.error("Couldn't save pattern", {
-        description: err instanceof Error ? err.message : "Please try again",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const discardPattern = () => {
-    setSelectedDays([...savedDays]);
+  // Called by ShiftPatternEditor after a successful save. Bumps a counter to
+  // trigger a re-fetch of the pattern so the calendar grid refreshes.
+  const handlePatternSaved = () => {
+    setPatternVersion((v) => v + 1);
   };
 
   const toggleDateOverride = async (dateStr: string, dayOfWeek: number) => {
@@ -216,54 +192,15 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
 
   return (
     <div className="space-y-3">
-      {/* Weekly pattern */}
-      <div className="bg-card/50 border border-border/50 rounded-lg p-3">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-          Weekly Pattern
-        </p>
-        <div className="flex gap-1">
-          {DAYS_SHORT.map((day, i) => {
-            const iso = DAY_ISO[i];
-            const active = selectedDays.includes(iso);
-            return (
-              <button
-                key={day}
-                type="button"
-                onClick={() => toggleDay(iso)}
-                className={
-                  "flex-1 py-1.5 rounded-md text-[10px] font-bold transition active:scale-95 " +
-                  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
-                  (active
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-muted/30 text-muted-foreground hover:bg-muted/50")
-                }
-              >
-                {day.slice(0, 2)}
-              </button>
-            );
-          })}
-        </div>
-        {patternChanged && (
-          <div className="mt-2 flex gap-1.5">
-            <button
-              type="button"
-              onClick={discardPattern}
-              disabled={saving}
-              className="flex-1 py-1 rounded-md text-[10px] font-semibold border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition active:scale-95 disabled:opacity-60"
-            >
-              Discard
-            </button>
-            <button
-              type="button"
-              onClick={savePattern}
-              disabled={saving}
-              className="flex-1 py-1 rounded-md text-[10px] font-semibold bg-primary text-primary-foreground transition active:scale-95 disabled:opacity-60"
-            >
-              {saving ? "…" : "Save"}
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Shift pattern editor with per-day times */}
+      <ShiftPatternEditor
+        key={`pattern-${patternKeyRef.current}`}
+        driverId={driverId}
+        isPlanner={isPlanner}
+        initialDays={selectedDays}
+        initialTimes={initialTimes}
+        onSave={handlePatternSaved}
+      />
 
       {/* Month grid */}
       <div className="bg-card/50 border border-border/50 rounded-lg p-3">

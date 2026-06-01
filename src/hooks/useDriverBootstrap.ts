@@ -8,7 +8,7 @@ import type { JobWithStops, DriverProfile } from "@/lib/driver-types";
 async function loadDriver(userId: string) {
   const { data: driver } = await supabase
     .from("drivers")
-    .select("id,user_id,name,status,last_update_time,current_lat,current_lon")
+    .select("id,user_id,name,status,last_update_time,current_lat,current_lon,home_warehouse_id,return_to_base_required")
     .eq("user_id", userId)
     .maybeSingle();
   useDriverStore.getState().setDriver((driver as DriverProfile | null) ?? null);
