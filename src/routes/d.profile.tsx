@@ -2,10 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useDriverStore } from "@/lib/driver-store";
 import { driverLogout } from "@/lib/driver-auth";
 import { ShiftCalendar } from "@/components/driver/ShiftCalendar";
+import { BaseWarehouseSelector } from "@/components/driver/BaseWarehouseSelector";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { CalendarDays, Warehouse as WarehouseIcon, RotateCcw } from "lucide-react";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { CalendarDays } from "lucide-react";
 
 export const Route = createFileRoute("/d/profile")({
   head: () => ({ meta: [{ title: "Profile — Driver" }] }),
@@ -14,20 +13,9 @@ export const Route = createFileRoute("/d/profile")({
 
 function ProfilePage() {
   const driver = useDriverStore((s) => s.driver);
+  const setDriver = useDriverStore((s) => s.setDriver);
   const session = useDriverStore((s) => s.session);
   const navigate = useNavigate();
-
-  // Resolve home warehouse name from the FK on the driver record.
-  const [homeWarehouse, setHomeWarehouse] = useState<{ code: string; name: string } | null>(null);
-  useEffect(() => {
-    if (!driver?.home_warehouse_id) { setHomeWarehouse(null); return; }
-    supabase
-      .from("warehouses")
-      .select("code,name")
-      .eq("id", driver.home_warehouse_id)
-      .maybeSingle()
-      .then(({ data }) => setHomeWarehouse(data ?? null));
-  }, [driver?.home_warehouse_id]);
 
   return (
     <div className="pt-6 px-4 pb-6">
@@ -42,33 +30,24 @@ function ProfilePage() {
         <p className="text-xs text-muted-foreground mt-0.5">{session?.user?.email}</p>
       </div>
 
-      {/* Home warehouse + return-to-base (read-only) */}
+      {/* Base warehouse (editable) */}
       {driver && (
-        <div className="bg-card border border-border rounded-2xl p-4 mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <WarehouseIcon size={16} style={{ color: "var(--primary)" }} />
-            <h2 className="text-sm font-bold text-foreground">Base</h2>
-          </div>
-          {homeWarehouse ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Home warehouse</span>
-                <span className="text-sm font-semibold text-foreground">
-                  {homeWarehouse.code} — {homeWarehouse.name}
-                </span>
-              </div>
-              {driver.return_to_base_required && (
-                <div className="flex items-center gap-1.5 text-xs text-amber-500 font-medium mt-1">
-                  <RotateCcw size={12} />
-                  You are scheduled to return to base at end of each shift
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No fixed base — free agent</p>
-          )}
+        <div className="mb-4">
+          <BaseWarehouseSelector
+            driverId={driver.id}
+            homeWarehouseId={driver.home_warehouse_id}
+            returnToBaseRequired={driver.return_to_base_required}
+            onSaved={(next) =>
+              setDriver({
+                ...driver,
+                home_warehouse_id: next.home_warehouse_id,
+                return_to_base_required: next.return_to_base_required,
+              })
+            }
+          />
         </div>
       )}
+
 
       {/* Shift Calendar */}
       {driver && (
