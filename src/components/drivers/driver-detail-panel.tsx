@@ -7,8 +7,10 @@ import { effectiveDriverStatus, type ScheduleStatus } from "@/lib/effective-stat
 import type { ActiveJob } from "@/lib/use-driver-routes";
 import type { Compliance } from "@/lib/compliance";
 import { ShiftCalendar } from "@/components/driver/ShiftCalendar";
+import { BaseWarehouseSelector } from "@/components/driver/BaseWarehouseSelector";
 import { DriverItineraryTimeline } from "@/components/drivers/DriverItineraryTimeline";
 import { DriverHoursStatus } from "@/components/drivers/DriverHoursStatus";
+
 
 export const DriverDetailPanel = memo(function DriverDetailPanel({
   driver,
