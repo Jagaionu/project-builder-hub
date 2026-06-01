@@ -284,9 +284,10 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
                     }
                   >
                     <span className="leading-none">{dayNum}</span>
-                    {startHM && (
-                      <span className="text-[8px] font-normal opacity-80 leading-none">
-                        {startHM}
+                    {startHM && endHM && (
+                      <span className="flex flex-col items-center leading-none gap-[1px] font-normal opacity-80">
+                        <span className="text-[7px]">{startHM}</span>
+                        <span className="text-[7px]">{endHM}</span>
                       </span>
                     )}
                     {locked && (
@@ -296,6 +297,7 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
                       />
                     )}
                   </button>
+
                 );
               })}
         </div>
