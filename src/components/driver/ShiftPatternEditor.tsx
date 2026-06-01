@@ -53,8 +53,8 @@ export function ShiftPatternEditor({ driverId, initialDays, initialTimes, onSave
     },
   );
   const [saving, setSaving] = useState(false);
-  // For planner view: collapsed by default. Driver-app view: always expanded.
-  const [expanded, setExpanded] = useState(!isPlanner);
+  // Collapsed by default in both planner and driver-app views.
+  const [expanded, setExpanded] = useState(false);
 
   // Resync local state when parent re-fetches the pattern (e.g. after save).
   useEffect(() => {
