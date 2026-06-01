@@ -262,6 +262,9 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
                 const { dateStr, dayOfWeek, type, locked } = getDateStatus(dayNum);
                 const isToday = dateStr === today;
                 const isPast = dateStr < today;
+                const dayTimes = type === "working" ? initialTimes[dayOfWeek] : undefined;
+                const startHM = dayTimes ? dayTimes.start_time.slice(0, 5) : null;
+                const endHM = dayTimes ? dayTimes.end_time.slice(0, 5) : null;
 
                 return (
                   <button
@@ -275,10 +278,17 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
                         ? "Set by driver"
                         : isPast
                           ? "Past date"
-                          : undefined
+                          : startHM && endHM
+                            ? `${startHM}–${endHM}`
+                            : undefined
                     }
                   >
-                    {dayNum}
+                    <span className="leading-none">{dayNum}</span>
+                    {startHM && (
+                      <span className="text-[8px] font-normal opacity-80 leading-none">
+                        {startHM}
+                      </span>
+                    )}
                     {locked && (
                       <Lock
                         size={6}
