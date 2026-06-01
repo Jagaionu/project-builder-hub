@@ -354,7 +354,8 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
       const dayOfWeek = new Date(`${dateStr}T12:00:00Z`).getDay();
       const hourOfDay = new Date(deptMs).getUTCHours();
 
-      const { data: laneRow } = await supabaseAdmin
+      const sbAny = supabaseAdmin as unknown as { from: (t: string) => any };
+      const { data: laneRow } = await sbAny
         .from("lane_travel_times")
         .select("avg_duration_minutes")
         .eq("from_warehouse_id", lastWarehouseId)
@@ -373,7 +374,7 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
 
       // Find or create the routes row for this driver/date.
       let routeId: string | null = null;
-      const { data: existingRoute } = await supabaseAdmin
+      const { data: existingRoute } = await sbAny
         .from("routes")
         .select("id")
         .eq("driver_id", driverId)
@@ -384,14 +385,14 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
       if (existingRoute?.id) {
         routeId = existingRoute.id;
       } else {
-        const { data: newRoute } = await supabaseAdmin
+        const { data: newRoute } = await sbAny
           .from("routes")
           .insert({
             tenant_id: effectiveTenantId,
             driver_id: driverId,
             route_date: dateStr,
             status: "planned",
-          } as never)
+          })
           .select("id")
           .single();
         routeId = newRoute?.id ?? null;
@@ -400,7 +401,7 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
       if (!routeId) continue;
 
       // Determine the next stop_sequence for this route.
-      const { data: seqRow } = await supabaseAdmin
+      const { data: seqRow } = await sbAny
         .from("route_jobs")
         .select("stop_sequence")
         .eq("route_id", routeId)
@@ -411,7 +412,7 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
       const nextSeq = (seqRow?.stop_sequence ?? 0) + 1;
       const arrivalIso = new Date(deptMs + deadheadMinutes * 60_000).toISOString();
 
-      const { error: rjError } = await supabaseAdmin.from("route_jobs").insert({
+      const { error: rjError } = await sbAny.from("route_jobs").insert({
         route_id: routeId,
         job_id: null,
         stop_sequence: nextSeq,
@@ -423,7 +424,7 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
         planned_arrival: arrivalIso,
         planned_departure: arrivalIso,
         tenant_id: effectiveTenantId,
-      } as never);
+      });
 
       if (rjError) {
         console.error(`[RTB] Failed to insert deadhead leg for driver ${driverId} on ${dateStr}:`, rjError.message);
@@ -431,9 +432,9 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
       }
 
       // Mark the route as confirmed ending at home.
-      await supabaseAdmin
+      await sbAny
         .from("routes")
-        .update({ ends_at_home: true } as never)
+        .update({ ends_at_home: true })
         .eq("id", routeId);
 
       rtbLegsAdded++;
