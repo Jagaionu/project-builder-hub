@@ -379,6 +379,7 @@ export type Database = {
           created_at: string
           current_lat: number | null
           current_lon: number | null
+          home_warehouse_id: string | null
           id: string
           last_update_time: string | null
           login_code: string | null
@@ -386,6 +387,7 @@ export type Database = {
           pairing_code: string | null
           pairing_expires_at: string | null
           phone: string | null
+          return_to_base_required: boolean
           status: Database["public"]["Enums"]["driver_status"]
           telegram_id: string | null
           tenant_id: string | null
@@ -399,6 +401,7 @@ export type Database = {
           created_at?: string
           current_lat?: number | null
           current_lon?: number | null
+          home_warehouse_id?: string | null
           id?: string
           last_update_time?: string | null
           login_code?: string | null
@@ -406,6 +409,7 @@ export type Database = {
           pairing_code?: string | null
           pairing_expires_at?: string | null
           phone?: string | null
+          return_to_base_required?: boolean
           status?: Database["public"]["Enums"]["driver_status"]
           telegram_id?: string | null
           tenant_id?: string | null
@@ -419,6 +423,7 @@ export type Database = {
           created_at?: string
           current_lat?: number | null
           current_lon?: number | null
+          home_warehouse_id?: string | null
           id?: string
           last_update_time?: string | null
           login_code?: string | null
@@ -426,6 +431,7 @@ export type Database = {
           pairing_code?: string | null
           pairing_expires_at?: string | null
           phone?: string | null
+          return_to_base_required?: boolean
           status?: Database["public"]["Enums"]["driver_status"]
           telegram_id?: string | null
           tenant_id?: string | null
@@ -435,6 +441,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "drivers_home_warehouse_id_fkey"
+            columns: ["home_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "drivers_tenant_id_fkey"
             columns: ["tenant_id"]
