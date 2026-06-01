@@ -127,8 +127,10 @@ export interface DriverShift {
   id: string;
   driver_id: string;
   days_of_week: number[]; // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
-  /** Keyed by day_of_week (0–6). Only present for days in days_of_week. */
-  shiftByDay: Record<number, { start_time: string; end_time: string }>;
+  /** Keyed by day_of_week (0–6). Present only for working days; a day with
+   *  null start/end times means "available that day, no fixed hours" — the
+   *  planner applies compliance limits but no shift-end cap. */
+  shiftByDay: Record<number, { start_time: string | null; end_time: string | null }>;
   created_at: string;
   updated_at: string;
 }
@@ -140,8 +142,8 @@ export interface DriverShiftTemplate {
   tenant_id: string | null;
   driver_id: string;
   day_of_week: number; // 0=Sun..6=Sat
-  start_time: string;  // "HH:MM[:SS]"
-  end_time: string;    // "HH:MM[:SS]"; end < start = crosses midnight
+  start_time: string | null;  // "HH:MM[:SS]" or null = no fixed start (available all day)
+  end_time: string | null;    // "HH:MM[:SS]" or null = no fixed end; end < start = crosses midnight
   is_primary: boolean;
   created_at: string;
   updated_at: string;
