@@ -126,36 +126,31 @@ export function ShiftPatternEditor({ driverId, initialDays, initialTimes, onSave
   };
 
   const selectedInOrder = DAY_ISO.filter((d) => selectedDays.includes(d));
-  const showDetails = !isPlanner || expanded;
+  const showDetails = expanded;
 
   return (
     <div className={`bg-card/50 border border-border/50 rounded-lg ${isPlanner ? "p-2 space-y-2" : "p-3 space-y-3"}`}>
-      {/* Header — clickable in planner mode to expand/collapse */}
-      {isPlanner ? (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="w-full flex items-center justify-between gap-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">
-              Weekly Pattern
-            </span>
-            <span className="text-[10px] text-foreground/80 truncate">
-              {summarize(selectedDays, times)}
-            </span>
-          </div>
-          {expanded ? (
-            <ChevronUp size={12} className="text-muted-foreground shrink-0" />
-          ) : (
-            <ChevronDown size={12} className="text-muted-foreground shrink-0" />
-          )}
-        </button>
-      ) : (
-        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          Weekly Pattern
-        </p>
-      )}
+      {/* Header — always clickable to expand/collapse */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between gap-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`${isPlanner ? "text-[10px]" : "text-xs"} font-bold uppercase tracking-wider text-muted-foreground shrink-0`}>
+            Weekly Pattern
+          </span>
+          <span className={`${isPlanner ? "text-[10px]" : "text-xs"} text-foreground/80 truncate`}>
+            {summarize(selectedDays, times)}
+          </span>
+        </div>
+        {expanded ? (
+          <ChevronUp size={isPlanner ? 12 : 14} className="text-muted-foreground shrink-0" />
+        ) : (
+          <ChevronDown size={isPlanner ? 12 : 14} className="text-muted-foreground shrink-0" />
+        )}
+      </button>
+
 
       {showDetails && (
         <>
