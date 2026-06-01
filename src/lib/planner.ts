@@ -88,6 +88,11 @@ export type PlannedAssign = {
   distKm: number;
   dailyHoursLeft: number;
   weeklyHoursLeft: number;
+  // Lateness vs the job's scheduled pickup/delivery, in minutes (0 = on time
+  // or unscheduled). late = either is > 0. Populated by computePlanForDate.
+  late?: boolean;
+  pickupLateMinutes?: number;
+  deliveryLateMinutes?: number;
 };
 export type Unassignable = { jobId: string; reason: string };
 // Explicit final leg taking a return-to-base driver back to their home depot.
@@ -257,13 +262,16 @@ export function computePlan(
   const todayStr = new Date(nowMs).toISOString().slice(0, 10);
   const hasShiftData = Object.keys(shifts).length > 0;
 
-  const eligible = drivers.filter(
-    (d) =>
-      d.current_lat != null &&
-      d.current_lon != null &&
-      !compliance[d.id]?.blockAssignment &&
-      (!hasShiftData || isDriverAvailableOnDate(d.id, todayStr, shifts, overrides)),
-  );
+  const eligible = drivers
+    .filter(
+      (d) =>
+        d.current_lat != null &&
+        d.current_lon != null &&
+        !compliance[d.id]?.blockAssignment &&
+        (!hasShiftData || isDriverAvailableOnDate(d.id, todayStr, shifts, overrides)),
+    )
+    // Stable order so equidistant ties don't break differently between runs.
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
   const activeByDriver: Record<string, Job> = {};
   for (const j of jobs) {
@@ -538,7 +546,9 @@ export function computePlanForDate(
         : null;
   }
 
-  const eligibleIds = Object.keys(forecast);
+  // Sorted for deterministic iteration: with no stable order, equidistant
+  // ties would break differently depending on DB row order between runs.
+  const eligibleIds = Object.keys(forecast).sort();
 
   const driverReadyMs: Record<string, number> = {};
   const shiftEndMsById: Record<string, number | null> = {};
@@ -574,11 +584,22 @@ export function computePlanForDate(
       return Number.isFinite(ms) ? ms : null;
     })();
 
+    // Scheduled delivery (last stop) and the dwell at that final stop, used to
+    // flag late arrivals. arrival at the final drop = completion minus its dwell.
+    const schedDropMs = (() => {
+      const iso = stops[stops.length - 1]?.scheduled_at ?? null;
+      if (!iso) return null;
+      const ms = new Date(iso).getTime();
+      return Number.isFinite(ms) ? ms : null;
+    })();
+    const finalDwellMs = stopDwellMinutes(stops[stops.length - 1].kind) * 60_000;
+
     let best:
       | {
           id: string;
           dist: number;
           driveAdd: number;
+          transit: number;
           departMs: number;
           completionMs: number;
           newContinuous: number;
@@ -656,7 +677,7 @@ export function computePlanForDate(
       }
 
       if (!best || dist < best.dist)
-        best = { id: did, dist, driveAdd, departMs, completionMs, newContinuous };
+        best = { id: did, dist, driveAdd, transit, departMs, completionMs, newContinuous };
     }
 
     if (!best) {
@@ -674,6 +695,15 @@ export function computePlanForDate(
     driverReadyMs[best.id] = best.completionMs;
     const nextWeekly = f.weekly + best.driveAdd;
 
+    // Lateness: arrival at first pickup vs its schedule, and arrival at the
+    // final drop (completion minus that stop's dwell) vs its schedule.
+    const pickupArrivalMs = best.departMs + best.transit * 3_600_000;
+    const deliveryArrivalMs = best.completionMs - finalDwellMs;
+    const pickupLateMinutes =
+      schedPickupMs !== null ? Math.max(0, Math.round((pickupArrivalMs - schedPickupMs) / 60_000)) : 0;
+    const deliveryLateMinutes =
+      schedDropMs !== null ? Math.max(0, Math.round((deliveryArrivalMs - schedDropMs) / 60_000)) : 0;
+
     out.planned.push({
       jobId: job.id,
       driverId: best.id,
@@ -682,6 +712,9 @@ export function computePlanForDate(
       distKm: best.dist,
       dailyHoursLeft: Math.max(0, f.hoursLeft - best.driveAdd),
       weeklyHoursLeft: Math.max(0, WEEKLY_CAP - nextWeekly),
+      late: pickupLateMinutes > 0 || deliveryLateMinutes > 0,
+      pickupLateMinutes,
+      deliveryLateMinutes,
     });
 
     const ld = lastDropWh(stops, warehouses);
