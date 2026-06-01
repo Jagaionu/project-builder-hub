@@ -81,7 +81,7 @@ export function ShiftPatternEditor({ driverId, initialDays, initialTimes, onSave
   }, [selectedDays, times, initialDays, initialTimes]);
 
   const toggleDay = (iso: number) => {
-    if (isPlanner && !expanded) setExpanded(true);
+    if (!expanded) setExpanded(true);
     setSelectedDays((prev) =>
       prev.includes(iso) ? prev.filter((d) => d !== iso) : [...prev, iso],
     );
