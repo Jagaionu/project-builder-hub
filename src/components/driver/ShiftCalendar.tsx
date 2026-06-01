@@ -54,7 +54,7 @@ function cellClass(type: DayType, isToday: boolean, isPast: boolean) {
 
 export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProps) {
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
-  const [initialTimes, setInitialTimes] = useState<Record<number, { start_time: string; end_time: string }>>({});
+  const [initialTimes, setInitialTimes] = useState<Record<number, { start_time: string | null; end_time: string | null }>>({});
   const [overrides, setOverrides] = useState<DriverAvailabilityOverride[]>([]);
   const [overridesLoading, setOverridesLoading] = useState(true);
   const [patternVersion, setPatternVersion] = useState(0);
@@ -263,8 +263,8 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
                 const isToday = dateStr === today;
                 const isPast = dateStr < today;
                 const dayTimes = type === "working" ? initialTimes[dayOfWeek] : undefined;
-                const startHM = dayTimes ? dayTimes.start_time.slice(0, 5) : null;
-                const endHM = dayTimes ? dayTimes.end_time.slice(0, 5) : null;
+                const startHM = dayTimes?.start_time ? dayTimes.start_time.slice(0, 5) : null;
+                const endHM = dayTimes?.end_time ? dayTimes.end_time.slice(0, 5) : null;
 
                 return (
                   <button
