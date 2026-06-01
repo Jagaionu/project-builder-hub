@@ -1,11 +1,17 @@
-// Two-pass auto-planner for jobs.
+// Auto-planner for HGV jobs.
 //
-// Pass 1 — Immediate: drivers currently free (no active job) within 30 km of
-//   the first PICKUP are hard-assigned to PENDING jobs. Picks closest.
-// Pass 2 — Planned chaining: for the rest, project each driver's end
-//   location/time after their current run + already-chained jobs, then look
-//   for the closest reachable next pickup that still fits HGV daily/weekly.
-// Pass 3 — Leftovers: jobs no driver can take are returned as `unassignable`.
+// computePlan (live, "now"):
+//   Pass 1 — Immediate: free drivers within 30 km of the first PICKUP are
+//     hard-assigned to PENDING jobs (closest wins).
+//   Pass 2 — Planned chaining: project each driver's end location/time after
+//     their current run + already-chained jobs, then find the closest reachable
+//     next pickup that still fits HGV daily/weekly limits and the job's
+//     scheduled pickup time (when known).
+//   Pass 3 — Leftovers: jobs no driver can take are returned as `unassignable`.
+//
+// computePlanForDate (any date): calendar/shift-aware day planner that also
+//   honours each driver's shift window (start AND end time) and routes
+//   return-to-base drivers back to their home depot.
 
 import type { Driver, Warehouse, Job, DriverShift, DriverAvailabilityOverride } from "./types";
 import type { Compliance } from "./compliance";
@@ -16,6 +22,12 @@ import {
   projectPosition,
   ARRIVAL_BUFFER_MINUTES,
 } from "./geo";
+
+// Day-of-week for a YYYY-MM-DD string, computed in UTC so it is consistent
+// regardless of the host timezone.
+function utcDayOfWeek(dateStr: string): number {
+  return new Date(dateStr + "T12:00:00Z").getUTCDay();
+}
 
 export function isDriverAvailableOnDate(
   driverId: string,
@@ -30,35 +42,32 @@ export function isDriverAvailableOnDate(
   // 2. Check the weekly shift schedule.
   const shift = shifts[driverId];
   // No shift record means no schedule configured → assume available (open policy).
-  // A planner can always add an override to block a specific day.
-  // This prevents a "nobody works" blackout when the driver_shifts table has
-  // just been created and rows haven't been seeded yet.
   if (!shift) return true;
   // Shift exists but zero working days = driver never works (e.g. contractor pause).
   if (shift.days_of_week.length === 0) return false;
 
-  const dayOfWeek = new Date(dateStr + "T12:00:00").getDay();
-  return shift.days_of_week.includes(dayOfWeek);
+  return shift.days_of_week.includes(utcDayOfWeek(dateStr));
 }
 
 function tomorrowISODate(nowMs: number): string {
-  const t = new Date(nowMs);
-  t.setDate(t.getDate() + 1);
-  return t.toISOString().slice(0, 10);
+  // Add 24h then take the UTC date — consistent with utcDayOfWeek / todayStr.
+  return new Date(nowMs + 86_400_000).toISOString().slice(0, 10);
 }
 
 export const AUTO_ASSIGN_RADIUS_KM = 30;
 // Planned chaining uses a wider radius: the driver's projected end-position
 // is hours in the future so a strict 30 km cap is overly conservative.
 const CHAIN_RADIUS_KM = 80;
-const DAILY_CAP = 10;
+// Standard HGV daily driving limit (h). 10h is only permitted twice a week, so
+// we apply the conservative 9h cap consistently across both planners.
+const DAILY_CAP = 9;
 const WEEKLY_CAP = 56;
+const FORTNIGHT_CAP = 90;
+const MAX_PICKUP_SPEED_KMH = 100;
 const ACTIVE = new Set(["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"]);
 
-// HGV Break Rules (Simplified for UK/EU)
-// - 45 min break after 4.5h of driving.
-// - In this planner, we insert a 45 min buffer if the total drive time
-//   exceeds 4.5h without a sufficient break.
+// HGV Break Rules (simplified UK/EU): a 45 min break is required for every
+// 4.5h of accumulated driving.
 const BREAK_THRESHOLD_HOURS = 4.5;
 const BREAK_DURATION_MINUTES = 45;
 
@@ -81,15 +90,31 @@ export type PlannedAssign = {
   weeklyHoursLeft: number;
 };
 export type Unassignable = { jobId: string; reason: string };
+// Explicit final leg taking a return-to-base driver back to their home depot.
+// loaded=true means a delivery job already ended at home (no empty running);
+// loaded=false is an empty deadhead back to base (distKm > 0).
+export type ReturnLeg = {
+  driverId: string;
+  sequence: number;
+  fromWarehouseId: string;
+  homeWarehouseId: string;
+  startAt: string;
+  arriveAt: string;
+  distKm: number;
+  loaded: boolean;
+};
 
 export type PlanResult = {
   immediate: ImmediateAssign[];
   planned: PlannedAssign[];
   unassignable: Unassignable[];
+  returns: ReturnLeg[];
 };
 
-// Total hours a job consumes once the driver is at the first stop:
-// dwell at every stop (load/unload + checks) + transit (with buffer) between stops.
+// Driving hours a job consumes once the driver is at the first stop: per-leg
+// transit time (rounded to whole minutes) plus an arrival buffer per leg.
+// NOTE: drive time ONLY — stop dwell (loading/unloading) is added separately by
+// callers via jobDwellHours / jobWallHours.
 export function jobDriveHours(stops: PlannerStop[], warehouses: Warehouse[]): number {
   if (stops.length === 0) return 0;
   let minutes = 0;
@@ -105,6 +130,16 @@ export function jobDriveHours(stops: PlannerStop[], warehouses: Warehouse[]): nu
   return minutes / 60;
 }
 
+// Total dwell (loading/unloading + checks) across all stops, in hours.
+function jobDwellHours(stops: PlannerStop[]): number {
+  return stops.reduce((s, st) => s + stopDwellMinutes(st.kind) / 60, 0);
+}
+
+// Total wall-clock hours a driver is occupied by a job: drive + dwell.
+export function jobWallHours(stops: PlannerStop[], warehouses: Warehouse[]): number {
+  return jobDriveHours(stops, warehouses) + jobDwellHours(stops);
+}
+
 function firstPickupWh(stops: PlannerStop[] | undefined, warehouses: Warehouse[]) {
   if (!stops?.length) return null;
   const fp = stops.find((s) => s.kind === "PICKUP") ?? stops[0];
@@ -114,6 +149,24 @@ function lastDropWh(stops: PlannerStop[] | undefined, warehouses: Warehouse[]) {
   if (!stops?.length) return null;
   const ld = [...stops].reverse().find((s) => s.kind === "DROP") ?? stops[stops.length - 1];
   return warehouses.find((w) => w.id === ld.warehouse_id) ?? null;
+}
+
+// Driver working window for targetDate, in epoch ms. startMs is floored at
+// nowMs. endMs is null when no end_time is configured (skip end-of-shift check).
+function timeToMs(targetDate: string, raw: string | undefined | null): number | null {
+  if (!raw) return null;
+  const norm = raw.length === 5 ? raw + ":00" : raw;
+  const ms = new Date(`${targetDate}T${norm}Z`).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+function shiftWindowMs(
+  targetDate: string,
+  shift: DriverShift | undefined,
+  nowMs: number,
+): { startMs: number; endMs: number | null } {
+  const day = shift?.shiftByDay?.[utcDayOfWeek(targetDate)];
+  const startBase = timeToMs(targetDate, day?.start_time ?? "06:00:00");
+  return { startMs: Math.max(startBase ?? nowMs, nowMs), endMs: timeToMs(targetDate, day?.end_time) };
 }
 
 type Forecast = {
@@ -136,9 +189,6 @@ function remainingJobHours(
   const remaining = (stops ?? []).filter((s) => !s.arrived_at);
   if (remaining.length === 0) return 0;
 
-  // If the job has a scheduled start, use projectPosition to estimate where
-  // the driver actually is along the route — gives a much better remaining
-  // estimate than raw GPS (which can be mid-leg or stale).
   const startMs = job?.scheduled_at ? +new Date(job.scheduled_at) : null;
   if (startMs && !Number.isNaN(startMs)) {
     const projected = projectPosition(remaining, warehouses, startMs, nowMs);
@@ -159,7 +209,6 @@ function remainingJobHours(
     }
   }
 
-  // Fallback: deadhead from raw GPS to the next unvisited stop + remaining drive.
   const nextWh = warehouses.find((w) => w.id === remaining[0].warehouse_id);
   const deadheadKm = nextWh
     ? haversineKm(driver.current_lat, driver.current_lon, nextWh.latitude, nextWh.longitude)
@@ -168,13 +217,27 @@ function remainingJobHours(
 }
 
 /**
- * Calculates whether a break is needed and returns the added delay in MS.
+ * Break planning for `driveAdd` hours of driving that begins after
+ * `currentContinuous` hours already driven since the last break. Inserts a
+ * 45 min break for every 4.5h driving boundary crossed, and returns the
+ * resulting continuous driving hours after this leg.
  */
-function calculateBreakDelayMs(currentContinuous: number, driveAdd: number): number {
-  if (currentContinuous + driveAdd > BREAK_THRESHOLD_HOURS) {
-    return BREAK_DURATION_MINUTES * 60_000;
+function breakInfo(
+  currentContinuous: number,
+  driveAdd: number,
+): { breakMs: number; newContinuous: number } {
+  let continuous = currentContinuous;
+  let remaining = driveAdd;
+  let breaks = 0;
+  while (continuous + remaining > BREAK_THRESHOLD_HOURS) {
+    remaining -= BREAK_THRESHOLD_HOURS - continuous;
+    continuous = 0;
+    breaks += 1;
   }
-  return 0;
+  return {
+    breakMs: breaks * BREAK_DURATION_MINUTES * 60_000,
+    newContinuous: continuous + remaining,
+  };
 }
 
 export function computePlan(
@@ -187,14 +250,10 @@ export function computePlan(
   shifts: Record<string, DriverShift> = {},
   overrides: DriverAvailabilityOverride[] = [],
 ): PlanResult {
-  const out: PlanResult = { immediate: [], planned: [], unassignable: [] };
+  const out: PlanResult = { immediate: [], planned: [], unassignable: [], returns: [] };
   const todayStr = new Date(nowMs).toISOString().slice(0, 10);
   const hasShiftData = Object.keys(shifts).length > 0;
 
-  // Calendar-based availability is the single source of truth for eligibility.
-  // Live driver.status (OFF_SHIFT, AVAILABLE, etc.) is NOT a gate — a driver
-  // may be off-shift now but scheduled via their calendar for later today.
-  // Only calendar, GPS position, and compliance checks matter.
   const eligible = drivers.filter(
     (d) =>
       d.current_lat != null &&
@@ -203,13 +262,11 @@ export function computePlan(
       (!hasShiftData || isDriverAvailableOnDate(d.id, todayStr, shifts, overrides)),
   );
 
-  // Drivers currently on an active job
   const activeByDriver: Record<string, Job> = {};
   for (const j of jobs) {
     if (j.assigned_driver_id && ACTIVE.has(j.status)) activeByDriver[j.assigned_driver_id] = j;
   }
 
-  // Initial forecast — where/when each driver is expected to be free
   const forecast: Record<string, Forecast> = {};
   for (const d of eligible) {
     const c = compliance[d.id];
@@ -222,10 +279,11 @@ export function computePlan(
       const remaining = (stops ?? []).filter((s) => !s.arrived_at);
       const ld = lastDropWh(remaining, warehouses);
       const drive = remainingJobHours(d, active, stops, warehouses, nowMs);
+      const dwell = jobDwellHours(remaining);
       forecast[d.id] = {
         lat: ld?.latitude ?? d.current_lat!,
         lon: ld?.longitude ?? d.current_lon!,
-        endMs: nowMs + drive * 3_600_000,
+        endMs: nowMs + (drive + dwell) * 3_600_000,
         daily: daily + drive,
         weekly: weekly + drive,
         continuous: continuous + drive,
@@ -252,75 +310,67 @@ export function computePlan(
 
   const claimed = new Set<string>();
   const seqByDriver: Record<string, number> = {};
-
   const tomorrow = tomorrowISODate(nowMs);
 
-  // --- Pass 1: immediate (free drivers within radius of pickup) ---
+  const schedPickupMsOf = (job: Job, stops: PlannerStop[]): number | null => {
+    const iso = stops[0]?.scheduled_at ?? job.scheduled_at ?? null;
+    if (!iso) return null;
+    const ms = new Date(iso).getTime();
+    return Number.isFinite(ms) ? ms : null;
+  };
+
+  // --- Pass 1: immediate ---
   for (const job of pending) {
     const stops = stopsMap[job.id];
     const fp = firstPickupWh(stops, warehouses);
     if (!fp || !stops) continue;
 
     const isTomorrowJob = (job.for_date ?? null) === tomorrow;
+    const schedPickupMs = schedPickupMsOf(job, stops);
+    const jobH = jobDriveHours(stops, warehouses);
+    const dwellH = jobDwellHours(stops);
 
-    // Scheduled pickup time at the first stop, if the job has one.
-    const schedPickupMs = (() => {
-      const iso = stops[0]?.scheduled_at ?? job.scheduled_at ?? null;
-      if (!iso) return null;
-      const ms = new Date(iso).getTime();
-      return Number.isFinite(ms) ? ms : null;
-    })();
-
-    let best: { d: Driver; dist: number; driveAdd: number; breakMs: number } | null = null;
+    let best: { d: Driver; dist: number; driveAdd: number } | null = null;
     for (const d of eligible) {
       if (activeByDriver[d.id]) continue;
       if (compliance[d.id]?.blockAssignment) continue;
       if (isTomorrowJob) {
-        // No shift records loaded → treat as an open schedule (available).
-        const isAvailableTomorrow = hasShiftData
-          ? isDriverAvailableOnDate(d.id, tomorrow, shifts, overrides)
-          : true;
-        if (!isAvailableTomorrow) continue;
+        const ok = hasShiftData ? isDriverAvailableOnDate(d.id, tomorrow, shifts, overrides) : true;
+        if (!ok) continue;
       }
 
       const dist = haversineKm(d.current_lat!, d.current_lon!, fp.latitude, fp.longitude);
       if (dist > AUTO_ASSIGN_RADIUS_KM) continue;
 
       const transit = transitTimeHours(dist);
-      const jobH = jobDriveHours(stops, warehouses);
       const driveAdd = jobH + transit;
-
       const f = forecast[d.id];
-      const breakMs = calculateBreakDelayMs(f.continuous, driveAdd);
 
-      // IMPOSSIBLE ROUTE GUARD: Check if the required speed to make the pickup is physically possible.
       if (schedPickupMs !== null) {
         const timeAvailableMs = schedPickupMs - nowMs;
         if (timeAvailableMs > 0) {
-          const requiredSpeed = dist / (timeAvailableMs / 3600_000);
-          if (requiredSpeed > 100) continue; // Skip: requires superhuman speed
+          const requiredSpeed = dist / (timeAvailableMs / 3_600_000);
+          if (requiredSpeed > MAX_PICKUP_SPEED_KMH) continue;
         }
       }
 
       if (f.daily + driveAdd > DAILY_CAP) continue;
       if (f.weekly + driveAdd > WEEKLY_CAP) continue;
-      if (!best || dist < best.dist) best = { d, dist, driveAdd, breakMs };
+      if (!best || dist < best.dist) best = { d, dist, driveAdd };
     }
     if (best) {
+      const f = forecast[best.d.id];
+      const { breakMs, newContinuous } = breakInfo(f.continuous, best.driveAdd);
       out.immediate.push({ jobId: job.id, driverId: best.d.id, distKm: best.dist });
       claimed.add(job.id);
       activeByDriver[best.d.id] = job;
       const ld = lastDropWh(stops, warehouses);
-      const f = forecast[best.d.id];
       f.lat = ld?.latitude ?? f.lat;
       f.lon = ld?.longitude ?? f.lon;
-      f.endMs += best.driveAdd * 3_600_000 + best.breakMs;
+      f.endMs += (best.driveAdd + dwellH) * 3_600_000 + breakMs;
       f.daily += best.driveAdd;
       f.weekly += best.driveAdd;
-      f.continuous =
-        best.breakMs > 0
-          ? Math.max(0, best.driveAdd - BREAK_THRESHOLD_HOURS)
-          : f.continuous + best.driveAdd;
+      f.continuous = newContinuous;
     }
   }
 
@@ -332,51 +382,53 @@ export function computePlan(
     if (!fp || !stops) continue;
 
     const isTomorrowJob = (job.for_date ?? null) === tomorrow;
+    const schedPickupMs = schedPickupMsOf(job, stops);
+    const jobH = jobDriveHours(stops, warehouses);
+    const dwellH = jobDwellHours(stops);
 
-    let best: {
-      d: Driver;
-      dist: number;
-      driveAdd: number;
-      transit: number;
-      breakMs: number;
-    } | null = null;
+    let best: { d: Driver; dist: number; driveAdd: number; transit: number } | null = null;
     let nearMiss: { name: string; dist: number; reason: string } | null = null;
 
     for (const d of eligible) {
       if (isTomorrowJob) {
-        // No shift records loaded → treat as an open schedule (available).
-        const isAvailableTomorrow = hasShiftData
-          ? isDriverAvailableOnDate(d.id, tomorrow, shifts, overrides)
-          : true;
-        if (!isAvailableTomorrow) continue;
+        const ok = hasShiftData ? isDriverAvailableOnDate(d.id, tomorrow, shifts, overrides) : true;
+        if (!ok) continue;
       }
       const f = forecast[d.id];
       const dist = haversineKm(f.lat, f.lon, fp.latitude, fp.longitude);
       const transit = transitTimeHours(dist);
-      const jobH = jobDriveHours(stops, warehouses);
       const driveAdd = jobH + transit;
-
-      const breakMs = calculateBreakDelayMs(f.continuous, driveAdd);
 
       const overRadius = dist > CHAIN_RADIUS_KM;
       const overDaily = f.daily + driveAdd > DAILY_CAP;
       const overWeekly = f.weekly + driveAdd > WEEKLY_CAP;
+      let impossible = false;
+      if (!overRadius && !overDaily && !overWeekly && schedPickupMs !== null) {
+        const timeAvailableMs = schedPickupMs - f.endMs;
+        if (timeAvailableMs > 0) {
+          impossible = dist / (timeAvailableMs / 3_600_000) > MAX_PICKUP_SPEED_KMH;
+        }
+      }
 
-      if (overRadius || overDaily || overWeekly) {
+      if (overRadius || overDaily || overWeekly || impossible) {
         const reason = overRadius
           ? `${dist.toFixed(1)} km from end of last run (limit ${CHAIN_RADIUS_KM} km)`
           : overDaily
-            ? `would exceed daily ${(f.daily + driveAdd).toFixed(1)}/10h`
-            : `would exceed weekly ${(f.weekly + driveAdd).toFixed(1)}/56h`;
+            ? `would exceed daily ${(f.daily + driveAdd).toFixed(1)}/${DAILY_CAP}h`
+            : overWeekly
+              ? `would exceed weekly ${(f.weekly + driveAdd).toFixed(1)}/${WEEKLY_CAP}h`
+              : `impossible route to make scheduled pickup`;
         if (!nearMiss || dist < nearMiss.dist) nearMiss = { name: d.name, dist, reason };
         continue;
       }
-      if (!best || dist < best.dist) best = { d, dist, driveAdd, transit, breakMs };
+      if (!best || dist < best.dist) best = { d, dist, driveAdd, transit };
     }
 
     if (best) {
       const f = forecast[best.d.id];
-      const startMs = f.endMs + best.transit * 3_600_000 + best.breakMs;
+      const { breakMs, newContinuous } = breakInfo(f.continuous, best.driveAdd);
+      const arriveMs = f.endMs + best.transit * 3_600_000 + breakMs;
+      const startMs = schedPickupMs !== null ? Math.max(arriveMs, schedPickupMs) : arriveMs;
       const seq = (seqByDriver[best.d.id] = (seqByDriver[best.d.id] ?? 0) + 1);
       const nextDaily = f.daily + best.driveAdd;
       const nextWeekly = f.weekly + best.driveAdd;
@@ -392,13 +444,10 @@ export function computePlan(
       const ld = lastDropWh(stops, warehouses);
       f.lat = ld?.latitude ?? f.lat;
       f.lon = ld?.longitude ?? f.lon;
-      f.endMs += best.driveAdd * 3_600_000 + best.breakMs;
+      f.endMs = startMs + (jobH + dwellH) * 3_600_000;
       f.daily = nextDaily;
       f.weekly = nextWeekly;
-      f.continuous =
-        best.breakMs > 0
-          ? Math.max(0, best.driveAdd - BREAK_THRESHOLD_HOURS)
-          : f.continuous + best.driveAdd;
+      f.continuous = newContinuous;
     } else {
       const reason = nearMiss
         ? `Closest: ${nearMiss.name} — ${nearMiss.reason}`
@@ -415,15 +464,17 @@ export function computePlan(
 /**
  * Plans all jobs for a specific date.
  *
- * targetDate — YYYY-MM-DD string of the day being planned.
- * jobs       — jobs already filtered to this date (for_date === targetDate).
- * shifts     — driver_shifts keyed by driver_id.
- * overrides  — ALL driver_availability_overrides (any date); filtered internally by targetDate.
- * nowMs      — current wall-clock time; used to set a sensible start floor for today's jobs.
+ * Calendar availability + shift window (start AND end time) are enforced, and
+ * weekly driving hours accumulate across all jobs assigned to a driver.
  *
- * A driver with NO shift record is treated as available (open schedule).
- * A driver with an explicit override for targetDate takes that value.
- * A driver with days_of_week = [] is never available.
+ * Return-to-base: a driver with return_to_base_required = true and a non-null
+ * home_warehouse_id must be able to get back to that depot. Every candidate
+ * assignment reserves the drive-home leg in the daily/weekly budget, and — when
+ * the driver has a shift end_time — requires arrival home before shift end.
+ * A job whose last drop is already the home warehouse needs a zero-length
+ * return (a "loaded" backhaul). After all jobs are placed, an explicit
+ * ReturnLeg is emitted per such driver (loaded, or an empty deadhead home).
+ * Drivers without the flag are flexible and unaffected.
  */
 export function computePlanForDate(
   targetDate: string,
@@ -436,24 +487,25 @@ export function computePlanForDate(
   overrides: DriverAvailabilityOverride[] = [],
   nowMs: number = Date.now(),
 ): PlanResult {
-  const out: PlanResult = { immediate: [], planned: [], unassignable: [] };
+  const out: PlanResult = { immediate: [], planned: [], unassignable: [], returns: [] };
 
   type TForecast = {
     lat: number;
     lon: number;
     hoursLeft: number;
+    weekly: number;
     sequence: number;
     continuous: number;
+    lastWhId?: string;
   };
   const forecast: Record<string, TForecast> = {};
   const driverById: Record<string, Driver> = {};
+  // Home depot for return-to-base drivers only; null for flexible drivers.
+  const homeWhById: Record<string, Warehouse | null> = {};
 
   for (const d of drivers) {
-    // Calendar-based availability is the single source of truth.
     if (!isDriverAvailableOnDate(d.id, targetDate, shifts, overrides)) continue;
 
-    // Use the driver's last known GPS as the start position. Drivers without
-    // any position are excluded since we cannot estimate transit times.
     const startLat = d.current_lat ?? null;
     const startLon = d.current_lon ?? null;
     if (startLat == null || startLon == null) continue;
@@ -461,12 +513,10 @@ export function computePlanForDate(
     const c = compliance[d.id];
     if (c?.blockAssignment) continue;
 
-    // Daily cap: 9h is the typical HGV limit. Reduce if the driver is already
-    // close to the weekly (56h) or fortnightly (90h) cap.
-    let cap = 9;
+    let cap = DAILY_CAP;
     if (c) {
-      if (c.weekly >= 47) cap = Math.min(cap, 56 - c.weekly);
-      if (c.twoWeek >= 81) cap = Math.min(cap, 90 - c.twoWeek);
+      if (c.weekly >= WEEKLY_CAP - DAILY_CAP) cap = Math.min(cap, WEEKLY_CAP - c.weekly);
+      if (c.twoWeek >= FORTNIGHT_CAP - DAILY_CAP) cap = Math.min(cap, FORTNIGHT_CAP - c.twoWeek);
     }
     if (cap <= 0) continue;
 
@@ -474,36 +524,27 @@ export function computePlanForDate(
       lat: startLat,
       lon: startLon,
       hoursLeft: cap,
+      weekly: c?.weekly ?? 0,
       sequence: 0,
       continuous: 0,
     };
     driverById[d.id] = d;
+    homeWhById[d.id] =
+      d.return_to_base_required && d.home_warehouse_id
+        ? warehouses.find((w) => w.id === d.home_warehouse_id) ?? null
+        : null;
   }
 
   const eligibleIds = Object.keys(forecast);
 
-  // Wall-clock time each driver becomes available to start their first job.
-  // Uses the driver's actual shift start_time from driver_shift_templates.
-  // Falls back to 06:00 UTC if no shift record exists (open-schedule driver).
-  // "immediately" is still the floor — same-day jobs already overdue are not
-  // pushed back to the nominal shift start.
   const driverReadyMs: Record<string, number> = {};
+  const shiftEndMsById: Record<string, number | null> = {};
   for (const did of eligibleIds) {
-    const dayOfWeek = new Date(targetDate + "T12:00:00Z").getDay();
-    const shiftStart = shifts[did]?.shiftByDay?.[dayOfWeek]?.start_time ?? "06:00:00";
-    // Normalise "HH:MM" → "HH:MM:00" so Date parsing is consistent.
-    const normStart = shiftStart.length === 5 ? shiftStart + ":00" : shiftStart;
-    const nominalStartMs = new Date(`${targetDate}T${normStart}Z`).getTime();
-    driverReadyMs[did] = Math.max(nominalStartMs, nowMs);
+    const w = shiftWindowMs(targetDate, shifts[did], nowMs);
+    driverReadyMs[did] = w.startMs;
+    shiftEndMsById[did] = w.endMs;
   }
-  // Sort jobs by their scheduled pickup time (earliest first, unscheduled last).
-  //
-  // WHY: with a longest-first sort, a job that naturally chains AFTER another
-  // (e.g. SBS2→SNG1 after a driver just dropped at SBS2) can be processed
-  // first and assigned to a different driver — breaking the chain.  Sorting
-  // chronologically ensures the planner assigns job-1 before job-2, so when
-  // job-2 is evaluated the forecast position of the job-1 driver already
-  // reflects their end location and they appear as distance-0 to the pickup.
+
   const pickupMs = (job: Job): number => {
     const s0 = stopsMap[job.id]?.[0];
     const iso = s0?.scheduled_at ?? job.scheduled_at ?? null;
@@ -519,16 +560,10 @@ export function computePlanForDate(
       continue;
     }
 
-    // jobH = driving hours only (used for compliance / hoursLeft).
     const jobH = jobDriveHours(stops, warehouses);
+    const jobWallH = jobWallHours(stops, warehouses);
+    const jobLastDrop = lastDropWh(stops, warehouses);
 
-    // jobWallH = total wall-clock hours the driver is occupied by this job,
-    // including dwell (loading + checks at every stop). Used for chaining so
-    // the next assignment starts after the driver finishes unloading.
-    const dwellH = stops.reduce((s, st) => s + stopDwellMinutes(st.kind) / 60, 0);
-    const jobWallH = jobH + dwellH;
-
-    // Scheduled pickup time at the first stop, if the job has one.
     const schedPickupMs = (() => {
       const iso = stops[0]?.scheduled_at ?? job.scheduled_at ?? null;
       if (!iso) return null;
@@ -536,14 +571,16 @@ export function computePlanForDate(
       return Number.isFinite(ms) ? ms : null;
     })();
 
-    let best: {
-      id: string;
-      dist: number;
-      driveAdd: number;
-      transit: number;
-      departMs: number;
-      breakMs: number;
-    } | null = null;
+    let best:
+      | {
+          id: string;
+          dist: number;
+          driveAdd: number;
+          departMs: number;
+          completionMs: number;
+          newContinuous: number;
+        }
+      | null = null;
     let nearMiss: { name: string; dist: number; reason: string } | null = null;
 
     for (const did of eligibleIds) {
@@ -551,16 +588,30 @@ export function computePlanForDate(
       const dist = haversineKm(f.lat, f.lon, fp.latitude, fp.longitude);
       const transit = transitTimeHours(dist);
       const driveAdd = jobH + transit;
-
-      const breakMs = calculateBreakDelayMs(f.continuous, driveAdd);
-
-      // IMPOSSIBLE ROUTE GUARD: Check if the required speed to make the pickup is physically possible.
+      const { breakMs, newContinuous } = breakInfo(f.continuous, driveAdd);
       const readyMs = driverReadyMs[did];
+
+      // Return-to-base reservation: drive time from this job's last drop back
+      // to the home depot (0 for flexible drivers, or if last drop IS home).
+      const homeWh = homeWhById[did];
+      const returnTransitH =
+        homeWh && jobLastDrop
+          ? transitTimeHours(
+              haversineKm(
+                jobLastDrop.latitude,
+                jobLastDrop.longitude,
+                homeWh.latitude,
+                homeWh.longitude,
+              ),
+            )
+          : 0;
+
+      // IMPOSSIBLE ROUTE GUARD
       if (schedPickupMs !== null) {
         const timeAvailableMs = schedPickupMs - readyMs;
         if (timeAvailableMs > 0) {
-          const requiredSpeed = dist / (timeAvailableMs / 3600_000);
-          if (requiredSpeed > 100) {
+          const requiredSpeed = dist / (timeAvailableMs / 3_600_000);
+          if (requiredSpeed > MAX_PICKUP_SPEED_KMH) {
             const reason = `Impossible route: requires ${requiredSpeed.toFixed(0)} km/h`;
             if (!nearMiss || dist < nearMiss.dist)
               nearMiss = { name: driverById[did].name, dist, reason };
@@ -569,22 +620,40 @@ export function computePlanForDate(
         }
       }
 
-      if (f.hoursLeft < driveAdd + breakMs / 3_600_000) {
-        const reason = `needs ${driveAdd.toFixed(1)}h drive, ${f.hoursLeft.toFixed(1)}h left`;
+      // Daily DRIVING budget must cover the job AND the drive back to base.
+      if (f.hoursLeft < driveAdd + returnTransitH) {
+        const reason =
+          returnTransitH > 0
+            ? `needs ${driveAdd.toFixed(1)}h + ${returnTransitH.toFixed(1)}h home, ${f.hoursLeft.toFixed(1)}h left`
+            : `needs ${driveAdd.toFixed(1)}h drive, ${f.hoursLeft.toFixed(1)}h left`;
         if (!nearMiss || dist < nearMiss.dist)
           nearMiss = { name: driverById[did].name, dist, reason };
         continue;
       }
 
-      // Departure time: driver leaves as late as possible to arrive exactly at
-      // the scheduled pickup, but cannot leave before they finish their previous
-      // job (driverReadyMs). If there is no scheduled pickup time the driver
-      // departs as soon as they are free.
       const transitMs = transit * 3_600_000;
       const departMs =
         schedPickupMs !== null ? Math.max(readyMs, schedPickupMs - transitMs) : readyMs;
+      const arrivalMs = departMs + transitMs;
+      const pickupStartMs = schedPickupMs !== null ? Math.max(arrivalMs, schedPickupMs) : arrivalMs;
+      const completionMs = pickupStartMs + jobWallH * 3_600_000 + breakMs;
 
-      if (!best || dist < best.dist) best = { id: did, dist, driveAdd, transit, departMs, breakMs };
+      // Must be back at base (or, for flexible drivers, just finish the job)
+      // before shift end, when a shift end exists.
+      const endMs = shiftEndMsById[did];
+      const homeArrivalMs = completionMs + returnTransitH * 3_600_000;
+      if (endMs != null && homeArrivalMs > endMs) {
+        const reason =
+          returnTransitH > 0
+            ? `can't return to base before shift end (${new Date(endMs).toISOString().slice(11, 16)})`
+            : `would finish after shift end (${new Date(endMs).toISOString().slice(11, 16)})`;
+        if (!nearMiss || dist < nearMiss.dist)
+          nearMiss = { name: driverById[did].name, dist, reason };
+        continue;
+      }
+
+      if (!best || dist < best.dist)
+        best = { id: did, dist, driveAdd, departMs, completionMs, newContinuous };
     }
 
     if (!best) {
@@ -599,17 +668,8 @@ export function computePlanForDate(
 
     const f = forecast[best.id];
     const seq = ++f.sequence;
-
-    // Arrival at first pickup (may be after scheduled time if driver was busy)
-    const arrivalMs = best.departMs + best.transit * 3_600_000;
-    // Effective pickup start: whichever is later — arrival or the scheduled time
-    const pickupStartMs = schedPickupMs !== null ? Math.max(arrivalMs, schedPickupMs) : arrivalMs;
-    // Driver is free again after completing all stops including unloading dwell + any break
-    driverReadyMs[best.id] = pickupStartMs + jobWallH * 3_600_000 + best.breakMs;
-
-    const c = compliance[best.id];
-    const weeklyBase = c?.weekly ?? 0;
-    const nextWeekly = weeklyBase + best.driveAdd;
+    driverReadyMs[best.id] = best.completionMs;
+    const nextWeekly = f.weekly + best.driveAdd;
 
     out.planned.push({
       jobId: job.id,
@@ -624,11 +684,31 @@ export function computePlanForDate(
     const ld = lastDropWh(stops, warehouses);
     f.lat = ld?.latitude ?? f.lat;
     f.lon = ld?.longitude ?? f.lon;
+    f.lastWhId = ld?.id ?? f.lastWhId;
     f.hoursLeft -= best.driveAdd;
-    f.continuous =
-      best.breakMs > 0
-        ? Math.max(0, best.driveAdd - BREAK_THRESHOLD_HOURS)
-        : f.continuous + best.driveAdd;
+    f.weekly = nextWeekly;
+    f.continuous = best.newContinuous;
+  }
+
+  // Emit an explicit return-to-base leg for every return-to-base driver that
+  // worked today. loaded=true when their final delivery already ended at home.
+  for (const did of eligibleIds) {
+    const homeWh = homeWhById[did];
+    const f = forecast[did];
+    if (!homeWh || f.sequence === 0) continue;
+    const returnKm = haversineKm(f.lat, f.lon, homeWh.latitude, homeWh.longitude);
+    const startMs = driverReadyMs[did];
+    const arriveMs = startMs + transitTimeHours(returnKm) * 3_600_000;
+    out.returns.push({
+      driverId: did,
+      sequence: f.sequence + 1,
+      fromWarehouseId: f.lastWhId ?? homeWh.id,
+      homeWarehouseId: homeWh.id,
+      startAt: new Date(startMs).toISOString(),
+      arriveAt: new Date(arriveMs).toISOString(),
+      distKm: returnKm,
+      loaded: f.lastWhId === homeWh.id,
+    });
   }
 
   return out;
