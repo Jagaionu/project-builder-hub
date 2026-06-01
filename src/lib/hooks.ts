@@ -76,15 +76,18 @@ export function useDrivers(initialDrivers: Driver[] = []) {
 export function useWarehouses() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>(cache.warehouses);
   useEffect(() => {
-    supabase.from("warehouses").select("*").order("code").then(({ data }) => {
-      if (data) {
-        cache.warehouses = data as Warehouse[];
-        setWarehouses(cache.warehouses);
+    (async () => {
+      try {
+        const { data } = await supabase.from("warehouses").select("*").order("code");
+        if (data) {
+          cache.warehouses = data as Warehouse[];
+          setWarehouses(cache.warehouses);
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("[useWarehouses] query failed:", err);
       }
-    }).catch((err: unknown) => {
-      // eslint-disable-next-line no-console
-      console.warn("[useWarehouses] query failed:", err);
-    });
+    })();
   }, []);
   return warehouses;
 }
