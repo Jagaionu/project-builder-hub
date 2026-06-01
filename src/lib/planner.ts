@@ -166,7 +166,10 @@ function shiftWindowMs(
 ): { startMs: number; endMs: number | null } {
   const day = shift?.shiftByDay?.[utcDayOfWeek(targetDate)];
   const startBase = timeToMs(targetDate, day?.start_time ?? "06:00:00");
-  return { startMs: Math.max(startBase ?? nowMs, nowMs), endMs: timeToMs(targetDate, day?.end_time) };
+  let endMs = timeToMs(targetDate, day?.end_time);
+  // end <= start means the shift crosses midnight into the next day (e.g. 18:00–02:00).
+  if (endMs != null && startBase != null && endMs <= startBase) endMs += 86_400_000;
+  return { startMs: Math.max(startBase ?? nowMs, nowMs), endMs };
 }
 
 type Forecast = {
