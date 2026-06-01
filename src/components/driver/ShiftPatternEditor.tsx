@@ -101,7 +101,7 @@ export function ShiftPatternEditor({ driverId, initialDays, initialTimes, onSave
         : { start_time: DEFAULT_START, end_time: DEFAULT_END };
     }
     setTimes(reset);
-    if (isPlanner) setExpanded(false);
+    setExpanded(false);
   };
 
   const save = async () => {
@@ -115,7 +115,7 @@ export function ShiftPatternEditor({ driverId, initialDays, initialTimes, onSave
       await saveShiftPattern(supabase, driverId, pattern);
       onSave();
       toast.success("Weekly shift pattern saved");
-      if (isPlanner) setExpanded(false);
+      setExpanded(false);
     } catch (err) {
       toast.error("Couldn't save pattern", {
         description: err instanceof Error ? err.message : "Please try again",
