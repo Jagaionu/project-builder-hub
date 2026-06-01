@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef } from "react";
-import { ArrowRight, Clock, MapPin, Pencil } from "lucide-react";
+import { ArrowRight, Clock, MapPin, Pencil, RotateCcw } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { isJobScheduledFuture } from "@/lib/effective-status";
@@ -153,6 +153,34 @@ export const JobDetailPanel = memo(function JobDetailPanel({
             dailyHoursLeft={planned?.dailyHoursLeft}
           />
         )}
+
+        {/* Return-to-base warning — shown when the assigned/planned driver must
+            return to their home warehouse at end of day. The badge is
+            informational only; enforcement happens in plan-jobs-core.server.ts. */}
+        {(() => {
+          const activeDriverId =
+            job.assigned_driver_id ?? planned?.driverId ?? job.planned_driver_id ?? null;
+          if (!activeDriverId) return null;
+          const activeDriver = lookups.driversById.get(activeDriverId);
+          if (!activeDriver?.return_to_base_required || !activeDriver?.home_warehouse_id) return null;
+          const homeWh = lookups.warehousesById.get(activeDriver.home_warehouse_id);
+
+          // Check if the last stop for this job already ends at home warehouse.
+          const lastStop = stops.length > 0 ? stops[stops.length - 1] : null;
+          const alreadyHome = lastStop?.warehouse_id === activeDriver.home_warehouse_id;
+          if (alreadyHome) return null;
+
+          return (
+            <div className="mt-2 flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+              <RotateCcw size={12} className="shrink-0" />
+              <span>
+                Driver must return to{" "}
+                <span className="font-semibold">{homeWh?.code ?? "home base"}</span>
+                {" "}— deadhead leg will be added by the planner
+              </span>
+            </div>
+          );
+        })()}
       </div>
 
       {!isLaneAssigned && !driver && ranked.length > 0 && (

@@ -25,6 +25,8 @@ export type PlanJobsResult = {
   unassignable: Array<{ jobId: string; reason: string }>;
   cleared: number;
   driversPlanned: number;
+  /** Number of deadhead return-to-base legs inserted into route_jobs. */
+  rtbLegsAdded: number;
 };
 
 // Helper: Calculate urgency score (lower = more urgent).
@@ -283,6 +285,161 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
     allUnassignable.push(...result.unassignable);
   }
 
+  // ── STEP 3.5: Return-to-base enforcement ─────────────────────────────────
+  //
+  // For every driver with return_to_base_required = true, check whether their
+  // last planned job on each date terminates at their home_warehouse_id.
+  // If not, insert a deadhead route_job leg (and an enclosing routes row if
+  // one doesn't already exist) so the driver's day ends at base.
+  //
+  // Travel time: prefer lane_travel_times avg for that warehouse pair,
+  // day-of-week, and estimated departure hour. Falls back to haversine / 60
+  // km/h when no historical lane data is available.
+
+  let rtbLegsAdded = 0;
+
+  const rtbDriverIds = new Set(
+    driverList
+      .filter((d) => d.return_to_base_required && d.home_warehouse_id)
+      .map((d) => d.id),
+  );
+
+  if (rtbDriverIds.size > 0) {
+    // Build: key `${driverId}:${dateStr}` → highest-sequence planned entry for that driver/day.
+    const lastEntryByKey = new Map<string, (typeof toApply)[0] & { forDate: string }>();
+
+    for (const p of toApply) {
+      if (!rtbDriverIds.has(p.assigned_driver_id)) continue;
+      const job = jobList.find((j) => j.id === p.id);
+      if (!job?.for_date) continue;
+      const key = `${p.assigned_driver_id}:${job.for_date}`;
+      const prev = lastEntryByKey.get(key);
+      if (!prev || p.planned_sequence > prev.planned_sequence) {
+        lastEntryByKey.set(key, { ...p, forDate: job.for_date });
+      }
+    }
+
+    for (const [key, entry] of lastEntryByKey) {
+      const colonIdx = key.indexOf(":");
+      const driverId = key.slice(0, colonIdx);
+      const dateStr = entry.forDate;
+
+      const driver = driverList.find((d) => d.id === driverId);
+      if (!driver?.home_warehouse_id) continue;
+
+      // Resolve the last warehouse this driver will be at on this date.
+      // Prefer the last DROP stop from stopsMap; fall back to job.destination_warehouse_id.
+      const stops = stopsMap[entry.id] ?? [];
+      const lastDrop = [...stops].reverse().find((s) => s.kind === "DROP");
+      const lastJob = jobList.find((j) => j.id === entry.id);
+      const lastWarehouseId = lastDrop?.warehouse_id ?? lastJob?.destination_warehouse_id ?? null;
+
+      if (!lastWarehouseId || lastWarehouseId === driver.home_warehouse_id) continue;
+
+      const fromWh = whList.find((w) => w.id === lastWarehouseId);
+      const toWh = whList.find((w) => w.id === driver.home_warehouse_id);
+      if (!fromWh || !toWh) continue;
+
+      const deadheadKm = haversineKm(
+        fromWh.latitude, fromWh.longitude,
+        toWh.latitude, toWh.longitude,
+      );
+
+      // Estimate departure time: planned_start_at + 2 h job duration (conservative).
+      // Use 18:00 UTC as absolute fallback for dateless estimates.
+      const deptMs = entry.planned_start_at
+        ? new Date(entry.planned_start_at).getTime() + 2 * 3_600_000
+        : new Date(`${dateStr}T18:00:00Z`).getTime();
+
+      const dayOfWeek = new Date(`${dateStr}T12:00:00Z`).getDay();
+      const hourOfDay = new Date(deptMs).getUTCHours();
+
+      const { data: laneRow } = await supabaseAdmin
+        .from("lane_travel_times")
+        .select("avg_duration_minutes")
+        .eq("from_warehouse_id", lastWarehouseId)
+        .eq("to_warehouse_id", driver.home_warehouse_id)
+        .eq("day_of_week", dayOfWeek)
+        .eq("hour_of_day", hourOfDay)
+        .order("sample_count", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // 60 km/h average speed fallback when no lane telemetry exists yet.
+      const deadheadMinutes =
+        laneRow?.avg_duration_minutes ?? Math.round((deadheadKm / 60) * 60);
+
+      const effectiveTenantId = tenantId ?? driver.tenant_id ?? null;
+
+      // Find or create the routes row for this driver/date.
+      let routeId: string | null = null;
+      const { data: existingRoute } = await supabaseAdmin
+        .from("routes")
+        .select("id")
+        .eq("driver_id", driverId)
+        .eq("route_date", dateStr)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingRoute?.id) {
+        routeId = existingRoute.id;
+      } else {
+        const { data: newRoute } = await supabaseAdmin
+          .from("routes")
+          .insert({
+            tenant_id: effectiveTenantId,
+            driver_id: driverId,
+            route_date: dateStr,
+            status: "planned",
+          } as never)
+          .select("id")
+          .single();
+        routeId = newRoute?.id ?? null;
+      }
+
+      if (!routeId) continue;
+
+      // Determine the next stop_sequence for this route.
+      const { data: seqRow } = await supabaseAdmin
+        .from("route_jobs")
+        .select("stop_sequence")
+        .eq("route_id", routeId)
+        .order("stop_sequence", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const nextSeq = (seqRow?.stop_sequence ?? 0) + 1;
+      const arrivalIso = new Date(deptMs + deadheadMinutes * 60_000).toISOString();
+
+      const { error: rjError } = await supabaseAdmin.from("route_jobs").insert({
+        route_id: routeId,
+        job_id: null,
+        stop_sequence: nextSeq,
+        is_deadhead: true,
+        deadhead_from_warehouse_id: lastWarehouseId,
+        deadhead_to_warehouse_id: driver.home_warehouse_id,
+        deadhead_km: deadheadKm,
+        deadhead_minutes: deadheadMinutes,
+        planned_arrival: arrivalIso,
+        planned_departure: arrivalIso,
+        tenant_id: effectiveTenantId,
+      } as never);
+
+      if (rjError) {
+        console.error(`[RTB] Failed to insert deadhead leg for driver ${driverId} on ${dateStr}:`, rjError.message);
+        continue;
+      }
+
+      // Mark the route as confirmed ending at home.
+      await supabaseAdmin
+        .from("routes")
+        .update({ ends_at_home: true } as never)
+        .eq("id", routeId);
+
+      rtbLegsAdded++;
+    }
+  }
+
   // ── STEP 4: Write all assignments ─────────────────────────────────────────
 
   const writes: Array<Promise<unknown>> = [];
@@ -318,5 +475,6 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
     unassignable: allUnassignable,
     cleared: cleared ?? 0,
     driversPlanned: new Set(toApply.map((a) => a.assigned_driver_id)).size,
+    rtbLegsAdded,
   };
 }
