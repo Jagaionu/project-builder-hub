@@ -9,6 +9,7 @@ import { signOut } from "@/lib/auth-context";
 import type { TenantModule } from "@/lib/types";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AutoRefreshButton } from "@/components/dispatch/toolbar";
+import { AIChatWidget } from "@/components/ai/ChatWidget";
 import brandLogo from "@/assets/brand-logo.png";
 
 const ALL_NAV: ReadonlyArray<{
@@ -155,10 +156,11 @@ export function Sidebar() {
         className="px-3 py-3 space-y-2.5"
         style={{ borderTop: "1px solid var(--sidebar-divider)" }}
       >
-        {/* Auto-refresh + theme toggle */}
-        <div className="flex items-center gap-2">
+        {/* Auto-refresh · AI · theme toggle */}
+        <div className="flex items-center justify-between gap-2">
           <AutoRefreshButton />
-          <div className="ml-auto"><ThemeToggle compact /></div>
+          {flags.modules.includes("ai_agent") && <AIChatWidget />}
+          <ThemeToggle compact />
         </div>
 
         {/* User row */}
