@@ -42,13 +42,18 @@ function DriverHome() {
     );
   }
 
-  const isOnShift = driver.status !== "OFF_SHIFT";
-
   // Job Filtering
   const activeJobs = jobs.filter((j) => !["COMPLETED", "CANCELLED"].includes(j.status));
   const completedJobs = jobs.filter((j) => j.status === "COMPLETED");
 
-  const dotColor = STATUS_DOT[driver.status] ?? "var(--muted-foreground-2)";
+  // Status reflects real work: a started route -> On Route; any active route ->
+  // On Shift; otherwise the stored status. Never stuck "Off Shift" mid-route.
+  const started = activeJobs.some((j) =>
+    ["IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
+  );
+  const displayStatus = started ? "ON_ROUTE" : activeJobs.length > 0 ? "ON_SHIFT" : driver.status;
+  const isOnShift = displayStatus !== "OFF_SHIFT";
+  const dotColor = STATUS_DOT[displayStatus] ?? "var(--muted-foreground-2)";
 
   return (
     <div
@@ -57,10 +62,8 @@ function DriverHome() {
     >
       {/* ── Header ── */}
       <div
-        className="px-5 pt-6 pb-5"
-        style={{
-          background: "linear-gradient(180deg, var(--surface) 0%, transparent 100%)",
-        }}
+        className="px-5 pt-6 pb-5 sticky top-0 z-20"
+        style={{ background: "var(--background)" }}
       >
         <div className="flex items-start justify-between">
           <div>
@@ -86,7 +89,7 @@ function DriverHome() {
               }}
             />
             <span className="text-xs font-semibold" style={{ color: dotColor }}>
-              {STATUS_LABEL[driver.status]}
+              {STATUS_LABEL[displayStatus]}
             </span>
           </div>
         </div>

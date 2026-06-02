@@ -142,7 +142,7 @@ export function PwaInstallPrompt() {
           <>
             <Header
               icon={<Download className="size-6 text-blue-400" />}
-              title="Install Driver App"
+              title="Install Driver Hub"
               subtitle="Get quick access on your home screen"
               onClose={dismiss}
             />
@@ -170,7 +170,7 @@ export function PwaInstallPrompt() {
               onClose={dismiss}
             />
             <p className="text-sm text-slate-300 mb-4">
-              To install the Driver App on your phone, open this page in your normal browser first:
+              To install the Driver Hub on your phone, open this page in your normal browser first:
             </p>
             <ol className="text-sm text-slate-200 space-y-2 mb-5 list-decimal pl-5">
               <li className="flex items-start gap-2 -ml-5 list-none">
@@ -202,7 +202,7 @@ export function PwaInstallPrompt() {
             <Header
               icon={<Share className="size-6 text-blue-400" />}
               title="Add to Home Screen"
-              subtitle="Install the Driver App on your iPhone"
+              subtitle="Install the Driver Hub on your iPhone"
               onClose={dismiss}
             />
             <ol className="text-sm text-slate-200 space-y-2 mb-5">

@@ -6,7 +6,7 @@ import { useDriverBootstrap } from "@/hooks/useDriverBootstrap";
 import { useDriverStore } from "@/lib/driver-store";
 
 export const Route = createFileRoute("/d")({
-  head: () => ({ meta: [{ title: "Driver App" }] }),
+  head: () => ({ meta: [{ title: "Driver Hub" }] }),
   component: DriverLayout,
 });
 

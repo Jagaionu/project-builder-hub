@@ -65,14 +65,6 @@ export function DriverStopTimeline({ job, driverPosition, onArrive }: Props) {
                   ) : null}
                 </div>
               </div>
-              {isNext && onArrive && (
-                <button
-                  onClick={() => onArrive(stop.id)}
-                  className="mt-3 w-full bg-primary text-primary-foreground font-semibold text-sm rounded-lg py-2.5 active:scale-[0.98] transition"
-                >
-                  Mark arrived
-                </button>
-              )}
             </div>
           </li>
         );

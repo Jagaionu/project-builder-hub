@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Warehouse as WarehouseIcon, RotateCcw } from "lucide-react";
+import { Warehouse as WarehouseIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -12,22 +12,18 @@ interface WarehouseOption {
 interface Props {
   driverId: string;
   homeWarehouseId: string | null;
-  returnToBaseRequired: boolean;
+  returnToBaseRequired?: boolean;
   /** Called after a successful save so parents can refresh local state. */
   onSaved?: (next: { home_warehouse_id: string | null; return_to_base_required: boolean }) => void;
   compact?: boolean;
 }
 
-export function BaseWarehouseSelector({
-  driverId,
-  homeWarehouseId,
-  returnToBaseRequired,
-  onSaved,
-  compact = false,
-}: Props) {
+// A base warehouse implies "return to base at end of shift": setting a base turns
+// the return on, leaving it empty (free agent) turns it off — no separate tick.
+export function BaseWarehouseSelector({ driverId, homeWarehouseId, onSaved, compact = false }: Props) {
   const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(homeWarehouseId);
-  const [returnToBase, setReturnToBase] = useState<boolean>(returnToBaseRequired);
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -45,28 +41,18 @@ export function BaseWarehouseSelector({
   }, []);
 
   useEffect(() => setSelectedId(homeWarehouseId), [homeWarehouseId]);
-  useEffect(() => setReturnToBase(returnToBaseRequired), [returnToBaseRequired]);
-
-  const dirty =
-    (selectedId ?? null) !== (homeWarehouseId ?? null) ||
-    returnToBase !== returnToBaseRequired;
 
   const save = async () => {
     setSaving(true);
     try {
       const { error } = await supabase
         .from("drivers")
-        .update({
-          home_warehouse_id: selectedId,
-          return_to_base_required: selectedId ? returnToBase : false,
-        })
+        .update({ home_warehouse_id: selectedId, return_to_base_required: !!selectedId })
         .eq("id", driverId);
       if (error) throw error;
       toast.success("Base warehouse saved");
-      onSaved?.({
-        home_warehouse_id: selectedId,
-        return_to_base_required: selectedId ? returnToBase : false,
-      });
+      setEditing(false);
+      onSaved?.({ home_warehouse_id: selectedId, return_to_base_required: !!selectedId });
     } catch (err) {
       toast.error("Couldn't save base warehouse", {
         description: err instanceof Error ? err.message : "Please try again",
@@ -76,64 +62,75 @@ export function BaseWarehouseSelector({
     }
   };
 
+  const selectedWh = warehouses.find((w) => w.id === homeWarehouseId);
+  const showEditor = editing || !homeWarehouseId;
   const labelCls = compact
     ? "text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
     : "text-xs font-bold uppercase tracking-wider text-muted-foreground";
 
   return (
     <div className={`bg-card/50 border border-border/50 rounded-lg ${compact ? "p-2 space-y-2" : "p-3 space-y-3"}`}>
-      <div className="flex items-center gap-2">
-        <WarehouseIcon size={compact ? 12 : 14} className="text-muted-foreground" />
-        <span className={labelCls}>Base Warehouse</span>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <WarehouseIcon size={compact ? 12 : 14} className="text-muted-foreground" />
+          <span className={labelCls}>Base Warehouse</span>
+        </div>
+        {!showEditor && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="text-[10px] font-semibold text-primary hover:underline"
+          >
+            Edit
+          </button>
+        )}
       </div>
 
-      <select
-        value={selectedId ?? ""}
-        onChange={(e) => setSelectedId(e.target.value || null)}
-        className="w-full h-8 px-2 rounded border border-border bg-surface text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-      >
-        <option value="">No fixed base (free agent)</option>
-        {warehouses.map((w) => (
-          <option key={w.id} value={w.id}>
-            {w.code} — {w.name}
-          </option>
-        ))}
-      </select>
-
-      {selectedId && (
-        <label className="flex items-center gap-2 text-[11px] text-foreground/80 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={returnToBase}
-            onChange={(e) => setReturnToBase(e.target.checked)}
-            className="h-3.5 w-3.5 accent-primary"
-          />
-          <RotateCcw size={11} className="text-muted-foreground" />
-          Return to base at end of each shift
-        </label>
-      )}
-
-      {dirty && (
-        <div className="flex gap-1.5">
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedId(homeWarehouseId);
-              setReturnToBase(returnToBaseRequired);
-            }}
-            disabled={saving}
-            className="flex-1 py-1 rounded-md text-[10px] font-semibold border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition active:scale-95 disabled:opacity-60"
+      {showEditor ? (
+        <>
+          <select
+            value={selectedId ?? ""}
+            onChange={(e) => setSelectedId(e.target.value || null)}
+            className="w-full h-8 px-2 rounded border border-border bg-surface text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           >
-            Discard
-          </button>
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving}
-            className="flex-1 py-1 rounded-md text-[10px] font-semibold bg-primary text-primary-foreground transition active:scale-95 disabled:opacity-60"
-          >
-            {saving ? "…" : "Save"}
-          </button>
+            <option value="">No fixed base — no return required</option>
+            {warehouses.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.code} — {w.name}
+              </option>
+            ))}
+          </select>
+          <p className="text-[10px] text-muted-foreground">
+            Setting a base means you return there at the end of each shift. Leave empty for no return.
+          </p>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedId(homeWarehouseId);
+                setEditing(false);
+              }}
+              disabled={saving}
+              className="flex-1 py-1 rounded-md text-[10px] font-semibold border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition active:scale-95 disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="flex-1 py-1 rounded-md text-[10px] font-semibold bg-primary text-primary-foreground transition active:scale-95 disabled:opacity-60"
+            >
+              {saving ? "…" : "Save"}
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="flex items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-2">
+          <span className="text-xs font-semibold text-foreground">
+            {selectedWh ? `${selectedWh.code} — ${selectedWh.name}` : "Loading…"}
+          </span>
+          <span className="text-[9px] font-mono uppercase tracking-wider text-primary">↩ Return</span>
         </div>
       )}
     </div>

@@ -158,19 +158,6 @@ function JobDetail() {
     }
   };
 
-  const complete = async () => {
-    await supabase
-      .from("jobs")
-      .update({ status: "COMPLETED" } as never)
-      .eq("id", job.id);
-    if (driver)
-      await supabase
-        .from("drivers")
-        .update({ status: "AVAILABLE" } as never)
-        .eq("id", driver.id);
-    navigate({ to: "/d" });
-  };
-
   const showCantComplete =
     job.status === "IN_PROGRESS" ||
     job.status === "ARRIVED_PICKUP" ||
@@ -275,14 +262,6 @@ function JobDetail() {
         Arrivals are confirmed automatically when you reach each stop.
       </p>
 
-      {allDone && job.status !== "COMPLETED" && (
-        <button
-          onClick={complete}
-          className="mt-4 w-full bg-success text-success-foreground font-bold py-4 rounded-xl active:scale-[0.99] transition"
-        >
-          Complete route
-        </button>
-      )}
 
       <div className="mt-6 bg-card border border-border rounded-2xl p-4">
         <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">

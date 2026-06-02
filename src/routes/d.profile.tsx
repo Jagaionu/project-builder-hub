@@ -19,7 +19,21 @@ function ProfilePage() {
 
   return (
     <div className="pt-6 px-4 pb-6">
-      <h1 className="text-2xl font-bold mb-6 text-foreground">Profile</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-foreground">Profile</h1>
+        <div className="flex items-center gap-2">
+          <ThemeToggle compact />
+          <button
+            onClick={async () => {
+              await driverLogout();
+              navigate({ to: "/d/login" });
+            }}
+            className="text-xs font-semibold text-destructive border border-destructive/40 rounded-lg px-2.5 py-1.5 active:scale-95 transition"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
 
       {/* Driver info card */}
       <div className="bg-card border border-border rounded-2xl p-5 mb-4 text-center">
@@ -61,25 +75,8 @@ function ProfilePage() {
         </div>
       )}
 
-      {/* Appearance */}
-      <div className="bg-card border border-border rounded-2xl p-4 mb-4 flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold text-foreground">Appearance</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Light, dark, or follow your device</p>
-        </div>
-        <ThemeToggle />
-      </div>
 
-      {/* Sign out */}
-      <button
-        onClick={async () => {
-          await driverLogout();
-          navigate({ to: "/d/login" });
-        }}
-        className="w-full bg-destructive/15 text-destructive border border-destructive/40 font-semibold py-4 rounded-xl active:scale-[0.99] transition"
-      >
-        Sign out
-      </button>
+
     </div>
   );
 }

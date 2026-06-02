@@ -31,7 +31,7 @@ function DriverLogin() {
         <div className="w-20 h-20 mx-auto rounded-2xl bg-card border border-border flex items-center justify-center mb-4">
           <span className="text-4xl">🚚</span>
         </div>
-        <h1 className="text-2xl font-bold text-foreground">Driver App</h1>
+        <h1 className="text-2xl font-bold text-foreground">Driver Hub</h1>
         <p className="text-sm text-muted-foreground mt-1">Enter your pairing code to get started</p>
       </div>
 
