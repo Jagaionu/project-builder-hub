@@ -12,6 +12,8 @@ const DAY_ISO = [1, 2, 3, 4, 5, 6, 0];
 interface ShiftCalendarProps {
   driverId: string;
   isPlanner?: boolean;
+  /** When false, hide the weekly ShiftPatternEditor and render only the month grid. Defaults true. */
+  showPatternEditor?: boolean;
 }
 
 type DayType = "working" | "holiday" | "extra" | "off";
