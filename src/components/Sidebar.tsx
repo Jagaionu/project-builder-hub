@@ -1,13 +1,14 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Map, Truck, Warehouse, ClipboardList,
-  AlertTriangle, Webhook, LogOut, Shield, Radio, Users,
+  AlertTriangle, Webhook, LogOut, Shield, Users,
 } from "lucide-react";
 import { useAlertCount, useUnassignedJobCount } from "@/lib/use-alerts";
 import { useTenant, useFeatureFlags } from "@/lib/tenant-context";
 import { signOut } from "@/lib/auth-context";
 import type { TenantModule } from "@/lib/types";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { AutoRefreshButton } from "@/components/dispatch/toolbar";
 import brandLogo from "@/assets/brand-logo.png";
 
 const ALL_NAV: ReadonlyArray<{
@@ -154,16 +155,9 @@ export function Sidebar() {
         className="px-3 py-3 space-y-2.5"
         style={{ borderTop: "1px solid var(--sidebar-divider)" }}
       >
-        {/* Realtime + theme toggle */}
+        {/* Auto-refresh + theme toggle */}
         <div className="flex items-center gap-2">
-          <Radio className="size-3 text-success" />
-          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Realtime
-          </span>
-          <span
-            className="size-1.5 rounded-full bg-success"
-            style={{ boxShadow: "0 0 4px oklch(0.73 0.17 150 / 0.7)", animation: "pulse 2s ease infinite" }}
-          />
+          <AutoRefreshButton />
           <div className="ml-auto"><ThemeToggle compact /></div>
         </div>
 

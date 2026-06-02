@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { ChevronDown, RefreshCw, Upload } from "lucide-react";
+import { RefreshCw, Upload } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -151,7 +151,7 @@ export function DispatchStat({
 
 const REFRESH_OPTIONS = [1, 2, 5, 10];
 
-export function AutoRefreshButton({ onRefresh }: { onRefresh: () => void }) {
+export function AutoRefreshButton() {
   const [minutes, setMinutes] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     const n = Number(localStorage.getItem("dispatch.autoRefreshMin"));
@@ -159,8 +159,6 @@ export function AutoRefreshButton({ onRefresh }: { onRefresh: () => void }) {
   });
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState("");
-  const ref = useRef(onRefresh);
-  useEffect(() => { ref.current = onRefresh; }, [onRefresh]);
 
   useEffect(() => {
     try {
@@ -168,7 +166,7 @@ export function AutoRefreshButton({ onRefresh }: { onRefresh: () => void }) {
       else localStorage.removeItem("dispatch.autoRefreshMin");
     } catch { /* noop */ }
     if (!minutes || minutes <= 0) return;
-    const id = setInterval(() => ref.current(), minutes * 60_000);
+    const id = setInterval(() => window.location.reload(), minutes * 60_000);
     return () => clearInterval(id);
   }, [minutes]);
 
@@ -180,18 +178,16 @@ export function AutoRefreshButton({ onRefresh }: { onRefresh: () => void }) {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          title={minutes ? `Auto-refresh every ${minutes} min` : "Auto-refresh"}
-          className={cn(
-            "inline-flex items-center gap-1 h-8 px-2 rounded-md border text-xs bg-surface border-border hover:bg-surface-2",
-            minutes ? "text-primary" : "text-muted-foreground",
-          )}
+          type="button"
+          aria-label="Auto-refresh"
+          title={minutes ? `Auto-refresh whole page every ${minutes} min` : "Auto-refresh off"}
+          className="grid place-items-center rounded-md transition-colors"
+          style={{ width: 24, height: 24, background: "var(--color-surface-2)", border: "1px solid var(--color-border)", color: minutes ? "var(--color-primary)" : "var(--color-muted-foreground)" }}
         >
           <RefreshCw className="size-3.5" />
-          {minutes ? <span className="font-mono leading-none">{minutes}m</span> : null}
-          <ChevronDown className="size-3" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-40 p-1">
+      <PopoverContent side="top" align="start" className="w-40 p-1">
         <div className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Auto-refresh</div>
         <button onClick={() => pick(null)} className={itemCls(minutes === null)}>Off</button>
         {REFRESH_OPTIONS.map((m) => (

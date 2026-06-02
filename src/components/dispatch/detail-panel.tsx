@@ -94,7 +94,6 @@ export const JobDetailPanel = memo(function JobDetailPanel({
             <div className="flex items-center gap-1">
               <span className="font-mono text-xs text-muted-foreground">{job.reference}</span>
               <CopyButton value={job.reference} title="Copy reference" />
-              <RouteNotesButton jobId={job.id} reference={job.reference} />
             </div>
             <StatusPill status={effectiveStatus} onChange={onSetStatus} />
             {isMR && (
@@ -130,6 +129,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <ViewOnMapButton job={job} />
+          <RouteNotesButton jobId={job.id} reference={job.reference} />
           <RouteActionsMenu
             effectiveStatus={effectiveStatus}
             onEdit={onEdit}

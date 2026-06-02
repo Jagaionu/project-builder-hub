@@ -2,7 +2,7 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BrainCircuit, Calendar as CalendarIcon, ChevronDown, Link as LinkIcon, MapPin, Search, Truck } from "lucide-react";
+import { BrainCircuit, Calendar as CalendarIcon, ChevronDown, MapPin, Search, Truck } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -33,7 +33,7 @@ import {
 import type { JobStatus, Job } from "@/lib/types";
 import { useLookups } from "@/lib/dispatch/lookups";
 import { useJobStops, reloadJobStops } from "@/lib/dispatch/use-job-stops";
-import { DispatchStat, ImportCsvButton, ToolbarButton, AutoRefreshButton } from "@/components/dispatch/toolbar";
+import { DispatchStat, ImportCsvButton, ToolbarButton } from "@/components/dispatch/toolbar";
 import { AuditPlanButton } from "@/components/dispatch/audit-plan-button";
 import { ImportBatchesButton } from "@/components/dispatch/import-batches";
 import { JobQueue } from "@/components/dispatch/queue";
@@ -595,9 +595,6 @@ function DispatchPage() {
       <header className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4">
         <div className="min-w-0">
           <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {filteredJobs.length} shown of {jobs.length} total
-          </p>
         </div>
         <div className="flex items-center gap-2 justify-self-center">
           {STATUS_BOX_KEYS.map((s) => {
@@ -616,7 +613,6 @@ function DispatchPage() {
           })}
         </div>
         <div className="flex items-center gap-2 justify-self-end">
-          <AutoRefreshButton onRefresh={refreshData} />
           <ToolbarButton
             onClick={onPlan}
             disabled={planning}
@@ -626,9 +622,6 @@ function DispatchPage() {
           >
             {planning ? "Planning…" : "Planning"}
           </ToolbarButton>
-          <AuditPlanButton />
-          <ImportBatchesButton />
-          <ImportCsvButton />
           <ToolbarButton
             onClick={() => setCreateOpen(true)}
             primary
@@ -659,6 +652,10 @@ function DispatchPage() {
             </button>
           )}
         </div>
+
+        <AuditPlanButton />
+        <ImportBatchesButton />
+        <ImportCsvButton />
 
         <Popover>
           <PopoverTrigger asChild>
@@ -748,16 +745,6 @@ function DispatchPage() {
             Reset
           </button>
         )}
-        {tourDriverId && (
-          <button
-            onClick={() => setTourDriverId(null)}
-            title="Showing one driver's full tour — click to clear"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-xs text-primary"
-          >
-            <LinkIcon className="size-3.5" />
-            Tour · {(tourDriverId && lookups.driversById.get(tourDriverId)?.name) || "driver"} ({filteredJobs.length}) ✕
-          </button>
-        )}
       </div>
 
       {/* Two-column body */}
@@ -770,7 +757,7 @@ function DispatchPage() {
           lookups={lookups}
           plannedByJob={plannedByJob}
           onSelect={setSelectedJobId}
-          onShowTour={(driverId) => { setTourDriverId(driverId); setSearch(""); }}
+          onShowTour={(driverId) => { setTourDriverId((p) => (p === driverId ? null : driverId)); setSearch(""); }}
         />
 
         <div className="overflow-y-auto bg-background">

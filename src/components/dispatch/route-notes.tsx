@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { StickyNote, Trash2, X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
@@ -60,10 +60,10 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
         type="button"
         title="Notes"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-0.5 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-surface-2"
+        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-foreground hover:bg-surface-2"
       >
-        <StickyNote className="size-3.5" />
-        {count > 0 ? <span className="text-[10px] font-mono leading-none">{count}</span> : null}
+        <span className="text-sm leading-none">📑</span> Notes
+        {count > 0 ? <span className="ml-0.5 inline-flex items-center justify-center min-w-[1rem] h-4 px-1 rounded-full bg-primary/15 text-primary text-[10px] font-mono leading-none">{count}</span> : null}
       </button>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setOpen(false)}>
