@@ -45,6 +45,7 @@ function DriversPage() {
   const [form, setForm] = useState<DriverForm>({ name: "", phone: "", home_warehouse_id: "", return_to_base_required: false });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "", home_warehouse_id: "", return_to_base_required: false });
+  const [editPattern, setEditPattern] = useState<{ days: number[]; times: Record<number, { start_time: string | null; end_time: string | null }> } | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
 
   // ── Drivers list filters (persisted) ────────────────────────────────────
