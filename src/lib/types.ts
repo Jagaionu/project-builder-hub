@@ -52,6 +52,7 @@ export interface Job {
   planned_start_at?: string | null;
   for_date?: string | null;
   manual_override?: boolean;
+  equipment_type?: string | null;
 }
 
 

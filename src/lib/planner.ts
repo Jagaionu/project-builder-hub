@@ -164,7 +164,7 @@ function timeToMs(targetDate: string, raw: string | undefined | null): number | 
   const ms = new Date(`${targetDate}T${norm}Z`).getTime();
   return Number.isFinite(ms) ? ms : null;
 }
-function shiftWindowMs(
+export function shiftWindowMs(
   targetDate: string,
   shift: DriverShift | undefined,
   nowMs: number,
@@ -486,6 +486,13 @@ export function computePlan(
  * return (a "loaded" backhaul). After all jobs are placed, an explicit
  * ReturnLeg is emitted per such driver (loaded, or an empty deadhead home).
  * Drivers without the flag are flexible and unaffected.
+ *
+ * driverEquipment: driver_id → set of equipment_type strings the driver is
+ * qualified to operate. When non-empty, a job with equipment_type set will
+ * ONLY be assigned to drivers whose capabilities include that type. Drivers
+ * with zero entries in the map have no equipment restrictions (backward
+ * compatible — matches any job). Pass an empty map (or omit) to skip
+ * equipment filtering entirely.
  */
 export function computePlanForDate(
   targetDate: string,
@@ -497,6 +504,7 @@ export function computePlanForDate(
   shifts: Record<string, DriverShift> = {},
   overrides: DriverAvailabilityOverride[] = [],
   nowMs: number = Date.now(),
+  driverEquipment: Record<string, Set<string>> = {},
 ): PlanResult {
   const out: PlanResult = { immediate: [], planned: [], unassignable: [], returns: [] };
 
@@ -615,6 +623,19 @@ export function computePlanForDate(
       const { breakMs, newContinuous } = breakInfo(f.continuous, driveAdd);
       const readyMs = driverReadyMs[did];
 
+      // Equipment gate: when a job specifies equipment_type, only drivers
+      // with that capability (or no equipment restrictions at all) can take it.
+      const jobEquip = job.equipment_type || undefined;
+      if (jobEquip) {
+        const caps = driverEquipment[did];
+        if (caps && caps.size > 0 && !caps.has(jobEquip)) {
+          const reason = `Equipment mismatch: needs "${jobEquip}", driver has [${[...caps].join(", ")}]`;
+          if (!nearMiss || dist < nearMiss.dist)
+            nearMiss = { name: driverById[did].name, dist, reason };
+          continue;
+        }
+      }
+
       // Return-to-base reservation: drive time from this job's last drop back
       // to the home depot (0 for flexible drivers, or if last drop IS home).
       const homeWh = homeWhById[did];
@@ -697,6 +718,13 @@ export function computePlanForDate(
 
     // Lateness: arrival at first pickup vs its schedule, and arrival at the
     // final drop (completion minus that stop's dwell) vs its schedule.
+    const schedDropMs = (() => {
+      const iso = stops[stops.length - 1]?.scheduled_at ?? null;
+      if (!iso) return null;
+      const ms = new Date(iso).getTime();
+      return Number.isFinite(ms) ? ms : null;
+    })();
+    const finalDwellMs = stopDwellMinutes(stops[stops.length - 1].kind) * 60_000;
     const pickupArrivalMs = best.departMs + best.transit * 3_600_000;
     const deliveryArrivalMs = best.completionMs - finalDwellMs;
     const pickupLateMinutes =

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { useCompliance, useDrivers, useJobs, useWarehouses, applyJobPatch, reloadJobs } from "@/lib/hooks";
-import { computePlan, type PlannedAssign } from "@/lib/planner";
+import type { PlannedAssign } from "@/lib/planner";
 import type { DriverShift, DriverAvailabilityOverride } from "@/lib/types";
 import { planJobs } from "@/lib/plan-jobs.functions";
 import { fetchShiftsByDriver } from "@/lib/driver-shifts";
@@ -192,12 +192,7 @@ function DispatchPage() {
     setSelectedJobId(target.id);
   }, [jobRefParam, jobs]);
 
-  // ── Plan (memoized using compliance ref to avoid minute-tick churn) ────────
-  const complianceRef = useRef(compliance);
-  useEffect(() => {
-    complianceRef.current = compliance;
-  }, [compliance]);
-
+  // ── Driver shift schedules (loaded async, kept for detail-panel display) ───
   const [driverShifts, setDriverShifts] = useState<Record<string, DriverShift>>({});
   const [shiftOverrides, setShiftOverrides] = useState<DriverAvailabilityOverride[]>([]);
 
@@ -224,25 +219,25 @@ function DispatchPage() {
     });
   }, [drivers]);
 
-  const plan = useMemo(
-    () =>
-      computePlan(
-        jobs,
-        stopsMap,
-        drivers,
-        warehouses,
-        complianceRef.current,
-        Date.now(),
-        driverShifts,
-        shiftOverrides,
-      ),
-    [jobs, stopsMap, drivers, warehouses, driverShifts, shiftOverrides],
-  );
-
-  const plannedByJob = useMemo(
-    () => new Map<string, PlannedAssign>(plan.planned.map((item) => [item.jobId, item])),
-    [plan],
-  );
+  // Planned-by-job map derived from jobs table (populated by server-side planJobs).
+  // Replaces client-side computePlan — single source of truth: the DB.
+  const plannedByJob = useMemo(() => {
+    const m = new Map<string, { jobId: string; driverId: string; sequence: number; startAt: string; distKm: number; dailyHoursLeft: number; weeklyHoursLeft: number }>();
+    for (const j of jobs) {
+      if (j.planned_driver_id && j.planned_sequence != null) {
+        m.set(j.id, {
+          jobId: j.id,
+          driverId: j.planned_driver_id,
+          sequence: j.planned_sequence,
+          startAt: j.planned_start_at ?? "",
+          distKm: 0,
+          dailyHoursLeft: 0,
+          weeklyHoursLeft: 0,
+        });
+      }
+    }
+    return m;
+  }, [jobs]);
 
   // (Removed) Client-side "normalize" effect that forced ASSIGNED jobs back
   // to PENDING. The DB is the source of truth for status; the only legitimate
