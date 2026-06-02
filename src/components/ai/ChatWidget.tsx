@@ -40,6 +40,7 @@ const SUGGESTED_PROMPTS = [
 
 export function AIChatWidget() {
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
@@ -62,6 +63,11 @@ export function AIChatWidget() {
       try { localStorage.setItem("ai.accentIdx", String(next)); } catch { /* noop */ }
       return next;
     });
+
+  const requestClose = () => {
+    setClosing(true);
+    setTimeout(() => { setClosing(false); setOpen(false); }, 280);
+  };
 
   const send = useServerFn(aiChat);
   const confirm = useServerFn(confirmAction);
@@ -156,22 +162,21 @@ export function AIChatWidget() {
           and the flicker stay even when the chat is open. */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => (open ? requestClose() : setOpen(true))}
         title="AI Assistant"
         className="relative grid place-items-center size-7 rounded-full text-white shrink-0 transition-transform hover:scale-105 active:scale-95"
         style={{ background: accent }}
       >
-        <span className="absolute inset-0 rounded-full animate-ping opacity-50" style={{ background: accent }} />
-        <Sparkles className="size-3.5 relative" />
+        <Sparkles className="size-3.5 relative" style={{ animation: "ai-door 6s ease-in-out infinite" }} />
       </button>
 
       {open && (
         <div
           className={cn(
-            "fixed bottom-5 right-5 z-50 flex h-[34rem] w-[22rem] min-h-[20rem] min-w-[18rem] max-h-[calc(100vh-2.5rem)] max-w-[calc(100vw-2.5rem)] resize overflow-hidden",
+            "fixed bottom-5 left-5 z-50 flex h-[34rem] w-[22rem] min-h-[20rem] min-w-[18rem] max-h-[calc(100vh-2.5rem)] max-w-[calc(100vw-2.5rem)] resize overflow-hidden",
             "flex-col rounded-2xl border border-border/60 bg-background/95 backdrop-blur-xl",
             "shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]",
-            "animate-in fade-in slide-in-from-bottom-4 duration-200",
+            closing ? "ai-sandoff" : "animate-in fade-in slide-in-from-bottom-4 duration-200",
           )}
         >
           {/* Header */}
@@ -213,7 +218,7 @@ export function AIChatWidget() {
                 variant="ghost"
                 size="icon"
                 className="size-8 text-muted-foreground hover:text-foreground"
-                onClick={() => setOpen(false)}
+                onClick={requestClose}
               >
                 <X className="size-4" />
               </Button>

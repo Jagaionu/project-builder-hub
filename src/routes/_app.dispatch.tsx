@@ -2,7 +2,7 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BrainCircuit, Calendar as CalendarIcon, ChevronDown, MapPin, Search, Truck } from "lucide-react";
+import { BrainCircuit, Calendar as CalendarIcon, ChevronDown, MapPin, RotateCcw, Search, Truck } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -460,6 +460,15 @@ function DispatchPage() {
               break;
             }
           }
+          if (!match) {
+            const laneCodes = (stopsMap[j.id] ?? [])
+              .map((s) => lookups.warehousesById.get(s.warehouse_id)?.code ?? "")
+              .filter(Boolean)
+              .join("->")
+              .toLowerCase();
+            const nq = q.replace(/→/g, "->").replace(/s+/g, "");
+            if (laneCodes && nq.includes("->") && laneCodes.includes(nq)) match = true;
+          }
           if (!match && j.assigned_driver_id) {
             const driver = lookups.driversById.get(j.assigned_driver_id);
             if (driver?.name.toLowerCase().includes(q)) match = true;
@@ -657,12 +666,12 @@ function DispatchPage() {
         <ImportBatchesButton />
         <ImportCsvButton />
 
+        <div className="inline-flex items-center rounded-lg border border-border bg-surface overflow-hidden">
         <Popover>
           <PopoverTrigger asChild>
             <button
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-all whitespace-nowrap",
-                "bg-surface border-border hover:bg-input",
+                "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs transition-all whitespace-nowrap hover:bg-input",
                 dateRange ? "text-foreground" : "text-muted-foreground",
               )}
             >
@@ -740,11 +749,13 @@ function DispatchPage() {
               setDateRange({ from: today, to: today });
               setTourDriverId(null);
             }}
-            className="rounded-lg border px-2.5 py-1.5 text-xs text-muted-foreground transition-all bg-surface border-border hover:text-foreground"
+            title="Reset filters"
+            className="px-2 py-1.5 border-l border-border text-muted-foreground transition-all hover:text-foreground hover:bg-input"
           >
-            Reset
+            <RotateCcw className="size-3.5" />
           </button>
         )}
+        </div>
       </div>
 
       {/* Two-column body */}

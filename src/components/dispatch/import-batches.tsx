@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Clock, FileText, Trash2, Upload, X } from "lucide-react";
+import { Clock, FileText, History, Trash2, Upload, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,8 +48,8 @@ export function ImportBatchesButton() {
 
   return (
     <>
-      <ToolbarButton onClick={() => setOpen(true)} icon={<Upload className="size-3.5" />}>
-        Imports
+      <ToolbarButton onClick={() => setOpen(true)} icon={<History className="size-3.5" />}>
+        History
       </ToolbarButton>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setOpen(false)}>
@@ -58,7 +58,7 @@ export function ImportBatchesButton() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-semibold">Import Batches</h3>
+              <h3 className="text-sm font-semibold">Import History</h3>
               <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="size-4" />
               </button>
