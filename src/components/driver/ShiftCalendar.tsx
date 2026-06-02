@@ -195,14 +195,16 @@ export function ShiftCalendar({ driverId, isPlanner = false, showPatternEditor =
   return (
     <div className="space-y-3">
       {/* Shift pattern editor with per-day times */}
-      <ShiftPatternEditor
-        key={`pattern-${patternKeyRef.current}`}
-        driverId={driverId}
-        isPlanner={isPlanner}
-        initialDays={selectedDays}
-        initialTimes={initialTimes}
-        onSave={handlePatternSaved}
-      />
+      {showPatternEditor && (
+        <ShiftPatternEditor
+          key={`pattern-${patternKeyRef.current}`}
+          driverId={driverId}
+          isPlanner={isPlanner}
+          initialDays={selectedDays}
+          initialTimes={initialTimes}
+          onSave={handlePatternSaved}
+        />
+      )}
 
       {/* Month grid */}
       <div className="bg-card/50 border border-border/50 rounded-lg p-3">
