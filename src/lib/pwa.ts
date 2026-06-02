@@ -31,12 +31,12 @@ export async function registerPwa() {
   }
 
   try {
-    // Module is provided by vite-plugin-pwa virtual import; only exists in built bundle.
-    const dynImport = new Function("p", "return import(p)") as (p: string) => Promise<{
-      registerSW: (opts?: { immediate?: boolean }) => void;
-    }>;
-    const mod = await dynImport("virtual:pwa-register");
-    mod.registerSW({ immediate: true });
+    // Real virtual module from vite-plugin-pwa. A literal dynamic import lets
+    // the plugin transform it at build time (the previous new Function() hack
+    // hid it from the plugin, so it shipped unresolved and CORS-failed at
+    // runtime, which broke SW auto-update).
+    const { registerSW } = await import("virtual:pwa-register");
+    registerSW({ immediate: true });
   } catch {
     /* virtual module only exists in built bundles */
   }

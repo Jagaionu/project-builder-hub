@@ -29,6 +29,23 @@ const DRIVER_SEARCH_STORAGE_KEY = "drivers.searchByName";
 export const Route = createFileRoute("/_app/drivers")({
   loader: () => getDriversSnapshot(),
   component: DriversPage,
+  errorComponent: ({ error, reset }: { error: Error; reset: () => void }) => (
+    <div className="h-full overflow-auto p-6">
+      <div className="max-w-2xl mx-auto rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+        <h2 className="text-sm font-semibold text-destructive mb-2">Drivers page crashed</h2>
+        <p className="text-xs text-muted-foreground mb-3">{error?.message ?? "Unknown error"}</p>
+        <pre className="text-[11px] whitespace-pre-wrap break-words bg-surface border border-border rounded p-3 max-h-[50vh] overflow-auto">
+          {error?.stack ?? String(error)}
+        </pre>
+        <button
+          onClick={reset}
+          className="mt-3 inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+        >
+          Retry
+        </button>
+      </div>
+    </div>
+  ),
   head: () => ({ meta: [{ title: "Drivers — Planning System" }] }),
 });
 

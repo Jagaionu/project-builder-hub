@@ -121,7 +121,7 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
-    void import("@/lib/pwa").then((m) => m.registerPwa());
+    void import("@/lib/pwa").then((m) => m.registerPwa()).catch(() => {});
   }, []);
 
   return (

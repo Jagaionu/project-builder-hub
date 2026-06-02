@@ -23,7 +23,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html}"],
         navigateFallback: "/d",
-        navigateFallbackAllowlist: [/^\/d/],
+        navigateFallbackAllowlist: [/^\/d(\/|$)/],
         navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
         runtimeCaching: [
           {
