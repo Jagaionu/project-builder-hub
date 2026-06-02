@@ -395,7 +395,7 @@ function DriversPage() {
       {/* Edit driver modal */}
       {editingId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-xl border border-border shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95">
+          <div className="bg-surface rounded-xl border border-border shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95">
             <h3 className="text-lg font-semibold mb-1">Edit Driver</h3>
             <p className="text-xs text-muted-foreground mb-5">
               Update driver name or phone number.
