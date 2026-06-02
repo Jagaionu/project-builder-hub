@@ -45,4 +45,11 @@ export default defineConfig({
       "@": "/src",
     },
   },
+  ssr: {
+    // Force h3 / h3-v2 into the worker bundle. They are pulled in by
+    // @tanstack/start-server-core's SSR entry; if left as runtime externals
+    // the Cloudflare Worker fails with `No such module "h3-v2"` on first
+    // request (workerd can't resolve npm specifiers at runtime).
+    noExternal: ["h3", "h3-v2"],
+  },
 });
