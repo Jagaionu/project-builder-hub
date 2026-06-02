@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, CalendarDays } from "lucide-react";
 import { rotateDriverLoginCode } from "@/lib/pairing.functions";
 import { deleteDriver } from "@/lib/drivers-delete.functions";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
@@ -17,6 +17,8 @@ import { DispatchStat } from "@/components/dispatch/toolbar";
 import { DriverQueue } from "@/components/drivers/driver-queue";
 import { DriverDetailPanel } from "@/components/drivers/driver-detail-panel";
 import { FormField } from "@/components/shared/form-field";
+import { ShiftPatternEditor } from "@/components/driver/ShiftPatternEditor";
+import { fetchShiftPattern } from "@/lib/driver-shifts";
 
 type DriverRouteFilter = "ON_ROUTE" | "ON_SHIFT" | "OFF_SHIFT";
 const ALL_DRIVER_ROUTE_FILTERS: DriverRouteFilter[] = ["ON_ROUTE", "ON_SHIFT", "OFF_SHIFT"];
@@ -43,6 +45,7 @@ function DriversPage() {
   const [form, setForm] = useState<DriverForm>({ name: "", phone: "", home_warehouse_id: "", return_to_base_required: false });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "", home_warehouse_id: "", return_to_base_required: false });
+  const [editPattern, setEditPattern] = useState<{ days: number[]; times: Record<number, { start_time: string | null; end_time: string | null }> } | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
 
   // ── Drivers list filters (persisted) ────────────────────────────────────
@@ -200,6 +203,10 @@ function DriversPage() {
       home_warehouse_id: d.home_warehouse_id ?? "",
       return_to_base_required: d.return_to_base_required ?? false,
     });
+    setEditPattern(null);
+    fetchShiftPattern(supabase, d.id).then((p) => {
+      setEditPattern({ days: p.days_of_week, times: p.shiftByDay });
+    }).catch(() => setEditPattern({ days: [], times: {} }));
   }
 
   async function saveEdit() {
@@ -388,7 +395,7 @@ function DriversPage() {
       {/* Edit driver modal */}
       {editingId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-xl border border-border shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95">
+          <div className="bg-surface rounded-xl border border-border shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95">
             <h3 className="text-lg font-semibold mb-1">Edit Driver</h3>
             <p className="text-xs text-muted-foreground mb-5">
               Update driver name or phone number.
@@ -456,6 +463,33 @@ function DriversPage() {
                     }
                   />
                 </button>
+              </div>
+
+              {/* Weekly schedule pattern */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-2 flex items-center gap-1.5">
+                  <CalendarDays className="size-3.5" /> Schedule
+                </label>
+                {editingId && editPattern ? (
+                  <ShiftPatternEditor
+                    key={`edit-pattern-${editingId}`}
+                    driverId={editingId}
+                    isPlanner
+                    initialDays={editPattern.days}
+                    initialTimes={editPattern.times}
+                    onSave={() => {
+                      // Refresh local snapshot so re-opening reflects saved state.
+                      fetchShiftPattern(supabase, editingId).then((p) =>
+                        setEditPattern({ days: p.days_of_week, times: p.shiftByDay }),
+                      );
+                      router.invalidate();
+                    }}
+                  />
+                ) : (
+                  <div className="text-xs text-muted-foreground px-3 py-2 rounded-lg border border-border bg-surface/50">
+                    Loading schedule…
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex gap-3">

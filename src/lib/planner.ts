@@ -718,13 +718,7 @@ export function computePlanForDate(
 
     // Lateness: arrival at first pickup vs its schedule, and arrival at the
     // final drop (completion minus that stop's dwell) vs its schedule.
-    const schedDropMs = (() => {
-      const iso = stops[stops.length - 1]?.scheduled_at ?? null;
-      if (!iso) return null;
-      const ms = new Date(iso).getTime();
-      return Number.isFinite(ms) ? ms : null;
-    })();
-    const finalDwellMs = stopDwellMinutes(stops[stops.length - 1].kind) * 60_000;
+    // (schedDropMs and finalDwellMs are already computed above for this job.)
     const pickupArrivalMs = best.departMs + best.transit * 3_600_000;
     const deliveryArrivalMs = best.completionMs - finalDwellMs;
     const pickupLateMinutes =

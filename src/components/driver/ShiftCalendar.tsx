@@ -12,6 +12,8 @@ const DAY_ISO = [1, 2, 3, 4, 5, 6, 0];
 interface ShiftCalendarProps {
   driverId: string;
   isPlanner?: boolean;
+  /** When false, hide the weekly ShiftPatternEditor and render only the month grid. Defaults true. */
+  showPatternEditor?: boolean;
 }
 
 type DayType = "working" | "holiday" | "extra" | "off";
@@ -52,7 +54,7 @@ function cellClass(type: DayType, isToday: boolean, isPast: boolean) {
   return `${CELL_BASE} ${variant}${today}${past}`;
 }
 
-export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProps) {
+export function ShiftCalendar({ driverId, isPlanner = false, showPatternEditor = true }: ShiftCalendarProps) {
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [initialTimes, setInitialTimes] = useState<Record<number, { start_time: string | null; end_time: string | null }>>({});
   const [overrides, setOverrides] = useState<DriverAvailabilityOverride[]>([]);
@@ -193,14 +195,16 @@ export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProp
   return (
     <div className="space-y-3">
       {/* Shift pattern editor with per-day times */}
-      <ShiftPatternEditor
-        key={`pattern-${patternKeyRef.current}`}
-        driverId={driverId}
-        isPlanner={isPlanner}
-        initialDays={selectedDays}
-        initialTimes={initialTimes}
-        onSave={handlePatternSaved}
-      />
+      {showPatternEditor && (
+        <ShiftPatternEditor
+          key={`pattern-${patternKeyRef.current}`}
+          driverId={driverId}
+          isPlanner={isPlanner}
+          initialDays={selectedDays}
+          initialTimes={initialTimes}
+          onSave={handlePatternSaved}
+        />
+      )}
 
       {/* Month grid */}
       <div className="bg-card/50 border border-border/50 rounded-lg p-3">
