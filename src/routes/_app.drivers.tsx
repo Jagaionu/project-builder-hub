@@ -203,6 +203,10 @@ function DriversPage() {
       home_warehouse_id: d.home_warehouse_id ?? "",
       return_to_base_required: d.return_to_base_required ?? false,
     });
+    setEditPattern(null);
+    fetchShiftPattern(supabase, d.id).then((p) => {
+      setEditPattern({ days: p.days_of_week, times: p.shiftByDay });
+    }).catch(() => setEditPattern({ days: [], times: {} }));
   }
 
   async function saveEdit() {
