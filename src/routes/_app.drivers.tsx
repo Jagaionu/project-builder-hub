@@ -2,7 +2,6 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { useDrivers, useComplianceWithLedger, useDriverDayHours, useWarehouses } from "@/lib/hooks";
-import { getDriversSnapshot } from "@/lib/drivers.functions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
@@ -27,7 +26,6 @@ const DRIVER_FILTER_STORAGE_KEY = "drivers.routeShiftFilters";
 const DRIVER_SEARCH_STORAGE_KEY = "drivers.searchByName";
 
 export const Route = createFileRoute("/_app/drivers")({
-  loader: () => getDriversSnapshot(),
   component: DriversPage,
   errorComponent: ({ error, reset }: { error: Error; reset: () => void }) => (
     <div className="h-full overflow-auto p-6">
@@ -53,8 +51,7 @@ type DriverForm = { name: string; phone: string; home_warehouse_id: string; retu
 
 function DriversPage() {
   const router = useRouter();
-  const { drivers: initialDrivers } = Route.useLoaderData();
-  const drivers = useDrivers(initialDrivers);
+  const drivers = useDrivers();
   const warehouses = useWarehouses();
   const compliance = useComplianceWithLedger(useDriverDayHours());
   const activeJobsByDriver = useActiveJobsByDriver();
