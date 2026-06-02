@@ -54,7 +54,7 @@ function cellClass(type: DayType, isToday: boolean, isPast: boolean) {
   return `${CELL_BASE} ${variant}${today}${past}`;
 }
 
-export function ShiftCalendar({ driverId, isPlanner = false }: ShiftCalendarProps) {
+export function ShiftCalendar({ driverId, isPlanner = false, showPatternEditor = true }: ShiftCalendarProps) {
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [initialTimes, setInitialTimes] = useState<Record<number, { start_time: string | null; end_time: string | null }>>({});
   const [overrides, setOverrides] = useState<DriverAvailabilityOverride[]>([]);
