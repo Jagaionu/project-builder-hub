@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, CalendarDays } from "lucide-react";
 import { rotateDriverLoginCode } from "@/lib/pairing.functions";
 import { deleteDriver } from "@/lib/drivers-delete.functions";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
@@ -17,6 +17,8 @@ import { DispatchStat } from "@/components/dispatch/toolbar";
 import { DriverQueue } from "@/components/drivers/driver-queue";
 import { DriverDetailPanel } from "@/components/drivers/driver-detail-panel";
 import { FormField } from "@/components/shared/form-field";
+import { ShiftPatternEditor } from "@/components/driver/ShiftPatternEditor";
+import { fetchShiftPattern } from "@/lib/driver-shifts";
 
 type DriverRouteFilter = "ON_ROUTE" | "ON_SHIFT" | "OFF_SHIFT";
 const ALL_DRIVER_ROUTE_FILTERS: DriverRouteFilter[] = ["ON_ROUTE", "ON_SHIFT", "OFF_SHIFT"];
