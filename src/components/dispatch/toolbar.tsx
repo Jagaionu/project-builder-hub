@@ -1,5 +1,6 @@
-import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { Upload } from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { ChevronDown, RefreshCw, Upload } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -141,5 +142,74 @@ export function DispatchStat({
         {value}
       </div>
     </button>
+  );
+}
+
+
+// ── AutoRefreshButton ─────────────────────────────────────────────────────────
+// Minimal icon-only dropdown to auto re-fetch dispatch data on an interval.
+
+const REFRESH_OPTIONS = [1, 2, 5, 10];
+
+export function AutoRefreshButton({ onRefresh }: { onRefresh: () => void }) {
+  const [minutes, setMinutes] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const n = Number(localStorage.getItem("dispatch.autoRefreshMin"));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  });
+  const [open, setOpen] = useState(false);
+  const [custom, setCustom] = useState("");
+  const ref = useRef(onRefresh);
+  useEffect(() => { ref.current = onRefresh; }, [onRefresh]);
+
+  useEffect(() => {
+    try {
+      if (minutes && minutes > 0) localStorage.setItem("dispatch.autoRefreshMin", String(minutes));
+      else localStorage.removeItem("dispatch.autoRefreshMin");
+    } catch { /* noop */ }
+    if (!minutes || minutes <= 0) return;
+    const id = setInterval(() => ref.current(), minutes * 60_000);
+    return () => clearInterval(id);
+  }, [minutes]);
+
+  const pick = (m: number | null) => { setMinutes(m); setCustom(""); setOpen(false); };
+  const itemCls = (a: boolean) =>
+    cn("w-full text-left px-2 py-1.5 rounded text-xs hover:bg-surface-2", a ? "text-primary font-semibold" : "text-foreground");
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          title={minutes ? `Auto-refresh every ${minutes} min` : "Auto-refresh"}
+          className={cn(
+            "inline-flex items-center gap-1 h-8 px-2 rounded-md border text-xs bg-surface border-border hover:bg-surface-2",
+            minutes ? "text-primary" : "text-muted-foreground",
+          )}
+        >
+          <RefreshCw className="size-3.5" />
+          {minutes ? <span className="font-mono leading-none">{minutes}m</span> : null}
+          <ChevronDown className="size-3" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-40 p-1">
+        <div className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Auto-refresh</div>
+        <button onClick={() => pick(null)} className={itemCls(minutes === null)}>Off</button>
+        {REFRESH_OPTIONS.map((m) => (
+          <button key={m} onClick={() => pick(m)} className={itemCls(minutes === m)}>{m} min</button>
+        ))}
+        <div className="flex items-center gap-1 px-2 py-1.5">
+          <input
+            type="number" min={1} value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+            placeholder="min"
+            className="w-14 h-7 px-2 rounded border border-border bg-surface text-xs"
+          />
+          <button
+            onClick={() => { const n = Number(custom); if (Number.isFinite(n) && n > 0) pick(n); }}
+            className="h-7 px-2 rounded bg-primary text-primary-foreground text-xs"
+          >Set</button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

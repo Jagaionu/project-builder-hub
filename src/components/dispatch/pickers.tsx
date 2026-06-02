@@ -154,7 +154,7 @@ export function StatusPill({
           >
             {["PENDING", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"].map((s) => {
               const c = STATUS_CONFIG[s as EffectiveStatus];
-              const active = s === status;
+              const active = s === status || (s === "ASSIGNED" && status === "SCHEDULED");
               return (
                 <button
                   key={s}

@@ -35,9 +35,9 @@ export const STATUS_CONFIG: Record<
     color: "var(--warning)",
   },
   ASSIGNED: {
-    label: "Assigned",
-    dot: "bg-blue-400",
-    badge: "text-blue-500 bg-blue-500/10",
+    label: "Scheduled",
+    dot: "bg-sky-400",
+    badge: "text-sky-500 bg-sky-500/10",
     color: "var(--info)",
   },
   IN_PROGRESS: {

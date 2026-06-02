@@ -1,6 +1,6 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BrainCircuit, Calendar as CalendarIcon, ChevronDown, MapPin, Search, Truck } from "lucide-react";
 import type { DateRange } from "react-day-picker";
@@ -33,8 +33,9 @@ import {
 import type { JobStatus, Job } from "@/lib/types";
 import { useLookups } from "@/lib/dispatch/lookups";
 import { useJobStops, reloadJobStops } from "@/lib/dispatch/use-job-stops";
-import { DispatchStat, ImportCsvButton, ToolbarButton } from "@/components/dispatch/toolbar";
+import { DispatchStat, ImportCsvButton, ToolbarButton, AutoRefreshButton } from "@/components/dispatch/toolbar";
 import { AuditPlanButton } from "@/components/dispatch/audit-plan-button";
+import { ImportBatchesButton } from "@/components/dispatch/import-batches";
 import { JobQueue } from "@/components/dispatch/queue";
 import { JobDetailPanel } from "@/components/dispatch/detail-panel";
 
@@ -325,6 +326,55 @@ function DispatchPage() {
     }
   }
 
+  const refreshData = useCallback(() => {
+    void Promise.all([reloadJobs(), reloadJobStops()]);
+  }, []);
+
+  async function cloneJob(jobId: string) {
+    const job = lookups.jobsById.get(jobId);
+    if (!job) return;
+    const stops = stopsMap[jobId] ?? [];
+    try {
+      const tenant_id = await getTenantId();
+      const { data: nj, error } = await supabase
+        .from("jobs")
+        .insert({
+          origin_warehouse_id: job.origin_warehouse_id,
+          destination_warehouse_id: job.destination_warehouse_id,
+          scheduled_at: job.scheduled_at,
+          for_date: job.for_date,
+          equipment_type: (job as { equipment_type?: string | null }).equipment_type ?? null,
+          status: "PENDING",
+          tenant_id,
+        } as never)
+        .select("id, reference")
+        .single();
+      if (error || !nj) {
+        toast.error(error?.message ?? "Clone failed");
+        return;
+      }
+      const newId = (nj as { id: string }).id;
+      if (stops.length) {
+        const { error: se } = await supabase.from("job_stops").insert(
+          stops.map((s, i) => ({
+            job_id: newId,
+            seq: i + 1,
+            kind: s.kind,
+            warehouse_id: s.warehouse_id,
+            scheduled_at: s.scheduled_at,
+            tenant_id,
+          })) as never,
+        );
+        if (se) toast.error(se.message);
+      }
+      await Promise.all([reloadJobs(), reloadJobStops()]);
+      toast.success(`Cloned → ${(nj as { reference?: string }).reference ?? "new route"}`);
+      setSelectedJobId(newId);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Clone failed");
+    }
+  }
+
   const runPlanJobs = useServerFn(planJobs);
   const [planning, setPlanning] = useState(false);
   async function onPlan() {
@@ -512,7 +562,12 @@ function DispatchPage() {
       : null;
 
   const today = startOfDay(new Date());
+  const isTodayRange =
+    !!dateRange?.from &&
+    sameDay(dateRange.from, today) &&
+    sameDay(dateRange.to ?? dateRange.from, today);
   const isDefaultFilters =
+    isTodayRange &&
     !search &&
     !statusFilter &&
     hiddenStatuses.size === 2 &&
@@ -551,6 +606,7 @@ function DispatchPage() {
           })}
         </div>
         <div className="flex items-center gap-2 justify-self-end">
+          <AutoRefreshButton onRefresh={refreshData} />
           <ToolbarButton
             onClick={onPlan}
             disabled={planning}
@@ -561,6 +617,7 @@ function DispatchPage() {
             {planning ? "Planning…" : "Planning"}
           </ToolbarButton>
           <AuditPlanButton />
+          <ImportBatchesButton />
           <ImportCsvButton />
           <ToolbarButton
             onClick={() => setCreateOpen(true)}
@@ -673,6 +730,7 @@ function DispatchPage() {
               setSearch("");
               setStatusFilter(null);
               setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"]));
+              setDateRange({ from: today, to: today });
             }}
             className="rounded-lg border px-2.5 py-1.5 text-xs text-muted-foreground transition-all bg-surface border-border hover:text-foreground"
           >
@@ -720,6 +778,7 @@ function DispatchPage() {
                 void setStatus(selectedJob.id, s, opts);
               }}
               onEdit={() => setEditJobId(selectedJob.id)}
+              onClone={() => cloneJob(selectedJob.id)}
             />
           )}
         </div>

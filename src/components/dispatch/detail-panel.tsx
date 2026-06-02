@@ -1,5 +1,6 @@
-import { memo, useEffect, useMemo, useRef } from "react";
-import { ArrowRight, Clock, MapPin, Pencil, RotateCcw } from "lucide-react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Ban, Check, Clock, Copy, CopyPlus, MapPin, MoreHorizontal, Pencil, RotateCcw } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { isJobScheduledFuture } from "@/lib/effective-status";
@@ -11,11 +12,12 @@ import type { Stop } from "@/lib/dispatch/use-job-stops";
 import type { Lookups } from "@/lib/dispatch/lookups";
 import type { PlannedAssign } from "@/lib/planner";
 import { ComplianceDot, DriverPicker, PlannedChip, StatusPill } from "./pickers";
+import { RouteNotesButton } from "./route-notes";
 
 export const JobDetailPanel = memo(function JobDetailPanel({
   job, stops, warehouses, drivers, compliance, lookups, planned,
   driverShifts, shiftOverrides,
-  onAssignDriver, onSetStatus, onEdit,
+  onAssignDriver, onSetStatus, onEdit, onClone,
 }: {
   job: Job;
   stops: Stop[];
@@ -29,8 +31,10 @@ export const JobDetailPanel = memo(function JobDetailPanel({
   onAssignDriver: (id: string) => void;
   onSetStatus: (s: string, opts?: { silent?: boolean }) => void;
   onEdit: () => void;
+  onClone: () => void;
 }) {
   const isMR = stops.length > 2;
+  const laneString = stops.map((s) => lookups.warehousesById.get(s.warehouse_id)?.code ?? "?").join("->");
   const driver = job.assigned_driver_id ? lookups.driversById.get(job.assigned_driver_id) : null;
   const origin = stops[0] ? lookups.warehousesById.get(stops[0].warehouse_id) : null;
 
@@ -87,7 +91,11 @@ export const JobDetailPanel = memo(function JobDetailPanel({
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <div className="font-mono text-xs text-muted-foreground">{job.reference}</div>
+            <div className="flex items-center gap-1">
+              <span className="font-mono text-xs text-muted-foreground">{job.reference}</span>
+              <CopyButton value={job.reference} title="Copy reference" />
+              <RouteNotesButton jobId={job.id} reference={job.reference} />
+            </div>
             <StatusPill status={effectiveStatus} onChange={onSetStatus} />
             {isMR && (
               <span className="inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[10px] border border-amber-500/30 text-amber-600 bg-amber-500/5">
@@ -111,6 +119,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                 );
               })
             )}
+            {stops.length > 0 && <CopyButton value={laneString} title="Copy lane" />}
           </h2>
           <p className="text-xs text-muted-foreground mt-1">
             {stops.map((s) => {
@@ -121,14 +130,12 @@ export const JobDetailPanel = memo(function JobDetailPanel({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <ViewOnMapButton job={job} />
-          {effectiveStatus !== "COMPLETED" && (
-            <button
-              onClick={onEdit}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs hover:bg-surface-2"
-            >
-              <Pencil className="size-3" /> Edit route
-            </button>
-          )}
+          <RouteActionsMenu
+            effectiveStatus={effectiveStatus}
+            onEdit={onEdit}
+            onClone={onClone}
+            onCancel={() => onSetStatus("CANCELLED")}
+          />
         </div>
       </div>
 
@@ -447,6 +454,77 @@ function useAutoComplete(job: Job, stops: Stop[], onSetStatus: (s: string, opts?
     autoCompletedJobs.add(job.id);
     onSetStatusRef.current("COMPLETED", { silent: true });
   }, [job.id, job.status, stops]);
+}
+
+function CopyButton({ value, title }: { value: string; title: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={async (e) => {
+        e.stopPropagation();
+        try {
+          await navigator.clipboard.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          /* noop */
+        }
+      }}
+      className="inline-flex items-center justify-center rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-surface-2"
+    >
+      {copied ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
+    </button>
+  );
+}
+
+function RouteActionsMenu({
+  effectiveStatus,
+  onEdit,
+  onClone,
+  onCancel,
+}: {
+  effectiveStatus: string;
+  onEdit: () => void;
+  onClone: () => void;
+  onCancel: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const item = "w-full flex items-center gap-2 text-left px-2 py-1.5 rounded text-xs hover:bg-surface-2";
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          title="Route actions"
+          className="inline-flex items-center justify-center size-8 rounded-md border border-border bg-surface hover:bg-surface-2 text-muted-foreground"
+        >
+          <MoreHorizontal className="size-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-44 p-1">
+        {effectiveStatus !== "COMPLETED" && (
+          <button className={`${item} text-foreground`} onClick={() => { setOpen(false); onEdit(); }}>
+            <Pencil className="size-3.5 text-muted-foreground" /> Edit route
+          </button>
+        )}
+        <button className={`${item} text-foreground`} onClick={() => { setOpen(false); onClone(); }}>
+          <CopyPlus className="size-3.5 text-muted-foreground" /> Clone route
+        </button>
+        {effectiveStatus !== "COMPLETED" && effectiveStatus !== "CANCELLED" && (
+          <button
+            className={`${item} text-red-600`}
+            onClick={() => {
+              setOpen(false);
+              if (typeof window === "undefined" || window.confirm("Cancel this route? It will move to the Cancelled tab.")) onCancel();
+            }}
+          >
+            <Ban className="size-3.5" /> Cancel route
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 function ViewOnMapButton({ job }: { job: Job }) {

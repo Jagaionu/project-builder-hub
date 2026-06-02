@@ -134,26 +134,7 @@ function EventLog() {
         ) : undefined}
       />
 
-      {/* Tab bar */}
-      <div className="flex gap-0 border-b border-border px-5">
-        {(["driver", "imports"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px ${
-              tab === t
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {t === "imports" ? (
-              <span className="flex items-center gap-1.5"><Upload className="size-3.5" /> Import Batches</span>
-            ) : (
-              <span className="flex items-center gap-1.5"><Activity className="size-3.5" /> Driver Events</span>
-            )}
-          </button>
-        ))}
-      </div>
+      {/* Import Batches moved to the Dispatch toolbar; Event Log shows driver events. */}
 
       <div className="flex-1 overflow-y-auto p-5 space-y-2">
         {/* ── Import Batches tab ─────────────────────────────────────────── */}
