@@ -2,7 +2,7 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BrainCircuit, Calendar as CalendarIcon, ChevronDown, MapPin, Search, Truck } from "lucide-react";
+import { BrainCircuit, Calendar as CalendarIcon, ChevronDown, Link as LinkIcon, MapPin, Search, Truck } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -71,6 +71,7 @@ function DispatchPage() {
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [tourDriverId, setTourDriverId] = useState<string | null>(null);
 
   const [hiddenStatuses, setHiddenStatuses] = useState<Set<JobStatus>>(() => {
     if (typeof window === "undefined") return new Set<JobStatus>(["COMPLETED", "CANCELLED"]);
@@ -478,6 +479,9 @@ function DispatchPage() {
 
   const filteredJobs = useMemo(() => {
     const filtered = jobsInRange.filter((j) => {
+      if (tourDriverId) {
+        return j.assigned_driver_id === tourDriverId || j.planned_driver_id === tourDriverId;
+      }
       if (statusFilter) {
         if (statusFilter === "IN_PROGRESS") {
           return (
@@ -491,12 +495,17 @@ function DispatchPage() {
       return !hiddenStatuses.has(j.status as JobStatus);
     });
     filtered.sort((a, b) => {
+      if (tourDriverId) {
+        const sa = a.planned_sequence ?? 9999;
+        const sb = b.planned_sequence ?? 9999;
+        if (sa !== sb) return sa - sb;
+      }
       const ta = jobDate(a, stopsMap[a.id] ?? []).getTime();
       const tb = jobDate(b, stopsMap[b.id] ?? []).getTime();
       return ta - tb;
     });
     return filtered;
-  }, [jobsInRange, hiddenStatuses, statusFilter, stopsMap]);
+  }, [jobsInRange, hiddenStatuses, statusFilter, stopsMap, tourDriverId]);
 
   // Keep selection valid; default to first filtered job.
   // But don't override a deep-link selection that was just applied.
@@ -568,6 +577,7 @@ function DispatchPage() {
     sameDay(dateRange.to ?? dateRange.from, today);
   const isDefaultFilters =
     isTodayRange &&
+    !tourDriverId &&
     !search &&
     !statusFilter &&
     hiddenStatuses.size === 2 &&
@@ -731,10 +741,21 @@ function DispatchPage() {
               setStatusFilter(null);
               setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"]));
               setDateRange({ from: today, to: today });
+              setTourDriverId(null);
             }}
             className="rounded-lg border px-2.5 py-1.5 text-xs text-muted-foreground transition-all bg-surface border-border hover:text-foreground"
           >
             Reset
+          </button>
+        )}
+        {tourDriverId && (
+          <button
+            onClick={() => setTourDriverId(null)}
+            title="Showing one driver's full tour — click to clear"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-xs text-primary"
+          >
+            <LinkIcon className="size-3.5" />
+            Tour · {(tourDriverId && lookups.driversById.get(tourDriverId)?.name) || "driver"} ({filteredJobs.length}) ✕
           </button>
         )}
       </div>
@@ -749,6 +770,7 @@ function DispatchPage() {
           lookups={lookups}
           plannedByJob={plannedByJob}
           onSelect={setSelectedJobId}
+          onShowTour={(driverId) => { setTourDriverId(driverId); setSearch(""); }}
         />
 
         <div className="overflow-y-auto bg-background">

@@ -93,9 +93,11 @@ export function effectiveDriverStatus(
     return anyStarted ? "ON_ROUTE" : "ON_SHIFT";
   }
 
+  // Calendar-driven, collapsed into On Route / On Shift / Off Shift (no "Available").
   if (rawStatus === "OFF_SHIFT" || rawStatus === "AVAILABLE") {
+    if (schedule === "scheduled") return "ON_SHIFT";
     if (schedule === "not_scheduled") return "OFF_SHIFT";
-    if (schedule === "scheduled") return "AVAILABLE";
+    return rawStatus === "AVAILABLE" ? "ON_SHIFT" : "OFF_SHIFT";
   }
 
   return rawStatus;
