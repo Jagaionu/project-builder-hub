@@ -464,6 +464,33 @@ function DriversPage() {
                   />
                 </button>
               </div>
+
+              {/* Weekly schedule pattern */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-2 flex items-center gap-1.5">
+                  <CalendarDays className="size-3.5" /> Schedule
+                </label>
+                {editingId && editPattern ? (
+                  <ShiftPatternEditor
+                    key={`edit-pattern-${editingId}`}
+                    driverId={editingId}
+                    isPlanner
+                    initialDays={editPattern.days}
+                    initialTimes={editPattern.times}
+                    onSave={() => {
+                      // Refresh local snapshot so re-opening reflects saved state.
+                      fetchShiftPattern(supabase, editingId).then((p) =>
+                        setEditPattern({ days: p.days_of_week, times: p.shiftByDay }),
+                      );
+                      router.invalidate();
+                    }}
+                  />
+                ) : (
+                  <div className="text-xs text-muted-foreground px-3 py-2 rounded-lg border border-border bg-surface/50">
+                    Loading schedule…
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex gap-3">
               <button
