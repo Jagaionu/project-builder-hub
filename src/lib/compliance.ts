@@ -17,6 +17,7 @@ export type Compliance = {
   continuousDrive: number; // driving in current "4.5h cycle" (since last assumed break)
   dailyHeadroom: number;   // hrs left until 10h hard daily cap
   weeklyHeadroom: number;  // hrs left until 56h weekly cap
+  twoWeekHeadroom: number; // hrs left until 90h fortnight cap
   issues: ComplianceIssue[];
   status: "ok" | "warn" | "breach";
   blockAssignment: boolean;
@@ -154,6 +155,7 @@ export function computeCompliance(
     continuousDrive,
     dailyHeadroom: Math.max(0, 10 - daily),
     weeklyHeadroom: Math.max(0, 56 - weekly),
+    twoWeekHeadroom: Math.max(0, 90 - twoWeek),
     issues,
     status: hard ? "breach" : warn ? "warn" : "ok",
     blockAssignment: hard,

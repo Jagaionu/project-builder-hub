@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { isJobScheduledFuture } from "@/lib/effective-status";
-import { computeStopSchedule, etaMinutes, haversineKm, stopDwellMinutes } from "@/lib/geo";
+import { computeStopSchedule, etaMinutes, haversineKm, stopDwellMinutes, transitTimeHours } from "@/lib/geo";
 import { isDriverAvailableOnDate } from "@/lib/planner";
 import type { Compliance } from "@/lib/compliance";
 import type { Driver, DriverShift, DriverAvailabilityOverride, Job, Warehouse } from "@/lib/types";
@@ -13,6 +13,7 @@ import type { Lookups } from "@/lib/dispatch/lookups";
 import type { PlannedAssign } from "@/lib/planner";
 import { ComplianceDot, DriverPicker, PlannedChip, StatusPill } from "./pickers";
 import { RouteNotesButton } from "./route-notes";
+import { useDriverEquipment } from "@/lib/use-driver-equipment";
 
 export const JobDetailPanel = memo(function JobDetailPanel({
   job, stops, warehouses, drivers, compliance, lookups, planned,
@@ -66,19 +67,45 @@ export const JobDetailPanel = memo(function JobDetailPanel({
 
   const isLaneAssigned = !!job.assigned_driver_id || job.status === "ASSIGNED";
 
+  const driverEquip = useDriverEquipment();
+
   const ranked = useMemo(() => {
     if (driver || isLaneAssigned || !origin) return [];
     const targetDate = job.for_date ?? new Date().toISOString().slice(0, 10);
+    const jobEquip = (job as { equipment_type?: string | null }).equipment_type ?? null;
+    // Inter-stop driving hours for the route; per-driver deadhead added below.
+    let interH = 0;
+    for (let i = 0; i < stops.length - 1; i++) {
+      const a = lookups.warehousesById.get(stops[i].warehouse_id);
+      const b = lookups.warehousesById.get(stops[i + 1].warehouse_id);
+      if (a && b) interH += transitTimeHours(haversineKm(a.latitude, a.longitude, b.latitude, b.longitude));
+    }
     return drivers
       .filter((d) => isDriverAvailableOnDate(d.id, targetDate, driverShifts, shiftOverrides))
       .filter((d) => d.current_lat != null && d.current_lon != null)
+      .filter((d) => {
+        // Equipment must match the job (planner's gate).
+        const caps = driverEquip[d.id];
+        if (jobEquip && caps && caps.length > 0 && !caps.includes(jobEquip)) return false;
+        const dc = compliance[d.id];
+        if (dc?.blockAssignment) return false; // already in breach
+        // Hours fit: deadhead + inter-stop driving must fit the tightest of
+        // daily / weekly / fortnight headroom — never suggest illegal work.
+        const deadheadH = transitTimeHours(
+          haversineKm(d.current_lat!, d.current_lon!, origin.latitude, origin.longitude),
+        );
+        if (dc && deadheadH + interH > Math.min(dc.dailyHeadroom, dc.weeklyHeadroom, dc.twoWeekHeadroom)) {
+          return false;
+        }
+        return true;
+      })
       .map((d) => {
         const distKm = haversineKm(d.current_lat!, d.current_lon!, origin.latitude, origin.longitude);
         return { driver: d, distKm, eta: etaMinutes(distKm) };
       })
       .sort((a, b) => a.distKm - b.distKm)
       .slice(0, 3);
-  }, [driver, isLaneAssigned, drivers, origin, job.for_date, driverShifts, shiftOverrides]);
+  }, [driver, isLaneAssigned, drivers, origin, job, stops, driverShifts, shiftOverrides, compliance, driverEquip, lookups]);
 
   // Only run auto-validation and status transitions for assigned/active jobs,
   // never for PENDING runs — timestamps must not appear on unassigned jobs.
@@ -193,7 +220,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
       {!isLaneAssigned && !driver && ranked.length > 0 && (
         <>
           <div className="mt-6 flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
-            Suggested drivers (3 closest)
+            Suggested drivers · eligible, closest first
           </div>
           <div className="mt-3 rounded-md border border-border overflow-hidden">
             <table className="w-full text-sm">

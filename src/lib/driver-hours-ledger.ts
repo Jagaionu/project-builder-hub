@@ -24,8 +24,7 @@ type DayHoursRow = {
 // What counts as "driving" for the HGV limits: time at the wheel, loaded AND
 // empty. If your data already folds empty running into drive_minutes, change
 // this to `r.drive_minutes ?? 0`.
-const drivingMinutes = (r: DayHoursRow): number =>
-  (r.actual_driving_minutes ?? 0) + (r.deadhead_minutes ?? 0);
+const drivingMinutes = (r: DayHoursRow): number => r.drive_minutes ?? 0;
 
 const utcDateStr = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 
