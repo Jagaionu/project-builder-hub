@@ -323,6 +323,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                 <div
                   key={idx}
                   className="grid grid-cols-12 gap-2 px-3 py-2 text-[11px] border-t border-border items-center"
+                  style={{ background: idx % 2 === 0 ? "#F2F0EF" : "#FFFFFF" }}
                 >
                   <div className="col-span-1 font-mono text-muted-foreground">{idx + 1}</div>
                   <div className="col-span-3">
