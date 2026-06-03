@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
+import brandLogo from "@/assets/brand-logo.png";
 
 const searchSchema = z.object({
   redirect: z.string().optional(),
