@@ -558,8 +558,8 @@ function DriversPage() {
       )}
 
       {/* Search bar */}
-      <div className="px-5 py-3 border-b border-border">
-        <div className="relative max-w-md">
+      <div className="pl-3 pr-5 py-2.5 border-b border-[color:var(--sidebar-divider)]">
+        <div className="relative w-[340px]">
           <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
             value={driverSearch}

@@ -582,16 +582,9 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
   // ── Panel sub-components ──────────────────────────────────────────────────
   function PanelIdle() {
     return (
-      <div className="flex flex-col items-center gap-3 py-6 px-2 text-center">
-        <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.8" strokeLinecap="round">
-            <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/>
-            <circle cx="12" cy="10" r="2.5"/>
-          </svg>
-        </div>
-        <p className="text-xs text-slate-400 leading-relaxed max-w-[180px]">
-          Click a driver to view their route, or a warehouse to see nearby drivers.
-        </p>
+      <div className="flex items-center gap-2 px-3 py-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+        <span className="text-[11px] text-slate-500">Click a driver to view details</span>
       </div>
     );
   }
@@ -820,24 +813,19 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
       </div>
 
       {/* ── Bottom-right: info panel ────────────────────────────────────── */}
-      <div className="absolute bottom-6 right-5 z-[998] w-72">
-        <div className="bg-white/97 backdrop-blur-md border border-slate-200 rounded-2xl p-4 shadow-2xl">
-          {renderPanel()}
-        </div>
-      </div>
-
-      {/* ── Top-right: legend ──────────────────────────────────────────── */}
-      <div className="absolute top-4 right-14 z-[998]">
-        <div className="bg-white/95 backdrop-blur border border-slate-200 rounded-xl px-3 py-2 shadow-lg">
-          <div className="flex flex-col gap-1.5">
-            {Object.entries(STATUS_MAP).map(([key, val]) => (
-              <div key={key} className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: val.bg }} />
-                <span className="text-[10px] font-semibold text-slate-500">{val.label}</span>
-              </div>
-            ))}
+      <div className={`absolute bottom-6 right-5 z-[998] transition-all duration-200 ${
+        panel.kind === "idle" ? "" : "w-72"
+      }`}>
+        {panel.kind === "idle" ? (
+          <div className="inline-flex items-center gap-1.5 bg-white/95 backdrop-blur border border-slate-200/80 px-3 py-1.5 rounded-full shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+            <span className="text-[11px] font-medium text-slate-600">Click a driver to view details</span>
           </div>
-        </div>
+        ) : (
+          <div className="bg-white/97 backdrop-blur-md border border-slate-200 rounded-2xl p-4 shadow-2xl">
+            {renderPanel()}
+          </div>
+        )}
       </div>
     </div>
   );

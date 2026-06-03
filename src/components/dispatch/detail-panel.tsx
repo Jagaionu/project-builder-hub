@@ -124,7 +124,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
             </div>
             <StatusPill status={effectiveStatus} onChange={onSetStatus} />
             {isMR && (
-              <span className="inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[10px] border border-amber-500/30 text-amber-600 bg-amber-500/5">
+              <span className="inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[10px] border border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5">
                 MR · {stops.length} stops
               </span>
             )}
@@ -137,7 +137,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                 const wh = lookups.warehousesById.get(s.warehouse_id);
                 return (
                   <span key={i} className="flex items-center gap-2">
-                    <span className={s.kind === "PICKUP" ? "text-blue-500" : "text-emerald-600"}>
+                    <span className={s.kind === "PICKUP" ? "text-blue-500 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"}>
                       {wh?.code ?? "?"}
                     </span>
                     {i < stops.length - 1 && <ArrowRight className="size-4 text-muted-foreground" />}
@@ -323,7 +323,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                 <div
                   key={idx}
                   className="grid grid-cols-12 gap-2 px-3 py-2 text-[11px] border-t border-border items-center"
-                  style={{ background: idx % 2 === 0 ? "#F2F0EF" : "#FFFFFF" }}
+                  style={{ background: idx % 2 === 0 ? "var(--surface)" : "var(--background)" }}
                 >
                   <div className="col-span-1 font-mono text-muted-foreground">{idx + 1}</div>
                   <div className="col-span-3">
@@ -333,7 +333,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                   <div className="col-span-2">
                     <span
                       className={`font-mono text-[10px] uppercase ${
-                        s.kind === "PICKUP" ? "text-blue-500" : "text-emerald-600"
+                        s.kind === "PICKUP" ? "text-blue-500 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"
                       }`}
                     >
                       {s.kind === "PICKUP" ? "Pickup" : "Drop"}
@@ -346,16 +346,16 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                     {isAssignedOrActive && s.arrived_at ? (
                       <div className="flex flex-col items-start gap-0.5">
                         <div className="flex items-center gap-1">
-                          <span className={isDelayed ? "text-amber-600" : "text-emerald-600"}>
+                          <span className={isDelayed ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}>
                             {new Date(s.arrived_at).toLocaleTimeString([], {
                               hour: "2-digit", minute: "2-digit", hour12: false,
                             })}
                           </span>
                           {isGpsConfirmed && (
-                            <span className="inline-flex items-center px-1 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-[8px] font-bold text-orange-600">GPS</span>
+                            <span className="inline-flex items-center px-1 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-[8px] font-bold text-orange-600 dark:text-orange-400">GPS</span>
                           )}
                         </div>
-                        {isDelayed && <span className="text-[9px] text-amber-600">+{delayMin}m late</span>}
+                        {isDelayed && <span className="text-[9px] text-amber-600 dark:text-amber-400">+{delayMin}m late</span>}
                       </div>
                     ) : (
                       "—"

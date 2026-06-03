@@ -230,24 +230,24 @@ function StopRowItem({ row }: { row: StopRow }) {
       {/* Node Anchor */}
       <div className={`z-10 flex size-5 shrink-0 items-center justify-center rounded-full border shadow-sm transition-colors
         ${row.arrivedAt 
-          ? "border-emerald-500 bg-emerald-50 text-emerald-600" 
+          ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-400" 
           : isPickup 
-            ? "border-amber-500 bg-amber-50 text-amber-600" 
-            : "border-blue-500 bg-blue-50 text-blue-600"
+            ? "border-amber-500/60 bg-amber-500/10 text-amber-400" 
+            : "border-blue-500/60 bg-blue-500/10 text-blue-400"
         }`}
       >
         {row.arrivedAt ? <CheckCircle2 className="size-3" /> : <MapPin className="size-3" />}
       </div>
 
       {/* Simplified Structural Board */}
-      <div className="flex-1 min-w-0 bg-muted/30 border border-border/60 hover:border-border rounded-md px-3 py-2 flex items-center justify-between transition-all">
+      <div className="flex-1 min-w-0 bg-surface border border-border/60 hover:border-border rounded-md px-3 py-2 flex items-center justify-between transition-all">
         <div className="space-y-0.5">
           <div className="flex items-center gap-2">
             <span className="font-mono font-bold text-sm text-foreground tracking-tight">{row.code}</span>
             <span className={`text-[10px] font-medium font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border
               ${isPickup 
-                ? "bg-amber-50/60 border-amber-200 text-amber-700" 
-                : "bg-blue-50/60 border-blue-200 text-blue-700"
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-400" 
+                : "bg-blue-500/10 border-blue-500/30 text-blue-400"
               }`}
             >
               {isPickup ? "Pickup" : "Drop-off"}
@@ -265,7 +265,7 @@ function StopRowItem({ row }: { row: StopRow }) {
         {/* Informative Interaction Node */}
         <div className="flex items-center gap-2">
           {row.arrivedAt && (
-            <span className="text-[11px] font-mono font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">
+            <span className="text-[11px] font-mono font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded">
               Arrived {fmtTime(row.arrivedAt)}
             </span>
           )}
@@ -319,7 +319,7 @@ export function DriverItineraryTimeline({ driver, jobs }: DriverItineraryTimelin
       </div>
 
       {rows.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8 border border-dashed rounded-lg border-muted bg-muted/10">
+        <div className="flex flex-col items-center justify-center py-8 border border-dashed rounded-lg border-border bg-surface">
           <p className="text-xs text-muted-foreground font-mono">No assignments found for current processing date</p>
         </div>
       ) : (

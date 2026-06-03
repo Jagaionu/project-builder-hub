@@ -50,17 +50,9 @@ export function Sidebar() {
       }}
     >
       {/* ── Brand header ── */}
-      <div className="px-4 pt-5 pb-4" style={{ borderBottom: "1px solid var(--sidebar-divider)" }}>
+      <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--sidebar-divider)" }}>
         <div className="flex items-center gap-2.5">
-          <div
-            className="size-10 rounded-xl grid place-items-center shrink-0 overflow-hidden"
-            style={{
-              background: flags.customBranding && flags.brandColor
-                ? flags.brandColor
-                : "linear-gradient(135deg, var(--primary), var(--primary-2))",
-              boxShadow: "0 2px 8px oklch(0.62 0.22 245 / 0.35)",
-            }}
-          >
+          <div className="size-10 shrink-0">
             <img src={brandLogo} alt={`${displayName} logo`} className="w-full h-full object-contain" />
           </div>
           <div className="min-w-0">

@@ -50,7 +50,7 @@ export const JobQueue = memo(function JobQueue({
     >
       <div
         className="px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground sticky top-0 z-10 flex items-center justify-between"
-        style={{ borderBottom: "1px solid var(--sidebar-divider)", background: "color-mix(in oklab, var(--sidebar-bg-1) 95%, transparent)", backdropFilter: "blur(4px)" }}
+        style={{ borderBottom: "1px solid var(--sidebar-divider)", background: "var(--background)", backdropFilter: "blur(4px)" }}
       >
         <span>Queue</span>
         <span

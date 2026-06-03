@@ -478,7 +478,7 @@ function DispatchPage() {
               .filter(Boolean)
               .join("->")
               .toLowerCase();
-            const nq = q.replace(/→/g, "->").replace(/s+/g, "");
+            const nq = q.replace(/→/g, "->").replace(/\s+/g, "");
             if (laneCodes && nq.includes("->") && laneCodes.includes(nq)) match = true;
           }
           if (!match && j.assigned_driver_id) {
@@ -654,7 +654,7 @@ function DispatchPage() {
       </header>
 
       {/* Filter bar */}
-      <div className="px-5 py-2.5 flex items-center gap-2 border-b border-[color:var(--sidebar-divider)] bg-[color:color-mix(in_oklab,var(--color-background)_60%,transparent)]">
+      <div className="pl-3 pr-5 py-2.5 flex items-center gap-2 border-b border-[color:var(--sidebar-divider)] bg-[color:color-mix(in_oklab,var(--color-background)_60%,transparent)]">
         <div className="relative w-[340px]">
           <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
