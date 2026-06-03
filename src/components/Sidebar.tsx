@@ -45,7 +45,7 @@ export function Sidebar() {
     <aside
       className="w-56 shrink-0 flex flex-col"
       style={{
-        background: "linear-gradient(180deg, var(--sidebar-bg-1) 0%, var(--background) 100%)",
+        background: "var(--sidebar-bg-1)",
         borderRight: "1px solid var(--secondary)",
       }}
     >
