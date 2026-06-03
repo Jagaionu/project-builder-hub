@@ -29,8 +29,11 @@ const H = 3_600_000;
 
 const W_UNCOVERED = 1e6;
 const W_DEADHEAD = 100;
-const W_LATE = 100;
+const W_LATE = 500;
 const W_BALANCE = 0.1;
+// Credibility backstop: the optimizer will not schedule a pickup or delivery
+// later than this many minutes — the load is left uncovered instead.
+const MAX_LATE_MINUTES = 60;
 
 // A point the optimizer travels to/from. whId is set when it's a warehouse, so
 // a TravelProvider can use real lane times; the driver's GPS start has none.
@@ -238,6 +241,7 @@ export function optimizeRoutes(input: OptInput): OptResult {
       const finalDwellMs = stopDwellMinutes(job.stops[job.stops.length - 1].kind) * 60_000;
       const deliveryLate =
         dropSched !== null ? Math.max(0, Math.round((completionMs - finalDwellMs - dropSched) / 60_000)) : 0;
+      if (pickupLate > MAX_LATE_MINUTES || deliveryLate > MAX_LATE_MINUTES) return null;
 
       dayDrive += driveAdd;
       weekDrive += driveAdd;
