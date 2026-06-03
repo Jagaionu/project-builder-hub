@@ -70,7 +70,7 @@
   --surface-3:   oklch(0.94 0.010 245);
 
   /* Sidebar gradient stops (used by Sidebar component) */
-  --sidebar-bg-1: oklch(0.98 0.006 245);
+  --sidebar-bg-1: #F2F0EF;
   --sidebar-bg-2: oklch(0.96 0.008 245);
   --sidebar-divider: oklch(0.88 0.010 245);
 
