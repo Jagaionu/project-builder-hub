@@ -84,17 +84,22 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
                 <p className="text-xs text-muted-foreground text-center py-6">No notes yet.</p>
               ) : (
                 notes.map((n) => (
-                  <div key={n.id} className="rounded-md border border-border bg-background px-3 py-2 text-xs">
+                  <div
+                    key={n.id}
+                    className="rounded-md border px-3 py-2 text-xs shadow-sm"
+                    style={{ background: "#FFF5BA", borderColor: "#E8D77A", color: "#3a2f00" }}
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <p className="flex-1 whitespace-pre-wrap break-words">{n.body}</p>
-                      <button onClick={() => remove(n.id)} title="Delete note" className="shrink-0 text-muted-foreground hover:text-red-500">
+                      <button onClick={() => remove(n.id)} title="Delete note" className="shrink-0 opacity-60 hover:opacity-100 hover:text-red-600">
                         <Trash2 className="size-3" />
                       </button>
                     </div>
-                    <div className="mt-1 font-mono text-[10px] text-muted-foreground/60">
+                    <div className="mt-1 font-mono text-[10px] opacity-60">
                       {new Date(n.created_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}
                     </div>
                   </div>
+
                 ))
               )}
             </div>
