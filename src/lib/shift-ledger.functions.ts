@@ -4,6 +4,7 @@ import {
   recomputeRecent,
   recomputeAllRecent,
   backfillAll,
+  recomputeDriverDay,
 } from "@/lib/shift-ledger.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertDriverAccess, isSuperAdmin } from "@/lib/auth-helpers.server";
@@ -34,4 +35,15 @@ export const backfillShiftLedger = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     if (!(await isSuperAdmin(context.userId))) throw new Error("Forbidden");
     return backfillAll(data.days ?? 21);
+  });
+
+export const refreshDriverDay = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ driverId: z.string().uuid(), day: z.string() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertDriverAccess(context.userId, data.driverId);
+    await recomputeDriverDay(data.driverId, data.day);
+    return { ok: true };
   });

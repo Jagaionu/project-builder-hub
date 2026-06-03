@@ -20,6 +20,7 @@ interface Props {
 
 // A base warehouse implies "return to base at end of shift": setting a base turns
 // the return on, leaving it empty (free agent) turns it off — no separate tick.
+// Compact display by default; the dropdown only appears in edit mode.
 export function BaseWarehouseSelector({ driverId, homeWarehouseId, onSaved, compact = false }: Props) {
   const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(homeWarehouseId);
@@ -63,7 +64,6 @@ export function BaseWarehouseSelector({ driverId, homeWarehouseId, onSaved, comp
   };
 
   const selectedWh = warehouses.find((w) => w.id === homeWarehouseId);
-  const showEditor = editing || !homeWarehouseId;
   const labelCls = compact
     ? "text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
     : "text-xs font-bold uppercase tracking-wider text-muted-foreground";
@@ -75,7 +75,7 @@ export function BaseWarehouseSelector({ driverId, homeWarehouseId, onSaved, comp
           <WarehouseIcon size={compact ? 12 : 14} className="text-muted-foreground" />
           <span className={labelCls}>Base Warehouse</span>
         </div>
-        {!showEditor && (
+        {!editing && (
           <button
             type="button"
             onClick={() => setEditing(true)}
@@ -86,7 +86,7 @@ export function BaseWarehouseSelector({ driverId, homeWarehouseId, onSaved, comp
         )}
       </div>
 
-      {showEditor ? (
+      {editing ? (
         <>
           <select
             value={selectedId ?? ""}
@@ -126,11 +126,17 @@ export function BaseWarehouseSelector({ driverId, homeWarehouseId, onSaved, comp
           </div>
         </>
       ) : (
-        <div className="flex items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-2">
+        <div
+          className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-2 ${
+            homeWarehouseId ? "border-primary/30 bg-primary/10" : "border-border bg-card"
+          }`}
+        >
           <span className="text-xs font-semibold text-foreground">
-            {selectedWh ? `${selectedWh.code} — ${selectedWh.name}` : "Loading…"}
+            {homeWarehouseId ? (selectedWh ? `${selectedWh.code} — ${selectedWh.name}` : "Loading…") : "No base — no return"}
           </span>
-          <span className="text-[9px] font-mono uppercase tracking-wider text-primary">↩ Return</span>
+          {homeWarehouseId && (
+            <span className="text-[9px] font-mono uppercase tracking-wider text-primary">↩ Return</span>
+          )}
         </div>
       )}
     </div>

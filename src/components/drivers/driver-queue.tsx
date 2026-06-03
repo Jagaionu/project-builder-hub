@@ -1,8 +1,9 @@
-import { memo, useRef } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Driver } from "@/lib/types";
+import { usePendingTacho } from "@/lib/use-pending-tacho";
 
 const ROW_HEIGHT = 76;
 
@@ -16,13 +17,19 @@ export const DriverQueue = memo(function DriverQueue({
   onSelect: (id: string) => void;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
+  const { byDriver, driverCount } = usePendingTacho();
+  const [pendingOnly, setPendingOnly] = useState(false);
+  const shown = useMemo(
+    () => (pendingOnly ? drivers.filter((d) => byDriver[d.id]?.length) : drivers),
+    [drivers, pendingOnly, byDriver],
+  );
 
   const virtualizer = useVirtualizer({
-    count: drivers.length,
+    count: shown.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 8,
-    getItemKey: (index) => drivers[index]?.id ?? index,
+    getItemKey: (index) => shown[index]?.id ?? index,
   });
 
   return (
@@ -36,15 +43,30 @@ export const DriverQueue = memo(function DriverQueue({
         style={{ borderBottom: "1px solid var(--sidebar-divider)", background: "color-mix(in oklab, var(--sidebar-bg-1) 95%, transparent)", backdropFilter: "blur(4px)" }}
       >
         <span>Names</span>
+        {driverCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setPendingOnly((v) => !v)}
+            title="Tachograph entries awaiting approval — click to filter"
+            className="inline-flex items-center justify-center gap-0.5 min-w-5 h-5 px-1.5 rounded-full text-[10px] font-mono font-bold"
+            style={{
+              background: pendingOnly ? "oklch(0.80 0.18 72 / 0.95)" : "oklch(0.80 0.18 72 / 0.18)",
+              color: pendingOnly ? "#1a1200" : "var(--warning)",
+              border: "1px solid oklch(0.80 0.18 72 / 0.55)",
+            }}
+          >
+            ! {driverCount}
+          </button>
+        )}
         <span
           className="inline-flex items-center justify-center size-5 rounded-full text-[10px] font-mono font-bold"
           style={{ background: "oklch(0.62 0.22 245 / 0.12)", color: "var(--primary-bright)" }}
         >
-          {drivers.length}
+          {shown.length}
         </span>
       </div>
 
-      {drivers.length === 0 ? (
+      {shown.length === 0 ? (
         <div className="p-8 text-sm text-muted-foreground text-center">
           <Users className="size-8 mx-auto text-muted-foreground/30 mb-3" />
           <p className="text-xs">No drivers match your filters.</p>
@@ -58,7 +80,7 @@ export const DriverQueue = memo(function DriverQueue({
           }}
         >
           {virtualizer.getVirtualItems().map((vi) => {
-            const driver = drivers[vi.index];
+            const driver = shown[vi.index];
             return (
               <div
                 key={vi.key}

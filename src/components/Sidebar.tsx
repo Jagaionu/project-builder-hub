@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Map, Truck, Warehouse, ClipboardList,
-  AlertTriangle, Webhook, LogOut, Shield, Users,
+  AlertTriangle, LogOut, Shield, Users,
 } from "lucide-react";
 import { useAlertCount, useUnassignedJobCount } from "@/lib/use-alerts";
 import { useTenant, useFeatureFlags } from "@/lib/tenant-context";
@@ -10,6 +10,7 @@ import type { TenantModule } from "@/lib/types";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AutoRefreshButton } from "@/components/dispatch/toolbar";
 import { AIChatWidget } from "@/components/ai/ChatWidget";
+import { usePendingTacho } from "@/lib/use-pending-tacho";
 import brandLogo from "@/assets/brand-logo.png";
 
 const ALL_NAV: ReadonlyArray<{
@@ -23,13 +24,13 @@ const ALL_NAV: ReadonlyArray<{
   { to: "/drivers",    label: "Drivers",    icon: Users,         module: "drivers" },
   { to: "/warehouses", label: "Warehouses", icon: Warehouse,     module: "warehouses" },
   { to: "/alerts",     label: "Alerts",     icon: AlertTriangle, module: "alerts" },
-  { to: "/events",     label: "Event Log",  icon: Webhook,       module: "events" },
 ];
 
 export function Sidebar() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const alertCount      = useAlertCount();
   const unassignedCount = useUnassignedJobCount();
+  const { driverCount: pendingTachoCount } = usePendingTacho();
   const { company, email, role, isSuperAdmin } = useTenant();
   const flags = useFeatureFlags();
 
@@ -92,7 +93,8 @@ export function Sidebar() {
           const active = path === n.to;
           const badgeCount =
             n.to === "/alerts"   ? alertCount :
-            n.to === "/dispatch" ? unassignedCount : 0;
+            n.to === "/dispatch" ? unassignedCount :
+            n.to === "/drivers"  ? pendingTachoCount : 0;
 
           return (
             <Link
@@ -117,14 +119,18 @@ export function Sidebar() {
                   style={{
                     background: n.to === "/alerts"
                       ? "oklch(0.63 0.22 20 / 0.9)"
-                      : "oklch(0.62 0.22 245 / 0.9)",
-                    color: "var(--primary-foreground)",
+                      : n.to === "/drivers"
+                        ? "oklch(0.80 0.18 72 / 0.95)"
+                        : "oklch(0.62 0.22 245 / 0.9)",
+                    color: n.to === "/drivers" ? "#1a1200" : "var(--primary-foreground)",
                     boxShadow: n.to === "/alerts"
                       ? "0 0 6px oklch(0.63 0.22 20 / 0.4)"
-                      : "0 0 6px oklch(0.62 0.22 245 / 0.4)",
+                      : n.to === "/drivers"
+                        ? "0 0 6px oklch(0.80 0.18 72 / 0.5)"
+                        : "0 0 6px oklch(0.62 0.22 245 / 0.4)",
                   }}
                 >
-                  {badgeCount > 99 ? "99+" : badgeCount}
+                  {n.to === "/drivers" ? "! " : ""}{badgeCount > 99 ? "99+" : badgeCount}
                 </span>
               )}
             </Link>

@@ -19,6 +19,7 @@ import { computeCompliance, type ComplianceEvent } from "@/lib/compliance";
 import { haversineKm } from "@/lib/geo";
 import { fetchShiftsByDriver } from "@/lib/driver-shifts";
 import { buildHoursLedger } from "@/lib/driver-hours-ledger";
+import { recomputeDriverDay } from "@/lib/shift-ledger.server";
 import { makeTravelHours } from "@/lib/travel-provider";
 import { planDay } from "@/lib/plan-day";
 import { toRoutePersistence } from "@/lib/route-persistence";
@@ -210,6 +211,7 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
     assigned_driver_id: string;
     status: "ASSIGNED";
   }> = [];
+  const refreshPairs = new Set<string>();
 
   const sortedDates = Array.from(byDate.keys()).sort();
   let rtbLegsAdded = 0;
@@ -242,6 +244,7 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
         assigned_driver_id: a.driverId,
         status: "ASSIGNED",
       });
+      refreshPairs.add(a.driverId + "|" + dateStr);
     }
     allUnassignable.push(...result.uncovered.map((u) => ({ jobId: u.jobId, reason: u.reason })));
 
@@ -281,6 +284,13 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
   }
 
   await Promise.all(writes);
+
+  // Refresh planned drive_minutes for each (driver, day) so compliance caps are
+  // current immediately after planning (not stale until the nightly rollover).
+  for (const key of refreshPairs) {
+    const [did, day] = key.split("|");
+    try { await recomputeDriverDay(did, day); } catch (e) { console.warn("[plan] hours refresh failed", did, day, e); }
+  }
 
   return {
     totalJobs: jobList.length,

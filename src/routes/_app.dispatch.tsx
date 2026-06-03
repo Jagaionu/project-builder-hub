@@ -11,6 +11,7 @@ import { useCompliance, useDrivers, useJobs, useWarehouses, applyJobPatch, reloa
 import type { PlannedAssign } from "@/lib/planner";
 import type { DriverShift, DriverAvailabilityOverride } from "@/lib/types";
 import { planJobs } from "@/lib/plan-jobs.functions";
+import { refreshDriverDay } from "@/lib/shift-ledger.functions";
 import { fetchShiftsByDriver } from "@/lib/driver-shifts";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
@@ -325,6 +326,16 @@ function DispatchPage() {
         .eq("id", job.assigned_driver_id)
         .eq("status", "ON_ROUTE" as never);
     }
+
+    // Refresh planned drive_minutes for affected driver(s)/day so compliance
+    // caps reflect this manual assignment immediately.
+    const day = job?.for_date;
+    if (day) {
+      const targets = new Set<string>();
+      if (driverId) targets.add(driverId);
+      if (job?.assigned_driver_id) targets.add(job.assigned_driver_id);
+      for (const did of targets) void refreshHours({ data: { driverId: did, day } });
+    }
   }
 
   const refreshData = useCallback(() => {
@@ -377,6 +388,7 @@ function DispatchPage() {
   }
 
   const runPlanJobs = useServerFn(planJobs);
+  const refreshHours = useServerFn(refreshDriverDay);
   const [planning, setPlanning] = useState(false);
   async function onPlan() {
     if (planning) return;

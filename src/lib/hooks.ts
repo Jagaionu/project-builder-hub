@@ -253,6 +253,8 @@ export type DriverDayHours = {
   drive_minutes: number;
   off_minutes: number;
   week_start: string;     // YYYY-MM-DD
+  tachograph_drive_minutes?: number | null;
+  tachograph_status?: string | null;
 };
 
 export function useDriverDayHours(): Record<string, DriverDayHours[]> {
@@ -265,9 +267,9 @@ export function useDriverDayHours(): Record<string, DriverDayHours[]> {
         const since = new Date(Date.now() - 21 * 24 * 3600 * 1000)
           .toISOString()
           .slice(0, 10);
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as unknown as { from: (t: string) => any })
           .from("driver_day_hours")
-          .select("driver_id,day,shift_minutes,drive_minutes,off_minutes,week_start")
+          .select("driver_id,day,shift_minutes,drive_minutes,off_minutes,week_start,tachograph_drive_minutes,tachograph_status")
           .gte("day", since)
           .order("day", { ascending: false });
 
@@ -360,14 +362,14 @@ function useComplianceState(
         }
       }
 
+      const eff = (r: DriverDayHours) =>
+        r.tachograph_status === "approved" && r.tachograph_drive_minutes != null
+          ? r.tachograph_drive_minutes
+          : r.drive_minutes;
       const totals = {
-        daily: todayRow ? todayRow.drive_minutes / 60 : undefined,
-        weekly: weekRows.length
-          ? weekRows.reduce((s, r) => s + r.drive_minutes, 0) / 60
-          : undefined,
-        twoWeek: fortRows.length
-          ? fortRows.reduce((s, r) => s + r.drive_minutes, 0) / 60
-          : undefined,
+        daily: todayRow ? eff(todayRow) / 60 : undefined,
+        weekly: weekRows.length ? weekRows.reduce((s, r) => s + eff(r), 0) / 60 : undefined,
+        twoWeek: fortRows.length ? fortRows.reduce((s, r) => s + eff(r), 0) / 60 : undefined,
         continuousDrive,
       };
       out[driverId] = computeCompliance(evs, now, totals);

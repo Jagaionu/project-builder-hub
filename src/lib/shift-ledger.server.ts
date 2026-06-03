@@ -4,7 +4,7 @@
 // correction (delete a bad event, run recompute) just works.
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { legMinutes, type StopLike, type WhLike } from "@/lib/geo";
+import { legMinutes, haversineKm, transitTimeHours, type StopLike, type WhLike } from "@/lib/geo";
 
 const UK_TZ = "Europe/London";
 
@@ -126,14 +126,10 @@ export async function recomputeDriverDay(driverId: string, day: string): Promise
   // Drive minutes = sum of TRANSIT minutes for legs of jobs this driver
   // worked, whose transit window overlaps a shift segment in this day.
   // Excludes loading/unloading/checks dwell and idle time between jobs.
-  const driveMinutesRaw = await computeDriveMinutesForDay(
-    driverId,
-    start,
-    dayEndCap,
-    segWindows,
-  );
-  // Safety: drive can never exceed total shift time on the day.
-  const driveMinutes = Math.min(driveMinutesRaw, shiftMinutes);
+  // Planned driving for the day from the warehouse chain (computeChainDriveMinutes).
+  // Sole source of truth for drive_minutes; GPS legs feed actual_driving_minutes /
+  // deadhead_minutes via recomputeDayTotals instead.
+  const driveMinutes = await computeChainDriveMinutes(driverId, day);
 
   const elapsedMinInDay = Math.max(0, Math.round((dayEndCap - start) / 60_000));
   const offMinutes = Math.max(0, elapsedMinInDay - shiftMinutes);
@@ -150,6 +146,83 @@ export async function recomputeDriverDay(driverId: string, day: string): Promise
       } as never,
       { onConflict: "driver_id,day" },
     );
+}
+
+// Planned driving minutes for a driver on a UK service day, derived from the
+// warehouse chain of that day's planned jobs (sorted by planner sequence):
+//   start -> first pickup (approach) -> loaded inter-stop transit per job ->
+//   inter-job deadhead -> return to base. Haversine + fixed-speed, deterministic.
+async function computeChainDriveMinutes(driverId: string, day: string): Promise<number> {
+  const { data: drv } = await supabaseAdmin
+    .from("drivers")
+    .select("current_lat,current_lon,home_warehouse_id,return_to_base_required")
+    .eq("id", driverId)
+    .maybeSingle();
+  const d = drv as {
+    current_lat: number | null;
+    current_lon: number | null;
+    home_warehouse_id: string | null;
+    return_to_base_required: boolean | null;
+  } | null;
+
+  const { data: jobRows } = await supabaseAdmin
+    .from("jobs")
+    .select("id,planned_sequence,planned_start_at,scheduled_at,created_at")
+    .eq("for_date", day)
+    .or("assigned_driver_id.eq." + driverId + ",planned_driver_id.eq." + driverId)
+    .neq("status", "CANCELLED" as never);
+  const jobs = (jobRows ?? []) as Array<{
+    id: string;
+    planned_sequence: number | null;
+    planned_start_at: string | null;
+    scheduled_at: string | null;
+    created_at: string | null;
+  }>;
+  if (jobs.length === 0) return 0;
+
+  jobs.sort((a, b) => {
+    const sa = a.planned_sequence ?? Number.MAX_SAFE_INTEGER;
+    const sb = b.planned_sequence ?? Number.MAX_SAFE_INTEGER;
+    if (sa !== sb) return sa - sb;
+    const ta = a.planned_start_at ?? a.scheduled_at ?? a.created_at ?? "";
+    const tb = b.planned_start_at ?? b.scheduled_at ?? b.created_at ?? "";
+    return ta < tb ? -1 : ta > tb ? 1 : 0;
+  });
+
+  const jobIds = jobs.map((j) => j.id);
+  const [{ data: stopRows }, { data: whRows }] = await Promise.all([
+    supabaseAdmin.from("job_stops").select("job_id,seq,warehouse_id").in("job_id", jobIds).order("seq", { ascending: true }),
+    supabaseAdmin.from("warehouses").select("id,latitude,longitude"),
+  ]);
+  const whById = new Map(((whRows ?? []) as WhLike[]).map((w) => [w.id, w]));
+  const stopsByJob: Record<string, Array<{ seq: number; warehouse_id: string }>> = {};
+  for (const r of (stopRows ?? []) as Array<{ job_id: string; seq: number; warehouse_id: string }>) {
+    (stopsByJob[r.job_id] ||= []).push({ seq: r.seq, warehouse_id: r.warehouse_id });
+  }
+
+  const legMin = (from: WhLike | null | undefined, to: WhLike | null | undefined): number =>
+    from && to ? transitTimeHours(haversineKm(from.latitude, from.longitude, to.latitude, to.longitude)) * 60 : 0;
+
+  const home = d?.home_warehouse_id ? whById.get(d.home_warehouse_id) ?? null : null;
+  let cursor: WhLike | null =
+    home ?? (d?.current_lat != null && d?.current_lon != null ? { id: "", latitude: d.current_lat, longitude: d.current_lon } : null);
+
+  let total = 0;
+  for (const job of jobs) {
+    const stops = (stopsByJob[job.id] ?? []).slice().sort((a, b) => a.seq - b.seq);
+    if (stops.length === 0) continue;
+    const firstWh = whById.get(stops[0].warehouse_id) ?? null;
+    const lastWh = whById.get(stops[stops.length - 1].warehouse_id) ?? null;
+    if (!firstWh) continue;
+    if (cursor) total += legMin(cursor, firstWh);
+    for (let i = 0; i < stops.length - 1; i++) {
+      total += legMin(whById.get(stops[i].warehouse_id), whById.get(stops[i + 1].warehouse_id));
+    }
+    cursor = lastWh ?? firstWh;
+  }
+  if (d?.return_to_base_required && home && cursor) total += legMin(cursor, home);
+
+  return Math.round(total);
 }
 
 // Sum transit minutes (excluding dwell + buffer-as-dwell? — buffer is approach

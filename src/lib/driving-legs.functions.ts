@@ -41,7 +41,6 @@ async function recomputeDayTotals(driverId: string, day: string) {
     actual_driving_minutes: drive,
     other_work_minutes: other,
     deadhead_minutes: dead,
-    drive_minutes: drive,
   } as never, { onConflict: "driver_id,day" });
 }
 

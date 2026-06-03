@@ -29,7 +29,7 @@ const STATUS_CONFIG: Record<SubscriptionStatus, { label: string; color: string; 
   cancelled: { label: "Cancelled",  color: "text-muted-foreground", icon: XCircle },
 };
 
-const ALL_MODULES: ReadonlyArray<TenantModule> = ["dispatch", "jobs", "drivers", "warehouses", "alerts", "events", "maps", "ai_agent"];
+const ALL_MODULES: ReadonlyArray<TenantModule> = ["dispatch", "jobs", "drivers", "warehouses", "alerts", "maps", "ai_agent"];
 
 const MODULE_LABELS: Record<TenantModule, string> = {
   dispatch: "Dispatch",

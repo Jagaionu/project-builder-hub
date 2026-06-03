@@ -19,12 +19,17 @@ type DayHoursRow = {
   drive_minutes: number | null;
   actual_driving_minutes: number | null;
   deadhead_minutes: number | null;
+  tachograph_drive_minutes: number | null;
+  tachograph_status: string | null;
 };
 
 // What counts as "driving" for the HGV limits: time at the wheel, loaded AND
 // empty. If your data already folds empty running into drive_minutes, change
 // this to `r.drive_minutes ?? 0`.
-const drivingMinutes = (r: DayHoursRow): number => r.drive_minutes ?? 0;
+const drivingMinutes = (r: DayHoursRow): number =>
+  r.tachograph_status === "approved" && r.tachograph_drive_minutes != null
+    ? r.tachograph_drive_minutes
+    : r.drive_minutes ?? 0;
 
 const utcDateStr = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 
@@ -49,7 +54,7 @@ export async function buildHoursLedger(
 
   const { data } = await client
     .from("driver_day_hours")
-    .select("driver_id, day, drive_minutes, actual_driving_minutes, deadhead_minutes")
+    .select("driver_id, day, drive_minutes, actual_driving_minutes, deadhead_minutes, tachograph_drive_minutes, tachograph_status")
     .in("driver_id", driverIds)
     .gte("day", twoWeekAgo);
 
