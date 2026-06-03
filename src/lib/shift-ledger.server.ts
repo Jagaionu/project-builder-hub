@@ -49,6 +49,7 @@ type ShiftEvent = { type: "START_SHIFT" | "END_SHIFT"; t: number };
 // END→START toggles. Drops any segment shorter than MIN_SEG_MS.
 const MIN_SEG_MS = 5 * 60_000;       // 5 min
 const MERGE_GAP_MS = 10 * 60_000;    // 10 min
+const MAX_SHIFT_MS = 15 * 3600_000;  // auto-close a shift left open longer than this
 
 function buildShiftSegments(
   events: ShiftEvent[],
@@ -65,7 +66,11 @@ function buildShiftSegments(
       openStart = null;
     }
   }
-  if (openStart != null) segs.push({ start: openStart, end: nowMs, open: true });
+  if (openStart != null) {
+    const cap = openStart + MAX_SHIFT_MS;
+    const stale = nowMs > cap;
+    segs.push({ start: openStart, end: stale ? cap : nowMs, open: !stale });
+  }
 
   // Merge close-then-quickly-open pairs (accidental bounces).
   const merged: typeof segs = [];

@@ -30,6 +30,9 @@ const MIN_SEG_MS = 5 * 60_000;
 // If a shift ends and a new one starts within this window, treat them as one
 // continuous shift. Stops a fat-finger toggle from resetting rest hours.
 const MERGE_GAP_MS = 10 * 60_000;
+// Auto-close a shift left open longer than this (driver forgot to END_SHIFT) so
+// it stops reading as "on shift" forever and rest (incl. days off) accrues.
+const MAX_SHIFT_MS = 15 * H;
 
 type Seg = { start: number; end: number; open: boolean };
 
@@ -48,7 +51,11 @@ function buildSegments(events: ComplianceEvent[], nowMs: number): Seg[] {
       openStart = null;
     }
   }
-  if (openStart != null) segs.push({ start: openStart, end: nowMs, open: true });
+  if (openStart != null) {
+    const cap = openStart + MAX_SHIFT_MS;
+    const stale = nowMs > cap;
+    segs.push({ start: openStart, end: stale ? cap : nowMs, open: !stale });
+  }
   // Merge adjacent segments separated by a tiny gap (accidental bounces).
   const merged: Seg[] = [];
   for (const s of segs) {
