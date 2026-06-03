@@ -13,6 +13,7 @@ import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
 import { effectiveDriverStatus } from "@/lib/effective-status";
 import { useDriverSchedule } from "@/lib/use-driver-schedule";
 import { DispatchStat } from "@/components/dispatch/toolbar";
+import { useEquipmentTypes } from "@/lib/use-equipment-types";
 import { DriverQueue } from "@/components/drivers/driver-queue";
 import { DriverDetailPanel } from "@/components/drivers/driver-detail-panel";
 import { FormField } from "@/components/shared/form-field";
@@ -60,6 +61,9 @@ function DriversPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "", home_warehouse_id: "", return_to_base_required: false });
   const [editPattern, setEditPattern] = useState<{ days: number[]; times: Record<number, { start_time: string | null; end_time: string | null }> } | null>(null);
+  const [editEquip, setEditEquip] = useState<string[]>([]);
+  const equipmentTypes = useEquipmentTypes();
+  const eqClient = supabase as unknown as { from: (t: string) => any };
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
 
   // ── Drivers list filters (persisted) ────────────────────────────────────
@@ -218,6 +222,11 @@ function DriversPage() {
       return_to_base_required: d.return_to_base_required ?? false,
     });
     setEditPattern(null);
+    setEditEquip([]);
+    void (async () => {
+      const { data } = await eqClient.from("driver_equipment").select("equipment_type").eq("driver_id", d.id);
+      setEditEquip(((data ?? []) as Array<{ equipment_type: string }>).map((r) => r.equipment_type));
+    })();
     fetchShiftPattern(supabase, d.id).then((p) => {
       setEditPattern({ days: p.days_of_week, times: p.shiftByDay });
     }).catch(() => setEditPattern({ days: [], times: {} }));
@@ -235,12 +244,12 @@ function DriversPage() {
         return_to_base_required: editForm.return_to_base_required,
       })
       .eq("id", editingId);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Driver updated");
-      setEditingId(null);
-      router.invalidate();
-    }
+    if (error) { toast.error(error.message); return; }
+    await eqClient.from("driver_equipment").delete().eq("driver_id", editingId);
+    if (editEquip.length) await eqClient.from("driver_equipment").insert(editEquip.map((t) => ({ driver_id: editingId, equipment_type: t })));
+    toast.success("Driver updated");
+    setEditingId(null);
+    router.invalidate();
   }
 
   async function remove(id: string, name: string) {
@@ -477,6 +486,30 @@ function DriversPage() {
                     }
                   />
                 </button>
+              </div>
+
+              {/* Equipment capabilities */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-2">Equipment</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {equipmentTypes.length === 0 ? (
+                    <span className="text-xs text-muted-foreground">No equipment types found yet.</span>
+                  ) : (
+                    equipmentTypes.map((t) => {
+                      const on = editEquip.includes(t);
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setEditEquip((s) => (on ? s.filter((x) => x !== t) : [...s, t]))}
+                          className={"px-2 py-1 rounded-md text-[11px] font-mono border transition " + (on ? "bg-primary/15 border-primary text-primary" : "bg-surface border-border text-muted-foreground")}
+                        >
+                          {t}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
               </div>
 
               {/* Weekly schedule pattern */}

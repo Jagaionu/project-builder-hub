@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDriverStore } from "@/lib/driver-store";
+import { supabase } from "@/integrations/supabase/client";
 import { DriverJobCard } from "@/components/driver/DriverJobCard";
 import { MapPin, Wifi, WifiOff, ChevronRight, History, PlayCircle } from "lucide-react";
 
@@ -30,6 +31,17 @@ function DriverHome() {
   const isOnline = useDriverStore((s) => s.isOnline);
   const gps = useDriverStore((s) => s.gpsPosition);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [equip, setEquip] = useState<string[]>([]);
+  useEffect(() => {
+    if (!driver) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await (supabase as unknown as { from: (t: string) => any })
+        .from("driver_equipment").select("equipment_type").eq("driver_id", driver.id);
+      if (!cancelled) setEquip(((data ?? []) as Array<{ equipment_type: string }>).map((r) => r.equipment_type));
+    })();
+    return () => { cancelled = true; };
+  }, [driver]);
 
   if (!driver) {
     return (
@@ -72,6 +84,7 @@ function DriverHome() {
             </p>
             <h1 className="text-2xl font-bold mt-0.5 tracking-tight">{driver.name}</h1>
           </div>
+          <div className="flex flex-col items-end gap-1.5">
           {/* Status chip */}
           <div
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full"
@@ -91,6 +104,16 @@ function DriverHome() {
             <span className="text-xs font-semibold" style={{ color: dotColor }}>
               {STATUS_LABEL[displayStatus]}
             </span>
+          </div>
+          {equip.length > 0 && (
+            <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
+              {equip.map((t) => (
+                <span key={t} className="text-[9px] font-mono px-1.5 py-0.5 rounded-full border border-border bg-surface text-muted-foreground">
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
           </div>
         </div>
 
