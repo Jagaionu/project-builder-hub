@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
+import brandLogo from "@/assets/brand-logo.png";
 
 const searchSchema = z.object({
   redirect: z.string().optional(),
@@ -65,7 +66,7 @@ function LoginPage() {
       style={{
         background: `
           radial-gradient(ellipse 80% 60% at 50% -10%,
-            oklch(0.62 0.22 245 / 0.12) 0%,
+            oklch(0.62 0.22 245 / 0.04) 0%,
             transparent 70%),
           var(--background)
         `,
@@ -76,8 +77,8 @@ function LoginPage() {
         className="absolute inset-0 pointer-events-none"
         style={{
           backgroundImage: `
-            linear-gradient(oklch(0.26 0.018 245 / 0.3) 1px, transparent 1px),
-            linear-gradient(90deg, oklch(0.26 0.018 245 / 0.3) 1px, transparent 1px)
+            linear-gradient(oklch(0.50 0.010 245 / 0.10) 1px, transparent 1px),
+            linear-gradient(90deg, oklch(0.50 0.010 245 / 0.10) 1px, transparent 1px)
           `,
           backgroundSize: "48px 48px",
           maskImage: "radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%)",
@@ -87,14 +88,8 @@ function LoginPage() {
       <div className="relative w-full max-w-sm page-enter">
         {/* Logo / Brand */}
         <div className="flex items-center gap-3 mb-8 justify-center">
-          <div
-            className="size-10 rounded-xl grid place-items-center font-mono font-bold text-base text-primary-foreground"
-            style={{
-              background: "linear-gradient(135deg, var(--primary), var(--primary-2))",
-              boxShadow: "0 4px 16px oklch(0.62 0.22 245 / 0.4), inset 0 1px 0 oklch(1 0 0 / 0.15)",
-            }}
-          >
-            P
+          <div className="size-10 rounded-xl overflow-hidden grid place-items-center shrink-0">
+            <img src={brandLogo} alt="Brand logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <div className="text-base font-semibold tracking-tight">Planning System</div>
