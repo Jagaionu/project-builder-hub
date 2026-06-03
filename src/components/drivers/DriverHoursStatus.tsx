@@ -86,23 +86,23 @@ export function DriverHoursStatus({ driver, compliance }: DriverHoursStatusProps
         {pending.length > 0 ? (
           pending.map((p) => (
             <div
-              key={p.day}
+              key={p.week_start}
               className="rounded border p-2.5"
               style={{ borderColor: "oklch(0.80 0.18 72 / 0.45)", background: "oklch(0.80 0.18 72 / 0.10)" }}
             >
               <div className="text-[11px] font-mono text-foreground">
-                Tacho: <span className="font-bold">{fmtHoursDisplay(p.tachograph_drive_minutes / 60)}</span> on {dayLabel(p.day)}
-                <span className="text-muted-foreground"> · we estimate ~{fmtHoursDisplay(p.drive_minutes / 60)}</span>
+                Tacho: <span className="font-bold">{fmtHoursDisplay(p.tacho_drive_minutes / 60)}</span> · wk of {dayLabel(p.week_start)}
+                <span className="text-muted-foreground"> · we estimate ~{fmtHoursDisplay(p.estimate / 60)}</span>
               </div>
               <div className="mt-2 flex gap-2">
                 <button
-                  onClick={() => void approve(driver.id, p.day)}
+                  onClick={() => void approve(driver.id, p.week_start)}
                   className="flex-1 py-1.5 rounded-md text-[11px] font-semibold bg-success text-success-foreground active:scale-95 transition"
                 >
                   Approve (override)
                 </button>
                 <button
-                  onClick={() => void reject(driver.id, p.day)}
+                  onClick={() => void reject(driver.id, p.week_start)}
                   className="flex-1 py-1.5 rounded-md text-[11px] font-semibold border border-border text-muted-foreground hover:text-foreground active:scale-95 transition"
                 >
                   Reject (keep ours)

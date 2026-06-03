@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Driver, Warehouse, Job } from "@/lib/types";
 import { computeCompliance, type Compliance, type ComplianceEvent } from "@/lib/compliance";
+import { usePendingTacho } from "@/lib/use-pending-tacho";
+import { weekStartOf, addWeeks } from "@/lib/week";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
 import { projectedRouteDriveMinutes, effectiveDriverStatus } from "@/lib/effective-status";
 
@@ -317,6 +319,7 @@ function useComplianceState(
   const [tick, setTick] = useState(0);
   const activeJobsByDriver = useActiveJobsByDriver();
   const drivers = useDrivers();
+  const { approvedByDriver } = usePendingTacho();
 
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 60_000);
@@ -362,20 +365,23 @@ function useComplianceState(
         }
       }
 
-      const eff = (r: DriverDayHours) =>
-        r.tachograph_status === "approved" && r.tachograph_drive_minutes != null
-          ? r.tachograph_drive_minutes
-          : r.drive_minutes;
+      const approvedWk = approvedByDriver[driverId] ?? {};
+      const weekTotalMin = (wk: string) =>
+        approvedWk[wk] != null
+          ? approvedWk[wk]
+          : rows.filter((r) => weekStartOf(r.day) === wk).reduce((s, r) => s + r.drive_minutes, 0);
+      const thisWk = weekStartOf(today);
+      const lastWk = addWeeks(thisWk, -1);
       const totals = {
-        daily: todayRow ? eff(todayRow) / 60 : undefined,
-        weekly: weekRows.length ? weekRows.reduce((s, r) => s + eff(r), 0) / 60 : undefined,
-        twoWeek: fortRows.length ? fortRows.reduce((s, r) => s + eff(r), 0) / 60 : undefined,
+        daily: todayRow ? todayRow.drive_minutes / 60 : undefined,
+        weekly: weekTotalMin(thisWk) / 60,
+        twoWeek: (weekTotalMin(thisWk) + weekTotalMin(lastWk)) / 60,
         continuousDrive,
       };
       out[driverId] = computeCompliance(evs, now, totals);
     }
     return out;
-  }, [events, ledger, tick, activeJobsByDriver, drivers]);
+  }, [events, ledger, tick, activeJobsByDriver, drivers, approvedByDriver]);
 }
 
 function ukDayStringLocal(d: Date): string {

@@ -1,44 +1,12 @@
-// Builds the HGV driving-hours ledger (daily / weekly / fortnightly) for drivers
-// from the materialized driver_day_hours actuals, so the planner enforces REAL
-// remaining capacity instead of assuming everyone starts fresh (the phantom-0
-// compliance bug).
-//
-// Returns LedgerTotals (in HOURS) keyed by driver_id, ready to pass straight
-// into computeCompliance(events, nowMs, ledger[driverId]).
-//
-// Works with the anon `supabase` client or the service-role `supabaseAdmin`
-// client (worker) — both expose the same `.from()` builder.
-
+// HGV driving-hours ledger (daily / weekly / fortnightly) for the planner,
+// computed over FIXED Mon–Sun weeks. Approved weekly tachograph totals override
+// our chain estimate for completed weeks (driver_week_hours); the current week
+// and the daily figure always use the estimate (driver_day_hours.drive_minutes).
 import type { LedgerTotals } from "@/lib/compliance";
+import { weekStartOf, addWeeks, ukToday } from "@/lib/week";
 
 type AnySupabase = { from: (table: string) => any };
 
-type DayHoursRow = {
-  driver_id: string;
-  day: string; // YYYY-MM-DD
-  drive_minutes: number | null;
-  actual_driving_minutes: number | null;
-  deadhead_minutes: number | null;
-  tachograph_drive_minutes: number | null;
-  tachograph_status: string | null;
-};
-
-// What counts as "driving" for the HGV limits: time at the wheel, loaded AND
-// empty. If your data already folds empty running into drive_minutes, change
-// this to `r.drive_minutes ?? 0`.
-const drivingMinutes = (r: DayHoursRow): number =>
-  r.tachograph_status === "approved" && r.tachograph_drive_minutes != null
-    ? r.tachograph_drive_minutes
-    : r.drive_minutes ?? 0;
-
-const utcDateStr = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
-
-/**
- * daily  = driving on today's (UTC) date
- * weekly = driving over the trailing 7 days (incl. today)
- * twoWeek = driving over the trailing 14 days (incl. today)
- * continuousDrive is left to the planner (it can't be derived from day rollups).
- */
 export async function buildHoursLedger(
   client: AnySupabase,
   driverIds: string[],
@@ -46,25 +14,37 @@ export async function buildHoursLedger(
 ): Promise<Record<string, LedgerTotals>> {
   const out: Record<string, LedgerTotals> = {};
   if (driverIds.length === 0) return out;
-  for (const did of driverIds) out[did] = { daily: 0, weekly: 0, twoWeek: 0 };
+  for (const id of driverIds) out[id] = { daily: 0, weekly: 0, twoWeek: 0 };
 
-  const today = utcDateStr(nowMs);
-  const weekAgo = utcDateStr(nowMs - 6 * 86_400_000);
-  const twoWeekAgo = utcDateStr(nowMs - 13 * 86_400_000);
+  const today = ukToday(nowMs);
+  const thisWk = weekStartOf(today);
+  const lastWk = addWeeks(thisWk, -1);
 
-  const { data } = await client
-    .from("driver_day_hours")
-    .select("driver_id, day, drive_minutes, actual_driving_minutes, deadhead_minutes, tachograph_drive_minutes, tachograph_status")
-    .in("driver_id", driverIds)
-    .gte("day", twoWeekAgo);
+  const [{ data: dayRows }, { data: weekRows }] = await Promise.all([
+    client.from("driver_day_hours").select("driver_id,day,drive_minutes").in("driver_id", driverIds).gte("day", lastWk),
+    client.from("driver_week_hours").select("driver_id,week_start,tacho_drive_minutes,status").in("driver_id", driverIds).eq("status", "approved").gte("week_start", lastWk),
+  ]);
 
-  for (const r of (data ?? []) as DayHoursRow[]) {
-    const t = out[r.driver_id] ?? (out[r.driver_id] = { daily: 0, weekly: 0, twoWeek: 0 });
-    const h = drivingMinutes(r) / 60;
-    t.twoWeek! += h; // query is already bounded to the 14-day window
-    if (r.day >= weekAgo) t.weekly! += h;
-    if (r.day === today) t.daily! += h;
+  const est: Record<string, Record<string, number>> = {};
+  const todayMin: Record<string, number> = {};
+  for (const r of (dayRows ?? []) as Array<{ driver_id: string; day: string; drive_minutes: number | null }>) {
+    const wk = weekStartOf(r.day);
+    (est[r.driver_id] ||= {});
+    est[r.driver_id][wk] = (est[r.driver_id][wk] ?? 0) + (r.drive_minutes ?? 0);
+    if (r.day === today) todayMin[r.driver_id] = (todayMin[r.driver_id] ?? 0) + (r.drive_minutes ?? 0);
+  }
+  const approved: Record<string, Record<string, number>> = {};
+  for (const w of (weekRows ?? []) as Array<{ driver_id: string; week_start: string; tacho_drive_minutes: number }>) {
+    (approved[w.driver_id] ||= {})[w.week_start] = w.tacho_drive_minutes;
   }
 
+  for (const id of driverIds) {
+    const wk = (s: string) => approved[id]?.[s] ?? est[id]?.[s] ?? 0;
+    out[id] = {
+      daily: (todayMin[id] ?? 0) / 60,
+      weekly: wk(thisWk) / 60,
+      twoWeek: (wk(thisWk) + wk(lastWk)) / 60,
+    };
+  }
   return out;
 }
