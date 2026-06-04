@@ -16,6 +16,7 @@ import { fetchShiftsByDriver } from "@/lib/driver-shifts";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/lib/theme-context";
 
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -63,6 +64,8 @@ function DispatchPage() {
   const compliance = useCompliance();
 
   const lookups = useLookups(jobs, drivers, warehouses);
+
+  const { accentColor } = useTheme();
 
   // Deep-link: if the URL contains ?job=REFERENCE, pre-select that job.
   const { job: jobRefParam } = useSearch({ from: "/_app/dispatch" });
@@ -613,7 +616,7 @@ function DispatchPage() {
     <div className="h-full flex flex-col">
       {PlanningOverlay}
 
-      <header className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+      <header className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4" style={accentColor ? { background: accentColor } : undefined}>
         <div className="min-w-0">
           <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
         </div>

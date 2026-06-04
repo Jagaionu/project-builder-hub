@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { AutoRefreshButton } from "@/components/dispatch/toolbar";
 import { AIChatWidget } from "@/components/ai/ChatWidget";
 import { usePendingTacho } from "@/lib/use-pending-tacho";
+import { useTheme } from "@/lib/theme-context";
 import brandLogo from "@/assets/brand-logo.png";
 
 const ALL_NAV: ReadonlyArray<{
@@ -33,6 +34,7 @@ export function Sidebar() {
   const { driverCount: pendingTachoCount } = usePendingTacho();
   const { company, email, role, isSuperAdmin } = useTenant();
   const flags = useFeatureFlags();
+  const { cycleAccent, accentColor } = useTheme();
 
   const visibleNav = ALL_NAV.filter(
     (n) => n.module === null || flags.modules.includes(n.module),
@@ -45,14 +47,14 @@ export function Sidebar() {
     <aside
       className="w-56 shrink-0 flex flex-col"
       style={{
-        background: "var(--sidebar-bg-1)",
+        background: accentColor || "var(--sidebar-bg-1)",
         borderRight: "1px solid var(--secondary)",
       }}
     >
       {/* ── Brand header ── */}
       <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--sidebar-divider)" }}>
         <div className="flex items-center gap-2.5">
-          <div className="size-10 shrink-0">
+          <div className="size-10 shrink-0 cursor-pointer" onClick={cycleAccent} title="Click to cycle background accent">
             <img src={brandLogo} alt={`${displayName} logo`} className="w-full h-full object-contain" />
           </div>
           <div className="min-w-0">
