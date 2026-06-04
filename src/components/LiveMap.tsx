@@ -342,15 +342,18 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
     [drivers, selectedDriverId]
   );
 
-  const activeJob = useMemo(
-    () =>
-      jobs.find(
-        j =>
-          j.assigned_driver_id === selectedDriverId &&
-          ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status)
-      ) ?? null,
-    [jobs, selectedDriverId]
-  );
+  const activeJob = useMemo(() => {
+    const mine = jobs.filter(
+      (j) =>
+        (j.assigned_driver_id === selectedDriverId || j.planned_driver_id === selectedDriverId) &&
+        j.status !== "CANCELLED",
+    );
+    return (
+      mine.find((j) =>
+        ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
+      ) ?? mine[0] ?? null
+    );
+  }, [jobs, selectedDriverId]);
 
   // Ordered stop coordinates of the active job (A → B → C … → Drop), each
   // tagged with whether the driver has already arrived (GPS-confirmed).
@@ -402,23 +405,22 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
       return [driverPos, { lat: manualTargetWh.latitude, lon: manualTargetWh.longitude }];
     }
     if (stopCoords.length >= 2) {
-      if (!arrivedPickup && driverPos) {
-        return [driverPos, { lat: stopCoords[0].lat, lon: stopCoords[0].lon }];
-      }
-      return stopCoords.map((s) => ({ lat: s.lat, lon: s.lon }));
+      // Always link Driver → pickup → … → drop so the full route renders for
+      // every status (including completed, for review).
+      const pts = stopCoords.map((s) => ({ lat: s.lat, lon: s.lon }));
+      return driverPos ? [driverPos, ...pts] : pts;
     }
     return [] as { lat: number; lon: number }[];
-  }, [manualTargetWh, stopCoords, arrivedPickup, selectedDriver?.current_lat, selectedDriver?.current_lon]);
+  }, [manualTargetWh, stopCoords, selectedDriver?.current_lat, selectedDriver?.current_lon]);
 
   // Endpoint label for the side panel — reflects the current phase.
   const routeTarget = useMemo(() => {
     if (manualTargetWh) return { code: manualTargetWh.code, manual: true };
     if (stopCoords.length >= 2) {
-      const idx = arrivedPickup ? stopCoords.length - 1 : 0;
-      return { code: stopCoords[idx].code, manual: false };
+      return { code: stopCoords[stopCoords.length - 1].code, manual: false };
     }
     return null;
-  }, [manualTargetWh, stopCoords, arrivedPickup]);
+  }, [manualTargetWh, stopCoords]);
 
   // ── Fetch road geometry (expensive: OSRM call) ────────────────────────────
   // Kept separate from drawing so the line can be recoloured (GPS staleness)

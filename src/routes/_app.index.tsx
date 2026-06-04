@@ -231,6 +231,10 @@ function LiveDashboard() {
                   {new Date(selectedDriver.last_update_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                 </div>
               )}
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono mt-1.5">
+                <Radio className="size-3" />
+                {breadcrumbs.length} GPS ping{breadcrumbs.length === 1 ? "" : "s"} · 24h
+              </div>
             </div>
           )}
 
