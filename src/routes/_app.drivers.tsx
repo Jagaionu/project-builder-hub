@@ -50,6 +50,41 @@ export const Route = createFileRoute("/_app/drivers")({
 
 type DriverForm = { name: string; phone: string; home_warehouse_id: string; return_to_base_required: boolean };
 
+// Chip multi-select for vehicle/equipment types. Options come from the data
+// (jobs + driver_equipment) so they match what the planner gates against; a
+// free-text "add" lets you introduce a new type when the fleet needs one.
+function EquipmentPicker({ value, onChange, options }: { value: string[]; onChange: (v: string[]) => void; options: string[] }) {
+  const [custom, setCustom] = useState("");
+  const all = [...new Set([...options, ...value])].sort();
+  const toggle = (t: string) => onChange(value.includes(t) ? value.filter((x) => x !== t) : [...value, t]);
+  const addCustom = () => {
+    const t = custom.trim();
+    if (t && !value.includes(t)) onChange([...value, t]);
+    setCustom("");
+  };
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {all.length === 0 && <span className="text-xs text-muted-foreground w-full">None yet — add one below.</span>}
+      {all.map((t) => {
+        const on = value.includes(t);
+        return (
+          <button key={t} type="button" onClick={() => toggle(t)}
+            className={"px-2 py-1 rounded-md text-[11px] font-mono border transition " + (on ? "bg-primary/15 border-primary text-primary" : "bg-surface border-border text-muted-foreground")}>
+            {t}
+          </button>
+        );
+      })}
+      <div className="flex items-center gap-1 w-full mt-1">
+        <input value={custom} onChange={(e) => setCustom(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustom(); } }}
+          placeholder="Add a vehicle/equipment type…"
+          className="flex-1 h-8 px-2 rounded-md border border-border bg-surface text-xs focus:outline-none focus:ring-2 focus:ring-primary/40" />
+        <button type="button" onClick={addCustom} className="px-2 h-8 rounded-md border border-border text-xs hover:bg-surface-2">Add</button>
+      </div>
+    </div>
+  );
+}
+
 function DriversPage() {
   const router = useRouter();
   const drivers = useDrivers();
@@ -62,6 +97,7 @@ function DriversPage() {
   const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "", home_warehouse_id: "", return_to_base_required: false });
   const [editPattern, setEditPattern] = useState<{ days: number[]; times: Record<number, { start_time: string | null; end_time: string | null }> } | null>(null);
   const [editEquip, setEditEquip] = useState<string[]>([]);
+  const [createEquip, setCreateEquip] = useState<string[]>([]);
   const equipmentTypes = useEquipmentTypes();
   const eqClient = supabase as unknown as { from: (t: string) => any };
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
@@ -201,6 +237,8 @@ function DriversPage() {
       toast.error(error?.message ?? "Failed to add driver");
       return;
     }
+    const newId = (data as { id: string }).id;
+    if (createEquip.length) await eqClient.from("driver_equipment").insert(createEquip.map((t) => ({ driver_id: newId, equipment_type: t })));
     const code = (data as { login_code?: string | null }).login_code;
     if (code) {
       await navigator.clipboard?.writeText(code).catch(() => {});
@@ -209,6 +247,7 @@ function DriversPage() {
       toast.success("Driver added");
     }
     setOpen(false);
+    setCreateEquip([]);
     setForm({ name: "", phone: "", home_warehouse_id: "", return_to_base_required: false });
     router.invalidate();
   }
@@ -395,11 +434,17 @@ function DriversPage() {
                   />
                 </button>
               </div>
+
+              {/* Vehicle / equipment capabilities */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-2">Vehicle / equipment</label>
+                <EquipmentPicker value={createEquip} onChange={setCreateEquip} options={equipmentTypes} />
+              </div>
             </div>
 
             <div className="flex gap-3">
               <button
-                onClick={() => setOpen(false)}
+                onClick={() => { setOpen(false); setCreateEquip([]); }}
                 className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-surface hover:bg-surface-2 text-sm font-medium transition-colors"
               >
                 Cancel
@@ -490,26 +535,8 @@ function DriversPage() {
 
               {/* Equipment capabilities */}
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">Equipment</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {equipmentTypes.length === 0 ? (
-                    <span className="text-xs text-muted-foreground">No equipment types found yet.</span>
-                  ) : (
-                    equipmentTypes.map((t) => {
-                      const on = editEquip.includes(t);
-                      return (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => setEditEquip((s) => (on ? s.filter((x) => x !== t) : [...s, t]))}
-                          className={"px-2 py-1 rounded-md text-[11px] font-mono border transition " + (on ? "bg-primary/15 border-primary text-primary" : "bg-surface border-border text-muted-foreground")}
-                        >
-                          {t}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
+                <label className="text-xs font-medium text-muted-foreground block mb-2">Vehicle / equipment</label>
+                <EquipmentPicker value={editEquip} onChange={setEditEquip} options={equipmentTypes} />
               </div>
 
               {/* Weekly schedule pattern */}
