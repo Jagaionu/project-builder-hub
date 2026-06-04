@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { ChevronDown, ChevronUp, Trash2, Copy, RefreshCw, Clock, Package } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { logActivity } from "@/lib/activity-log";
 import { computeStopSchedule } from "@/lib/geo";
 import { getTenantId } from "@/lib/tenant-insert";
 import type { Warehouse } from "@/lib/types";
@@ -118,6 +119,7 @@ export default function RouteDialog({
         }
         const jobData = data as { id: string; reference: string };
         targetJobId = jobData.id;
+        void logActivity("lane.create", { entityType: "job", entityId: jobData.id, entityRef: jobData.reference });
         // Show the auto-generated reference if one was created
         if (!vrid.trim()) {
           toast.info(`Created with ID: ${jobData.reference}`);

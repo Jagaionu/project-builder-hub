@@ -3,8 +3,9 @@ import { Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
+import { useTenant } from "@/lib/tenant-context";
 
-type RouteNote = { id: string; body: string; created_at: string };
+type RouteNote = { id: string; body: string; created_at: string; author_name: string | null; author_email: string | null };
 
 // Notes attached to a route/VRID. Backed by public.route_notes (see SQL in the
 // handoff); rows cascade-delete when the job is deleted. Typed via `as never`
@@ -15,11 +16,12 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
   const [count, setCount] = useState(0);
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
+  const { userId, name, email } = useTenant();
 
   const load = useCallback(async () => {
     const { data } = await supabase
       .from("route_notes" as never)
-      .select("id, body, created_at")
+      .select("id, body, created_at, author_name, author_email")
       .eq("job_id", jobId)
       .order("created_at", { ascending: false });
     const rows = (data ?? []) as unknown as RouteNote[];
@@ -37,7 +39,7 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
       const tenant_id = await getTenantId();
       const { error } = await supabase
         .from("route_notes" as never)
-        .insert({ job_id: jobId, body: text, tenant_id } as never);
+        .insert({ job_id: jobId, body: text, tenant_id, author_user_id: userId, author_name: name ?? null, author_email: email } as never);
       if (error) throw error;
       setBody("");
       await load();
@@ -89,14 +91,27 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
                     className="rounded-md border px-3 py-2 text-xs shadow-sm"
                     style={{ background: "#FFF5BA", borderColor: "#E8D77A", color: "#3a2f00" }}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="flex-1 whitespace-pre-wrap break-words">{n.body}</p>
-                      <button onClick={() => remove(n.id)} title="Delete note" className="shrink-0 opacity-60 hover:opacity-100 hover:text-red-600">
-                        <Trash2 className="size-3" />
-                      </button>
-                    </div>
-                    <div className="mt-1 font-mono text-[10px] opacity-60">
-                      {new Date(n.created_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}
+                    <div className="flex items-start gap-2">
+                      <span
+                        className="size-6 shrink-0 grid place-items-center rounded-full text-[10px] font-bold"
+                        style={{ background: "#E8D77A", color: "#3a2f00" }}
+                      >
+                        {(n.author_name ?? n.author_email ?? "?").charAt(0).toUpperCase()}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium truncate">
+                            {n.author_name ?? n.author_email ?? "—"}
+                            <span className="ml-1.5 font-mono opacity-50">
+                              {new Date(n.created_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}
+                            </span>
+                          </span>
+                          <button onClick={() => remove(n.id)} title="Delete note" className="shrink-0 opacity-60 hover:opacity-100 hover:text-red-600">
+                            <Trash2 className="size-3" />
+                          </button>
+                        </div>
+                        <p className="mt-1 whitespace-pre-wrap break-words">{n.body}</p>
+                      </div>
                     </div>
                   </div>
 

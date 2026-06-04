@@ -15,6 +15,7 @@ import { refreshDriverDay } from "@/lib/shift-ledger.functions";
 import { fetchShiftsByDriver } from "@/lib/driver-shifts";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
+import { logActivity } from "@/lib/activity-log";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme-context";
 
@@ -322,6 +323,7 @@ function DispatchPage() {
       } catch (e) {
         console.warn("[dispatch] failed to log JOB_ASSIGNED", e);
       }
+      void logActivity("job.assign", { entityType: "job", entityId: jobId, entityRef: job?.reference, metadata: { driverId, manual: opts?.manual ?? false } });
     } else if (job?.assigned_driver_id) {
       await supabase
         .from("drivers")
@@ -404,6 +406,7 @@ function DispatchPage() {
       const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversPlanned} driver${r.driversPlanned === 1 ? "" : "s"}`;
       if (r.unassignable.length) toast.warning(`${msg} · ${r.unassignable.length} unassignable`);
       else toast.success(msg);
+      void logActivity("plan.run", { entityType: "plan", metadata: { assigned: r.assigned, total: r.totalJobs, driversPlanned: r.driversPlanned } });
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -430,6 +433,9 @@ function DispatchPage() {
       applyJobPatch(jobId, { status: prevStatus });
       toast.error(error.message);
       return;
+    }
+    if (status === "CANCELLED") {
+      void logActivity("job.cancel", { entityType: "job", entityId: jobId, entityRef: job.reference });
     }
     if (!opts?.silent) {
       toast.success(`Status → ${STATUS_CONFIG[status as JobStatus]?.label ?? status}`);

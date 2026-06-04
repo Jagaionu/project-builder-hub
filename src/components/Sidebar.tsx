@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Map, Truck, Warehouse, ClipboardList,
-  AlertTriangle, LogOut, Shield, Users,
+  AlertTriangle, LogOut, Shield, Users, ScrollText,
 } from "lucide-react";
 import { useAlertCount, useUnassignedJobCount } from "@/lib/use-alerts";
 import { useTenant, useFeatureFlags } from "@/lib/tenant-context";
@@ -12,6 +12,7 @@ import { AutoRefreshButton } from "@/components/dispatch/toolbar";
 import { AIChatWidget } from "@/components/ai/ChatWidget";
 import { usePendingTacho } from "@/lib/use-pending-tacho";
 import { useTheme } from "@/lib/theme-context";
+import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import brandLogo from "@/assets/brand-logo.png";
 
 const ALL_NAV: ReadonlyArray<{
@@ -25,6 +26,7 @@ const ALL_NAV: ReadonlyArray<{
   { to: "/drivers",    label: "Drivers",    icon: Users,         module: "drivers" },
   { to: "/warehouses", label: "Warehouses", icon: Warehouse,     module: "warehouses" },
   { to: "/alerts",     label: "Alerts",     icon: AlertTriangle, module: "alerts" },
+  { to: "/events",     label: "Events",     icon: ScrollText,    module: "events" },
 ];
 
 export function Sidebar() {
@@ -32,7 +34,7 @@ export function Sidebar() {
   const alertCount      = useAlertCount();
   const unassignedCount = useUnassignedJobCount();
   const { driverCount: pendingTachoCount } = usePendingTacho();
-  const { company, email, role, isSuperAdmin } = useTenant();
+  const { company, email, role, isSuperAdmin, name, userId } = useTenant();
   const flags = useFeatureFlags();
   const { cycleAccent, accentColor } = useTheme();
 
@@ -177,15 +179,16 @@ export function Sidebar() {
               border: "1px solid var(--border)",
             }}
           >
-            {email.charAt(0).toUpperCase()}
+            {(name ?? email).charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[11px] text-muted-foreground truncate leading-tight">{email}</div>
+            <div className="text-[11px] text-muted-foreground truncate leading-tight">{name ?? email}</div>
             <div className="text-[9px] font-mono uppercase tracking-widest mt-0.5"
               style={{ color: "var(--muted-foreground-2)" }}>
               {role}
             </div>
           </div>
+          <ProfileSwitcher currentUserId={userId} />
           <button
             onClick={signOut}
             title="Sign out"

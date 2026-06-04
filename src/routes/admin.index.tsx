@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Company, SubscriptionStatus, CompanyPlan, TenantConfig, TenantModule, Warehouse } from "@/lib/types";
 import { DEFAULT_TENANT_CONFIG } from "@/lib/types";
-import { createCompanyAdmin, listCompanyMembers } from "@/lib/admin-users.functions";
+import { createCompanyAdmin, listCompanyMembers, createCompanyProfile, resetProfilePassword, deleteProfile } from "@/lib/admin-users.functions";
 import {
   CheckCircle, XCircle, Clock, Ban,
   Plus, ChevronDown, ChevronUp, Save, UserPlus, Copy, Trash2, Pencil,
@@ -29,7 +29,7 @@ const STATUS_CONFIG: Record<SubscriptionStatus, { label: string; color: string; 
   cancelled: { label: "Cancelled",  color: "text-muted-foreground", icon: XCircle },
 };
 
-const ALL_MODULES: ReadonlyArray<TenantModule> = ["dispatch", "jobs", "drivers", "warehouses", "alerts", "maps", "ai_agent"];
+const ALL_MODULES: ReadonlyArray<TenantModule> = ["dispatch", "jobs", "drivers", "warehouses", "alerts", "events", "maps", "ai_agent"];
 
 const MODULE_LABELS: Record<TenantModule, string> = {
   dispatch: "Dispatch",
@@ -506,9 +506,15 @@ function CompanyRow({
   const [config, setConfig] = useState<TenantConfig>({ ...DEFAULT_TENANT_CONFIG, ...company.config });
   const [creating, setCreating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [members, setMembers] = useState<Array<{ id: string; user_id: string; role: string; email: string | null; password: string | null }>>([]);
+  const [members, setMembers] = useState<Array<{ id: string; user_id: string; role: string; name: string | null; must_set_password: boolean; email: string | null; password: string | null }>>([]);
   const createAdmin = useServerFn(createCompanyAdmin);
   const fetchMembers = useServerFn(listCompanyMembers);
+  const addProfile = useServerFn(createCompanyProfile);
+  const resetPwd = useServerFn(resetProfilePassword);
+  const delProfile = useServerFn(deleteProfile);
+  const [profileName, setProfileName] = useState("");
+  const [issued, setIssued] = useState<{ name: string; email: string; tempPassword: string } | null>(null);
+  const [profileBusy, setProfileBusy] = useState(false);
 
   const derivedEmail = `${company.slug}@admin.local`;
 
@@ -765,39 +771,121 @@ function CompanyRow({
           </button>
 
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Admin Users</div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Users &amp; Profiles</div>
             {members.length > 0 ? (
               <div className="space-y-2">
                 {members.map((m) => (
                   <div key={m.id} className="flex items-center justify-between gap-2 rounded-md bg-surface-2 px-3 py-2 text-sm">
-                    <div>
-                      <div className="font-mono text-xs">{m.email}</div>
-                      <div className="text-[11px] text-muted-foreground capitalize">{m.role}</div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-medium truncate">{m.name ?? m.email ?? m.user_id.slice(0, 8)}</div>
+                      <div className="font-mono text-[11px] text-muted-foreground truncate">{m.email}</div>
+                      <div className="text-[11px] text-muted-foreground capitalize">
+                        {m.role}{m.must_set_password ? " · must set password" : ""}
+                      </div>
                     </div>
-                    {m.password && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      {m.password && (
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(m.password!); toast.success("Password copied"); }}
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                        >
+                          <Copy className="size-3" /> Copy
+                        </button>
+                      )}
                       <button
-                        onClick={() => { navigator.clipboard.writeText(m.password!); toast.success("Password copied"); }}
-                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground shrink-0"
+                        disabled={profileBusy}
+                        onClick={async () => {
+                          setProfileBusy(true);
+                          try {
+                            const r = await resetPwd({ data: { memberId: m.id } }) as { tempPassword: string };
+                            setIssued({ name: m.name ?? m.email ?? "", email: m.email ?? "", tempPassword: r.tempPassword });
+                            toast.success("Password reset");
+                            setRefreshKey((k) => k + 1);
+                          } catch (err) { toast.error(err instanceof Error ? err.message : "Reset failed"); }
+                          finally { setProfileBusy(false); }
+                        }}
+                        className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"
                       >
-                        <Copy className="size-3" /> Copy
+                        Reset
                       </button>
-                    )}
+                      <button
+                        disabled={profileBusy}
+                        onClick={async () => {
+                          if (!confirm(`Delete profile "${m.name ?? m.email}"? This removes their login.`)) return;
+                          setProfileBusy(true);
+                          try {
+                            await delProfile({ data: { memberId: m.id } });
+                            toast.success("Profile deleted");
+                            setRefreshKey((k) => k + 1);
+                          } catch (err) { toast.error(err instanceof Error ? err.message : "Delete failed"); }
+                          finally { setProfileBusy(false); }
+                        }}
+                        className="text-destructive/80 hover:text-destructive disabled:opacity-50"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
               <p className="text-[11px] text-muted-foreground">
-                No admin yet. Generate credentials to create the company's login.
+                No users yet. Generate the admin login or add a profile by name.
               </p>
             )}
+
+            {issued && (
+              <div className="mt-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-primary mb-1">One-time credentials — copy now</div>
+                <div className="font-mono break-all">{issued.email}</div>
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  <span className="font-mono break-all">{issued.tempPassword}</span>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(issued.tempPassword); toast.success("Password copied"); }}
+                    className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground shrink-0"
+                  >
+                    <Copy className="size-3" /> Copy
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-2 flex flex-wrap gap-2 items-center">
+              <input
+                type="text"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                placeholder="Associate name (e.g. Jane Smith)"
+                className="flex-1 min-w-[180px] rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <button
+                type="button"
+                disabled={profileBusy || !profileName.trim()}
+                onClick={async () => {
+                  setProfileBusy(true);
+                  try {
+                    const r = await addProfile({ data: { companyId: company.id, name: profileName.trim() } }) as { name: string; email: string; tempPassword: string };
+                    setIssued(r);
+                    setProfileName("");
+                    toast.success(`Profile "${r.name}" created`);
+                    setRefreshKey((k) => k + 1);
+                  } catch (err) { toast.error(err instanceof Error ? err.message : "Create failed"); }
+                  finally { setProfileBusy(false); }
+                }}
+                className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                <UserPlus className="size-4" /> Add profile
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={handleGenerateCredentials}
               disabled={creating}
-              className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="mt-2 flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             >
               <UserPlus className="size-4" />
-              {creating ? "Working…" : members.length > 0 ? "Regenerate password" : "Generate credentials"}
+              {creating ? "Working…" : members.length > 0 ? "Regenerate admin password" : "Generate admin credentials"}
             </button>
           </div>
 

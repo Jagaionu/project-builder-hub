@@ -14,6 +14,7 @@ import { effectiveDriverStatus } from "@/lib/effective-status";
 import { useDriverSchedule } from "@/lib/use-driver-schedule";
 import { DispatchStat } from "@/components/dispatch/toolbar";
 import { useEquipmentTypes } from "@/lib/use-equipment-types";
+import { logActivity } from "@/lib/activity-log";
 import { DriverQueue } from "@/components/drivers/driver-queue";
 import { DriverDetailPanel } from "@/components/drivers/driver-detail-panel";
 import { FormField } from "@/components/shared/form-field";
@@ -239,6 +240,7 @@ function DriversPage() {
     }
     const newId = (data as { id: string }).id;
     if (createEquip.length) await eqClient.from("driver_equipment").insert(createEquip.map((t) => ({ driver_id: newId, equipment_type: t })));
+    void logActivity("driver.create", { entityType: "driver", entityId: newId, entityRef: form.name });
     const code = (data as { login_code?: string | null }).login_code;
     if (code) {
       await navigator.clipboard?.writeText(code).catch(() => {});
@@ -286,6 +288,7 @@ function DriversPage() {
     if (error) { toast.error(error.message); return; }
     await eqClient.from("driver_equipment").delete().eq("driver_id", editingId);
     if (editEquip.length) await eqClient.from("driver_equipment").insert(editEquip.map((t) => ({ driver_id: editingId, equipment_type: t })));
+    void logActivity("driver.edit", { entityType: "driver", entityId: editingId, entityRef: editForm.name });
     toast.success("Driver updated");
     setEditingId(null);
     router.invalidate();

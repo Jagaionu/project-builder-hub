@@ -107,6 +107,8 @@ export interface AuthContext {
   company: Company;
   role: MemberRole;
   isSuperAdmin: boolean;
+  name?: string | null;
+  mustSetPassword?: boolean;
 }
 
 export const DEFAULT_TENANT_CONFIG: TenantConfig = {

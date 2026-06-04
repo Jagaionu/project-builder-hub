@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Ban, Check, Clock, Copy, CopyPlus, MapPin, MoreHorizontal, Pencil, RotateCcw } from "lucide-react";
+import { ArrowRight, Ban, Check, Clock, Copy, CopyPlus, MapPin, MoreHorizontal, Pencil, RotateCcw, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,87 @@ import type { PlannedAssign } from "@/lib/planner";
 import { ComplianceDot, DriverPicker, PlannedChip, StatusPill } from "./pickers";
 import { RouteNotesButton } from "./route-notes";
 import { useDriverEquipment } from "@/lib/use-driver-equipment";
+
+const VRID_AUDIT_LABEL: Record<string, string> = {
+  "lane.create": "Lane created",
+  "lane.upload": "Lanes uploaded",
+  "plan.run": "Planner run",
+  "job.cancel": "Route cancelled",
+  "job.assign": "Driver assigned",
+  "job.delete": "Job deleted",
+  "import.delete": "Import deleted",
+};
+
+type AuditRow = { id: string; actor_name: string | null; actor_email: string | null; action: string; created_at: string };
+
+// Clickable VRID → per-job audit trail (Login | Event Date | Action), regardless
+// of the job's status. Reads the 14-day activity_log for this job's entity_id.
+function VridAuditButton({ jobId, reference }: { jobId: string; reference: string }) {
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<AuditRow[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!open || loaded) return;
+    const sb = supabase as unknown as { from: (t: string) => any };
+    sb.from("activity_log")
+      .select("id, actor_name, actor_email, action, created_at")
+      .eq("entity_type", "job")
+      .eq("entity_id", jobId)
+      .order("created_at", { ascending: false })
+      .then(({ data }: { data: AuditRow[] | null }) => { setRows(data ?? []); setLoaded(true); });
+  }, [open, loaded, jobId]);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title="View audit trail"
+        className="font-mono text-xs text-muted-foreground hover:text-primary underline-offset-2 hover:underline"
+      >
+        {reference}
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setOpen(false)}>
+          <div className="bg-surface rounded-xl border border-border shadow-2xl w-full max-w-lg p-5 max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-0.5">
+              <h3 className="text-sm font-semibold">Audit · {reference}</h3>
+              <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+            </div>
+            <p className="text-[11px] text-muted-foreground mb-3">Activity for this lane (last 14 days)</p>
+            <div className="flex-1 overflow-auto">
+              {rows.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">{loaded ? "No audit events for this lane." : "Loading…"}</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-[10px] font-mono uppercase tracking-widest text-muted-foreground border-b border-border">
+                      <th className="py-2 pr-4">Login</th>
+                      <th className="py-2 pr-4">Event Date</th>
+                      <th className="py-2">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.id} className="border-b border-border/50">
+                        <td className="py-2 pr-4">{r.actor_name ?? r.actor_email ?? "—"}</td>
+                        <td className="py-2 pr-4 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(r.created_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}
+                        </td>
+                        <td className="py-2">{VRID_AUDIT_LABEL[r.action] ?? r.action}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 export const JobDetailPanel = memo(function JobDetailPanel({
   job, stops, warehouses, drivers, compliance, lookups, planned,
@@ -119,7 +200,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
         <div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
-              <span className="font-mono text-xs text-muted-foreground">{job.reference}</span>
+              <VridAuditButton jobId={job.id} reference={job.reference} />
               <CopyButton value={job.reference} title="Copy reference" />
             </div>
             <StatusPill status={effectiveStatus} onChange={onSetStatus} />

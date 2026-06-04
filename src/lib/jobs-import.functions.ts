@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getUserTenantId, isSuperAdmin } from "@/lib/auth-helpers.server";
+import { logActivityServer } from "@/lib/activity-log.server";
 
 export type ImportRow = {
   reference: string;          // Load #
@@ -253,6 +254,22 @@ export const importJobsCsv = createServerFn({ method: "POST" })
           error_count:     out.errors.length,
         } as never)
         .eq("id", batchId);
+    }
+
+    if (tenantId) {
+      const { data: actor } = await (supabaseAdmin as unknown as { from: (t: string) => any })
+        .from("company_members").select("name, email").eq("user_id", userId).maybeSingle();
+      await logActivityServer({
+        tenantId,
+        actorUserId: userId,
+        actorEmail: actor?.email ?? null,
+        actorName: actor?.name ?? null,
+        action: "lane.upload",
+        entityType: "import",
+        entityId: batchId,
+        entityRef: data.fileName,
+        metadata: { created: out.created, parked: out.parked.length, errors: out.errors.length },
+      });
     }
 
     return out;

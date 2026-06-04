@@ -1,7 +1,11 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Sidebar } from "@/components/Sidebar";
 import { TenantProvider } from "@/lib/tenant-context";
 import { supabase } from "@/integrations/supabase/client";
+import { completeFirstLogin } from "@/lib/admin-users.functions";
 import type { AuthContext, Company, MemberRole } from "@/lib/types";
 
 export const Route = createFileRoute("/_app")({
@@ -26,9 +30,9 @@ export const Route = createFileRoute("/_app")({
 
     const { data: memberRow, error: memberError } = await supabase
       .from("company_members" as never)
-      .select("role, company_id")
+      .select("role, company_id, name, must_set_password")
       .eq("user_id", session.user.id)
-      .maybeSingle<{ role: string; company_id: string }>();
+      .maybeSingle<{ role: string; company_id: string; name: string | null; must_set_password: boolean | null }>();
 
     if (memberError || !memberRow) {
       await supabase.auth.signOut();
@@ -69,6 +73,8 @@ export const Route = createFileRoute("/_app")({
       company,
       role: memberRow.role as MemberRole,
       isSuperAdmin: !!superAdminRow,
+      name: memberRow.name ?? null,
+      mustSetPassword: !!memberRow.must_set_password,
     };
   },
   component: AppLayout,
@@ -76,6 +82,9 @@ export const Route = createFileRoute("/_app")({
 
 function AppLayout() {
   const authCtx = Route.useRouteContext() as unknown as AuthContext;
+  if (authCtx.mustSetPassword) {
+    return <SetPasswordGate />;
+  }
   return (
     <TenantProvider value={authCtx}>
       <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
@@ -85,5 +94,66 @@ function AppLayout() {
         </main>
       </div>
     </TenantProvider>
+  );
+}
+
+// First-login gate: associates created with a one-time password must set their
+// own personal password before using the app. Clears must_set_password.
+function SetPasswordGate() {
+  const complete = useServerFn(completeFirstLogin);
+  const [pw, setPw] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (pw.length < 8) return toast.error("Password must be at least 8 characters");
+    if (pw !== confirm) return toast.error("Passwords don't match");
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pw });
+      if (error) throw new Error(error.message);
+      await complete({});
+      toast.success("Password set");
+      window.location.href = "/";
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't set password");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground p-4">
+      <form onSubmit={submit} className="w-full max-w-sm rounded-xl border border-border bg-surface p-6 space-y-4">
+        <div>
+          <h1 className="text-lg font-semibold">Set your password</h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            Choose a personal password to finish setting up your profile.
+          </p>
+        </div>
+        <input
+          type="password"
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
+          placeholder="New password"
+          autoFocus
+          className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+        />
+        <input
+          type="password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          placeholder="Confirm password"
+          className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+        />
+        <button
+          type="submit"
+          disabled={busy}
+          className="w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+        >
+          {busy ? "Saving…" : "Set password & continue"}
+        </button>
+      </form>
+    </div>
   );
 }

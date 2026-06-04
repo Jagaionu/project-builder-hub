@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { randomBytes } from "node:crypto";
 
 const Input = z.object({
   companyId: z.string().uuid(),
@@ -122,14 +123,14 @@ export const listCompanyMembers = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!sa) throw new Error("Forbidden");
 
-    const { data: members, error } = await supabaseAdmin
+    const { data: members, error } = await (supabaseAdmin as unknown as { from: (t: string) => any })
       .from("company_members")
-      .select("id, user_id, role, created_at")
+      .select("id, user_id, role, name, must_set_password, created_at")
       .eq("company_id", data.companyId)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
 
-    const results: Array<{ id: string; user_id: string; role: string; email: string | null; password: string | null; created_at: string }> = [];
+    const results: Array<{ id: string; user_id: string; role: string; name: string | null; must_set_password: boolean; email: string | null; password: string | null; created_at: string }> = [];
     for (const m of members ?? []) {
       const { data: u } = await supabaseAdmin.auth.admin.getUserById(m.user_id);
       const { data: cred } = await supabaseAdmin
@@ -141,10 +142,183 @@ export const listCompanyMembers = createServerFn({ method: "POST" })
         id: m.id,
         user_id: m.user_id,
         role: m.role,
-        email: u.user?.email ?? null,
+        name: m.name ?? null,
+        must_set_password: !!m.must_set_password,
+        email: m.email ?? u.user?.email ?? null,
         password: ((cred as { password?: string } | null)?.password) ?? null,
         created_at: m.created_at,
       });
     }
     return results;
+  });
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// Per-company profiles (name-based login). Super-admin managed: create / reset
+// password / delete. Associates log in with an auto-generated hidden email and
+// set their own personal password on first login (must_set_password gate).
+// ─────────────────────────────────────────────────────────────────────────
+const sbAny = supabaseAdmin as unknown as { from: (t: string) => any };
+
+function slugifyName(s: string): string {
+  return (
+    s
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[^a-z0-9]+/g, ".")
+      .replace(/^\.+|\.+$/g, "")
+      .slice(0, 40) || "user"
+  );
+}
+
+// One-time temp password with mixed character classes (satisfies any policy).
+function genTempPassword(): string {
+  return randomBytes(9).toString("base64url") + "A1!";
+}
+
+async function assertSuperAdmin(userId: string): Promise<void> {
+  const { data: sa } = await supabaseAdmin
+    .from("super_admins")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!sa) throw new Error("Forbidden: super admin only");
+}
+
+const CreateProfileInput = z.object({
+  companyId: z.string().uuid(),
+  name: z.string().trim().min(1).max(120),
+});
+
+export const createCompanyProfile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => CreateProfileInput.parse(data))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.userId);
+
+    const { data: company, error: cErr } = await supabaseAdmin
+      .from("companies")
+      .select("slug")
+      .eq("id", data.companyId)
+      .maybeSingle();
+    if (cErr) throw new Error(cErr.message);
+    if (!company) throw new Error("Company not found");
+    const slug = (company as { slug: string }).slug;
+
+    const password = genTempPassword();
+    const base = slugifyName(data.name);
+    const domain = `${slug}.users.theprimeroute.app`;
+
+    // Create the auth user, retrying with a random suffix on email collision.
+    let email = `${base}@${domain}`;
+    let userId: string | null = null;
+    for (let attempt = 0; attempt < 6 && !userId; attempt++) {
+      const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+      if (created?.user) {
+        userId = created.user.id;
+        break;
+      }
+      const msg = error?.message?.toLowerCase() ?? "";
+      const duplicate =
+        msg.includes("already") || (error as { code?: string } | null)?.code === "email_exists";
+      if (!duplicate) throw new Error(error?.message ?? "Failed to create profile");
+      email = `${base}.${randomBytes(2).toString("hex")}@${domain}`;
+    }
+    if (!userId) throw new Error("Could not allocate a unique login for that name");
+
+    const { error: mErr } = await sbAny.from("company_members").insert({
+      company_id: data.companyId,
+      user_id: userId,
+      role: "member",
+      name: data.name,
+      email,
+      must_set_password: true,
+    });
+    if (mErr) {
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      throw new Error(`Failed to link profile: ${mErr.message}`);
+    }
+
+    await sbAny
+      .from("admin_credentials")
+      .upsert({ user_id: userId, email, password }, { onConflict: "user_id" });
+
+    // tempPassword is returned for one-time display only; never logged.
+    return { name: data.name, email, tempPassword: password };
+  });
+
+const MemberInput = z.object({ memberId: z.string().uuid() });
+
+export const resetProfilePassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => MemberInput.parse(data))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.userId);
+
+    const { data: m } = await sbAny
+      .from("company_members")
+      .select("user_id, email")
+      .eq("id", data.memberId)
+      .maybeSingle();
+    if (!m) throw new Error("Profile not found");
+
+    const password = genTempPassword();
+    const { error: uErr } = await supabaseAdmin.auth.admin.updateUserById(m.user_id, {
+      password,
+      email_confirm: true,
+    });
+    if (uErr) throw new Error(uErr.message);
+
+    await sbAny.from("company_members").update({ must_set_password: true }).eq("id", data.memberId);
+    await sbAny
+      .from("admin_credentials")
+      .upsert({ user_id: m.user_id, email: m.email, password }, { onConflict: "user_id" });
+
+    return { tempPassword: password };
+  });
+
+export const deleteProfile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => MemberInput.parse(data))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.userId);
+
+    const { data: m } = await sbAny
+      .from("company_members")
+      .select("user_id, role, company_id")
+      .eq("id", data.memberId)
+      .maybeSingle();
+    if (!m) throw new Error("Profile not found");
+
+    // Never leave a company without an admin.
+    if (m.role === "admin") {
+      const { count } = await sbAny
+        .from("company_members")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", m.company_id)
+        .eq("role", "admin");
+      if ((count ?? 0) <= 1) throw new Error("Cannot delete the last admin of a company");
+    }
+
+    await sbAny.from("admin_credentials").delete().eq("user_id", m.user_id);
+    // Deleting the auth user cascades the company_members row (FK ON DELETE CASCADE).
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(m.user_id);
+    if (error) throw new Error(error.message);
+
+    return { ok: true };
+  });
+
+// Called by an associate after they set their own password on first login.
+export const completeFirstLogin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await sbAny
+      .from("company_members")
+      .update({ must_set_password: false })
+      .eq("user_id", context.userId);
+    return { ok: true };
   });

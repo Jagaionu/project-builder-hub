@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getUserTenantId, isSuperAdmin } from "@/lib/auth-helpers.server";
+import { logActivityServer } from "@/lib/activity-log.server";
 
 /**
  * Delete an import batch and all jobs created from it.
@@ -48,6 +49,20 @@ export const deleteImportBatch = createServerFn({ method: "POST" })
       .eq("id", data.batchId);
 
     if (delErr) throw new Error(delErr.message);
+
+    const { data: actor } = await (supabaseAdmin as unknown as { from: (t: string) => any })
+      .from("company_members").select("name, email").eq("user_id", userId).maybeSingle();
+    await logActivityServer({
+      tenantId: (batch as { tenant_id: string }).tenant_id,
+      actorUserId: userId,
+      actorEmail: actor?.email ?? null,
+      actorName: actor?.name ?? null,
+      action: "import.delete",
+      entityType: "import",
+      entityId: data.batchId,
+      entityRef: (batch as { file_name: string }).file_name,
+      metadata: { deleted: count ?? 0 },
+    });
 
     return { ok: true, deleted: count ?? 0 };
   });
