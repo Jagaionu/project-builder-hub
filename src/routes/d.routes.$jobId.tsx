@@ -139,6 +139,29 @@ function JobDetail() {
     }
   };
 
+  // GPS-confirmed arrival at the drop = the last stop has an arrived_at.
+  const dropArrived = !!sortedStops[sortedStops.length - 1]?.arrived_at;
+
+  const confirmUnloaded = async () => {
+    if (!driver) return;
+    setBusy(true);
+    try {
+      await supabase.from("jobs").update({ status: "COMPLETED" } as never).eq("id", job.id);
+      await supabase.from("drivers").update({ status: "AVAILABLE" } as never).eq("id", driver.id);
+      await supabase.from("driver_events").insert({
+        driver_id: driver.id,
+        type: "UNLOADED",
+        payload: { job_id: job.id, job_reference: job.reference },
+        tenant_id: await getTenantId(),
+      } as never);
+      toast.success("Unloaded — route completed");
+      navigate({ to: "/d" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+      setBusy(false);
+    }
+  };
+
   const saveNote = async () => {
     if (!driver || !note.trim()) return;
     setBusy(true);
@@ -262,6 +285,16 @@ function JobDetail() {
       <p className="mt-2 text-xs text-muted-foreground text-center">
         Arrivals are confirmed automatically when you reach each stop.
       </p>
+
+      {dropArrived && job.status !== "COMPLETED" && (
+        <button
+          onClick={confirmUnloaded}
+          disabled={busy}
+          className="mt-4 w-full bg-success text-success-foreground font-bold py-4 rounded-xl active:scale-[0.99] transition disabled:opacity-50"
+        >
+          ✓ Confirm unloaded
+        </button>
+      )}
 
 
       <div className="mt-6 bg-card border border-border rounded-2xl p-4">

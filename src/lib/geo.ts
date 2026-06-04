@@ -43,7 +43,7 @@ export function stopDwellMinutes(kind: "PICKUP" | "DROP", handlingMin?: number):
   return (kind === "PICKUP" ? LOADING_MINUTES : UNLOADING_MINUTES) + CHECKS_MINUTES;
 }
 
-export const GEOFENCE_RADIUS_M = 300;
+export const GEOFENCE_RADIUS_M = 50;
 export function isInsideGeofence(driverLat: number, driverLon: number, whLat: number, whLon: number) {
   return haversineKm(driverLat, driverLon, whLat, whLon) * 1000 <= GEOFENCE_RADIUS_M;
 }

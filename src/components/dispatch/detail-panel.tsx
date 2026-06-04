@@ -472,6 +472,14 @@ function useAutoComplete(job: Job, stops: Stop[], onSetStatus: (s: string, opts?
     if (autoCompletedJobs.has(job.id)) return;
     if (!stops.every((s) => !!s.arrived_at)) return;
 
+    // Respect the scheduled unloading time: don't auto-complete on drop arrival —
+    // wait until the drop's scheduled departure (arrival + handling). The driver
+    // can finish earlier via the "Confirm unloaded" button.
+    const last = stops[stops.length - 1];
+    const handlingMin = (job as { handling_minutes?: number | null }).handling_minutes ?? 20;
+    const dropDepartMs = last.scheduled_at ? new Date(last.scheduled_at).getTime() + handlingMin * 60_000 : 0;
+    if (dropDepartMs && Date.now() < dropDepartMs) return;
+
     const anyDelayed = stops.some((s) => {
       const planned = s.scheduled_at;
       if (!planned || !s.arrived_at) return false;

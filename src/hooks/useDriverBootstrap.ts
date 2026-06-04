@@ -84,8 +84,9 @@ async function refreshJobs(driverId: string) {
 const MIN_INTERVAL_MS = 30_000;
 const MIN_MOVE_KM = 0.05;
 
-// Geofence radius for automatic arrival confirmation (~120 m).
-const ARRIVAL_RADIUS_KM = 0.12;
+// Geofence radius for automatic arrival confirmation (~50 m) — a driver can
+// enter at any gate, so allow a little slack around the warehouse coordinate.
+const ARRIVAL_RADIUS_KM = 0.05;
 const arrivingStops = new Set<string>();
 
 async function autoArriveNearby(driverId: string, p: GPSPosition) {
