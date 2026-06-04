@@ -59,7 +59,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
     () => {
       const basis = job.planned_start_at ?? job.scheduled_at;
       return basis
-        ? computeStopSchedule(stops, basis, warehouses)
+        ? computeStopSchedule(stops, basis, warehouses, (job as { handling_minutes?: number | null }).handling_minutes ?? undefined)
         : stops.map((s) => s.scheduled_at);
     },
     [job.planned_start_at, job.scheduled_at, stops, warehouses],

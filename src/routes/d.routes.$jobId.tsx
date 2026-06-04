@@ -53,7 +53,8 @@ function JobDetail() {
     .filter((s) => s.warehouse)
     .map((s) => ({ kind: s.kind, warehouse_id: s.warehouse_id }));
 
-  const totalMin = stopsForCalc.length ? jobTotalMinutes(stopsForCalc, whs) : 0;
+  const hm = (job as { handling_minutes?: number | null }).handling_minutes ?? undefined;
+  const totalMin = stopsForCalc.length ? jobTotalMinutes(stopsForCalc, whs, hm) : 0;
   const totalLabel =
     totalMin >= 60 ? `${Math.floor(totalMin / 60)}h ${totalMin % 60}m` : `${totalMin}m`;
 
@@ -74,7 +75,7 @@ function JobDetail() {
       cursorMs += transitMin * 60_000;
     }
     if (i < sortedStops.length - 1) {
-      cursorMs += stopDwellMinutes(s.kind) * 60_000;
+      cursorMs += stopDwellMinutes(s.kind, hm) * 60_000;
     }
     prevLat = wh.latitude;
     prevLon = wh.longitude;

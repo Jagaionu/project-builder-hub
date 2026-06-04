@@ -25,7 +25,7 @@ export default function RouteDialog({
 }: {
   mode: "create" | "edit";
   jobId?: string;
-  initial?: { scheduled_at: string | null; stops: Stop[] };
+  initial?: { scheduled_at: string | null; stops: Stop[]; handling_minutes?: number | null };
   onClose: () => void;
   warehouses: Warehouse[];
 }) {
@@ -41,6 +41,9 @@ export default function RouteDialog({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [open, setOpen] = useState(true);
+  const HANDLING_PRESETS = [10, 15, 20, 25, 30];
+  const [handling, setHandling] = useState<number>(initial?.handling_minutes ?? 20);
+  const [customHandling, setCustomHandling] = useState<boolean>(!HANDLING_PRESETS.includes(initial?.handling_minutes ?? 20));
 
   const startIso = stops[0]?.scheduled_at ?? initial?.scheduled_at ?? new Date().toISOString();
   const computedTimes = computeStopSchedule(stops, startIso, warehouses);
@@ -85,13 +88,14 @@ export default function RouteDialog({
 
     try {
       const jobStartIso = startIso;
-      const autoTimes = computeStopSchedule(stops, jobStartIso, warehouses);
+      const autoTimes = computeStopSchedule(stops, jobStartIso, warehouses, handling);
 
       const tenant_id = await getTenantId();
       const jobPayload: Record<string, unknown> = {
         scheduled_at: jobStartIso,
         origin_warehouse_id: stops[0].warehouse_id,
         destination_warehouse_id: stops[stops.length - 1].warehouse_id,
+        handling_minutes: handling,
         tenant_id,
       };
 
@@ -240,6 +244,42 @@ export default function RouteDialog({
               </p>
             </div>
           )}
+
+          {/* Handling time per stop */}
+          <div className="space-y-2 px-6">
+            <Label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Handling time per stop
+            </Label>
+            <div className="flex gap-2 items-center">
+              <select
+                value={customHandling ? "custom" : String(handling)}
+                onChange={(e) => {
+                  if (e.target.value === "custom") setCustomHandling(true);
+                  else { setCustomHandling(false); setHandling(Number(e.target.value)); }
+                }}
+                className="h-9 px-2 rounded-md border border-border bg-surface text-sm"
+              >
+                {HANDLING_PRESETS.map((p) => (
+                  <option key={p} value={p}>{p} min</option>
+                ))}
+                <option value="custom">Custom…</option>
+              </select>
+              {customHandling && (
+                <input
+                  type="number"
+                  min={1}
+                  max={240}
+                  value={handling}
+                  onChange={(e) => setHandling(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-20 h-9 px-2 rounded-md border border-border bg-surface text-sm"
+                  placeholder="min"
+                />
+              )}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Loading at pickup / unloading at drop — applies to every stop on this route.
+            </p>
+          </div>
 
           {/* Stops Section */}
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col px-6">

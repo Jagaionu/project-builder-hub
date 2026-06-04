@@ -11,8 +11,8 @@ export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: numb
 
 // Transit time model: first 12.87 km at city speed (16.09 km/h),
 // remainder at highway speed (64.37 km/h).
-export const CITY_SPEED_KMH = 16.09;
-export const HIGHWAY_SPEED_KMH = 64.37;
+export const CITY_SPEED_KMH = 26;
+export const HIGHWAY_SPEED_KMH = 88;
 export const CITY_DISTANCE_KM = 12.87;
 
 export function transitTimeHours(distanceKm: number) {
@@ -32,12 +32,14 @@ export function etaMinutes(distanceKm: number) {
 //  - takes 30 min to load at a pickup, plus 15 min of paperwork/checks
 //  - takes 30 min to unload at a drop,  plus 15 min of paperwork/checks
 //  - adds a 5 min buffer per transit leg (traffic / parking / approach)
-export const LOADING_MINUTES = 30;
-export const UNLOADING_MINUTES = 30;
-export const CHECKS_MINUTES = 15;
+export const DEFAULT_HANDLING_MINUTES = 20;
+export const LOADING_MINUTES = 20;
+export const UNLOADING_MINUTES = 20;
+export const CHECKS_MINUTES = 0;
 export const ARRIVAL_BUFFER_MINUTES = 5;
 
-export function stopDwellMinutes(kind: "PICKUP" | "DROP"): number {
+export function stopDwellMinutes(kind: "PICKUP" | "DROP", handlingMin?: number): number {
+  if (handlingMin != null) return handlingMin;
   return (kind === "PICKUP" ? LOADING_MINUTES : UNLOADING_MINUTES) + CHECKS_MINUTES;
 }
 
@@ -55,10 +57,11 @@ export function legMinutes(
   fromStop: StopLike,
   fromWh: WhLike,
   toWh: WhLike,
+  handlingMin?: number,
 ): { transitMin: number; loadingMin: number; totalMin: number; km: number } {
   const km = haversineKm(fromWh.latitude, fromWh.longitude, toWh.latitude, toWh.longitude);
   const transitMin = Math.round(transitTimeHours(km) * 60) + ARRIVAL_BUFFER_MINUTES;
-  const loadingMin = stopDwellMinutes(fromStop.kind);
+  const loadingMin = stopDwellMinutes(fromStop.kind, handlingMin);
   return { transitMin, loadingMin, totalMin: transitMin + loadingMin, km };
 }
 
@@ -69,6 +72,7 @@ export function computeStopSchedule(
   stops: StopLike[],
   jobStart: string | Date | null | undefined,
   warehouses: WhLike[],
+  handlingMin?: number,
 ): (string | null)[] {
   if (!jobStart || stops.length === 0) return stops.map(() => null);
   const out: (string | null)[] = [];
@@ -82,7 +86,7 @@ export function computeStopSchedule(
     const prev = warehouses.find((w) => w.id === stops[i - 1].warehouse_id);
     const curr = warehouses.find((w) => w.id === stops[i].warehouse_id);
     if (!prev || !curr) { out.push(null); continue; }
-    const leg = legMinutes(stops[i - 1], prev, curr);
+    const leg = legMinutes(stops[i - 1], prev, curr, handlingMin);
     t += leg.totalMin * 60_000;
     out.push(new Date(t).toISOString());
   }
@@ -91,17 +95,17 @@ export function computeStopSchedule(
 
 // Total minutes a driver is occupied by a job, from arrival at the first
 // stop through to "good to go" after checks at the final stop.
-export function jobTotalMinutes(stops: StopLike[], warehouses: WhLike[]): number {
+export function jobTotalMinutes(stops: StopLike[], warehouses: WhLike[], handlingMin?: number): number {
   if (stops.length === 0) return 0;
   let total = 0;
   for (let i = 0; i < stops.length - 1; i++) {
     const a = warehouses.find((w) => w.id === stops[i].warehouse_id);
     const b = warehouses.find((w) => w.id === stops[i + 1].warehouse_id);
     if (!a || !b) continue;
-    total += legMinutes(stops[i], a, b).totalMin;
+    total += legMinutes(stops[i], a, b, handlingMin).totalMin;
   }
   // Dwell at the final stop (unload + checks) so the driver is "free".
-  total += stopDwellMinutes(stops[stops.length - 1].kind);
+  total += stopDwellMinutes(stops[stops.length - 1].kind, handlingMin);
   return total;
 }
 
