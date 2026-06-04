@@ -109,6 +109,7 @@ export interface AuthContext {
   isSuperAdmin: boolean;
   name?: string | null;
   mustSetPassword?: boolean;
+  avatarUrl?: string | null;
 }
 
 export const DEFAULT_TENANT_CONFIG: TenantConfig = {

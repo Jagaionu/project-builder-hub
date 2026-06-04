@@ -45,5 +45,6 @@ export function useAuth() {
 
 export async function signOut() {
   await supabase.auth.signOut();
-  window.location.href = "/login";
+  const claimed = typeof window !== "undefined" ? localStorage.getItem("device.companyId") : null;
+  window.location.href = claimed ? "/lock" : "/login";
 }

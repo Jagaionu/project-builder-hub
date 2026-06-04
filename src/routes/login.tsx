@@ -57,6 +57,30 @@ function LoginPage() {
       navigate({ to: "/admin", replace: true });
       return;
     }
+
+    // Company login (admin) on a shared device: lock to profiles ONLY if the
+    // company has working profiles; otherwise launch straight under the company.
+    const { data: member } = await supabase
+      .from("company_members" as never)
+      .select("role, company_id")
+      .eq("user_id", authData.session.user.id)
+      .maybeSingle<{ role: string; company_id: string }>();
+
+    if (member?.role === "admin") {
+      const { count } = await supabase
+        .from("company_members" as never)
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", member.company_id)
+        .eq("role", "member");
+      if ((count ?? 0) > 0) {
+        localStorage.setItem("device.companyId", member.company_id);
+        await supabase.auth.signOut(); // never work as the company account
+        navigate({ to: "/lock", replace: true });
+        return;
+      }
+      localStorage.removeItem("device.companyId"); // no profiles yet → run as company
+    }
+
     navigate({ to: redirectTo ?? "/", replace: true });
   }
 

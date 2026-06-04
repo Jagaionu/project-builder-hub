@@ -13,6 +13,10 @@ import { AIChatWidget } from "@/components/ai/ChatWidget";
 import { usePendingTacho } from "@/lib/use-pending-tacho";
 import { useTheme } from "@/lib/theme-context";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
+import { useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { supabase } from "@/integrations/supabase/client";
+import { setMemberAvatar } from "@/lib/admin-users.functions";
 import brandLogo from "@/assets/brand-logo.png";
 
 const ALL_NAV: ReadonlyArray<{
@@ -34,7 +38,7 @@ export function Sidebar() {
   const alertCount      = useAlertCount();
   const unassignedCount = useUnassignedJobCount();
   const { driverCount: pendingTachoCount } = usePendingTacho();
-  const { company, email, role, isSuperAdmin, name, userId } = useTenant();
+  const { company, email, role, isSuperAdmin, name, userId, avatarUrl } = useTenant();
   const flags = useFeatureFlags();
   const { cycleAccent, accentColor } = useTheme();
 
@@ -170,17 +174,8 @@ export function Sidebar() {
           className="flex items-center gap-2 rounded-lg px-2 py-2 transition-colors"
           style={{ background: "var(--surface)" }}
         >
-          {/* Avatar */}
-          <div
-            className="size-6 rounded-md grid place-items-center shrink-0 text-[10px] font-mono font-bold"
-            style={{
-              background: "var(--secondary)",
-              color: "var(--muted-foreground)",
-              border: "1px solid var(--border)",
-            }}
-          >
-            {(name ?? email).charAt(0).toUpperCase()}
-          </div>
+          {/* Avatar (click to upload a profile picture) */}
+          <FooterAvatar userId={userId} avatarUrl={avatarUrl ?? null} fallback={(name ?? email).charAt(0).toUpperCase()} />
           <div className="min-w-0 flex-1">
             <div className="text-[11px] text-muted-foreground truncate leading-tight">{name ?? email}</div>
             <div className="text-[9px] font-mono uppercase tracking-widest mt-0.5"
@@ -202,5 +197,45 @@ export function Sidebar() {
         </div>
       </div>
     </aside>
+  );
+}
+
+
+function FooterAvatar({ userId, avatarUrl, fallback }: { userId: string; avatarUrl: string | null; fallback: string }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const saveAvatar = useServerFn(setMemberAvatar);
+  const [busy, setBusy] = useState(false);
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${userId}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+      if (error) throw error;
+      const url = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+      await saveAvatar({ data: { avatarUrl: url } });
+      window.location.reload();
+    } catch {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        title="Change photo"
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        className="size-6 rounded-md grid place-items-center shrink-0 text-[10px] font-mono font-bold overflow-hidden disabled:opacity-50"
+        style={{ background: "var(--secondary)", color: "var(--muted-foreground)", border: "1px solid var(--border)" }}
+      >
+        {avatarUrl ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" /> : fallback}
+      </button>
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
+    </>
   );
 }

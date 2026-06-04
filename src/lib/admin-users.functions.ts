@@ -207,7 +207,7 @@ export const createCompanyProfile = createServerFn({ method: "POST" })
 
     const password = genTempPassword();
     const base = slugifyName(data.name);
-    const domain = `${slug}.users.theprimeroute.app`;
+    const domain = `${slug}.team`;
 
     // Create the auth user, retrying with a random suffix on email collision.
     let email = `${base}@${domain}`;
@@ -320,5 +320,14 @@ export const completeFirstLogin = createServerFn({ method: "POST" })
       .from("company_members")
       .update({ must_set_password: false })
       .eq("user_id", context.userId);
+    return { ok: true };
+  });
+
+// Member self-service: save own profile picture URL (uploaded to the avatars bucket).
+export const setMemberAvatar = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ avatarUrl: z.string().url().max(1000) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await sbAny.from("company_members").update({ avatar_url: data.avatarUrl }).eq("user_id", context.userId);
     return { ok: true };
   });

@@ -14,7 +14,8 @@ export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ location }): Promise<AuthContext> => {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     if (sessionError || !session) {
-      throw redirect({ to: "/login", search: { redirect: location.href } });
+      const claimed = typeof window !== "undefined" ? localStorage.getItem("device.companyId") : null;
+      throw redirect(claimed ? { to: "/lock" } : { to: "/login", search: { redirect: location.href } });
     }
 
     // Super admins don't belong to a company — send them to the admin console
@@ -30,9 +31,9 @@ export const Route = createFileRoute("/_app")({
 
     const { data: memberRow, error: memberError } = await supabase
       .from("company_members" as never)
-      .select("role, company_id, name, must_set_password")
+      .select("role, company_id, name, must_set_password, avatar_url")
       .eq("user_id", session.user.id)
-      .maybeSingle<{ role: string; company_id: string; name: string | null; must_set_password: boolean | null }>();
+      .maybeSingle<{ role: string; company_id: string; name: string | null; must_set_password: boolean | null; avatar_url: string | null }>();
 
     if (memberError || !memberRow) {
       await supabase.auth.signOut();
@@ -75,6 +76,7 @@ export const Route = createFileRoute("/_app")({
       isSuperAdmin: !!superAdminRow,
       name: memberRow.name ?? null,
       mustSetPassword: !!memberRow.must_set_password,
+      avatarUrl: memberRow.avatar_url ?? null,
     };
   },
   component: AppLayout,

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SuspendedRouteImport } from './routes/suspended'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LockRouteImport } from './routes/lock'
 import { Route as DRouteImport } from './routes/d'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/_app'
@@ -43,6 +44,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LockRoute = LockRouteImport.update({
+  id: '/lock',
+  path: '/lock',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DRoute = DRouteImport.update({
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/d': typeof DRouteWithChildren
+  '/lock': typeof LockRoute
   '/login': typeof LoginRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
@@ -153,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
 }
 export interface FileRoutesByTo {
+  '/lock': typeof LockRoute
   '/login': typeof LoginRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
@@ -176,6 +184,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/admin': typeof AdminRouteWithChildren
   '/d': typeof DRouteWithChildren
+  '/lock': typeof LockRoute
   '/login': typeof LoginRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/d'
+    | '/lock'
     | '/login'
     | '/sitemap.xml'
     | '/suspended'
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/shift-rollover'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/lock'
     | '/login'
     | '/sitemap.xml'
     | '/suspended'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/admin'
     | '/d'
+    | '/lock'
     | '/login'
     | '/sitemap.xml'
     | '/suspended'
@@ -263,6 +275,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
   DRoute: typeof DRouteWithChildren
+  LockRoute: typeof LockRoute
   LoginRoute: typeof LoginRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SuspendedRoute: typeof SuspendedRoute
@@ -291,6 +304,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lock': {
+      id: '/lock'
+      path: '/lock'
+      fullPath: '/lock'
+      preLoaderRoute: typeof LockRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/d': {
@@ -467,6 +487,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
   DRoute: DRouteWithChildren,
+  LockRoute: LockRoute,
   LoginRoute: LoginRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SuspendedRoute: SuspendedRoute,
