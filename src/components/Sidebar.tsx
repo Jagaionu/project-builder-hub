@@ -157,43 +157,56 @@ export function Sidebar() {
         )}
       </nav>
 
-      {/* ── Footer ── */}
+      {/* ── Footer ── Modern compact design with integrated controls */}
       <div
-        className="px-3 py-3 space-y-2.5"
+        className="px-2.5 py-2.5 space-y-1.5"
         style={{ borderTop: "1px solid var(--sidebar-divider)" }}
       >
-        {/* Auto-refresh · AI · theme toggle */}
-        <div className="flex items-center justify-between gap-2">
-          <AutoRefreshButton />
-          {flags.modules.includes("ai_agent") && <AIChatWidget />}
+        {/* Control row: Auto-refresh · AI · theme toggle */}
+        <div className="flex items-center justify-between gap-1.5 px-1.5 py-1.5 rounded-lg transition-colors hover:bg-surface/50">
+          <div className="flex items-center gap-1">
+            <AutoRefreshButton />
+            {flags.modules.includes("ai_agent") && <AIChatWidget />}
+          </div>
           <ThemeToggle compact />
         </div>
 
-        {/* User row */}
+        {/* User row: Modern card with integrated controls */}
         <div
-          className="flex items-center gap-2 rounded-lg px-2 py-2 transition-colors"
+          className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 transition-all duration-200 hover:bg-surface-2/80 group"
           style={{ background: "var(--surface)" }}
         >
           {/* Avatar (click to upload a profile picture) */}
           <FooterAvatar userId={userId} avatarUrl={avatarUrl ?? null} fallback={(name ?? email).charAt(0).toUpperCase()} />
           <div className="min-w-0 flex-1">
-            <div className="text-[11px] text-muted-foreground truncate leading-tight">{name ?? email}</div>
-            <div className="text-[9px] font-mono uppercase tracking-widest mt-0.5"
+            <div className="text-[10px] font-medium text-foreground truncate leading-tight">{name ?? email}</div>
+            <div className="text-[8px] font-mono uppercase tracking-widest mt-0.5 text-muted-foreground"
               style={{ color: "var(--muted-foreground-2)" }}>
               {role}
             </div>
           </div>
-          <ProfileSwitcher currentUserId={userId} />
-          <button
-            onClick={signOut}
-            title="Sign out"
-            className="size-6 shrink-0 grid place-items-center rounded-md transition-colors"
-            style={{ color: "var(--muted-foreground-2)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "var(--destructive)")}
-            onMouseLeave={e => (e.currentTarget.style.color = "var(--muted-foreground-2)")}
-          >
-            <LogOut className="size-3.5" />
-          </button>
+          {/* Action buttons: compact and modern */}
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+            <ProfileSwitcher currentUserId={userId} />
+            <button
+              onClick={signOut}
+              title="Sign out"
+              className="size-5 shrink-0 grid place-items-center rounded-md transition-all duration-150 hover:scale-110 active:scale-95"
+              style={{
+                color: "var(--muted-foreground-2)",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.color = "var(--destructive)";
+                e.currentTarget.style.background = "oklch(0.58 0.22 20 / 0.1)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.color = "var(--muted-foreground-2)";
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              <LogOut className="size-3" />
+            </button>
+          </div>
         </div>
       </div>
     </aside>
