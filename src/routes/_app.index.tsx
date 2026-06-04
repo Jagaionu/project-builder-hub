@@ -9,6 +9,7 @@ import { haversineKm, etaMinutes } from "@/lib/geo";
 import { ArrowLeft, Navigation, Clock, Radio, X } from "lucide-react";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
 import { useDriverPositions } from "@/lib/use-driver-positions";
+import { useDriverSchedule } from "@/lib/use-driver-schedule";
 import { effectiveDriverStatus } from "@/lib/effective-status";
 
 const LiveMap = lazy(() => import("@/components/LiveMap").then((m) => ({ default: m.LiveMap })));
@@ -34,6 +35,7 @@ function LiveDashboard() {
   const jobs               = useJobs();
   const stopsMap           = useJobStops();
   const activeJobsByDriver = useActiveJobsByDriver();
+  const schedule = useDriverSchedule(drivers.map((d) => d.id));
   const { focusJob: focusJobId } = Route.useSearch();
   const navigate = useNavigate();
   const [selected, setSelected] = useState<string | null>(null);
@@ -69,8 +71,15 @@ function LiveDashboard() {
 
   // Filtered data passed to the map when focus is active.
   const mapDrivers = useMemo(
-    () => (focusedDriverId ? drivers.filter((d) => d.id === focusedDriverId) : drivers),
-    [drivers, focusedDriverId],
+    () =>
+      focusedDriverId
+        ? drivers.filter((d) => d.id === focusedDriverId)
+        : drivers.filter(
+            (d) =>
+              schedule[d.id] !== "not_scheduled" ||
+              (activeJobsByDriver[d.id]?.length ?? 0) > 0,
+          ),
+    [drivers, focusedDriverId, schedule, activeJobsByDriver],
   );
   const mapWarehouses = useMemo(
     () => (focusWhIds ? warehouses.filter((w) => focusWhIds.has(w.id)) : warehouses),
@@ -241,7 +250,7 @@ function LiveDashboard() {
           {/* Driver list */}
           <ul className="flex-1 overflow-y-auto divide-y" style={{ borderColor: "var(--sidebar-divider)" }}>
             {drivers.map((d) => {
-              const eff = effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs);
+              const eff = effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs, schedule[d.id] ?? "unknown");
               const isSelected = selected === d.id;
               return (
                 <li key={d.id}>

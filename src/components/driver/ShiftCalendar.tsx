@@ -266,6 +266,10 @@ export function ShiftCalendar({ driverId, isPlanner = false, showPatternEditor =
                 const { dateStr, dayOfWeek, type, locked } = getDateStatus(dayNum);
                 const isToday = dateStr === today;
                 const isPast = dateStr < today;
+                // Drivers may only change FUTURE days (from tomorrow) — same-day
+                // edits are locked so the planner isn't blindsided by last-minute
+                // changes. The planner view can still edit today.
+                const driverLockedToday = !isPlanner && isToday;
                 const dayTimes = type === "working" ? initialTimes[dayOfWeek] : undefined;
                 const startHM = dayTimes?.start_time ? dayTimes.start_time.slice(0, 5) : null;
                 const endHM = dayTimes?.end_time ? dayTimes.end_time.slice(0, 5) : null;
@@ -275,12 +279,14 @@ export function ShiftCalendar({ driverId, isPlanner = false, showPatternEditor =
                     key={dateStr}
                     type="button"
                     onClick={() => toggleDateOverride(dateStr, dayOfWeek)}
-                    disabled={locked || isPast}
+                    disabled={locked || isPast || driverLockedToday}
                     className={cellClass(type, isToday, isPast)}
                     title={
                       locked
                         ? "Set by driver"
-                        : isPast
+                        : driverLockedToday
+                          ? "Same-day changes are locked — ask your planner"
+                          : isPast
                           ? "Past date"
                           : startHM && endHM
                             ? `${startHM}–${endHM}`
