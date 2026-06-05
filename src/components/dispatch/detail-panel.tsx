@@ -210,7 +210,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
               <VridAuditButton jobId={job.id} reference={job.reference} />
               <CopyButton value={job.reference} title="Copy reference" />
             </div>
-            <StatusPill status={effectiveStatus} onChange={onSetStatus} />
+            <StatusPill status={effectiveStatus} onChange={onSetStatus} disabled={job.status === "COMPLETED" || job.status === "CANCELLED"} />
             {isMR && (
               <span className="inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[10px] border border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5">
                 MR · {stops.length} stops

@@ -122,9 +122,11 @@ export const PlannedChip = memo(function PlannedChip({
 export function StatusPill({
   status,
   onChange,
+  disabled = false,
 }: {
   status: EffectiveStatus | string;
   onChange: (s: string) => void;
+  disabled?: boolean;
 }) {
   const { open, setOpen, btnRef, popRef, coords } = usePopover();
   const cfg = STATUS_CONFIG[status as EffectiveStatus] ?? STATUS_CONFIG.PENDING;
@@ -133,11 +135,12 @@ export function StatusPill({
       <button
         ref={btnRef}
         type="button"
+        disabled={disabled}
         onClick={(e) => {
           e.stopPropagation();
-          setOpen((v) => !v);
+          if (!disabled) setOpen((v) => !v);
         }}
-        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-opacity hover:opacity-80 select-none ${cfg.badge}`}
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium select-none ${disabled ? "cursor-default" : "transition-opacity hover:opacity-80"} ${cfg.badge}`}
       >
         <span className={`size-1.5 rounded-full shrink-0 ${cfg.dot}`} />
         {cfg.label}
