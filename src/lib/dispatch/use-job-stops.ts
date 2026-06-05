@@ -7,6 +7,7 @@ export type Stop = {
   warehouse_id: string;
   scheduled_at: string | null;
   arrived_at?: string | null;
+  departed_at?: string | null;
 };
 
 type StopRow = {
@@ -16,6 +17,7 @@ type StopRow = {
   warehouse_id: string;
   scheduled_at: string | null;
   arrived_at: string | null;
+  departed_at: string | null;
   seq: number;
 };
 
@@ -36,6 +38,7 @@ function rowToStop(s: StopRow): Stop & { seq: number } {
     warehouse_id: s.warehouse_id,
     scheduled_at: s.scheduled_at,
     arrived_at: s.arrived_at,
+    departed_at: s.departed_at,
     seq: s.seq,
   };
 }
@@ -60,13 +63,13 @@ export async function reloadJobStops() {
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
   const { data, error } = await supabase
     .from("job_stops")
-    .select("id,job_id,kind,warehouse_id,scheduled_at,arrived_at,seq")
+    .select("id,job_id,kind,warehouse_id,scheduled_at,arrived_at,departed_at,seq")
     .or(`scheduled_at.gte.${since},scheduled_at.is.null`)
     .order("seq", { ascending: true })
     .limit(5000);
   if (error || !data) return;
   const m: JobStopsMap = {};
-  for (const row of data as StopRow[]) {
+  for (const row of data as unknown as StopRow[]) {
     (m[row.job_id] ||= []).push(rowToStop(row));
   }
   broadcast(m);
