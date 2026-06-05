@@ -367,10 +367,9 @@ export const JobDetailPanel = memo(function JobDetailPanel({
             <div className="grid grid-cols-12 gap-2 px-3 py-1.5 bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
               <div className="col-span-1">#</div>
               <div className="col-span-3">Stop</div>
-              <div className="col-span-2">Kind</div>
-              <div className="col-span-3">Planned arrival</div>
-              <div className="col-span-2">Planned departure</div>
-              <div className="col-span-1">Actual</div>
+              <div className="col-span-3">Planned yard</div>
+              <div className="col-span-3">Planned dock</div>
+              <div className="col-span-2">Estimated</div>
             </div>
             {stops.map((s, idx) => {
               const wh = lookups.warehousesById.get(s.warehouse_id);
@@ -428,45 +427,33 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                   style={{ background: idx % 2 === 0 ? "var(--surface)" : "var(--background)" }}
                 >
                   <div className="col-span-1 font-mono text-muted-foreground">{idx + 1}</div>
-                  <div className="col-span-3">
-                    <div className="font-mono text-xs text-foreground">{wh?.code ?? "?"}</div>
+                  <div className="col-span-3 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-xs text-foreground">{wh?.code ?? "?"}</span>
+                      <span className={`font-mono text-[9px] uppercase ${s.kind === "PICKUP" ? "text-blue-500 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+                        {s.kind === "PICKUP" ? "Pick" : "Drop"}
+                      </span>
+                    </div>
                     <div className="text-[10px] text-muted-foreground truncate">{wh?.name}</div>
                   </div>
-                  <div className="col-span-2">
-                    <span
-                      className={`font-mono text-[10px] uppercase ${
-                        s.kind === "PICKUP" ? "text-blue-500 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"
-                      }`}
-                    >
-                      {s.kind === "PICKUP" ? "Pickup" : "Drop"}
-                    </span>
-                  </div>
+                  <div className="col-span-3 font-mono text-foreground text-sm">{fmt(arr)}</div>
                   <div className="col-span-3 font-mono text-foreground text-sm">
-                    {fmt(arr)}
-                    {s.kind === "DROP" && arr && (
-                      <span title="Critical Injection Time" className="ml-1 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">CIT</span>
-                    )}
-                    {estArrIso && (
-                      <div className="text-[10px] text-primary">
-                        Est {new Date(estArrIso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
-                      </div>
-                    )}
-                  </div>
-                  <div className="col-span-2 font-mono text-foreground text-sm">
-                    {fmt(dep)}
-                    {s.kind === "PICKUP" && dep && (
-                      <span title="Critical Pull Time" className="ml-1 text-[9px] font-semibold text-blue-500 dark:text-blue-400">CPT</span>
+                    {fmt(plannedRaw)}
+                    {plannedRaw && (
+                      <span
+                        title={s.kind === "PICKUP" ? "Critical Pull Time" : "Critical Injection Time"}
+                        className={`ml-1 text-[9px] font-semibold ${s.kind === "PICKUP" ? "text-blue-500 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"}`}
+                      >
+                        {s.kind === "PICKUP" ? "CPT" : "CIT"}
+                      </span>
                     )}
                   </div>
-                  <div className="col-span-1 font-mono">
-                    {/* Only show actual arrival time when job is assigned/active */}
+                  <div className="col-span-2 font-mono text-sm">
                     {isAssignedOrActive && s.arrived_at ? (
                       <div className="flex flex-col items-start gap-0.5">
                         <div className="flex items-center gap-1">
                           <span className={isDelayed ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}>
-                            {new Date(s.arrived_at).toLocaleTimeString([], {
-                              hour: "2-digit", minute: "2-digit", hour12: false,
-                            })}
+                            {new Date(s.arrived_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
                           </span>
                           {isGpsConfirmed && (
                             <span className="inline-flex items-center px-1 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-[8px] font-bold text-orange-600 dark:text-orange-400">GPS</span>
@@ -474,8 +461,10 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                         </div>
                         {isDelayed && <span className="text-[9px] text-amber-600 dark:text-amber-400">+{delayMin}m late</span>}
                       </div>
+                    ) : estArrIso ? (
+                      <span className="text-primary">{new Date(estArrIso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}</span>
                     ) : (
-                      "—"
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </div>
                 </div>
