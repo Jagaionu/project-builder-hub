@@ -48,6 +48,8 @@ export function csvToImportRows(text: string): ImportRow[] {
   const rows = parseCsv(text);
   if (rows.length < 2) return [];
   const header = rows[0].map((h) => h.trim());
+  // FMC block export (VR ID + Stop N + Stop N Yard Arrival/Departure).
+  if (header.includes("VR ID")) return fmcToImportRows(rows, header);
   const idx = (name: string) => header.indexOf(name);
 
   const loadCol = idx("Load #");
@@ -81,6 +83,66 @@ export function csvToImportRows(text: string): ImportRow[] {
       stopScheduledAt.push(parseDateTime(dv || "", tv || "", dateFmt));
     }
     out.push({ reference, lane, equipmentType: equip, stopScheduledAt });
+  }
+  return out;
+}
+
+
+// Parse a single FMC datetime cell. Handles ISO (UTC) and dd/MM/yyyy HH:mm[:ss].
+function parseFmcDateTime(value: string): string | null {
+  const s = (value || "").trim();
+  if (!s) return null;
+  // ISO-ish: starts with YYYY-MM-DD (let Date handle the rest, incl. UTC "Z").
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const t = Date.parse(s.includes("T") ? s : s.replace(" ", "T"));
+    return Number.isNaN(t) ? null : new Date(t).toISOString();
+  }
+  // dd/MM/yyyy HH:mm[:ss] (European — matches the rest of the importer).
+  const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) {
+    const da = +m[1], mo = +m[2], y = +m[3], hh = +m[4], mm = +m[5], ss = m[6] ? +m[6] : 0;
+    const dt = new Date(y, mo - 1, da, hh, mm, ss);
+    return Number.isNaN(dt.getTime()) ? null : dt.toISOString();
+  }
+  const t = Date.parse(s);
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
+}
+
+// FMC block export: VR ID + Equipment Type + Stop 1..10 (facility code) each
+// with "Stop N Yard Arrival" / "Stop N Yard Departure". Non-empty Stop columns,
+// in order, form the lane (first = pickup … last = drop, matching the importer).
+function fmcToImportRows(rows: string[][], header: string[]): ImportRow[] {
+  const idx = (name: string) => header.indexOf(name);
+  const vridCol = idx("VR ID");
+  const equipCol = idx("Equipment Type");
+  const stopCols: { code: number; arr: number; dep: number }[] = [];
+  for (let i = 1; i <= 10; i++) {
+    stopCols.push({
+      code: idx(`Stop ${i}`),
+      arr: idx(`Stop ${i} Yard Arrival`),
+      dep: idx(`Stop ${i} Yard Departure`),
+    });
+  }
+
+  const out: ImportRow[] = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    const reference = vridCol >= 0 ? (row[vridCol] || "").trim() : "";
+    if (!reference) continue;
+    const equip = equipCol >= 0 ? (row[equipCol] || "").trim() || null : null;
+
+    const codes: string[] = [];
+    const stopScheduledAt: (string | null)[] = [];
+    const stopYardDeparture: (string | null)[] = [];
+    for (const sc of stopCols) {
+      const code = sc.code >= 0 ? (row[sc.code] || "").trim() : "";
+      if (!code) continue; // stop slot not used
+      codes.push(code);
+      stopScheduledAt.push(sc.arr >= 0 ? parseFmcDateTime(row[sc.arr] || "") : null);
+      stopYardDeparture.push(sc.dep >= 0 ? parseFmcDateTime(row[sc.dep] || "") : null);
+    }
+    if (codes.length < 2) continue;
+    out.push({ reference, lane: codes.join("->"), equipmentType: equip, stopScheduledAt, stopYardDeparture });
   }
   return out;
 }

@@ -379,8 +379,12 @@ export const JobDetailPanel = memo(function JobDetailPanel({
               // arrival + departure so a pickup arrives BEFORE its CPT.
               const plannedRaw = s.scheduled_at ?? stopTimes[idx];
               const win = stopCriticalWindow(plannedRaw, s.kind, (job as { handling_minutes?: number | null }).handling_minutes ?? undefined);
-              const arr = win.arrival;
-              const dep = win.departure;
+              // Imported (FMC) stops carry an explicit yard departure, and their
+              // scheduled_at IS the yard arrival. Created routes compute the yard
+              // (CPT − 20 / CIT) and show the critical dock time (CPT/CIT).
+              const isImported = s.yard_departure != null;
+              const arr = isImported ? plannedRaw : win.arrival;          // planned yard arrival
+              const dockTime = isImported ? s.yard_departure : plannedRaw; // departure: imported yard / created dock
               // Live estimated arrival for the NEXT un-arrived stop, from the
               // assigned driver's current GPS — only once they've left the
               // previous stop. Dispatcher-only (drivers see real times only).
@@ -438,8 +442,8 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                   </div>
                   <div className="col-span-3 font-mono text-foreground text-sm">{fmt(arr)}</div>
                   <div className="col-span-3 font-mono text-foreground text-sm">
-                    {fmt(plannedRaw)}
-                    {plannedRaw && (
+                    {fmt(dockTime)}
+                    {!isImported && dockTime && (
                       <span
                         title={s.kind === "PICKUP" ? "Critical Pull Time" : "Critical Injection Time"}
                         className={`ml-1 text-[9px] font-semibold ${s.kind === "PICKUP" ? "text-blue-500 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"}`}

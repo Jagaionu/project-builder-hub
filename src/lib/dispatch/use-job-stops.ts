@@ -8,6 +8,7 @@ export type Stop = {
   scheduled_at: string | null;
   arrived_at?: string | null;
   departed_at?: string | null;
+  yard_departure?: string | null;
 };
 
 type StopRow = {
@@ -18,6 +19,7 @@ type StopRow = {
   scheduled_at: string | null;
   arrived_at: string | null;
   departed_at: string | null;
+  yard_departure: string | null;
   seq: number;
 };
 
@@ -39,6 +41,7 @@ function rowToStop(s: StopRow): Stop & { seq: number } {
     scheduled_at: s.scheduled_at,
     arrived_at: s.arrived_at,
     departed_at: s.departed_at,
+    yard_departure: s.yard_departure,
     seq: s.seq,
   };
 }
@@ -63,7 +66,7 @@ export async function reloadJobStops() {
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
   const { data, error } = await supabase
     .from("job_stops")
-    .select("id,job_id,kind,warehouse_id,scheduled_at,arrived_at,departed_at,seq")
+    .select("id,job_id,kind,warehouse_id,scheduled_at,arrived_at,departed_at,yard_departure,seq")
     .or(`scheduled_at.gte.${since},scheduled_at.is.null`)
     .order("seq", { ascending: true })
     .limit(5000);

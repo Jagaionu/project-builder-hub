@@ -11,6 +11,9 @@ export type ImportRow = {
   // Per-stop arrival ISO strings (already parsed client-side from
   // Scheduled Truck Arrival - N date/time). length matches stops in lane.
   stopScheduledAt: (string | null)[];
+  // Per-stop yard departure ISO strings (FMC bulk upload only). Same length as
+  // stopScheduledAt; entries may be null.
+  stopYardDeparture?: (string | null)[];
 };
 
 export type ImportBatchSummary = {
@@ -227,8 +230,9 @@ export const importJobsCsv = createServerFn({ method: "POST" })
           kind: (i === stopWhIds.length - 1 ? "DROP" : "PICKUP") as "PICKUP" | "DROP",
           warehouse_id: wid,
           scheduled_at: row.stopScheduledAt[i] ?? null,
+          yard_departure: row.stopYardDeparture?.[i] ?? null,
         }));
-        const { error: stopsErr } = await supabaseAdmin.from("job_stops").insert(stopsPayload);
+        const { error: stopsErr } = await supabaseAdmin.from("job_stops").insert(stopsPayload as never);
         if (stopsErr) {
           out.errors.push({ reference: row.reference, message: `stops: ${stopsErr.message}` });
           continue;
