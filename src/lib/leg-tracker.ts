@@ -7,6 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
 
 const ARRIVAL_RADIUS_M = 200;
 const DEPARTURE_RADIUS_M = 300;
+// GPS pings arrive ~every 5 min, so the first "moved" ping means the driver
+// actually left during the prior interval. Backdate the recorded departure by
+// one ping interval (clamped to not precede arrival) so transit/dwell learning
+// reflects reality rather than the scheduled or last-detected time.
+const DEPARTURE_BACKDATE_MS = 5 * 60_000;
 
 function pickActiveJob(jobs: JobWithStops[]): JobWithStops | null {
   return (
@@ -56,9 +61,21 @@ export async function checkGeofences(
       if (lastWh) {
         const distM = haversineKm(pos.lat, pos.lon, lastWh.latitude, lastWh.longitude) * 1000;
         if (distM > DEPARTURE_RADIUS_M) {
-          await closeDwell({ data: { dwellId: legState.activeDwellId, departedAt: nowIso } }).catch(
+          // Real departure happened during the previous ping interval — backdate
+          // it (never before arrival at this stop) for accurate transit/dwell.
+          const dwelledStop = sorted.find((s) => s.warehouse_id === lastWh.id && s.arrived_at);
+          const arrivedMs = dwelledStop?.arrived_at ? new Date(dwelledStop.arrived_at).getTime() : 0;
+          const departedIso = new Date(Math.max(arrivedMs, pos.ts - DEPARTURE_BACKDATE_MS)).toISOString();
+          await closeDwell({ data: { dwellId: legState.activeDwellId, departedAt: departedIso } }).catch(
             (e) => console.error("[legs] closeDwell", e),
           );
+          // Record the actual (GPS-derived) departure on the stop the driver left.
+          if (dwelledStop?.id) {
+            await supabase
+              .from("job_stops")
+              .update({ departed_at: departedIso } as never)
+              .eq("id", dwelledStop.id);
+          }
           const nextStop = sorted.find((s) => !s.arrived_at);
           if (!nextStop?.warehouse) {
             setLegState({
@@ -88,7 +105,7 @@ export async function checkGeofences(
                 toLabel: nextWh.code,
                 toLat: nextWh.latitude,
                 toLon: nextWh.longitude,
-                departedAt: nowIso,
+                departedAt: departedIso,
                 plannedMinutes: plannedMin,
               },
             });
@@ -201,7 +218,7 @@ export async function checkGeofences(
               toLabel: nextWh.code,
               toLat: nextWh.latitude,
               toLon: nextWh.longitude,
-              departedAt: nowIso,
+              departedAt: new Date(pos.ts - DEPARTURE_BACKDATE_MS).toISOString(),
               plannedMinutes: plannedMin,
             },
           });

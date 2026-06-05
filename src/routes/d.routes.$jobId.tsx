@@ -12,6 +12,7 @@ import {
   jobTotalMinutes,
   stopDwellMinutes,
   ARRIVAL_BUFFER_MINUTES,
+  computeStopSchedule,
 } from "@/lib/geo";
 
 export const Route = createFileRoute("/d/routes/$jobId")({
@@ -49,38 +50,22 @@ function JobDetail() {
     .map((s) => s.warehouse)
     .filter((w): w is NonNullable<typeof w> => !!w)
     .map((w) => ({ id: w.id, latitude: w.latitude, longitude: w.longitude }));
-  const stopsForCalc = sortedStops
-    .filter((s) => s.warehouse)
-    .map((s) => ({ kind: s.kind, warehouse_id: s.warehouse_id }));
+  const stopsForCalc = sortedStops.map((s) => ({ kind: s.kind, warehouse_id: s.warehouse_id }));
 
   const hm = (job as { handling_minutes?: number | null }).handling_minutes ?? undefined;
-  const totalMin = stopsForCalc.length ? jobTotalMinutes(stopsForCalc, whs, hm) : 0;
+  const totalMin = whs.length ? jobTotalMinutes(stopsForCalc, whs, hm) : 0;
   const totalLabel =
     totalMin >= 60 ? `${Math.floor(totalMin / 60)}h ${totalMin % 60}m` : `${totalMin}m`;
 
-  // ETA at final stop = "now + remaining transit + remaining dwell"
-  let etaFinalMs: number | null = null;
-  let prevLat: number | null = gps?.lat ?? null;
-  let prevLon: number | null = gps?.lon ?? null;
-  let cursorMs = Date.now();
-  for (let i = 0; i < sortedStops.length; i++) {
-    const s = sortedStops[i];
-    const wh = s.warehouse;
-    if (!wh) continue;
-    if (s.arrived_at) {
-      cursorMs = Math.max(cursorMs, new Date(s.arrived_at).getTime());
-    } else if (prevLat != null && prevLon != null) {
-      const km = haversineKm(prevLat, prevLon, wh.latitude, wh.longitude);
-      const transitMin = Math.round(transitTimeHours(km) * 60) + ARRIVAL_BUFFER_MINUTES;
-      cursorMs += transitMin * 60_000;
-    }
-    if (i < sortedStops.length - 1) {
-      cursorMs += stopDwellMinutes(s.kind, hm) * 60_000;
-    }
-    prevLat = wh.latitude;
-    prevLon = wh.longitude;
-  }
-  if (sortedStops.length > 0) etaFinalMs = cursorMs;
+  // One schedule, anchored to the SCHEDULED run start (first stop's planned
+  // time). The run is respected even when the driver arrives early — it departs
+  // at the planned time, not "now". Per-stop planned arrivals and the final ETA
+  // all derive from this single basis, so every time on the screen agrees.
+  const scheduleBasis =
+    sortedStops[0]?.scheduled_at ?? job.planned_start_at ?? job.scheduled_at ?? null;
+  const plannedTimes = computeStopSchedule(stopsForCalc, scheduleBasis, whs, hm);
+  const etaFinalMs =
+    scheduleBasis && totalMin > 0 ? new Date(scheduleBasis).getTime() + totalMin * 60_000 : null;
 
   const dateStr = job.for_date
     ? new Date(job.for_date + "T00:00:00").toLocaleDateString([], {
@@ -95,11 +80,9 @@ function JobDetail() {
           day: "numeric",
         })
       : null;
-  const startTime = job.planned_start_at
-    ? new Date(job.planned_start_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : job.scheduled_at
-      ? new Date(job.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-      : null;
+  const startTime = scheduleBasis
+    ? new Date(scheduleBasis).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : null;
   const chain = sortedStops.map((s) => s.warehouse?.code ?? "?").join(" → ");
 
   const statusCfg = STATUS_CONFIG[job.status] ?? STATUS_CONFIG.PENDING;
@@ -247,7 +230,6 @@ function JobDetail() {
                   minute: "2-digit",
                 })}
               </span>
-              {!gps && <span className="text-xs text-muted-foreground ml-1">(awaiting GPS)</span>}
             </span>
           </div>
         )}
@@ -256,6 +238,7 @@ function JobDetail() {
       <DriverStopTimeline
         job={{ ...job, stops: sortedStops }}
         driverPosition={gps}
+        plannedTimes={plannedTimes}
         onArrive={async (stopId) => {
           const now = new Date().toISOString();
           const { error } = await supabase

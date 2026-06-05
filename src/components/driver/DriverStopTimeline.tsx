@@ -5,9 +5,10 @@ interface Props {
   job: JobWithStops;
   driverPosition: GPSPosition | null;
   onArrive?: (stopId: string) => void;
+  plannedTimes?: (string | null)[];
 }
 
-export function DriverStopTimeline({ job, driverPosition, onArrive }: Props) {
+export function DriverStopTimeline({ job, driverPosition, onArrive, plannedTimes }: Props) {
   const stops = [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq);
 
   return (
@@ -17,13 +18,8 @@ export function DriverStopTimeline({ job, driverPosition, onArrive }: Props) {
         const arrived = !!stop.arrived_at;
         const isNext = !arrived && stops.slice(0, i).every((s) => !!s.arrived_at);
         const wh = stop.warehouse;
-
-        let eta: string | null = null;
-        if (isNext && driverPosition && wh) {
-          const dist = haversineKm(driverPosition.lat, driverPosition.lon, wh.latitude, wh.longitude);
-          const mins = etaMinutes(dist);
-          eta = mins < 2 ? "Arriving" : mins < 60 ? `~${mins} min` : `~${Math.round(mins / 60)}h`;
-        }
+        const plannedAt = plannedTimes?.[i] ?? stop.scheduled_at;
+        const departedAt = (stop as { departed_at?: string | null }).departed_at ?? null;
 
         const dotColor = arrived
           ? "bg-success border-success"
@@ -49,9 +45,14 @@ export function DriverStopTimeline({ job, driverPosition, onArrive }: Props) {
                   </p>
                   <p className="text-base font-bold text-foreground mt-0.5">{wh?.code} — {wh?.name}</p>
                   {wh?.address && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{wh.address}</p>}
-                  {stop.scheduled_at && (
+                  {plannedAt && (
                     <p className="text-xs text-muted-foreground mt-1 font-mono">
-                      Planned {new Date(stop.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      Planned {new Date(plannedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  )}
+                  {departedAt && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5 font-mono">
+                      Departed {new Date(departedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · GPS
                     </p>
                   )}
                 </div>
@@ -60,8 +61,8 @@ export function DriverStopTimeline({ job, driverPosition, onArrive }: Props) {
                     <span className="text-xs text-success font-semibold">
                       ✓ {new Date(stop.arrived_at!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
-                  ) : eta ? (
-                    <span className="text-xs text-primary font-mono">{eta}</span>
+                  ) : isNext ? (
+                    <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">Next</span>
                   ) : null}
                 </div>
               </div>

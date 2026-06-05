@@ -133,12 +133,13 @@ export const JobDetailPanel = memo(function JobDetailPanel({
     ) ? "SCHEDULED" : job.status;
   }, [job, stops]);
 
-  // Use planned_start_at in preference (actual driver departure after planning),
-  // falling back to scheduled_at (raw original schedule). This ensures the
-  // computed stop-arrival times match what the planner committed to the DB.
+  // Anchor planned times to the SCHEDULED run start — the first stop's
+  // scheduled time — so the schedule shows even before the planner runs and
+  // stays consistent with the driver app. Falls back to job-level start, then
+  // to the raw per-stop scheduled times.
   const stopTimes = useMemo(
     () => {
-      const basis = job.planned_start_at ?? job.scheduled_at;
+      const basis = stops[0]?.scheduled_at ?? job.planned_start_at ?? job.scheduled_at;
       return basis
         ? computeStopSchedule(stops, basis, warehouses, (job as { handling_minutes?: number | null }).handling_minutes ?? undefined)
         : stops.map((s) => s.scheduled_at);
