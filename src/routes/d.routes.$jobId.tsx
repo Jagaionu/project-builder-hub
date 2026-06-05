@@ -53,19 +53,13 @@ function JobDetail() {
   const stopsForCalc = sortedStops.map((s) => ({ kind: s.kind, warehouse_id: s.warehouse_id }));
 
   const hm = (job as { handling_minutes?: number | null }).handling_minutes ?? undefined;
-  const totalMin = whs.length ? jobTotalMinutes(stopsForCalc, whs, hm) : 0;
-  const totalLabel =
-    totalMin >= 60 ? `${Math.floor(totalMin / 60)}h ${totalMin % 60}m` : `${totalMin}m`;
 
-  // One schedule, anchored to the SCHEDULED run start (first stop's planned
-  // time). The run is respected even when the driver arrives early — it departs
-  // at the planned time, not "now". Per-stop planned arrivals and the final ETA
-  // all derive from this single basis, so every time on the screen agrees.
+  // Driver app shows REAL/committed times only — no live estimates (drivers must
+  // not use the phone while driving). Per-stop planned times are anchored to the
+  // scheduled run start; actual arrivals/departures come from GPS.
   const scheduleBasis =
     sortedStops[0]?.scheduled_at ?? job.planned_start_at ?? job.scheduled_at ?? null;
   const plannedTimes = computeStopSchedule(stopsForCalc, scheduleBasis, whs, hm);
-  const etaFinalMs =
-    scheduleBasis && totalMin > 0 ? new Date(scheduleBasis).getTime() + totalMin * 60_000 : null;
 
   const dateStr = job.for_date
     ? new Date(job.for_date + "T00:00:00").toLocaleDateString([], {
@@ -211,26 +205,6 @@ function JobDetail() {
           <div className="flex items-start gap-2">
             <span className="text-muted-foreground">🧭</span>
             <span className="font-bold text-foreground break-all">{chain}</span>
-          </div>
-        )}
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground">⏱</span>
-          <span className="text-foreground">
-            Total transit + dwell: <span className="font-semibold">{totalLabel}</span>
-          </span>
-        </div>
-        {etaFinalMs != null && !allDone && (
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">🏁</span>
-            <span className="text-foreground">
-              ETA final stop:{" "}
-              <span className="font-semibold font-mono">
-                {new Date(etaFinalMs).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-            </span>
           </div>
         )}
       </div>

@@ -29,6 +29,44 @@ export const Route = createFileRoute("/_app/")({
   }),
 });
 
+const ACTIVE_FOR_ETA = ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"];
+type LiveEta = { estMs: number; lateMin: number | null; isLate: boolean; nextCode: string } | null;
+
+// Live ETA to a driver's next un-arrived stop, from their current GPS — only
+// once they've left the previous stop. Dispatcher-only situational awareness;
+// drivers never see estimates (they must not use the phone while driving).
+function nextStopEta(
+  driver: { id: string; current_lat: number | null; current_lon: number | null },
+  jobs: Array<{ id: string; assigned_driver_id: string | null; status: string }>,
+  stopsMap: Record<string, Array<{ warehouse_id: string; arrived_at?: string | null; scheduled_at: string | null; departed_at?: string | null }>>,
+  warehouses: Array<{ id: string; latitude: number; longitude: number; code: string }>,
+): LiveEta {
+  const job = jobs.find((j) => j.assigned_driver_id === driver.id && ACTIVE_FOR_ETA.includes(j.status));
+  if (!job) return null;
+  // Stops are already kept sorted by seq ascending (see use-job-stops).
+  const stops = stopsMap[job.id] ?? [];
+  const idx = stops.findIndex((s) => !s.arrived_at);
+  if (idx < 0) return null;
+  const next = stops[idx];
+  const wh = warehouses.find((w) => w.id === next.warehouse_id);
+  const dLat = driver.current_lat;
+  const dLon = driver.current_lon;
+  if (!wh || dLat == null || dLon == null) return null;
+  const prev = idx > 0 ? stops[idx - 1] : null;
+  const prevWh = prev ? warehouses.find((w) => w.id === prev.warehouse_id) : null;
+  // "Departed" = previous stop has a GPS departure OR the driver is already well
+  // away from it. Before that, the planned schedule stands (no live estimate).
+  const prevDeparted =
+    idx === 0 ||
+    !!prev?.departed_at ||
+    (prevWh ? haversineKm(dLat, dLon, prevWh.latitude, prevWh.longitude) * 1000 > 300 : true);
+  if (!prevDeparted) return null;
+  const estMs = Date.now() + etaMinutes(haversineKm(dLat, dLon, wh.latitude, wh.longitude)) * 60_000;
+  const plannedMs = next.scheduled_at ? new Date(next.scheduled_at).getTime() : null;
+  const lateMin = plannedMs != null ? Math.round((estMs - plannedMs) / 60_000) : null;
+  return { estMs, lateMin, isLate: lateMin != null && lateMin > 10, nextCode: wh.code };
+}
+
 function LiveDashboard() {
   const drivers            = useDrivers();
   const warehouses         = useWarehouses();
@@ -110,6 +148,7 @@ function LiveDashboard() {
   const distKm = selectedDriver && destWh && selectedDriver.current_lat && selectedDriver.current_lon
     ? haversineKm(selectedDriver.current_lat, selectedDriver.current_lon, destWh.latitude, destWh.longitude)
     : null;
+  const selEta = selectedDriver ? nextStopEta(selectedDriver, jobs, stopsMap, warehouses) : null;
 
   return (
     <div className="h-full flex flex-col">
@@ -224,6 +263,18 @@ function LiveDashboard() {
                         <MetricPill label="ETA"  value={`${etaMinutes(distKm)} min`} />
                       </div>
                     )}
+                    {selEta && (
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="font-mono text-muted-foreground">
+                          Est arrival {new Date(selEta.estMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} → {selEta.nextCode}
+                        </span>
+                        {selEta.isLate && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
+                            +{selEta.lateMin}m late
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {selectedDriver.current_lat != null && selectedDriver.current_lon != null && (
                       <div className="grid grid-cols-2 gap-1.5">
                         <MetricPill label="Lat" value={selectedDriver.current_lat.toFixed(6)} />
@@ -251,6 +302,7 @@ function LiveDashboard() {
           <ul className="flex-1 overflow-y-auto divide-y" style={{ borderColor: "var(--sidebar-divider)" }}>
             {drivers.map((d) => {
               const eff = effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs, schedule[d.id] ?? "unknown");
+              const le = nextStopEta(d, jobs, stopsMap, warehouses);
               const isSelected = selected === d.id;
               return (
                 <li key={d.id}>
@@ -278,7 +330,12 @@ function LiveDashboard() {
                         </div>
                         <span className="text-sm truncate">{d.name}</span>
                       </div>
-                      <StatusBadge status={eff} kind="driver" />
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {le?.isLate && (
+                          <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">LATE</span>
+                        )}
+                        <StatusBadge status={eff} kind="driver" />
+                      </div>
                     </div>
                   </button>
                 </li>

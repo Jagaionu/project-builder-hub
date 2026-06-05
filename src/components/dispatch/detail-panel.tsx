@@ -146,6 +146,8 @@ export const JobDetailPanel = memo(function JobDetailPanel({
     },
     [job.planned_start_at, job.scheduled_at, stops, warehouses],
   );
+  // First stop not yet arrived — the one we project a live GPS ETA for (dispatcher only).
+  const nextUnarrivedIdx = stops.findIndex((s) => !s.arrived_at);
 
   const isLaneAssigned = !!job.assigned_driver_id || job.status === "ASSIGNED";
 
@@ -380,6 +382,24 @@ export const JobDetailPanel = memo(function JobDetailPanel({
               const dep = arr
                 ? new Date(new Date(arr).getTime() + stopDwellMinutes(s.kind) * 60_000).toISOString()
                 : null;
+              // Live estimated arrival for the NEXT un-arrived stop, from the
+              // assigned driver's current GPS — only once they've left the
+              // previous stop. Dispatcher-only (drivers see real times only).
+              let estArrIso: string | null = null;
+              const dLat = driver?.current_lat ?? null;
+              const dLon = driver?.current_lon ?? null;
+              if (idx === nextUnarrivedIdx && isAssignedOrActive && dLat != null && dLon != null && wh) {
+                const prev = idx > 0 ? stops[idx - 1] : null;
+                const prevWh = prev ? lookups.warehousesById.get(prev.warehouse_id) : null;
+                const prevDeparted =
+                  idx === 0 ||
+                  !!(prev as { departed_at?: string | null } | null)?.departed_at ||
+                  (prevWh ? haversineKm(dLat, dLon, prevWh.latitude, prevWh.longitude) * 1000 > 300 : true);
+                if (prevDeparted) {
+                  const km = haversineKm(dLat, dLon, wh.latitude, wh.longitude);
+                  estArrIso = new Date(Date.now() + etaMinutes(km) * 60_000).toISOString();
+                }
+              }
               const fmt = (iso: string | null | undefined) =>
                 iso
                   ? new Date(iso).toLocaleString(undefined, {
@@ -421,7 +441,14 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                       {s.kind === "PICKUP" ? "Pickup" : "Drop"}
                     </span>
                   </div>
-                  <div className="col-span-3 font-mono text-foreground text-sm">{fmt(arr)}</div>
+                  <div className="col-span-3 font-mono text-foreground text-sm">
+                    {fmt(arr)}
+                    {estArrIso && (
+                      <div className="text-[10px] text-primary">
+                        Est {new Date(estArrIso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
+                      </div>
+                    )}
+                  </div>
                   <div className="col-span-2 font-mono text-foreground text-sm">{fmt(dep)}</div>
                   <div className="col-span-1 font-mono">
                     {/* Only show actual arrival time when job is assigned/active */}
