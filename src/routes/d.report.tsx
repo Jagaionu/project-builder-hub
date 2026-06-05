@@ -85,7 +85,19 @@ function ReportPage() {
     }
     setInfo(m);
   }, [driver, thisWk, buckets]);
-  useEffect(() => { void loadTacho(); }, [loadTacho]);
+  useEffect(() => {
+    void loadTacho();
+    if (!driver) return;
+    const ch = supabase
+      .channel("rt-my-tacho-" + Math.random().toString(36).slice(2))
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "driver_week_hours", filter: `driver_id=eq.${driver.id}` },
+        () => void loadTacho(),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [loadTacho, driver]);
 
   const saveWeek = async (wk: string) => {
     if (!driver) return;
@@ -126,6 +138,9 @@ function ReportPage() {
           {buckets.map((b) => {
             const i = info[b.wk];
             const inp = inputs[b.wk] ?? { h: "", m: "" };
+            // Once submitted (pending) or approved, lock the inputs so the driver
+            // can't re-submit. A decline deletes the row → unlocks for re-entry.
+            const locked = i?.status === "pending" || i?.status === "approved";
             return (
               <div key={b.wk} className="rounded-xl border border-border p-3">
                 <div className="flex items-center justify-between">
@@ -143,17 +158,25 @@ function ReportPage() {
                   Our estimate: <span className="font-semibold text-foreground">{fmtHrs(i?.estimate)}</span>
                   {i?.value != null && <> · you logged <span className="font-semibold text-foreground">{fmtHrs(i.value)}</span></>}
                 </p>
-                <div className="flex items-center gap-2 mt-2">
-                  <input type="number" min={0} max={99} value={inp.h} onChange={(e) => setInp(b.wk, "h", e.target.value)} placeholder="hh"
-                    className="w-14 h-10 text-center bg-background border border-border rounded-lg text-base text-foreground focus:outline-none focus:border-primary" />
-                  <span className="font-bold text-muted-foreground">:</span>
-                  <input type="number" min={0} max={59} value={inp.m} onChange={(e) => setInp(b.wk, "m", e.target.value)} placeholder="mm"
-                    className="w-14 h-10 text-center bg-background border border-border rounded-lg text-base text-foreground focus:outline-none focus:border-primary" />
-                  <button onClick={() => saveWeek(b.wk)} disabled={busy === b.wk}
-                    className="ml-auto px-4 h-10 rounded-lg bg-primary text-primary-foreground text-sm font-bold disabled:opacity-40 active:scale-95 transition">
-                    {busy === b.wk ? "…" : "Save"}
-                  </button>
-                </div>
+                {locked ? (
+                  <p className="text-[11px] mt-2" style={{ color: i?.status === "approved" ? "var(--success)" : "var(--warning)" }}>
+                    {i?.status === "approved"
+                      ? "Approved ✓ — recorded."
+                      : "Submitted — awaiting planner approval. Locked until it's approved or declined."}
+                  </p>
+                ) : (
+                  <div className="flex items-center gap-2 mt-2">
+                    <input type="number" min={0} max={99} value={inp.h} onChange={(e) => setInp(b.wk, "h", e.target.value)} placeholder="hh"
+                      className="w-14 h-10 text-center bg-background border border-border rounded-lg text-base text-foreground focus:outline-none focus:border-primary" />
+                    <span className="font-bold text-muted-foreground">:</span>
+                    <input type="number" min={0} max={59} value={inp.m} onChange={(e) => setInp(b.wk, "m", e.target.value)} placeholder="mm"
+                      className="w-14 h-10 text-center bg-background border border-border rounded-lg text-base text-foreground focus:outline-none focus:border-primary" />
+                    <button onClick={() => saveWeek(b.wk)} disabled={busy === b.wk}
+                      className="ml-auto px-4 h-10 rounded-lg bg-primary text-primary-foreground text-sm font-bold disabled:opacity-40 active:scale-95 transition">
+                      {busy === b.wk ? "…" : "Save"}
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}

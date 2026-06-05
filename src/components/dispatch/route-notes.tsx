@@ -4,8 +4,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { useTenant } from "@/lib/tenant-context";
+import { logActivity } from "@/lib/activity-log";
 
-type RouteNote = { id: string; body: string; created_at: string; author_name: string | null; author_email: string | null };
+type RouteNote = { id: string; body: string; created_at: string; author_name: string | null; author_email: string | null; author_avatar_url: string | null };
 
 // Notes attached to a route/VRID. Backed by public.route_notes (see SQL in the
 // handoff); rows cascade-delete when the job is deleted. Typed via `as never`
@@ -16,12 +17,12 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
   const [count, setCount] = useState(0);
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
-  const { userId, name, email } = useTenant();
+  const { userId, name, email, avatarUrl } = useTenant();
 
   const load = useCallback(async () => {
     const { data } = await supabase
       .from("route_notes" as never)
-      .select("id, body, created_at, author_name, author_email")
+      .select("id, body, created_at, author_name, author_email, author_avatar_url")
       .eq("job_id", jobId)
       .order("created_at", { ascending: false });
     const rows = (data ?? []) as unknown as RouteNote[];
@@ -39,8 +40,9 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
       const tenant_id = await getTenantId();
       const { error } = await supabase
         .from("route_notes" as never)
-        .insert({ job_id: jobId, body: text, tenant_id, author_user_id: userId, author_name: name ?? null, author_email: email } as never);
+        .insert({ job_id: jobId, body: text, tenant_id, author_user_id: userId, author_name: name ?? null, author_email: email, author_avatar_url: avatarUrl ?? null } as never);
       if (error) throw error;
+      void logActivity("note.add", { entityType: "job", entityId: jobId, entityRef: reference });
       setBody("");
       await load();
     } catch (e) {
@@ -92,12 +94,20 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
                     style={{ background: "#FFF5BA", borderColor: "#E8D77A", color: "#3a2f00" }}
                   >
                     <div className="flex items-start gap-2">
-                      <span
-                        className="size-6 shrink-0 grid place-items-center rounded-full text-[10px] font-bold"
-                        style={{ background: "#E8D77A", color: "#3a2f00" }}
-                      >
-                        {(n.author_name ?? n.author_email ?? "?").charAt(0).toUpperCase()}
-                      </span>
+                      {n.author_avatar_url ? (
+                        <img
+                          src={n.author_avatar_url}
+                          alt=""
+                          className="size-6 shrink-0 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span
+                          className="size-6 shrink-0 grid place-items-center rounded-full text-[10px] font-bold"
+                          style={{ background: "#E8D77A", color: "#3a2f00" }}
+                        >
+                          {(n.author_name ?? n.author_email ?? "?").charAt(0).toUpperCase()}
+                        </span>
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium truncate">

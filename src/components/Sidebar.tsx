@@ -157,55 +157,35 @@ export function Sidebar() {
         )}
       </nav>
 
-      {/* ── Footer ── Modern compact design with integrated controls */}
-      <div
-        className="px-2.5 py-2.5 space-y-1.5"
-        style={{ borderTop: "1px solid var(--sidebar-divider)" }}
-      >
-        {/* Control row: Auto-refresh · AI · theme toggle */}
-        <div className="flex items-center justify-between gap-1.5 px-1.5 py-1.5 rounded-lg transition-colors hover:bg-surface/50">
-          <div className="flex items-center gap-1">
-            <AutoRefreshButton />
-            {flags.modules.includes("ai_agent") && <AIChatWidget />}
-          </div>
-          <ThemeToggle compact />
-        </div>
-
-        {/* User row: Modern card with integrated controls */}
-        <div
-          className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 transition-all duration-200 hover:bg-surface-2/80 group"
-          style={{ background: "var(--surface)" }}
-        >
-          {/* Avatar (click to upload a profile picture) */}
-          <FooterAvatar userId={userId} avatarUrl={avatarUrl ?? null} fallback={(name ?? email).charAt(0).toUpperCase()} />
-          <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-medium text-foreground truncate leading-tight">{name ?? email}</div>
-            <div className="text-[8px] font-mono uppercase tracking-widest mt-0.5 text-muted-foreground"
-              style={{ color: "var(--muted-foreground-2)" }}>
-              {role}
+      {/* ── Footer ── unified identity + controls card */}
+      <div className="p-2" style={{ borderTop: "1px solid var(--sidebar-divider)" }}>
+        <div className="rounded-xl border border-border/60 overflow-hidden" style={{ background: "var(--surface)" }}>
+          {/* Identity */}
+          <div className="flex items-center gap-2.5 px-2.5 py-2">
+            <FooterAvatar userId={userId} avatarUrl={avatarUrl ?? null} fallback={(name ?? email).charAt(0).toUpperCase()} />
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-semibold text-foreground truncate leading-tight">{name ?? email}</div>
+              <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/70 mt-0.5">{role}</div>
             </div>
-          </div>
-          {/* Action buttons: compact and modern */}
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
             <ProfileSwitcher currentUserId={userId} />
             <button
               onClick={signOut}
               title="Sign out"
-              className="size-5 shrink-0 grid place-items-center rounded-md transition-all duration-150 hover:scale-110 active:scale-95"
-              style={{
-                color: "var(--muted-foreground-2)",
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.color = "var(--destructive)";
-                e.currentTarget.style.background = "oklch(0.58 0.22 20 / 0.1)";
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.color = "var(--muted-foreground-2)";
-                e.currentTarget.style.background = "transparent";
-              }}
+              className="size-7 shrink-0 grid place-items-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             >
-              <LogOut className="size-3" />
+              <LogOut className="size-3.5" />
             </button>
+          </div>
+          {/* Controls strip */}
+          <div
+            className="flex items-center justify-between gap-1 px-2 py-1.5 border-t border-border/50"
+            style={{ background: "var(--background)" }}
+          >
+            <div className="flex items-center gap-1">
+              <AutoRefreshButton />
+              {flags.modules.includes("ai_agent") && <AIChatWidget />}
+            </div>
+            <ThemeToggle compact />
           </div>
         </div>
       </div>

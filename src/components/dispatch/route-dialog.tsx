@@ -139,6 +139,7 @@ export default function RouteDialog({
           toast.error(`Job update failed: ${error.message}`);
           return;
         }
+        void logActivity("lane.edit", { entityType: "job", entityId: targetJobId ?? undefined, entityRef: vrid.trim() || undefined });
       }
 
       const { error: delErr } = await supabase.from("job_stops").delete().eq("job_id", targetJobId!);

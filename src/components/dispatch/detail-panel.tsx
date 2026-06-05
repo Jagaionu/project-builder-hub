@@ -21,6 +21,10 @@ const VRID_AUDIT_LABEL: Record<string, string> = {
   "plan.run": "Planner run",
   "job.cancel": "Route cancelled",
   "job.assign": "Driver assigned",
+  "job.status": "Status changed",
+  "job.clone": "Route cloned",
+  "lane.edit": "Lane edited",
+  "note.add": "Note added",
   "job.delete": "Job deleted",
   "import.delete": "Import deleted",
 };
@@ -259,7 +263,13 @@ export const JobDetailPanel = memo(function JobDetailPanel({
           drivers={drivers}
           compliance={compliance}
           onChange={onAssignDriver}
+          disabled={job.status === "COMPLETED" || job.status === "CANCELLED"}
         />
+        {(job.status === "COMPLETED" || job.status === "CANCELLED") && (
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Driver can't be changed on a {job.status === "COMPLETED" ? "completed" : "cancelled"} route.
+          </p>
+        )}
         {!driver && (planned || job.planned_driver_id) && (
           <PlannedChip
             driverName={

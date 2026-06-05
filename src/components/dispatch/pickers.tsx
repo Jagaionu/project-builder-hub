@@ -190,12 +190,14 @@ export function DriverPicker({
   drivers,
   compliance,
   onChange,
+  disabled = false,
 }: {
   driverId: string | null | undefined;
   allowUnassign?: boolean;
   drivers: { id: string; name: string; status?: string }[];
   compliance?: Record<string, Compliance>;
   onChange: (id: string) => void;
+  disabled?: boolean;
 }) {
   const { open, setOpen, btnRef, popRef, coords } = usePopover();
   const driver = drivers.find((d) => d.id === driverId);
@@ -206,11 +208,12 @@ export function DriverPicker({
       <button
         ref={btnRef}
         type="button"
+        disabled={disabled}
         onClick={(e) => {
           e.stopPropagation();
-          setOpen((v) => !v);
+          if (!disabled) setOpen((v) => !v);
         }}
-        className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        className={`flex items-center gap-2 transition-opacity ${disabled ? "cursor-default" : "hover:opacity-80"}`}
       >
         {driver ? (
           <>

@@ -385,6 +385,7 @@ function DispatchPage() {
         if (se) toast.error(se.message);
       }
       await Promise.all([reloadJobs(), reloadJobStops()]);
+      void logActivity("job.clone", { entityType: "job", entityId: newId, entityRef: (nj as { reference?: string }).reference, metadata: { clonedFrom: job.reference } });
       toast.success(`Cloned → ${(nj as { reference?: string }).reference ?? "new route"}`);
       setSelectedJobId(newId);
     } catch (e) {
@@ -438,6 +439,9 @@ function DispatchPage() {
       void logActivity("job.cancel", { entityType: "job", entityId: jobId, entityRef: job.reference });
     }
     if (!opts?.silent) {
+      if (status !== "CANCELLED") {
+        void logActivity("job.status", { entityType: "job", entityId: jobId, entityRef: job.reference, metadata: { status } });
+      }
       toast.success(`Status → ${STATUS_CONFIG[status as JobStatus]?.label ?? status}`);
     }
   }
