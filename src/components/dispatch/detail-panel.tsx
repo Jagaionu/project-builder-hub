@@ -409,20 +409,21 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                       day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false,
                     })
                   : "—";
-              const delayMin = s.arrived_at && arr
-                ? Math.round((new Date(s.arrived_at).getTime() - new Date(arr).getTime()) / 60_000)
+              // Lateness: a PICKUP is late only if it DEPARTED (GPS) after its
+              // planned departure (CPT / yard departure) — arriving early at the
+              // yard is NOT late. A DROP is late if it ARRIVED after its planned
+              // arrival (CIT / yard arrival).
+              const lateEvent = s.kind === "PICKUP" ? s.departed_at ?? null : s.arrived_at ?? null;
+              const lateTarget = s.kind === "PICKUP" ? dockTime : arr;
+              const delayMin = lateEvent && lateTarget
+                ? Math.round((new Date(lateEvent).getTime() - new Date(lateTarget).getTime()) / 60_000)
                 : null;
               const isDelayed = delayMin != null && delayMin > 5;
 
-              // GPS badge: show only when the driver physically arrived via GPS.
-              // GPS arrivals write the current real timestamp (≠ planned time).
-              // The timestamp-fallback writes arrived_at = planned exactly.
-              // So: GPS is confirmed when arrived_at exists AND differs from planned time.
-              const isGpsConfirmed = !!(
-                s.arrived_at &&
-                plannedRaw &&
-                s.arrived_at !== plannedRaw
-              );
+              // GPS time shown in the Estimated column: a pickup's pull (departure)
+              // once it happens, else its yard arrival; a drop's arrival.
+              const gpsTime = s.kind === "PICKUP" ? (s.departed_at ?? s.arrived_at ?? null) : (s.arrived_at ?? null);
+              const isGpsConfirmed = !!(s.arrived_at && plannedRaw && s.arrived_at !== plannedRaw);
 
               return (
                 <div
@@ -453,11 +454,11 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                     )}
                   </div>
                   <div className="col-span-2 font-mono text-sm">
-                    {isAssignedOrActive && s.arrived_at ? (
+                    {isAssignedOrActive && gpsTime ? (
                       <div className="flex flex-col items-start gap-0.5">
                         <div className="flex items-center gap-1">
                           <span className={isDelayed ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}>
-                            {new Date(s.arrived_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
+                            {new Date(gpsTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
                           </span>
                           {isGpsConfirmed && (
                             <span className="inline-flex items-center px-1 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-[8px] font-bold text-orange-600 dark:text-orange-400">GPS</span>
