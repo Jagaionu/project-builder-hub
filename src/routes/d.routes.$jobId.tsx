@@ -13,6 +13,7 @@ import {
   stopDwellMinutes,
   ARRIVAL_BUFFER_MINUTES,
   computeStopSchedule,
+  stopCriticalWindow,
 } from "@/lib/geo";
 
 export const Route = createFileRoute("/d/routes/$jobId")({
@@ -74,9 +75,13 @@ function JobDetail() {
           day: "numeric",
         })
       : null;
-  const startTime = scheduleBasis
-    ? new Date(scheduleBasis).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : null;
+  const startTime = (() => {
+    const firstCrit = plannedTimes[0] ?? scheduleBasis;
+    const firstArrival = stopCriticalWindow(firstCrit, sortedStops[0]?.kind ?? "PICKUP", hm).arrival;
+    return firstArrival
+      ? new Date(firstArrival).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : null;
+  })();
   const chain = sortedStops.map((s) => s.warehouse?.code ?? "?").join(" → ");
 
   const statusCfg = STATUS_CONFIG[job.status] ?? STATUS_CONFIG.PENDING;
@@ -213,6 +218,7 @@ function JobDetail() {
         job={{ ...job, stops: sortedStops }}
         driverPosition={gps}
         plannedTimes={plannedTimes}
+        handlingMin={hm}
         onArrive={async (stopId) => {
           const now = new Date().toISOString();
           const { error } = await supabase

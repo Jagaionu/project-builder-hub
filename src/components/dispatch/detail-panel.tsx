@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { isJobScheduledFuture } from "@/lib/effective-status";
-import { computeStopSchedule, etaMinutes, haversineKm, stopDwellMinutes, transitTimeHours } from "@/lib/geo";
+import { computeStopSchedule, etaMinutes, haversineKm, stopDwellMinutes, stopCriticalWindow, transitTimeHours } from "@/lib/geo";
 import { isDriverAvailableOnDate } from "@/lib/planner";
 import type { Compliance } from "@/lib/compliance";
 import type { Driver, DriverShift, DriverAvailabilityOverride, Job, Warehouse } from "@/lib/types";
@@ -375,13 +375,13 @@ export const JobDetailPanel = memo(function JobDetailPanel({
             {stops.map((s, idx) => {
               const wh = lookups.warehousesById.get(s.warehouse_id);
               const isAssignedOrActive = job.status !== "PENDING";
-              // Planned arrival/departure come from the CSV-imported schedule and
-              // are shown for every status (including PENDING) so dispatch can see
-              // the timings before a driver is assigned.
-              const arr = s.scheduled_at ?? stopTimes[idx];
-              const dep = arr
-                ? new Date(new Date(arr).getTime() + stopDwellMinutes(s.kind) * 60_000).toISOString()
-                : null;
+              // The scheduled time is the stop's CRITICAL time — CPT (pull/depart)
+              // for a pickup, CIT (inject/arrive) for a drop. Derive the implied
+              // arrival + departure so a pickup arrives BEFORE its CPT.
+              const plannedRaw = s.scheduled_at ?? stopTimes[idx];
+              const win = stopCriticalWindow(plannedRaw, s.kind, (job as { handling_minutes?: number | null }).handling_minutes ?? undefined);
+              const arr = win.arrival;
+              const dep = win.departure;
               // Live estimated arrival for the NEXT un-arrived stop, from the
               // assigned driver's current GPS — only once they've left the
               // previous stop. Dispatcher-only (drivers see real times only).
@@ -417,8 +417,8 @@ export const JobDetailPanel = memo(function JobDetailPanel({
               // So: GPS is confirmed when arrived_at exists AND differs from planned time.
               const isGpsConfirmed = !!(
                 s.arrived_at &&
-                arr &&
-                s.arrived_at !== arr
+                plannedRaw &&
+                s.arrived_at !== plannedRaw
               );
 
               return (
@@ -443,13 +443,21 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                   </div>
                   <div className="col-span-3 font-mono text-foreground text-sm">
                     {fmt(arr)}
+                    {s.kind === "DROP" && arr && (
+                      <span title="Critical Injection Time" className="ml-1 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">CIT</span>
+                    )}
                     {estArrIso && (
                       <div className="text-[10px] text-primary">
                         Est {new Date(estArrIso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
                       </div>
                     )}
                   </div>
-                  <div className="col-span-2 font-mono text-foreground text-sm">{fmt(dep)}</div>
+                  <div className="col-span-2 font-mono text-foreground text-sm">
+                    {fmt(dep)}
+                    {s.kind === "PICKUP" && dep && (
+                      <span title="Critical Pull Time" className="ml-1 text-[9px] font-semibold text-blue-500 dark:text-blue-400">CPT</span>
+                    )}
+                  </div>
                   <div className="col-span-1 font-mono">
                     {/* Only show actual arrival time when job is assigned/active */}
                     {isAssignedOrActive && s.arrived_at ? (

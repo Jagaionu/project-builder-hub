@@ -5,7 +5,7 @@ import { useDrivers, useJobs, useWarehouses } from "@/lib/hooks";
 import { useJobStops } from "@/lib/dispatch/use-job-stops";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ClientOnly } from "@/components/ClientOnly";
-import { haversineKm, etaMinutes } from "@/lib/geo";
+import { haversineKm, etaMinutes, stopCriticalWindow } from "@/lib/geo";
 import { ArrowLeft, Navigation, Clock, Radio, X } from "lucide-react";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
 import { useDriverPositions } from "@/lib/use-driver-positions";
@@ -38,7 +38,7 @@ type LiveEta = { estMs: number; lateMin: number | null; isLate: boolean; nextCod
 function nextStopEta(
   driver: { id: string; current_lat: number | null; current_lon: number | null },
   jobs: Array<{ id: string; assigned_driver_id: string | null; status: string }>,
-  stopsMap: Record<string, Array<{ warehouse_id: string; arrived_at?: string | null; scheduled_at: string | null; departed_at?: string | null }>>,
+  stopsMap: Record<string, Array<{ kind: "PICKUP" | "DROP"; warehouse_id: string; arrived_at?: string | null; scheduled_at: string | null; departed_at?: string | null }>>,
   warehouses: Array<{ id: string; latitude: number; longitude: number; code: string }>,
 ): LiveEta {
   const job = jobs.find((j) => j.assigned_driver_id === driver.id && ACTIVE_FOR_ETA.includes(j.status));
@@ -62,7 +62,9 @@ function nextStopEta(
     (prevWh ? haversineKm(dLat, dLon, prevWh.latitude, prevWh.longitude) * 1000 > 300 : true);
   if (!prevDeparted) return null;
   const estMs = Date.now() + etaMinutes(haversineKm(dLat, dLon, wh.latitude, wh.longitude)) * 60_000;
-  const plannedMs = next.scheduled_at ? new Date(next.scheduled_at).getTime() : null;
+  // Compare against the REQUIRED arrival: CPT − handling for a pickup, CIT for a drop.
+  const targetArrival = stopCriticalWindow(next.scheduled_at, next.kind).arrival;
+  const plannedMs = targetArrival ? new Date(targetArrival).getTime() : null;
   const lateMin = plannedMs != null ? Math.round((estMs - plannedMs) / 60_000) : null;
   return { estMs, lateMin, isLate: lateMin != null && lateMin > 10, nextCode: wh.code };
 }

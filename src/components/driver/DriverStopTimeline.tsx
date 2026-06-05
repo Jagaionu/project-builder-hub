@@ -1,4 +1,5 @@
 import { haversineKm, etaMinutes, type GPSPosition } from "@/lib/driver-gps";
+import { stopCriticalWindow } from "@/lib/geo";
 import type { JobWithStops } from "@/lib/driver-types";
 
 interface Props {
@@ -6,9 +7,10 @@ interface Props {
   driverPosition: GPSPosition | null;
   onArrive?: (stopId: string) => void;
   plannedTimes?: (string | null)[];
+  handlingMin?: number;
 }
 
-export function DriverStopTimeline({ job, driverPosition, onArrive, plannedTimes }: Props) {
+export function DriverStopTimeline({ job, driverPosition, onArrive, plannedTimes, handlingMin }: Props) {
   const stops = [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq);
 
   return (
@@ -18,7 +20,9 @@ export function DriverStopTimeline({ job, driverPosition, onArrive, plannedTimes
         const arrived = !!stop.arrived_at;
         const isNext = !arrived && stops.slice(0, i).every((s) => !!s.arrived_at);
         const wh = stop.warehouse;
-        const plannedAt = plannedTimes?.[i] ?? stop.scheduled_at;
+        const crit = plannedTimes?.[i] ?? stop.scheduled_at;
+        const win = stopCriticalWindow(crit, stop.kind, handlingMin);
+        const plannedArrival = win.arrival;
         const departedAt = (stop as { departed_at?: string | null }).departed_at ?? null;
 
         const dotColor = arrived
@@ -45,9 +49,12 @@ export function DriverStopTimeline({ job, driverPosition, onArrive, plannedTimes
                   </p>
                   <p className="text-base font-bold text-foreground mt-0.5">{wh?.code} — {wh?.name}</p>
                   {wh?.address && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{wh.address}</p>}
-                  {plannedAt && (
+                  {plannedArrival && (
                     <p className="text-xs text-muted-foreground mt-1 font-mono">
-                      Planned {new Date(plannedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      Planned {new Date(plannedArrival).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {stop.kind === "PICKUP" && win.departure && (
+                        <span className="text-muted-foreground/70"> · pull by {new Date(win.departure).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                      )}
                     </p>
                   )}
                   {departedAt && (

@@ -93,6 +93,25 @@ export function computeStopSchedule(
   return out;
 }
 
+// Critical-time windows for a stop. The imported scheduled time is the stop's
+// CRITICAL time:
+//   PICKUP -> CPT (Critical Pull Time): truck must DEPART by then, so arrive earlier.
+//   DROP   -> CIT (Critical Injection Time): truck must ARRIVE by then, then unload.
+export function stopCriticalWindow(
+  scheduledIso: string | null | undefined,
+  kind: "PICKUP" | "DROP",
+  handlingMin?: number,
+): { arrival: string | null; departure: string | null } {
+  if (!scheduledIso) return { arrival: null, departure: null };
+  const t = new Date(scheduledIso).getTime();
+  if (Number.isNaN(t)) return { arrival: null, departure: null };
+  const dwellMs = stopDwellMinutes(kind, handlingMin) * 60_000;
+  if (kind === "PICKUP") {
+    return { arrival: new Date(t - dwellMs).toISOString(), departure: scheduledIso };
+  }
+  return { arrival: scheduledIso, departure: new Date(t + dwellMs).toISOString() };
+}
+
 // Total minutes a driver is occupied by a job, from arrival at the first
 // stop through to "good to go" after checks at the final stop.
 export function jobTotalMinutes(stops: StopLike[], warehouses: WhLike[], handlingMin?: number): number {

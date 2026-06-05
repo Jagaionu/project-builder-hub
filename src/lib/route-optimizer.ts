@@ -217,11 +217,15 @@ export function optimizeRoutes(input: OptInput): OptResult {
 
       const ddKm = haversineKm(lat, lon, fp.latitude, fp.longitude);
       const legTo = travel({ lat, lon, whId: lastWhId ?? undefined }, { lat: fp.latitude, lon: fp.longitude, whId: fp.id }, t);
+      // Pickup scheduled = CPT (Critical Pull Time = the depart deadline). The
+      // truck must ARRIVE by CPT − loading so it can load and pull on time.
       const sched = schedMs(job.stops[0]?.scheduled_at);
+      const loadMs = stopDwellMinutes(job.stops[0]?.kind ?? "PICKUP") * 60_000;
+      const arriveBy = sched !== null ? sched - loadMs : null;
       const legToMs = legTo * H;
-      const departMs = sched !== null ? Math.max(t, sched - legToMs) : t;
+      const departMs = arriveBy !== null ? Math.max(t, arriveBy - legToMs) : t;
       const arriveMs = departMs + legToMs;
-      const pickupStartMs = sched !== null ? Math.max(arriveMs, sched) : arriveMs;
+      const pickupStartMs = arriveBy !== null ? Math.max(arriveMs, arriveBy) : arriveMs;
 
       const legs = jobLegs(job.stops, pickupStartMs);
       if (!legs) return null;
@@ -236,7 +240,7 @@ export function optimizeRoutes(input: OptInput): OptResult {
 
       if (driver.shiftEndMs != null && completionMs > driver.shiftEndMs) return null;
 
-      const pickupLate = sched !== null ? Math.max(0, Math.round((arriveMs - sched) / 60_000)) : 0;
+      const pickupLate = arriveBy !== null ? Math.max(0, Math.round((arriveMs - arriveBy) / 60_000)) : 0;
       const dropSched = schedMs(job.stops[job.stops.length - 1]?.scheduled_at);
       const finalDwellMs = stopDwellMinutes(job.stops[job.stops.length - 1].kind) * 60_000;
       const deliveryLate =
