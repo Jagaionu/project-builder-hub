@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Company, SubscriptionStatus, CompanyPlan, TenantConfig, TenantModule, Warehouse } from "@/lib/types";
 import { DEFAULT_TENANT_CONFIG } from "@/lib/types";
@@ -42,6 +42,64 @@ const MODULE_LABELS: Record<TenantModule, string> = {
   ai_agent: "AI Agent",
 };
 
+// Per-company usage rolled up client-side (super admin reads all tenants via
+// RLS) — how much each company actually uses the product, to inform pricing.
+type CompanyUsage = {
+  drivers: number;
+  warehouses: number;
+  members: number;
+  vrids30d: number;
+  activity14d: number;
+  lastActive: number | null;
+};
+
+function useCompanyUsage(): Record<string, CompanyUsage> {
+  const [usage, setUsage] = useState<Record<string, CompanyUsage>>({});
+  useEffect(() => {
+    let cancelled = false;
+    const sb = supabase as unknown as { from: (t: string) => any };
+    const now = Date.now();
+    const d30 = new Date(now - 30 * 86_400_000).toISOString();
+    const d14 = new Date(now - 14 * 86_400_000).toISOString();
+    void (async () => {
+      const [drv, wh, mem, jobs, act] = await Promise.all([
+        sb.from("drivers").select("tenant_id, deleted_at"),
+        sb.from("warehouses").select("tenant_id"),
+        sb.from("company_members").select("company_id"),
+        sb.from("jobs").select("tenant_id, created_at").gte("created_at", d30),
+        sb.from("activity_log").select("tenant_id, created_at").gte("created_at", d14),
+      ]);
+      if (cancelled) return;
+      const m: Record<string, CompanyUsage> = {};
+      const g = (id: string | null | undefined) =>
+        id ? (m[id] ||= { drivers: 0, warehouses: 0, members: 0, vrids30d: 0, activity14d: 0, lastActive: null }) : null;
+      const touch = (u: CompanyUsage, iso: string) => { const t = +new Date(iso); if (t && (!u.lastActive || t > u.lastActive)) u.lastActive = t; };
+      for (const r of (drv.data ?? []) as Array<{ tenant_id: string | null; deleted_at: string | null }>) if (!r.deleted_at) { const u = g(r.tenant_id); if (u) u.drivers++; }
+      for (const r of (wh.data ?? []) as Array<{ tenant_id: string | null }>) { const u = g(r.tenant_id); if (u) u.warehouses++; }
+      for (const r of (mem.data ?? []) as Array<{ company_id: string | null }>) { const u = g(r.company_id); if (u) u.members++; }
+      for (const r of (jobs.data ?? []) as Array<{ tenant_id: string | null; created_at: string }>) { const u = g(r.tenant_id); if (u) { u.vrids30d++; touch(u, r.created_at); } }
+      for (const r of (act.data ?? []) as Array<{ tenant_id: string | null; created_at: string }>) { const u = g(r.tenant_id); if (u) { u.activity14d++; touch(u, r.created_at); } }
+      setUsage(m);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  return usage;
+}
+
+function relDays(ms: number): string {
+  const d = Math.floor((Date.now() - ms) / 86_400_000);
+  return d <= 0 ? "today" : d === 1 ? "1d ago" : `${d}d ago`;
+}
+
+function Kpi({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface px-3 py-2.5">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className="text-xl font-semibold mt-0.5 tabular-nums">{value.toLocaleString()}</div>
+    </div>
+  );
+}
+
 function AdminDashboard() {
   const [tab, setTab] = useState<"companies" | "warehouses">("companies");
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -53,6 +111,13 @@ function AdminDashboard() {
   const [showAddWarehouse, setShowAddWarehouse] = useState(false);
   const [editingWarehouseId, setEditingWarehouseId] = useState<string | null>(null);
   const [editingWarehouse, setEditingWarehouse] = useState({ code: "", name: "", latitude: 0, longitude: 0, address: "" });
+
+  const usage = useCompanyUsage();
+  const totals = useMemo(() => {
+    let drivers = 0, vrids = 0, activity = 0;
+    for (const c of companies) { const u = usage[c.id]; if (u) { drivers += u.drivers; vrids += u.vrids30d; activity += u.activity14d; } }
+    return { drivers, vrids, activity };
+  }, [companies, usage]);
 
   async function loadCompanies() {
     const { data, error } = await supabase
@@ -143,16 +208,20 @@ function AdminDashboard() {
 
       {tab === "companies" && (
         <>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">{companies.length} total</p>
-            </div>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold">Companies <span className="font-normal text-muted-foreground">· {companies.length}</span></h2>
             <button
               onClick={() => setShowCreateForm(true)}
               className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               <Plus className="size-4" /> New Company
             </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Kpi label="Companies" value={companies.length} />
+            <Kpi label="Active drivers" value={totals.drivers} />
+            <Kpi label="VRIDs · 30d" value={totals.vrids} />
+            <Kpi label="Activity · 14d" value={totals.activity} />
           </div>
 
           {expiringTrials.length > 0 && (
@@ -210,6 +279,7 @@ function AdminDashboard() {
           {companies.map((company) => (
             <CompanyRow
               key={company.id}
+              usage={usage[company.id]}
               company={company}
               expanded={expandedId === company.id}
               onToggle={() => setExpandedId(expandedId === company.id ? null : company.id)}
@@ -494,12 +564,14 @@ function CompanyRow({
   onToggle,
   onStatusChange,
   onConfigSave,
+  usage,
 }: {
   company: Company;
   expanded: boolean;
   onToggle: () => void;
   onStatusChange: (id: string, s: SubscriptionStatus) => void;
   onConfigSave: (id: string, c: TenantConfig) => void;
+  usage?: CompanyUsage;
 }) {
   const status = STATUS_CONFIG[company.subscription_status];
   const StatusIcon = status.icon;
@@ -562,8 +634,18 @@ function CompanyRow({
             <span className="text-sm font-semibold">{company.name}</span>
             <span className="text-xs font-mono text-muted-foreground">/{company.slug}</span>
           </div>
-          <div className="text-[11px] text-muted-foreground mt-0.5 font-mono">
-            {company.plan.toUpperCase()} · {company.config?.modules?.length ?? 0} modules
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[11px] font-mono text-muted-foreground">
+            <span className="px-1.5 py-0.5 rounded bg-surface-2 text-foreground/80">{company.plan.toUpperCase()}</span>
+            {usage && (
+              <>
+                <span title="Active drivers">🚚 {usage.drivers}/{company.config?.maxDrivers ?? "∞"}</span>
+                <span title="Warehouses">🏭 {usage.warehouses}</span>
+                <span title="Team members">👥 {usage.members}</span>
+                <span title="VRIDs (30d)">📦 {usage.vrids30d}</span>
+                <span title="Activity events (14d)">⚡ {usage.activity14d}</span>
+                <span title="Last activity">· {usage.lastActive ? relDays(usage.lastActive) : "idle"}</span>
+              </>
+            )}
           </div>
         </div>
         <div className={`flex items-center gap-1.5 text-xs font-medium ${status.color}`}>
