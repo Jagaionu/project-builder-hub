@@ -197,6 +197,7 @@ function LiveDashboard() {
                 jobs={mapJobs}
                 jobStops={stopsMap}
                 breadcrumbs={breadcrumbs}
+                focused={!!focusedJob}
                 selectedDriverId={selected}
                 onSelectDriver={setSelected}
               />
