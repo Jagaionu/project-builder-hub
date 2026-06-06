@@ -5,6 +5,8 @@ import { ChevronDown, ChevronUp, Trash2, Copy, RefreshCw, Clock, Package } from 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivity } from "@/lib/activity-log";
+import { reloadJobs } from "@/lib/hooks";
+import { reloadJobStops } from "@/lib/dispatch/use-job-stops";
 import { computeStopSchedule } from "@/lib/geo";
 import { getTenantId } from "@/lib/tenant-insert";
 import type { Warehouse } from "@/lib/types";
@@ -176,6 +178,7 @@ export default function RouteDialog({
       } else {
         toast.success(mode === "create" ? "Route created" : "Route updated");
       }
+      await Promise.all([reloadJobs(), reloadJobStops()]);
       setOpen(false);
       onClose();
     } catch (err) {
@@ -194,6 +197,7 @@ export default function RouteDialog({
     setDeleting(false);
     if (error) return toast.error(error.message);
     toast.success("Lane deleted");
+    await Promise.all([reloadJobs(), reloadJobStops()]);
     setOpen(false);
     onClose();
   }

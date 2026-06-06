@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { useDrivers, useComplianceWithLedger, useDriverDayHours, useWarehouses } from "@/lib/hooks";
+import { useDrivers, useComplianceWithLedger, useDriverDayHours, useWarehouses, reloadDrivers } from "@/lib/hooks";
 import { StatusBadge } from "@/components/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
@@ -251,6 +251,7 @@ function DriversPage() {
     setOpen(false);
     setCreateEquip([]);
     setForm({ name: "", phone: "", home_warehouse_id: "", return_to_base_required: false });
+    await reloadDrivers();
     router.invalidate();
   }
 
@@ -291,6 +292,7 @@ function DriversPage() {
     void logActivity("driver.edit", { entityType: "driver", entityId: editingId, entityRef: editForm.name });
     toast.success("Driver updated");
     setEditingId(null);
+    await reloadDrivers();
     router.invalidate();
   }
 
@@ -308,6 +310,7 @@ function DriversPage() {
       await removeDriverFn({ data: { driverId: id } });
       toast.success("Driver deleted");
       if (selectedDriverId === id) setSelectedDriverId(null);
+      await reloadDrivers();
       router.invalidate();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Delete failed");

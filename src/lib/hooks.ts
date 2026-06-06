@@ -37,59 +37,81 @@ const cache: {
   driverDayHours: {},
 };
 
+const driversSubscribers = new Set<(d: Driver[]) => void>();
+function broadcastDrivers(next: Driver[]) {
+  cache.drivers = next;
+  for (const fn of driversSubscribers) fn(next);
+}
+// Explicit refetch so an add/edit/delete is visible immediately. Fans out to
+// every mounted useDrivers() subscriber.
+export async function reloadDrivers() {
+  try {
+    const { data } = await supabase.from("drivers").select("*").order("name");
+    if (data) broadcastDrivers(data as unknown as Driver[]);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("[reloadDrivers] query failed:", err);
+  }
+}
+
 export function useDrivers(initialDrivers: Driver[] = []) {
   const [drivers, setDrivers] = useState<Driver[]>(
     cache.drivers.length ? cache.drivers : initialDrivers,
   );
   const channelNameRef = useRef(`rt-drivers-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const { data } = await supabase.from("drivers").select("*").order("name");
-        if (mounted && data) {
-          cache.drivers = data as unknown as Driver[];
-          setDrivers(cache.drivers);
-        }
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn("[useDrivers] query failed:", err);
-      }
-    })();
+    driversSubscribers.add(setDrivers);
+    void reloadDrivers();
     const ch = supabase.channel(channelNameRef.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, (payload) => {
-        setDrivers((prev) => {
-          let next = prev;
-          if (payload.eventType === "INSERT") next = [...prev, payload.new as Driver].sort((a, b) => a.name.localeCompare(b.name));
-          else if (payload.eventType === "UPDATE")
-            next = prev.map((d) => (d.id === (payload.new as Driver).id ? (payload.new as Driver) : d)).sort((a, b) => a.name.localeCompare(b.name));
-          else if (payload.eventType === "DELETE")
-            next = prev.filter((d) => d.id !== (payload.old as Driver).id).sort((a, b) => a.name.localeCompare(b.name));
-          cache.drivers = next;
-          return next;
-        });
+        let next = cache.drivers;
+        if (payload.eventType === "INSERT") next = [...cache.drivers, payload.new as Driver];
+        else if (payload.eventType === "UPDATE")
+          next = cache.drivers.map((d) => (d.id === (payload.new as Driver).id ? (payload.new as Driver) : d));
+        else if (payload.eventType === "DELETE")
+          next = cache.drivers.filter((d) => d.id !== (payload.old as Driver).id);
+        broadcastDrivers([...next].sort((a, b) => a.name.localeCompare(b.name)));
       })
       .subscribe();
-    return () => { mounted = false; supabase.removeChannel(ch); };
+    return () => {
+      driversSubscribers.delete(setDrivers);
+      supabase.removeChannel(ch);
+    };
   }, []);
   return drivers;
 }
 
+const warehousesSubscribers = new Set<(w: Warehouse[]) => void>();
+function broadcastWarehouses(next: Warehouse[]) {
+  cache.warehouses = next;
+  for (const fn of warehousesSubscribers) fn(next);
+}
+// Explicit refetch so a save/add/delete is visible immediately (don't wait on
+// the realtime echo). Fans out to every mounted useWarehouses() subscriber.
+export async function reloadWarehouses() {
+  try {
+    const { data } = await supabase.from("warehouses").select("*").order("code");
+    if (data) broadcastWarehouses(data as Warehouse[]);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("[reloadWarehouses] query failed:", err);
+  }
+}
+
 export function useWarehouses() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>(cache.warehouses);
+  const channelNameRef = useRef(`rt-warehouses-${Math.random().toString(36).slice(2)}`);
   useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await supabase.from("warehouses").select("*").order("code");
-        if (data) {
-          cache.warehouses = data as Warehouse[];
-          setWarehouses(cache.warehouses);
-        }
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn("[useWarehouses] query failed:", err);
-      }
-    })();
+    warehousesSubscribers.add(setWarehouses);
+    void reloadWarehouses();
+    const ch = supabase
+      .channel(channelNameRef.current)
+      .on("postgres_changes", { event: "*", schema: "public", table: "warehouses" }, () => void reloadWarehouses())
+      .subscribe();
+    return () => {
+      warehousesSubscribers.delete(setWarehouses);
+      supabase.removeChannel(ch);
+    };
   }, []);
   return warehouses;
 }

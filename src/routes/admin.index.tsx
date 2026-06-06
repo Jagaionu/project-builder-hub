@@ -285,6 +285,7 @@ function AdminDashboard() {
               onToggle={() => setExpandedId(expandedId === company.id ? null : company.id)}
               onStatusChange={updateStatus}
               onConfigSave={updateConfig}
+              onChanged={loadCompanies}
             />
           ))}
         </>
@@ -564,6 +565,7 @@ function CompanyRow({
   onToggle,
   onStatusChange,
   onConfigSave,
+  onChanged,
   usage,
 }: {
   company: Company;
@@ -571,6 +573,7 @@ function CompanyRow({
   onToggle: () => void;
   onStatusChange: (id: string, s: SubscriptionStatus) => void;
   onConfigSave: (id: string, c: TenantConfig) => void;
+  onChanged: () => void;
   usage?: CompanyUsage;
 }) {
   const status = STATUS_CONFIG[company.subscription_status];
@@ -695,6 +698,7 @@ function CompanyRow({
                   onClick={async () => {
                     await supabase.from("companies" as never).update({ plan: p } as never).eq("id", company.id);
                     toast.success("Plan updated");
+                    onChanged();
                   }}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors capitalize ${
                     company.plan === p
@@ -721,6 +725,7 @@ function CompanyRow({
                     const { error } = await supabase.from("companies" as never).update({ subscription_ends_at: newDate.toISOString() } as never).eq("id", company.id);
                     if (error) { toast.error("Failed to update trial date"); return; }
                     toast.success("Trial date updated");
+                    onChanged();
                   }}
                   className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 />
@@ -732,6 +737,7 @@ function CompanyRow({
                     const { error } = await supabase.from("companies" as never).update({ subscription_ends_at: newDate.toISOString() } as never).eq("id", company.id);
                     if (error) { toast.error("Failed to extend trial"); return; }
                     toast.success("Trial extended by 7 days");
+                    onChanged();
                   }}
                   className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors whitespace-nowrap"
                 >

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useWarehouses } from "@/lib/hooks";
+import { useWarehouses, reloadWarehouses } from "@/lib/hooks";
 import { PageHeader } from "./_app.index";
 import { FormField as Field } from "@/components/shared/form-field";
 import { supabase } from "@/integrations/supabase/client";
@@ -60,8 +60,7 @@ function WarehousesPage() {
       toast.success("Warehouse added");
       setOpen(false);
       setForm(empty);
-      // FIX: removed window.location.reload() — the useWarehouses() Realtime
-      // subscription picks up the new row automatically via postgres_changes.
+      await reloadWarehouses();
     }
   }
 
@@ -117,7 +116,7 @@ function WarehousesPage() {
     } else {
       toast.success("Warehouse updated");
       setEditingId(null);
-      // FIX: removed window.location.reload() — Realtime subscription handles refresh.
+      await reloadWarehouses();
     }
   }
 
@@ -127,7 +126,7 @@ function WarehousesPage() {
     if (error) toast.error(error.message);
     else {
       toast.success("Warehouse deleted");
-      // FIX: removed window.location.reload() — Realtime subscription handles refresh.
+      await reloadWarehouses();
       if (selectedId === id) setSelectedId(null);
     }
   }
@@ -229,7 +228,7 @@ function WarehousesPage() {
       if (error) { toast.error(error.message); return; }
       toast.success(`Imported ${inserts.length} warehouses. Skipped ${skipped.length} duplicates, ${invalid.length} invalid.`);
       if (invalid.length) console.warn("Invalid rows:", invalid);
-      // FIX: removed window.location.reload() — Realtime subscription handles refresh.
+      await reloadWarehouses();
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
