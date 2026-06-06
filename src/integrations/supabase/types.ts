@@ -3786,6 +3786,7 @@ export type Database = {
           destination_warehouse_id: string | null
           earliest_start: string | null
           equipment_type: string | null
+          estimated_cost: string | null
           eta_minutes: number | null
           for_date: string | null
           handling_minutes: number | null
@@ -3810,6 +3811,7 @@ export type Database = {
           destination_warehouse_id?: string | null
           earliest_start?: string | null
           equipment_type?: string | null
+          estimated_cost?: string | null
           eta_minutes?: number | null
           for_date?: string | null
           handling_minutes?: number | null
@@ -3834,6 +3836,7 @@ export type Database = {
           destination_warehouse_id?: string | null
           earliest_start?: string | null
           equipment_type?: string | null
+          estimated_cost?: string | null
           eta_minutes?: number | null
           for_date?: string | null
           handling_minutes?: number | null

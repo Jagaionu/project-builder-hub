@@ -53,6 +53,7 @@ export interface Job {
   for_date?: string | null;
   manual_override?: boolean;
   equipment_type?: string | null;
+  estimated_cost?: string | null;
 }
 
 
