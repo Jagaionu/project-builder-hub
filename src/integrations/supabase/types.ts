@@ -238,25 +238,34 @@ export type Database = {
       }
       driver_positions: {
         Row: {
+          accuracy: number | null
+          bearing: number | null
           created_at: string
           driver_id: string
           id: string
           lat: number
           lon: number
+          speed: number | null
         }
         Insert: {
+          accuracy?: number | null
+          bearing?: number | null
           created_at?: string
           driver_id: string
           id?: string
           lat: number
           lon: number
+          speed?: number | null
         }
         Update: {
+          accuracy?: number | null
+          bearing?: number | null
           created_at?: string
           driver_id?: string
           id?: string
           lat?: number
           lon?: number
+          speed?: number | null
         }
         Relationships: [
           {
@@ -865,6 +874,7 @@ export type Database = {
     }
     Functions: {
       current_driver_id: { Args: never; Returns: string }
+      log_gps: { Args: { points: Json }; Returns: Json }
       current_subscription_status: { Args: never; Returns: string }
       current_tenant_id: { Args: never; Returns: string }
       gen_driver_login_code: { Args: never; Returns: string }

@@ -31,8 +31,7 @@ export async function sendPositions(samples: GpsSample[]): Promise<number> {
     speed: s.speed ?? null,
     bearing: s.bearing ?? null,
   }));
-  const client = supabase as unknown as { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> };
-  const { data, error } = await client.rpc("log_gps", { points });
+  const { data, error } = await supabase.rpc("log_gps", { points });
   if (error) throw error;
   return (data as { inserted?: number } | null)?.inserted ?? 0;
 }
