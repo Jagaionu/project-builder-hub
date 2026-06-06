@@ -130,3 +130,28 @@ consent reasons.
 - src/lib/driver/gps-seam.ts - flag-gated buffer (dry-run until the flag is set).
 - useDriverBootstrap feeds samples to the seam; existing insert untouched.
 - capacitor.config.ts (driver-only, no service key, shift-gated).
+
+## Status: driver SPA build is implemented and verified
+
+`vite.config.driver.ts` + `npm run build:driver` now exist and build cleanly in
+this repo (TanStack Start SPA mode, maskPath /d, PWA service worker stubbed out).
+It emits a static client to `dist/driver/` with a root `index.html` (the SPA
+shell) plus hashed assets - exactly what Capacitor `webDir` expects. The main SSR
+`vite.config.ts` and the Vercel deploy are untouched (tsc + npm run build verified
+green).
+
+```bash
+npm run build:driver     # -> dist/driver/ (static SPA, gitignored)
+# sanity check in a browser before Capacitor:
+npx serve dist/driver     # open the served URL, then navigate to /d
+```
+
+### One native wiring detail still to handle (needs a device/browser to verify)
+
+The shell boots the router at `/` (in the Capacitor shell the start URL is
+`capacitor://localhost/`). The driver app should land on `/d`. Pick one:
+- Add a `/` -> `/d` redirect in the driver build (a small index route redirect),
+  or
+- Configure the initial path in the native layer.
+This is the last routing detail; it cannot be fully verified headless, so confirm
+it when you first run the app on a simulator/device.
