@@ -241,6 +241,9 @@ export const JobDetailPanel = memo(function JobDetailPanel({
               return `${s.kind === "PICKUP" ? "📦" : "🏁"} ${wh?.name ?? "?"}`;
             }).join(" → ")}
           </p>
+          {job.estimated_cost && (
+            <p className="text-xs text-muted-foreground mt-1">💷 Est. cost: {job.estimated_cost}</p>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <ViewOnMapButton job={job} />

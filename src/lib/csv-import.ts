@@ -100,7 +100,7 @@ function parseFmcDateTime(value: string): string | null {
   // dd/MM/yyyy HH:mm[:ss] (European — matches the rest of the importer).
   const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
   if (m) {
-    const da = +m[1], mo = +m[2], y = +m[3], hh = +m[4], mm = +m[5], ss = m[6] ? +m[6] : 0;
+    const mo = +m[1], da = +m[2], y = +m[3], hh = +m[4], mm = +m[5], ss = m[6] ? +m[6] : 0;
     const dt = new Date(y, mo - 1, da, hh, mm, ss);
     return Number.isNaN(dt.getTime()) ? null : dt.toISOString();
   }
@@ -114,6 +114,8 @@ function parseFmcDateTime(value: string): string | null {
 function fmcToImportRows(rows: string[][], header: string[]): ImportRow[] {
   const idx = (name: string) => header.indexOf(name);
   const vridCol = idx("VR ID");
+  const statusCol = idx("Status");
+  const costCol = idx("Estimated Cost");
   const equipCol = idx("Equipment Type");
   const stopCols: { code: number; arr: number; dep: number }[] = [];
   for (let i = 1; i <= 10; i++) {
@@ -129,6 +131,8 @@ function fmcToImportRows(rows: string[][], header: string[]): ImportRow[] {
     const row = rows[r];
     const reference = vridCol >= 0 ? (row[vridCol] || "").trim() : "";
     if (!reference) continue;
+    if (statusCol >= 0 && (row[statusCol] || "").trim().toUpperCase() !== "PLANNED") continue;
+    const estimatedCost = costCol >= 0 ? (row[costCol] || "").trim() || null : null;
     const equip = equipCol >= 0 ? (row[equipCol] || "").trim() || null : null;
 
     const codes: string[] = [];
@@ -142,7 +146,7 @@ function fmcToImportRows(rows: string[][], header: string[]): ImportRow[] {
       stopYardDeparture.push(sc.dep >= 0 ? parseFmcDateTime(row[sc.dep] || "") : null);
     }
     if (codes.length < 2) continue;
-    out.push({ reference, lane: codes.join("->"), equipmentType: equip, stopScheduledAt, stopYardDeparture });
+    out.push({ reference, lane: codes.join("->"), equipmentType: equip, estimatedCost, stopScheduledAt, stopYardDeparture });
   }
   return out;
 }
