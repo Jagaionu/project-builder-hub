@@ -84,10 +84,10 @@ export function DriverTachographModal() {
 
   return (
     <div className="fixed inset-0 z-[60] grid place-items-center bg-black/70 p-4" data-no-swipe>
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
+      <div className="w-full max-w-sm box-border rounded-2xl border border-border bg-card p-5 shadow-2xl">
         <h2 className="text-lg font-bold text-foreground">Tachograph hours required</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Submit your real driving time for this week. {pending.length > 1 ? `${pending.length} weeks to confirm.` : ""}
+          Submit your real driving time for this week.{pending.length > 1 ? ` ${pending.length} weeks to confirm.` : ""}
         </p>
         <div className="mt-3 rounded-xl border border-border bg-background px-3 py-2 text-sm">
           <span className="text-muted-foreground">Week: </span>
@@ -100,11 +100,13 @@ export function DriverTachographModal() {
           <span className="font-bold text-muted-foreground">:</span>
           <input type="number" min={0} max={59} value={m} onChange={(e) => setM(e.target.value)} placeholder="mm"
             className="w-16 h-11 text-center bg-background border border-border rounded-lg text-base text-foreground focus:outline-none focus:border-primary" />
-          <input type="number" min={0} value={brk} onChange={(e) => setBrk(e.target.value)} placeholder="break (min)"
-            className="flex-1 h-11 px-3 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary" />
+          <span className="ml-1 text-xs text-muted-foreground">hh : mm</span>
         </div>
+        <label className="mt-3 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">Break (minutes)</label>
+        <input type="number" min={0} value={brk} onChange={(e) => setBrk(e.target.value)} placeholder="optional"
+          className="mt-1 w-full box-border h-11 px-3 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary" />
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Notes (optional)"
-          className="mt-3 w-full bg-background border border-border rounded-lg p-3 text-sm text-foreground focus:outline-none focus:border-primary" />
+          className="mt-3 w-full box-border bg-background border border-border rounded-lg p-3 text-sm text-foreground focus:outline-none focus:border-primary" />
         <button onClick={submit} disabled={busy}
           className="mt-4 w-full bg-primary text-primary-foreground font-bold py-3.5 rounded-xl disabled:opacity-40 active:scale-[0.99] transition">
           {busy ? "Submitting…" : "Submit hours"}
