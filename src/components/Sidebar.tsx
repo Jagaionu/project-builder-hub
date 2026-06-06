@@ -10,7 +10,6 @@ import type { TenantModule } from "@/lib/types";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AutoRefreshButton } from "@/components/dispatch/toolbar";
 import { AIChatWidget } from "@/components/ai/ChatWidget";
-import { usePendingTacho } from "@/lib/use-pending-tacho";
 import { useTheme } from "@/lib/theme-context";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { useRef, useState } from "react";
@@ -37,7 +36,6 @@ export function Sidebar() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const alertCount      = useAlertCount();
   const unassignedCount = useUnassignedJobCount();
-  const { driverCount: pendingTachoCount } = usePendingTacho();
   const { company, email, role, isSuperAdmin, name, userId, avatarUrl } = useTenant();
   const flags = useFeatureFlags();
   const { cycleAccent, accentColor } = useTheme();
@@ -94,7 +92,7 @@ export function Sidebar() {
           const badgeCount =
             n.to === "/alerts"   ? alertCount :
             n.to === "/dispatch" ? unassignedCount :
-            n.to === "/drivers"  ? pendingTachoCount : 0;
+            n.to === "/drivers"  ? 0 : 0;
 
           return (
             <Link
