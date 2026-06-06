@@ -24,6 +24,7 @@ interface Props {
   jobStops?: JobStopsMap;
   breadcrumbs?: DriverPosition[];
   selectedDriverId?: string | null;
+  focused?: boolean;
   onSelectDriver?: (id: string) => void;
 }
 
@@ -161,7 +162,7 @@ async function fetchRoute(
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
-export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, selectedDriverId, onSelectDriver }: Props) {
+export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, selectedDriverId, onSelectDriver, focused }: Props) {
   const containerRef        = useRef<HTMLDivElement | null>(null);
   const mapRef              = useRef<L.Map | null>(null);
   const clusterLayerRef     = useRef<any | null>(null);
@@ -404,19 +405,19 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
     if (manualTargetWh && driverPos) {
       return [driverPos, { lat: manualTargetWh.latitude, lon: manualTargetWh.longitude }];
     }
-    if (stopCoords.length >= 2) {
+    if (focused && stopCoords.length >= 2) {
       // Always link Driver → pickup → … → drop so the full route renders for
       // every status (including completed, for review).
       const pts = stopCoords.map((s) => ({ lat: s.lat, lon: s.lon }));
       return driverPos ? [driverPos, ...pts] : pts;
     }
     return [] as { lat: number; lon: number }[];
-  }, [manualTargetWh, stopCoords, selectedDriver?.current_lat, selectedDriver?.current_lon]);
+  }, [manualTargetWh, stopCoords, focused, selectedDriver?.current_lat, selectedDriver?.current_lon]);
 
   // Endpoint label for the side panel — reflects the current phase.
   const routeTarget = useMemo(() => {
     if (manualTargetWh) return { code: manualTargetWh.code, manual: true };
-    if (stopCoords.length >= 2) {
+    if (focused && stopCoords.length >= 2) {
       return { code: stopCoords[stopCoords.length - 1].code, manual: false };
     }
     return null;
