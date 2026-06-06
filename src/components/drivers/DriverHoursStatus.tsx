@@ -6,6 +6,7 @@
 import { Clock, AlertCircle, CheckCircle2 } from "lucide-react";
 import type { Driver } from "@/lib/types";
 import type { Compliance } from "@/lib/compliance";
+import { usePendingTacho } from "@/lib/use-pending-tacho";
 
 interface DriverHoursStatusProps {
   driver: Driver;
@@ -53,6 +54,8 @@ function DonutMetric({ value, max, label, colour, remaining }: { value: number; 
 }
 
 export function DriverHoursStatus({ driver, compliance }: DriverHoursStatusProps) {
+  const { approvedByDriver } = usePendingTacho();
+  const usesRealHours = Object.keys(approvedByDriver[driver.id] ?? {}).length > 0;
 
   if (!compliance) {
     return (
@@ -71,6 +74,9 @@ export function DriverHoursStatus({ driver, compliance }: DriverHoursStatusProps
     <div className="rounded border border-border bg-surface p-4">
       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
         <Clock className="size-3.5" /> Driver Hours
+        {usesRealHours && (
+          <span className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: "var(--success)", color: "#fff" }} title="Driver-submitted tachograph hours are overriding the GPS estimate">✓ Real hrs</span>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-2">
