@@ -2,13 +2,6 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
-  "redirects": [
-    {
-      "source": "/",
-      "destination": "/d",
-      "permanent": false
-    }
-  ],
   "rewrites": [
     {
       "source": "/((?!assets/|icons/|favicon|manifest|robots|site\\.webmanifest|sw\\.js|workbox).*)",
