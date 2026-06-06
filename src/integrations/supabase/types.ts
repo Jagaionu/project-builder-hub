@@ -111,6 +111,7 @@ export type Database = {
       }
       driver_availability_overrides: {
         Row: {
+          tenant_id: string
           available: boolean
           created_at: string
           date: string
@@ -119,6 +120,7 @@ export type Database = {
           set_by: string
         }
         Insert: {
+          tenant_id?: string
           available: boolean
           created_at?: string
           date: string
@@ -127,6 +129,7 @@ export type Database = {
           set_by: string
         }
         Update: {
+          tenant_id?: string
           available?: boolean
           created_at?: string
           date?: string
@@ -146,6 +149,7 @@ export type Database = {
       }
       driver_day_hours: {
         Row: {
+          tenant_id: string
           actual_driving_minutes: number
           day: string
           deadhead_minutes: number
@@ -159,6 +163,7 @@ export type Database = {
           week_start: string | null
         }
         Insert: {
+          tenant_id?: string
           actual_driving_minutes?: number
           day: string
           deadhead_minutes?: number
@@ -172,6 +177,7 @@ export type Database = {
           week_start?: string | null
         }
         Update: {
+          tenant_id?: string
           actual_driving_minutes?: number
           day?: string
           deadhead_minutes?: number
@@ -238,6 +244,7 @@ export type Database = {
       }
       driver_positions: {
         Row: {
+          tenant_id: string
           accuracy: number | null
           bearing: number | null
           created_at: string
@@ -248,6 +255,7 @@ export type Database = {
           speed: number | null
         }
         Insert: {
+          tenant_id?: string
           accuracy?: number | null
           bearing?: number | null
           created_at?: string
@@ -258,6 +266,7 @@ export type Database = {
           speed?: number | null
         }
         Update: {
+          tenant_id?: string
           accuracy?: number | null
           bearing?: number | null
           created_at?: string
@@ -352,6 +361,7 @@ export type Database = {
       }
       driver_shifts: {
         Row: {
+          tenant_id: string | null
           created_at: string
           days_of_week: number[]
           driver_id: string
@@ -359,6 +369,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          tenant_id?: string | null
           created_at?: string
           days_of_week?: number[]
           driver_id: string
@@ -366,6 +377,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          tenant_id?: string | null
           created_at?: string
           days_of_week?: number[]
           driver_id?: string
@@ -468,6 +480,7 @@ export type Database = {
       }
       driving_legs: {
         Row: {
+          tenant_id: string
           arrived_at: string | null
           created_at: string
           departed_at: string | null
@@ -489,6 +502,7 @@ export type Database = {
           to_warehouse_id: string | null
         }
         Insert: {
+          tenant_id?: string
           arrived_at?: string | null
           created_at?: string
           departed_at?: string | null
@@ -510,6 +524,7 @@ export type Database = {
           to_warehouse_id?: string | null
         }
         Update: {
+          tenant_id?: string
           arrived_at?: string | null
           created_at?: string
           departed_at?: string | null
@@ -563,6 +578,7 @@ export type Database = {
       }
       job_stops: {
         Row: {
+          tenant_id: string
           arrived_at: string | null
           created_at: string
           id: string
@@ -573,6 +589,7 @@ export type Database = {
           warehouse_id: string
         }
         Insert: {
+          tenant_id?: string
           arrived_at?: string | null
           created_at?: string
           id?: string
@@ -583,6 +600,7 @@ export type Database = {
           warehouse_id: string
         }
         Update: {
+          tenant_id?: string
           arrived_at?: string | null
           created_at?: string
           id?: string
@@ -743,6 +761,7 @@ export type Database = {
       }
       stop_dwells: {
         Row: {
+          tenant_id: string
           arrived_at: string | null
           created_at: string
           departed_at: string | null
@@ -756,6 +775,7 @@ export type Database = {
           warehouse_id: string | null
         }
         Insert: {
+          tenant_id?: string
           arrived_at?: string | null
           created_at?: string
           departed_at?: string | null
@@ -769,6 +789,7 @@ export type Database = {
           warehouse_id?: string | null
         }
         Update: {
+          tenant_id?: string
           arrived_at?: string | null
           created_at?: string
           departed_at?: string | null
