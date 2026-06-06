@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search, CalendarDays } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, CalendarDays, Clock } from "lucide-react";
 import { rotateDriverLoginCode } from "@/lib/pairing.functions";
 import { deleteDriver } from "@/lib/drivers-delete.functions";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
@@ -17,6 +17,7 @@ import { useEquipmentTypes } from "@/lib/use-equipment-types";
 import { logActivity } from "@/lib/activity-log";
 import { DriverQueue } from "@/components/drivers/driver-queue";
 import { DriverDetailPanel } from "@/components/drivers/driver-detail-panel";
+import { DispatcherTachographTracker } from "@/components/drivers/DispatcherTachographTracker";
 import { FormField } from "@/components/shared/form-field";
 import { ShiftPatternEditor } from "@/components/driver/ShiftPatternEditor";
 import { fetchShiftPattern } from "@/lib/driver-shifts";
@@ -102,6 +103,7 @@ function DriversPage() {
   const equipmentTypes = useEquipmentTypes();
   const eqClient = supabase as unknown as { from: (t: string) => any };
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+  const [tachoOpen, setTachoOpen] = useState(false);
 
   // ── Drivers list filters (persisted) ────────────────────────────────────
   const [driverListFilter, setDriverListFilter] = useState<DriverListFilter>(() => {
@@ -357,15 +359,23 @@ function DriversPage() {
             onClick={() => setDriverListFilter("OFF_SHIFT")}
           />
         </div>
-        <div className="flex items-center gap-2 justify-self-end">
+        <div className="flex flex-col items-end gap-2 justify-self-end">
           <button
             onClick={() => setOpen((o) => !o)}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors shadow-lg hover:shadow-xl"
           >
             <Plus className="size-4" /> New Driver
           </button>
+          <button
+            onClick={() => setTachoOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-surface text-sm font-medium hover:bg-surface-2 transition-colors"
+          >
+            <Clock className="size-4" /> Tachograph Hours
+          </button>
         </div>
       </header>
+
+      {tachoOpen && <DispatcherTachographTracker drivers={drivers} onClose={() => setTachoOpen(false)} />}
 
       {/* Create form modal */}
       {open && (

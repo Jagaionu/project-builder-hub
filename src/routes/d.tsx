@@ -4,6 +4,7 @@ import { DriverBottomNav } from "@/components/driver/DriverBottomNav";
 import { PwaInstallPrompt } from "@/components/driver/PwaInstallPrompt";
 import { useDriverBootstrap } from "@/hooks/useDriverBootstrap";
 import { useDriverStore } from "@/lib/driver-store";
+import { DriverTachographModal } from "@/components/driver/DriverTachographModal";
 
 export const Route = createFileRoute("/d")({
   head: () => ({ meta: [{ title: "Driver Hub" }] }),
@@ -94,6 +95,7 @@ function DriverLayout() {
       </main>
       {!isLogin && session && <DriverBottomNav />}
       {!isLogin && <PwaInstallPrompt />}
+      {!isLogin && session && <DriverTachographModal />}
     </div>
   );
 }

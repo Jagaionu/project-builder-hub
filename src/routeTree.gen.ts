@@ -19,6 +19,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as DIndexRouteImport } from './routes/d.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as DTachographRouteImport } from './routes/d.tachograph'
 import { Route as DReportRouteImport } from './routes/d.report'
 import { Route as DProfileRouteImport } from './routes/d.profile'
 import { Route as DLoginRouteImport } from './routes/d.login'
@@ -79,6 +80,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
+} as any)
+const DTachographRoute = DTachographRouteImport.update({
+  id: '/tachograph',
+  path: '/tachograph',
+  getParentRoute: () => DRoute,
 } as any)
 const DReportRoute = DReportRouteImport.update({
   id: '/report',
@@ -153,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/d/login': typeof DLoginRoute
   '/d/profile': typeof DProfileRoute
   '/d/report': typeof DReportRoute
+  '/d/tachograph': typeof DTachographRoute
   '/admin/': typeof AdminIndexRoute
   '/d/': typeof DIndexRoute
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
@@ -172,6 +179,7 @@ export interface FileRoutesByTo {
   '/d/login': typeof DLoginRoute
   '/d/profile': typeof DProfileRoute
   '/d/report': typeof DReportRoute
+  '/d/tachograph': typeof DTachographRoute
   '/': typeof AppIndexRoute
   '/admin': typeof AdminIndexRoute
   '/d': typeof DIndexRoute
@@ -196,6 +204,7 @@ export interface FileRoutesById {
   '/d/login': typeof DLoginRoute
   '/d/profile': typeof DProfileRoute
   '/d/report': typeof DReportRoute
+  '/d/tachograph': typeof DTachographRoute
   '/_app/': typeof AppIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/d/': typeof DIndexRoute
@@ -221,6 +230,7 @@ export interface FileRouteTypes {
     | '/d/login'
     | '/d/profile'
     | '/d/report'
+    | '/d/tachograph'
     | '/admin/'
     | '/d/'
     | '/api/public/pairing-login'
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/d/login'
     | '/d/profile'
     | '/d/report'
+    | '/d/tachograph'
     | '/'
     | '/admin'
     | '/d'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/d/login'
     | '/d/profile'
     | '/d/report'
+    | '/d/tachograph'
     | '/_app/'
     | '/admin/'
     | '/d/'
@@ -354,6 +366,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/d/tachograph': {
+      id: '/d/tachograph'
+      path: '/tachograph'
+      fullPath: '/d/tachograph'
+      preLoaderRoute: typeof DTachographRouteImport
+      parentRoute: typeof DRoute
     }
     '/d/report': {
       id: '/d/report'
@@ -469,6 +488,7 @@ interface DRouteChildren {
   DLoginRoute: typeof DLoginRoute
   DProfileRoute: typeof DProfileRoute
   DReportRoute: typeof DReportRoute
+  DTachographRoute: typeof DTachographRoute
   DIndexRoute: typeof DIndexRoute
   DRoutesJobIdRoute: typeof DRoutesJobIdRoute
 }
@@ -477,6 +497,7 @@ const DRouteChildren: DRouteChildren = {
   DLoginRoute: DLoginRoute,
   DProfileRoute: DProfileRoute,
   DReportRoute: DReportRoute,
+  DTachographRoute: DTachographRoute,
   DIndexRoute: DIndexRoute,
   DRoutesJobIdRoute: DRoutesJobIdRoute,
 }
