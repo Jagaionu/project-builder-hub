@@ -6,7 +6,6 @@
 import { Clock, AlertCircle, CheckCircle2 } from "lucide-react";
 import type { Driver } from "@/lib/types";
 import type { Compliance } from "@/lib/compliance";
-import { usePendingTacho } from "@/lib/use-pending-tacho";
 
 interface DriverHoursStatusProps {
   driver: Driver;
@@ -54,8 +53,6 @@ function DonutMetric({ value, max, label, colour, remaining }: { value: number; 
 }
 
 export function DriverHoursStatus({ driver, compliance }: DriverHoursStatusProps) {
-  const { byDriver, approve, reject } = usePendingTacho();
-  const pending = byDriver[driver.id] ?? [];
 
   if (!compliance) {
     return (
@@ -83,34 +80,7 @@ export function DriverHoursStatus({ driver, compliance }: DriverHoursStatusProps
       </div>
 
       <div className="mt-3 pt-3 border-t border-border space-y-2">
-        {pending.length > 0 ? (
-          pending.map((p) => (
-            <div
-              key={p.week_start}
-              className="rounded border p-2.5"
-              style={{ borderColor: "oklch(0.80 0.18 72 / 0.45)", background: "oklch(0.80 0.18 72 / 0.10)" }}
-            >
-              <div className="text-[11px] font-mono text-foreground">
-                Tacho: <span className="font-bold">{fmtHoursDisplay(p.tacho_drive_minutes / 60)}</span> · wk of {dayLabel(p.week_start)}
-                <span className="text-muted-foreground"> · we estimate ~{fmtHoursDisplay(p.estimate / 60)}</span>
-              </div>
-              <div className="mt-2 flex gap-2">
-                <button
-                  onClick={() => void approve(driver.id, p.week_start)}
-                  className="flex-1 py-1.5 rounded-md text-[11px] font-semibold bg-success text-success-foreground active:scale-95 transition"
-                >
-                  Approve (override)
-                </button>
-                <button
-                  onClick={() => void reject(driver.id, p.week_start)}
-                  className="flex-1 py-1.5 rounded-md text-[11px] font-semibold border border-border text-muted-foreground hover:text-foreground active:scale-95 transition"
-                >
-                  Reject (keep ours)
-                </button>
-              </div>
-            </div>
-          ))
-        ) : compliance.status === "ok" && compliance.issues.length === 0 ? (
+        {compliance.status === "ok" && compliance.issues.length === 0 ? (
           <div
             className="rounded border p-2 flex items-center gap-2 text-[10px] font-mono"
             style={{ borderColor: "oklch(0.73 0.17 150 / 0.30)", background: "oklch(0.73 0.17 150 / 0.10)", color: "var(--success-fg)" }}

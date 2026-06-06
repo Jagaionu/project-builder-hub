@@ -3,7 +3,6 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Driver } from "@/lib/types";
-import { usePendingTacho } from "@/lib/use-pending-tacho";
 
 const ROW_HEIGHT = 76;
 
@@ -17,11 +16,9 @@ export const DriverQueue = memo(function DriverQueue({
   onSelect: (id: string) => void;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const { byDriver, driverCount } = usePendingTacho();
-  const [pendingOnly, setPendingOnly] = useState(false);
   const shown = useMemo(
-    () => (pendingOnly ? drivers.filter((d) => byDriver[d.id]?.length) : drivers),
-    [drivers, pendingOnly, byDriver],
+    () => drivers,
+    [drivers],
   );
 
   const virtualizer = useVirtualizer({
@@ -43,21 +40,6 @@ export const DriverQueue = memo(function DriverQueue({
         style={{ borderBottom: "1px solid var(--sidebar-divider)", background: "var(--background)", backdropFilter: "blur(4px)" }}
       >
         <span>Names</span>
-        {driverCount > 0 && (
-          <button
-            type="button"
-            onClick={() => setPendingOnly((v) => !v)}
-            title="Tachograph entries awaiting approval — click to filter"
-            className="inline-flex items-center justify-center gap-0.5 min-w-5 h-5 px-1.5 rounded-full text-[10px] font-mono font-bold"
-            style={{
-              background: pendingOnly ? "oklch(0.80 0.18 72 / 0.95)" : "oklch(0.80 0.18 72 / 0.18)",
-              color: pendingOnly ? "#1a1200" : "var(--warning)",
-              border: "1px solid oklch(0.80 0.18 72 / 0.55)",
-            }}
-          >
-            ! {driverCount}
-          </button>
-        )}
         <span
           className="inline-flex items-center justify-center size-5 rounded-full text-[10px] font-mono font-bold"
           style={{ background: "oklch(0.62 0.22 245 / 0.12)", color: "var(--primary-bright)" }}

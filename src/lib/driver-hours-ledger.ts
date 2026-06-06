@@ -22,7 +22,7 @@ export async function buildHoursLedger(
 
   const [{ data: dayRows }, { data: weekRows }] = await Promise.all([
     client.from("driver_day_hours").select("driver_id,day,drive_minutes").in("driver_id", driverIds).gte("day", lastWk),
-    client.from("driver_week_hours").select("driver_id,week_start,tacho_drive_minutes,status").in("driver_id", driverIds).eq("status", "approved").gte("week_start", lastWk),
+    client.from("tachograph_requests").select("driver_id,period_start,drive_minutes,status").in("driver_id", driverIds).eq("status", "submitted").gte("period_start", lastWk),
   ]);
 
   const est: Record<string, Record<string, number>> = {};
@@ -34,8 +34,8 @@ export async function buildHoursLedger(
     if (r.day === today) todayMin[r.driver_id] = (todayMin[r.driver_id] ?? 0) + (r.drive_minutes ?? 0);
   }
   const approved: Record<string, Record<string, number>> = {};
-  for (const w of (weekRows ?? []) as Array<{ driver_id: string; week_start: string; tacho_drive_minutes: number }>) {
-    (approved[w.driver_id] ||= {})[w.week_start] = w.tacho_drive_minutes;
+  for (const w of (weekRows ?? []) as Array<{ driver_id: string; period_start: string; drive_minutes: number }>) {
+    (approved[w.driver_id] ||= {})[w.period_start] = w.drive_minutes;
   }
 
   for (const id of driverIds) {
