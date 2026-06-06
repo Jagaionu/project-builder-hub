@@ -119,6 +119,19 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+
+  // Driver-only Capacitor build loads the dispatcher index at "/"; send it to
+  // the driver app. Gated by VITE_DRIVER_APP (set only in vite.config.driver.ts),
+  // so the web/dispatcher SSR build is unaffected.
+  useEffect(() => {
+    if (
+      (import.meta.env.VITE_DRIVER_APP as string | undefined) === "true" &&
+      window.location.pathname === "/"
+    ) {
+      void router.navigate({ to: "/d", replace: true });
+    }
+  }, [router]);
 
   useEffect(() => {
     void import("@/lib/pwa").then((m) => m.registerPwa()).catch(() => {});
