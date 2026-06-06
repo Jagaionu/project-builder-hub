@@ -30,5 +30,6 @@ export default defineConfig({
     tsconfigPaths(),
   ],
   resolve: { alias: { "@": "/src" } },
+  define: { "import.meta.env.VITE_DRIVER_APP": JSON.stringify("true") },
   ssr: { noExternal: ["h3", "h3-v2"] },
 });
