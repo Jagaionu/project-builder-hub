@@ -181,7 +181,7 @@ export function useDriverBootstrap() {
       const now = new Date().toISOString();
       supabase
         .from("driver_positions")
-        .insert({ driver_id: driver.id, lat: p.lat, lon: p.lon })
+        .insert({ driver_id: driver.id, lat: p.lat, lon: p.lon } as never)
         .then(() => {});
       supabase
         .from("drivers")

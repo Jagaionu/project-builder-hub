@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_name: string | null
+          actor_user_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_ref: string | null
+          entity_type: string | null
+          id: string
+          metadata: Json
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_name?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_ref?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_name?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_ref?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_credentials: {
         Row: {
           created_at: string
@@ -38,6 +88,1199 @@ export type Database = {
           password?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      ai_conversations: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          role: string
+          session_id: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          role: string
+          session_id: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          role?: string
+          session_id?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_conversations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_knowledge_chunks: {
+        Row: {
+          chunk_text: string
+          created_at: string | null
+          embedding: string | null
+          id: string
+          is_global: boolean | null
+          metadata: Json | null
+          search_vector: unknown
+          source_path: string | null
+          source_type: string
+          tenant_id: string | null
+        }
+        Insert: {
+          chunk_text: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          is_global?: boolean | null
+          metadata?: Json | null
+          search_vector?: unknown
+          source_path?: string | null
+          source_type: string
+          tenant_id?: string | null
+        }
+        Update: {
+          chunk_text?: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          is_global?: boolean | null
+          metadata?: Json | null
+          search_vector?: unknown
+          source_path?: string | null
+          source_type?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_knowledge_chunks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_pending_actions: {
+        Row: {
+          action_type: string
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          params: Json
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          params: Json
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          params?: Json
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_pending_actions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_query_logs: {
+        Row: {
+          created_at: string | null
+          id: string
+          latency_ms: number | null
+          question: string
+          retrieved_chunk_ids: string[] | null
+          tenant_id: string
+          token_usage: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          latency_ms?: number | null
+          question: string
+          retrieved_chunk_ids?: string[] | null
+          tenant_id: string
+          token_usage?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          latency_ms?: number | null
+          question?: string
+          retrieved_chunk_ids?: string[] | null
+          tenant_id?: string
+          token_usage?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_query_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_planning_log: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_planning_log_driver_id_fkey1"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_planning_log_tenant_id_fkey1"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_planning_log_2026_01: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2026_02: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2026_03: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2026_04: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2026_05: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2026_06: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2026_07: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2026_08: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2026_09: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2026_10: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2026_11: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2026_12: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2027_01: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2027_02: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2027_03: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2027_04: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2027_05: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2027_06: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2027_07: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2027_08: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2027_09: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2027_10: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2027_11: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_2027_12: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      audit_planning_log_default: {
+        Row: {
+          action: string
+          created_at: string
+          driver_id: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          planner_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          driver_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          planner_user_id?: string | null
+          tenant_id?: string
         }
         Relationships: []
       }
@@ -79,23 +1322,35 @@ export type Database = {
       }
       company_members: {
         Row: {
+          avatar_url: string | null
           company_id: string
           created_at: string
+          email: string | null
           id: string
+          must_set_password: boolean
+          name: string | null
           role: string
           user_id: string
         }
         Insert: {
+          avatar_url?: string | null
           company_id: string
           created_at?: string
+          email?: string | null
           id?: string
+          must_set_password?: boolean
+          name?: string | null
           role?: string
           user_id: string
         }
         Update: {
+          avatar_url?: string | null
           company_id?: string
           created_at?: string
+          email?: string | null
           id?: string
+          must_set_password?: boolean
+          name?: string | null
           role?: string
           user_id?: string
         }
@@ -111,31 +1366,31 @@ export type Database = {
       }
       driver_availability_overrides: {
         Row: {
-          tenant_id: string
           available: boolean
           created_at: string
           date: string
           driver_id: string
           id: string
           set_by: string
+          tenant_id: string
         }
         Insert: {
-          tenant_id?: string
           available: boolean
           created_at?: string
           date: string
           driver_id: string
           id?: string
-          set_by: string
+          set_by?: string
+          tenant_id: string
         }
         Update: {
-          tenant_id?: string
           available?: boolean
           created_at?: string
           date?: string
           driver_id?: string
           id?: string
           set_by?: string
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -145,11 +1400,71 @@ export type Database = {
             referencedRelation: "drivers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "driver_availability_overrides_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_daily_compliance: {
+        Row: {
+          created_at: string
+          date: string
+          driver_id: string
+          id: string
+          max_drive_minutes: number
+          max_work_minutes: number
+          required_break_minutes: number
+          shift_end: string | null
+          shift_start: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          driver_id: string
+          id?: string
+          max_drive_minutes?: number
+          max_work_minutes?: number
+          required_break_minutes?: number
+          shift_end?: string | null
+          shift_start?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          driver_id?: string
+          id?: string
+          max_drive_minutes?: number
+          max_work_minutes?: number
+          required_break_minutes?: number
+          shift_end?: string | null
+          shift_start?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_daily_compliance_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_daily_compliance_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
         ]
       }
       driver_day_hours: {
         Row: {
-          tenant_id: string
           actual_driving_minutes: number
           day: string
           deadhead_minutes: number
@@ -159,11 +1474,17 @@ export type Database = {
           off_minutes: number
           other_work_minutes: number
           shift_minutes: number
+          tachograph_approved_at: string | null
+          tachograph_approved_by: string | null
+          tachograph_drive_minutes: number | null
+          tachograph_entered_at: string | null
+          tachograph_entered_by: string | null
+          tachograph_status: string | null
+          tenant_id: string
           updated_at: string
           week_start: string | null
         }
         Insert: {
-          tenant_id?: string
           actual_driving_minutes?: number
           day: string
           deadhead_minutes?: number
@@ -173,11 +1494,17 @@ export type Database = {
           off_minutes?: number
           other_work_minutes?: number
           shift_minutes?: number
+          tachograph_approved_at?: string | null
+          tachograph_approved_by?: string | null
+          tachograph_drive_minutes?: number | null
+          tachograph_entered_at?: string | null
+          tachograph_entered_by?: string | null
+          tachograph_status?: string | null
+          tenant_id: string
           updated_at?: string
           week_start?: string | null
         }
         Update: {
-          tenant_id?: string
           actual_driving_minutes?: number
           day?: string
           deadhead_minutes?: number
@@ -187,6 +1514,13 @@ export type Database = {
           off_minutes?: number
           other_work_minutes?: number
           shift_minutes?: number
+          tachograph_approved_at?: string | null
+          tachograph_approved_by?: string | null
+          tachograph_drive_minutes?: number | null
+          tachograph_entered_at?: string | null
+          tachograph_entered_by?: string | null
+          tachograph_status?: string | null
+          tenant_id?: string
           updated_at?: string
           week_start?: string | null
         }
@@ -198,43 +1532,15 @@ export type Database = {
             referencedRelation: "drivers"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      driver_events: {
-        Row: {
-          driver_id: string
-          id: string
-          payload: Json
-          tenant_id: string | null
-          timestamp: string
-          type: Database["public"]["Enums"]["driver_event_type"]
-        }
-        Insert: {
-          driver_id: string
-          id?: string
-          payload?: Json
-          tenant_id?: string | null
-          timestamp?: string
-          type: Database["public"]["Enums"]["driver_event_type"]
-        }
-        Update: {
-          driver_id?: string
-          id?: string
-          payload?: Json
-          tenant_id?: string | null
-          timestamp?: string
-          type?: Database["public"]["Enums"]["driver_event_type"]
-        }
-        Relationships: [
           {
-            foreignKeyName: "driver_events_driver_id_fkey"
-            columns: ["driver_id"]
+            foreignKeyName: "driver_day_hours_tachograph_entered_by_fkey"
+            columns: ["tachograph_entered_by"]
             isOneToOne: false
             referencedRelation: "drivers"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "driver_events_tenant_id_fkey"
+            foreignKeyName: "driver_day_hours_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -242,9 +1548,767 @@ export type Database = {
           },
         ]
       }
+      driver_equipment: {
+        Row: {
+          created_at: string
+          driver_id: string
+          equipment_type: string
+          id: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          equipment_type: string
+          id?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          equipment_type?: string
+          id?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_equipment_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_equipment_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_events: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_events_driver_id_fkey1"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_events_tenant_id_fkey1"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_events_2026_01: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2026_02: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2026_03: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2026_04: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2026_05: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2026_06: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2026_07: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2026_08: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2026_09: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2026_10: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2026_11: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2026_12: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2027_01: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2027_02: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2027_03: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2027_04: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2027_05: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2027_06: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2027_07: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2027_08: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2027_09: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2027_10: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2027_11: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_2027_12: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
+      driver_events_default: {
+        Row: {
+          driver_id: string
+          id: string
+          payload: Json
+          tenant_id: string
+          timestamp: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Insert: {
+          driver_id: string
+          id?: string
+          payload?: Json
+          tenant_id: string
+          timestamp?: string
+          type: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Update: {
+          driver_id?: string
+          id?: string
+          payload?: Json
+          tenant_id?: string
+          timestamp?: string
+          type?: Database["public"]["Enums"]["driver_event_type"]
+        }
+        Relationships: []
+      }
       driver_positions: {
         Row: {
-          tenant_id: string
           accuracy: number | null
           bearing: number | null
           created_at: string
@@ -253,9 +2317,9 @@ export type Database = {
           lat: number
           lon: number
           speed: number | null
+          tenant_id: string
         }
         Insert: {
-          tenant_id?: string
           accuracy?: number | null
           bearing?: number | null
           created_at?: string
@@ -264,9 +2328,9 @@ export type Database = {
           lat: number
           lon: number
           speed?: number | null
+          tenant_id: string
         }
         Update: {
-          tenant_id?: string
           accuracy?: number | null
           bearing?: number | null
           created_at?: string
@@ -275,16 +2339,924 @@ export type Database = {
           lat?: number
           lon?: number
           speed?: number | null
+          tenant_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "driver_positions_driver_id_fkey"
+            foreignKeyName: "driver_positions_driver_id_fkey1"
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "driver_positions_tenant_id_fkey1"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      driver_positions_2026_01: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2026_02: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2026_03: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2026_04: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2026_05: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2026_06: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2026_07: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2026_08: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2026_09: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2026_10: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2026_11: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2026_12: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2027_01: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2027_02: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2027_03: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2027_04: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2027_05: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2027_06: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2027_07: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2027_08: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2027_09: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2027_10: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2027_11: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_2027_12: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      driver_positions_default: {
+        Row: {
+          accuracy: number | null
+          bearing: number | null
+          created_at: string
+          driver_id: string
+          id: string
+          lat: number
+          lon: number
+          speed: number | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          lat: number
+          lon: number
+          speed?: number | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          bearing?: number | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          lat?: number
+          lon?: number
+          speed?: number | null
+          tenant_id?: string
+        }
+        Relationships: []
       }
       driver_push_subscriptions: {
         Row: {
@@ -359,47 +3331,117 @@ export type Database = {
           },
         ]
       }
-      driver_shifts: {
+      driver_shift_templates: {
         Row: {
-          tenant_id: string | null
           created_at: string
-          days_of_week: number[]
+          day_of_week: number
           driver_id: string
+          end_time: string | null
           id: string
+          is_primary: boolean
+          start_time: string | null
+          tenant_id: string
           updated_at: string
         }
         Insert: {
-          tenant_id?: string | null
           created_at?: string
-          days_of_week?: number[]
+          day_of_week: number
           driver_id: string
+          end_time?: string | null
           id?: string
+          is_primary?: boolean
+          start_time?: string | null
+          tenant_id: string
           updated_at?: string
         }
         Update: {
-          tenant_id?: string | null
           created_at?: string
-          days_of_week?: number[]
+          day_of_week?: number
           driver_id?: string
+          end_time?: string | null
           id?: string
+          is_primary?: boolean
+          start_time?: string | null
+          tenant_id?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "driver_shifts_driver_id_fkey"
+            foreignKeyName: "driver_shift_templates_driver_id_fkey"
             columns: ["driver_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_shift_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_week_hours: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          driver_id: string
+          entered_at: string
+          entered_by: string | null
+          id: string
+          status: string
+          tacho_drive_minutes: number
+          tenant_id: string | null
+          week_start: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          driver_id: string
+          entered_at?: string
+          entered_by?: string | null
+          id?: string
+          status: string
+          tacho_drive_minutes: number
+          tenant_id?: string | null
+          week_start: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          driver_id?: string
+          entered_at?: string
+          entered_by?: string | null
+          id?: string
+          status?: string
+          tacho_drive_minutes?: number
+          tenant_id?: string | null
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_week_hours_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_week_hours_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
       }
       drivers: {
         Row: {
-          available_tomorrow: boolean
           created_at: string
           current_lat: number | null
           current_lon: number | null
+          deleted_at: string | null
           home_warehouse_id: string | null
           id: string
           last_update_time: string | null
@@ -411,17 +3453,14 @@ export type Database = {
           return_to_base_required: boolean
           status: Database["public"]["Enums"]["driver_status"]
           telegram_id: string | null
-          tenant_id: string | null
-          tomorrow_start_lat: number | null
-          tomorrow_start_lon: number | null
-          tomorrow_start_updated_at: string | null
+          tenant_id: string
           user_id: string | null
         }
         Insert: {
-          available_tomorrow?: boolean
           created_at?: string
           current_lat?: number | null
           current_lon?: number | null
+          deleted_at?: string | null
           home_warehouse_id?: string | null
           id?: string
           last_update_time?: string | null
@@ -433,17 +3472,14 @@ export type Database = {
           return_to_base_required?: boolean
           status?: Database["public"]["Enums"]["driver_status"]
           telegram_id?: string | null
-          tenant_id?: string | null
-          tomorrow_start_lat?: number | null
-          tomorrow_start_lon?: number | null
-          tomorrow_start_updated_at?: string | null
+          tenant_id: string
           user_id?: string | null
         }
         Update: {
-          available_tomorrow?: boolean
           created_at?: string
           current_lat?: number | null
           current_lon?: number | null
+          deleted_at?: string | null
           home_warehouse_id?: string | null
           id?: string
           last_update_time?: string | null
@@ -455,10 +3491,7 @@ export type Database = {
           return_to_base_required?: boolean
           status?: Database["public"]["Enums"]["driver_status"]
           telegram_id?: string | null
-          tenant_id?: string | null
-          tomorrow_start_lat?: number | null
-          tomorrow_start_lon?: number | null
-          tomorrow_start_updated_at?: string | null
+          tenant_id?: string
           user_id?: string | null
         }
         Relationships: [
@@ -480,7 +3513,6 @@ export type Database = {
       }
       driving_legs: {
         Row: {
-          tenant_id: string
           arrived_at: string | null
           created_at: string
           departed_at: string | null
@@ -496,13 +3528,13 @@ export type Database = {
           leg_date: string
           planned_minutes: number | null
           source: string
+          tenant_id: string
           to_label: string | null
           to_lat: number | null
           to_lon: number | null
           to_warehouse_id: string | null
         }
         Insert: {
-          tenant_id?: string
           arrived_at?: string | null
           created_at?: string
           departed_at?: string | null
@@ -518,13 +3550,13 @@ export type Database = {
           leg_date: string
           planned_minutes?: number | null
           source?: string
+          tenant_id: string
           to_label?: string | null
           to_lat?: number | null
           to_lon?: number | null
           to_warehouse_id?: string | null
         }
         Update: {
-          tenant_id?: string
           arrived_at?: string | null
           created_at?: string
           departed_at?: string | null
@@ -540,6 +3572,7 @@ export type Database = {
           leg_date?: string
           planned_minutes?: number | null
           source?: string
+          tenant_id?: string
           to_label?: string | null
           to_lat?: number | null
           to_lon?: number | null
@@ -568,6 +3601,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "driving_legs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "driving_legs_to_warehouse_id_fkey"
             columns: ["to_warehouse_id"]
             isOneToOne: false
@@ -576,39 +3616,143 @@ export type Database = {
           },
         ]
       }
+      import_batches: {
+        Row: {
+          created_at: string
+          created_count: number
+          csv_rows: Json
+          duplicate_count: number
+          error_count: number
+          expires_at: string
+          file_name: string
+          id: string
+          parked_count: number
+          row_count: number
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_count?: number
+          csv_rows?: Json
+          duplicate_count?: number
+          error_count?: number
+          expires_at?: string
+          file_name: string
+          id?: string
+          parked_count?: number
+          row_count?: number
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_count?: number
+          csv_rows?: Json
+          duplicate_count?: number
+          error_count?: number
+          expires_at?: string
+          file_name?: string
+          id?: string
+          parked_count?: number
+          row_count?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_rows: {
+        Row: {
+          batch_id: string
+          created_at: string
+          data: Json
+          id: string
+          outcome: string | null
+          outcome_note: string | null
+          row_index: number
+          tenant_id: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          data: Json
+          id?: string
+          outcome?: string | null
+          outcome_note?: string | null
+          row_index: number
+          tenant_id: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          data?: Json
+          id?: string
+          outcome?: string | null
+          outcome_note?: string | null
+          row_index?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_rows_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_stops: {
         Row: {
-          tenant_id: string
           arrived_at: string | null
           created_at: string
+          departed_at: string | null
           id: string
           job_id: string
           kind: Database["public"]["Enums"]["stop_kind"]
           scheduled_at: string | null
           seq: number
+          tenant_id: string
           warehouse_id: string
+          yard_departure: string | null
         }
         Insert: {
-          tenant_id?: string
           arrived_at?: string | null
           created_at?: string
+          departed_at?: string | null
           id?: string
           job_id: string
           kind: Database["public"]["Enums"]["stop_kind"]
           scheduled_at?: string | null
           seq: number
+          tenant_id: string
           warehouse_id: string
+          yard_departure?: string | null
         }
         Update: {
-          tenant_id?: string
           arrived_at?: string | null
           created_at?: string
+          departed_at?: string | null
           id?: string
           job_id?: string
           kind?: Database["public"]["Enums"]["stop_kind"]
           scheduled_at?: string | null
           seq?: number
+          tenant_id?: string
           warehouse_id?: string
+          yard_departure?: string | null
         }
         Relationships: [
           {
@@ -616,6 +3760,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stops_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -631,11 +3782,16 @@ export type Database = {
         Row: {
           assigned_driver_id: string | null
           created_at: string
+          deleted_at: string | null
           destination_warehouse_id: string | null
+          earliest_start: string | null
           equipment_type: string | null
           eta_minutes: number | null
           for_date: string | null
+          handling_minutes: number | null
           id: string
+          import_batch_id: string | null
+          latest_end: string | null
           manual_override: boolean
           origin_warehouse_id: string | null
           planned_driver_id: string | null
@@ -644,17 +3800,22 @@ export type Database = {
           reference: string
           scheduled_at: string | null
           status: Database["public"]["Enums"]["job_status"]
-          tenant_id: string | null
+          tenant_id: string
           updated_at: string
         }
         Insert: {
           assigned_driver_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           destination_warehouse_id?: string | null
+          earliest_start?: string | null
           equipment_type?: string | null
           eta_minutes?: number | null
           for_date?: string | null
+          handling_minutes?: number | null
           id?: string
+          import_batch_id?: string | null
+          latest_end?: string | null
           manual_override?: boolean
           origin_warehouse_id?: string | null
           planned_driver_id?: string | null
@@ -663,17 +3824,22 @@ export type Database = {
           reference?: string
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["job_status"]
-          tenant_id?: string | null
+          tenant_id: string
           updated_at?: string
         }
         Update: {
           assigned_driver_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           destination_warehouse_id?: string | null
+          earliest_start?: string | null
           equipment_type?: string | null
           eta_minutes?: number | null
           for_date?: string | null
+          handling_minutes?: number | null
           id?: string
+          import_batch_id?: string | null
+          latest_end?: string | null
           manual_override?: boolean
           origin_warehouse_id?: string | null
           planned_driver_id?: string | null
@@ -682,7 +3848,7 @@ export type Database = {
           reference?: string
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["job_status"]
-          tenant_id?: string | null
+          tenant_id?: string
           updated_at?: string
         }
         Relationships: [
@@ -698,6 +3864,13 @@ export type Database = {
             columns: ["destination_warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
             referencedColumns: ["id"]
           },
           {
@@ -723,11 +3896,124 @@ export type Database = {
           },
         ]
       }
+      lane_travel_times: {
+        Row: {
+          avg_duration_minutes: number | null
+          day_of_week: number
+          from_warehouse_id: string
+          hour_of_day: number
+          id: string
+          last_updated: string
+          p50_duration_minutes: number | null
+          p90_duration_minutes: number | null
+          sample_count: number
+          tenant_id: string | null
+          to_warehouse_id: string
+        }
+        Insert: {
+          avg_duration_minutes?: number | null
+          day_of_week: number
+          from_warehouse_id: string
+          hour_of_day: number
+          id?: string
+          last_updated?: string
+          p50_duration_minutes?: number | null
+          p90_duration_minutes?: number | null
+          sample_count?: number
+          tenant_id?: string | null
+          to_warehouse_id: string
+        }
+        Update: {
+          avg_duration_minutes?: number | null
+          day_of_week?: number
+          from_warehouse_id?: string
+          hour_of_day?: number
+          id?: string
+          last_updated?: string
+          p50_duration_minutes?: number | null
+          p90_duration_minutes?: number | null
+          sample_count?: number
+          tenant_id?: string | null
+          to_warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lane_travel_times_from_warehouse_id_fkey"
+            columns: ["from_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lane_travel_times_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lane_travel_times_to_warehouse_id_fkey"
+            columns: ["to_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pending_import_stops: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string | null
+          pending_import_id: string
+          scheduled_at: string | null
+          stop_index: number
+          tenant_id: string
+          warehouse_code: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string | null
+          pending_import_id: string
+          scheduled_at?: string | null
+          stop_index: number
+          tenant_id: string
+          warehouse_code?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string | null
+          pending_import_id?: string
+          scheduled_at?: string | null
+          stop_index?: number
+          tenant_id?: string
+          warehouse_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_import_stops_pending_import_id_fkey"
+            columns: ["pending_import_id"]
+            isOneToOne: false
+            referencedRelation: "pending_job_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_import_stops_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_job_imports: {
         Row: {
           created_at: string
           equipment_type: string | null
           id: string
+          import_batch_id: string | null
           lane: string
           missing_codes: string[]
           reference: string
@@ -739,6 +4025,7 @@ export type Database = {
           created_at?: string
           equipment_type?: string | null
           id?: string
+          import_batch_id?: string | null
           lane: string
           missing_codes?: string[]
           reference: string
@@ -750,6 +4037,7 @@ export type Database = {
           created_at?: string
           equipment_type?: string | null
           id?: string
+          import_batch_id?: string | null
           lane?: string
           missing_codes?: string[]
           reference?: string
@@ -757,11 +4045,321 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pending_job_imports_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planning_queue: {
+        Row: {
+          attempts: number
+          enqueued_at: string
+          event_type: string
+          id: number
+          last_error: string | null
+          payload: Json
+          priority: number
+          processed_at: string | null
+          processing_at: string | null
+          tenant_id: string | null
+          worker_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          enqueued_at?: string
+          event_type: string
+          id?: number
+          last_error?: string | null
+          payload?: Json
+          priority?: number
+          processed_at?: string | null
+          processing_at?: string | null
+          tenant_id?: string | null
+          worker_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          enqueued_at?: string
+          event_type?: string
+          id?: number
+          last_error?: string | null
+          payload?: Json
+          priority?: number
+          processed_at?: string | null
+          processing_at?: string | null
+          tenant_id?: string | null
+          worker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reimport_alerts: {
+        Row: {
+          id: string
+          lane: string
+          reference: string
+          tenant_id: string
+          uploaded_at: string
+        }
+        Insert: {
+          id?: string
+          lane: string
+          reference: string
+          tenant_id: string
+          uploaded_at?: string
+        }
+        Update: {
+          id?: string
+          lane?: string
+          reference?: string
+          tenant_id?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reimport_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      route_jobs: {
+        Row: {
+          actual_arrival: string | null
+          actual_departure: string | null
+          created_at: string
+          deadhead_from_warehouse_id: string | null
+          deadhead_km: number | null
+          deadhead_minutes: number | null
+          deadhead_to_warehouse_id: string | null
+          id: string
+          is_deadhead: boolean
+          job_id: string | null
+          planned_arrival: string | null
+          planned_departure: string | null
+          route_id: string
+          stop_sequence: number
+          tenant_id: string
+        }
+        Insert: {
+          actual_arrival?: string | null
+          actual_departure?: string | null
+          created_at?: string
+          deadhead_from_warehouse_id?: string | null
+          deadhead_km?: number | null
+          deadhead_minutes?: number | null
+          deadhead_to_warehouse_id?: string | null
+          id?: string
+          is_deadhead?: boolean
+          job_id?: string | null
+          planned_arrival?: string | null
+          planned_departure?: string | null
+          route_id: string
+          stop_sequence: number
+          tenant_id: string
+        }
+        Update: {
+          actual_arrival?: string | null
+          actual_departure?: string | null
+          created_at?: string
+          deadhead_from_warehouse_id?: string | null
+          deadhead_km?: number | null
+          deadhead_minutes?: number | null
+          deadhead_to_warehouse_id?: string | null
+          id?: string
+          is_deadhead?: boolean
+          job_id?: string | null
+          planned_arrival?: string | null
+          planned_departure?: string | null
+          route_id?: string
+          stop_sequence?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_jobs_deadhead_from_warehouse_id_fkey"
+            columns: ["deadhead_from_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_jobs_deadhead_to_warehouse_id_fkey"
+            columns: ["deadhead_to_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_jobs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_jobs_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      route_notes: {
+        Row: {
+          author_avatar_url: string | null
+          author_email: string | null
+          author_name: string | null
+          author_user_id: string | null
+          body: string
+          created_at: string
+          id: string
+          job_id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          author_avatar_url?: string | null
+          author_email?: string | null
+          author_name?: string | null
+          author_user_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          job_id: string
+          tenant_id?: string | null
+        }
+        Update: {
+          author_avatar_url?: string | null
+          author_email?: string | null
+          author_name?: string | null
+          author_user_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          job_id?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_notes_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routes: {
+        Row: {
+          actual_end_at: string | null
+          actual_start_at: string | null
+          created_at: string
+          deleted_at: string | null
+          driver_id: string
+          ends_at_home: boolean
+          id: string
+          notes: string | null
+          planned_end_at: string | null
+          planned_start_at: string | null
+          planner_run_id: string | null
+          route_date: string
+          status: string
+          tenant_id: string
+          total_actual_driving_minutes: number | null
+          total_actual_km: number | null
+          total_planned_deadhead_minutes: number | null
+          total_planned_driving_minutes: number | null
+          total_planned_km: number | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          actual_end_at?: string | null
+          actual_start_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          driver_id: string
+          ends_at_home?: boolean
+          id?: string
+          notes?: string | null
+          planned_end_at?: string | null
+          planned_start_at?: string | null
+          planner_run_id?: string | null
+          route_date: string
+          status?: string
+          tenant_id: string
+          total_actual_driving_minutes?: number | null
+          total_actual_km?: number | null
+          total_planned_deadhead_minutes?: number | null
+          total_planned_driving_minutes?: number | null
+          total_planned_km?: number | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          actual_end_at?: string | null
+          actual_start_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          driver_id?: string
+          ends_at_home?: boolean
+          id?: string
+          notes?: string | null
+          planned_end_at?: string | null
+          planned_start_at?: string | null
+          planner_run_id?: string | null
+          route_date?: string
+          status?: string
+          tenant_id?: string
+          total_actual_driving_minutes?: number | null
+          total_actual_km?: number | null
+          total_planned_deadhead_minutes?: number | null
+          total_planned_driving_minutes?: number | null
+          total_planned_km?: number | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routes_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stop_dwells: {
         Row: {
-          tenant_id: string
           arrived_at: string | null
           created_at: string
           departed_at: string | null
@@ -772,10 +4370,10 @@ export type Database = {
           job_id: string | null
           job_stop_id: string | null
           kind: string
+          tenant_id: string
           warehouse_id: string | null
         }
         Insert: {
-          tenant_id?: string
           arrived_at?: string | null
           created_at?: string
           departed_at?: string | null
@@ -786,10 +4384,10 @@ export type Database = {
           job_id?: string | null
           job_stop_id?: string | null
           kind: string
+          tenant_id: string
           warehouse_id?: string | null
         }
         Update: {
-          tenant_id?: string
           arrived_at?: string | null
           created_at?: string
           departed_at?: string | null
@@ -800,6 +4398,7 @@ export type Database = {
           job_id?: string | null
           job_stop_id?: string | null
           kind?: string
+          tenant_id?: string
           warehouse_id?: string | null
         }
         Relationships: [
@@ -822,6 +4421,13 @@ export type Database = {
             columns: ["job_stop_id"]
             isOneToOne: false
             referencedRelation: "job_stops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stop_dwells_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -848,11 +4454,105 @@ export type Database = {
         }
         Relationships: []
       }
+      warehouse_dwell_profiles: {
+        Row: {
+          avg_dwell_minutes: number | null
+          day_of_week: number
+          hour_of_day: number
+          id: string
+          kind: string
+          last_updated: string
+          p90_dwell_minutes: number | null
+          sample_count: number
+          tenant_id: string | null
+          warehouse_id: string
+        }
+        Insert: {
+          avg_dwell_minutes?: number | null
+          day_of_week: number
+          hour_of_day: number
+          id?: string
+          kind: string
+          last_updated?: string
+          p90_dwell_minutes?: number | null
+          sample_count?: number
+          tenant_id?: string | null
+          warehouse_id: string
+        }
+        Update: {
+          avg_dwell_minutes?: number | null
+          day_of_week?: number
+          hour_of_day?: number
+          id?: string
+          kind?: string
+          last_updated?: string
+          p90_dwell_minutes?: number | null
+          sample_count?: number
+          tenant_id?: string | null
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_dwell_profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_dwell_profiles_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      warehouse_hours: {
+        Row: {
+          close_time: string
+          created_at: string
+          day_of_week: number
+          id: string
+          is_closed: boolean
+          open_time: string
+          warehouse_id: string
+        }
+        Insert: {
+          close_time: string
+          created_at?: string
+          day_of_week: number
+          id?: string
+          is_closed?: boolean
+          open_time: string
+          warehouse_id: string
+        }
+        Update: {
+          close_time?: string
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          is_closed?: boolean
+          open_time?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_hours_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       warehouses: {
         Row: {
           address: string | null
           code: string
           created_at: string
+          deleted_at: string | null
+          geofence_radius_meters: number
           id: string
           latitude: number
           longitude: number
@@ -863,6 +4563,8 @@ export type Database = {
           address?: string | null
           code: string
           created_at?: string
+          deleted_at?: string | null
+          geofence_radius_meters?: number
           id?: string
           latitude: number
           longitude: number
@@ -873,6 +4575,8 @@ export type Database = {
           address?: string | null
           code?: string
           created_at?: string
+          deleted_at?: string | null
+          geofence_radius_meters?: number
           id?: string
           latitude?: number
           longitude?: number
@@ -895,11 +4599,35 @@ export type Database = {
     }
     Functions: {
       current_driver_id: { Args: never; Returns: string }
-      log_gps: { Args: { points: Json }; Returns: Json }
       current_subscription_status: { Args: never; Returns: string }
       current_tenant_id: { Args: never; Returns: string }
       gen_driver_login_code: { Args: never; Returns: string }
       is_super_admin: { Args: never; Returns: boolean }
+      log_gps: { Args: { points: Json }; Returns: Json }
+      match_ai_knowledge_rrf: {
+        Args: {
+          match_count: number
+          p_tenant_id: string
+          query_embedding: string
+          query_text: string
+          rrf_k?: number
+        }
+        Returns: {
+          chunk_text: string
+          id: string
+          score: number
+        }[]
+      }
+      purge_activity_log: { Args: never; Returns: undefined }
+      purge_old_jobs: { Args: { p_days?: number }; Returns: number }
+      recompute_driver_day_hours: {
+        Args: { p_day: string; p_driver_id: string }
+        Returns: undefined
+      }
+      refresh_lane_travel_times: { Args: never; Returns: undefined }
+      run_data_retention: { Args: never; Returns: undefined }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       driver_event_type:
