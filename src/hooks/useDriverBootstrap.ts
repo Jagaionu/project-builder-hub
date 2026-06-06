@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDriverStore } from "@/lib/driver-store";
 import { watchPosition, haversineKm, type GPSPosition } from "@/lib/driver-gps";
+import { gpsSeam } from "@/lib/driver/gps-seam";
 import { checkGeofences } from "@/lib/leg-tracker";
 import type { JobWithStops, DriverProfile } from "@/lib/driver-types";
 
@@ -163,6 +164,7 @@ export function useDriverBootstrap() {
 
     const onPosition = (p: GPSPosition) => {
       setGpsPosition(p);
+      gpsSeam.push({ latitude: p.lat, longitude: p.lon, time: p.ts, accuracy: p.accuracy });
       const driver = useDriverStore.getState().driver;
       if (!driver) return;
 
@@ -179,7 +181,7 @@ export function useDriverBootstrap() {
       const now = new Date().toISOString();
       supabase
         .from("driver_positions")
-        .insert({ driver_id: driver.id, lat: p.lat, lon: p.lon })
+        .insert({ driver_id: driver.id, lat: p.lat, lon: p.lon } as never)
         .then(() => {});
       supabase
         .from("drivers")
@@ -250,6 +252,7 @@ export function useDriverBootstrap() {
 
     return () => {
       sub.subscription.unsubscribe();
+      gpsSeam.stop();
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       document.removeEventListener("visibilitychange", onVisibility);

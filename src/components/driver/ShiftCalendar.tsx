@@ -148,7 +148,7 @@ export function ShiftCalendar({ driverId, isPlanner = false, showPatternEditor =
         date: dateStr,
         available: !isWorkDay,
         set_by: isPlanner ? "planner" : "driver",
-      })
+      } as never)
       .select()
       .single();
 
