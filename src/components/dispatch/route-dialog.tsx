@@ -28,7 +28,7 @@ export default function RouteDialog({
 }: {
   mode: "create" | "edit";
   jobId?: string;
-  initial?: { scheduled_at: string | null; stops: Stop[]; handling_minutes?: number | null };
+  initial?: { scheduled_at: string | null; stops: Stop[]; handling_minutes?: number | null; estimated_cost?: string | null };
   onClose: () => void;
   warehouses: Warehouse[];
 }) {
@@ -47,6 +47,7 @@ export default function RouteDialog({
   const HANDLING_PRESETS = [10, 15, 20, 25, 30];
   const [handling, setHandling] = useState<number>(initial?.handling_minutes ?? 20);
   const [customHandling, setCustomHandling] = useState<boolean>(!HANDLING_PRESETS.includes(initial?.handling_minutes ?? 20));
+  const [cost, setCost] = useState<string>(initial?.estimated_cost ?? "");
 
   const startIso = stops[0]?.scheduled_at ?? initial?.scheduled_at ?? new Date().toISOString();
   const computedTimes = computeStopSchedule(stops, startIso, warehouses);
@@ -99,6 +100,7 @@ export default function RouteDialog({
         origin_warehouse_id: stops[0].warehouse_id,
         destination_warehouse_id: stops[stops.length - 1].warehouse_id,
         handling_minutes: handling,
+        estimated_cost: cost.trim() || null,
         tenant_id,
       };
 
@@ -285,6 +287,22 @@ export default function RouteDialog({
             </div>
             <p className="text-[10px] text-muted-foreground">
               Loading at pickup / unloading at drop — applies to every stop on this route.
+            </p>
+          </div>
+
+          {/* Estimated cost (bulk-upload value; edit-only) */}
+          <div className="space-y-2 px-6">
+            <Label htmlFor="cost" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Estimated cost
+            </Label>
+            <Input
+              id="cost"
+              placeholder="e.g. 310.68 GBP"
+              value={cost}
+              onChange={(e) => setCost(e.target.value)}
+            />
+            <p className="text-[10px] text-muted-foreground">
+              From the bulk upload (Estimated Cost). Internal reference only.
             </p>
           </div>
 

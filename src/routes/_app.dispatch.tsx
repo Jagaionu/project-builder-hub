@@ -846,6 +846,7 @@ function DispatchPage() {
                 scheduled_at: editingJob.scheduled_at,
                 stops: stopsMap[editingJob.id] ?? [],
                 handling_minutes: (editingJob as { handling_minutes?: number | null }).handling_minutes,
+                estimated_cost: (editingJob as { estimated_cost?: string | null }).estimated_cost,
               }}
               onClose={() => setEditJobId(null)}
               warehouses={warehouses}
