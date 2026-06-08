@@ -185,7 +185,7 @@ export function Sidebar() {
               <AutoRefreshButton />
               {flags.modules.includes("ai_agent") && <AIChatWidget />}
             </div>
-            <button type="button" onClick={() => setCaseOpen(true)} title="Create a support case" aria-label="Create a support case" className="grid place-items-center rounded-md transition-colors" style={{ width: 24, height: 24, background: "var(--color-surface-2)", border: "1px solid var(--color-border)", color: "var(--color-muted-foreground)" }}><LifeBuoy className="size-3.5" /></button>
+            <button type="button" onClick={() => setCaseOpen(true)} title="Create a support case" aria-label="Create a support case" className="inline-flex items-center gap-1.5 h-6 px-2 rounded-md text-[11px] font-medium transition-colors" style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border)", color: "var(--color-muted-foreground)" }}><LifeBuoy className="size-3.5" /> Create case</button>
             <ThemeToggle compact />
             {caseOpen && <SupportCaseModal onClose={() => setCaseOpen(false)} />}
           </div>

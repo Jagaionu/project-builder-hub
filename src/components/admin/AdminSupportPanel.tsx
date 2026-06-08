@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Company } from "@/lib/types";
+import { SupportTicketThread } from "@/components/support/SupportTicketThread";
 
 const sb = supabase as unknown as { from: (t: string) => any };
 type Ticket = {
@@ -98,8 +99,6 @@ export function AdminSupportPanel({ companies }: { companies: Company[] }) {
                   {isOpen && (
                     <tr key={t.id + "-d"} className="bg-surface/40">
                       <td colSpan={6} className="px-4 py-4">
-                        <p className="text-xs text-muted-foreground mb-1">Reported by {t.created_by_name ?? "-"} ({t.created_by_email ?? "-"})</p>
-                        <p className="text-sm whitespace-pre-wrap mb-3">{t.description}</p>
                         {t.attachments.length > 0 && (
                           <div className="flex flex-wrap gap-2 mb-3">
                             {t.attachments.map((p, i) => (
@@ -107,14 +106,8 @@ export function AdminSupportPanel({ companies }: { companies: Company[] }) {
                             ))}
                           </div>
                         )}
-                        <div className="flex flex-wrap items-center gap-2 mb-3">
-                          <button onClick={() => setStatus(t.id, "pending")} className="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-2">Pending</button>
-                          <button onClick={() => setStatus(t.id, "in_progress")} className="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-2">In progress</button>
-                          <button onClick={() => setStatus(t.id, "resolved")} className="px-2.5 py-1 rounded bg-success text-white text-xs">Resolved</button>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Reply / note shown to the reporter" className="flex-1 box-border p-2 rounded border border-border bg-background text-xs" />
-                          <button onClick={() => saveNote(t.id)} className="px-3 py-2 rounded bg-primary text-primary-foreground text-xs font-semibold">Save note</button>
+                        <div className="h-[55vh]">
+                          <SupportTicketThread ticketId={t.id} isAdmin />
                         </div>
                       </td>
                     </tr>

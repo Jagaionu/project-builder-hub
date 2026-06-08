@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { notifySupportTicket } from "@/lib/support.functions";
 import { toast } from "sonner";
 import { X, Paperclip, Trash2 } from "lucide-react";
+import { SupportTicketThread } from "@/components/support/SupportTicketThread";
 
 const CATEGORIES = [
   "GPS / Tracking", "Dispatch / Planning", "Route import (bulk upload)",
@@ -36,6 +37,7 @@ export function SupportCaseModal({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [mine, setMine] = useState<Ticket[]>([]);
   const notify = useServerFn(notifySupportTicket);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -85,6 +87,16 @@ export function SupportCaseModal({ onClose }: { onClose: () => void }) {
       toast.error(e instanceof Error ? e.message : "Could not submit the case");
     } finally { setBusy(false); }
   };
+
+  if (selectedId) {
+    return (
+      <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-4" onClick={onClose}>
+        <div className="w-full max-w-lg h-[80vh] box-border rounded-2xl border border-border bg-card p-5 shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <SupportTicketThread ticketId={selectedId} isAdmin={false} onBack={() => setSelectedId(null)} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-4" onClick={onClose}>
@@ -147,7 +159,7 @@ export function SupportCaseModal({ onClose }: { onClose: () => void }) {
               {mine.map((t) => {
                 const st = STATUS[t.status] ?? STATUS.pending;
                 return (
-                  <li key={t.id} className="flex items-center gap-2 text-xs rounded-lg border border-border bg-surface px-2.5 py-2">
+                  <li key={t.id} onClick={() => setSelectedId(t.id)} className="flex items-center gap-2 text-xs rounded-lg border border-border bg-surface px-2.5 py-2 cursor-pointer hover:bg-surface-2">
                     <span className="font-mono text-[10px] text-muted-foreground">{t.ref ?? ""}</span>
                     <span className="flex-1 truncate text-foreground">{t.title}</span>
                     <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold text-white" style={{ background: st.bg }}>{st.label}</span>
