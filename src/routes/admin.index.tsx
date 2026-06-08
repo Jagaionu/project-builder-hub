@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminSupportPanel } from "@/components/admin/AdminSupportPanel";
 import type { Company, SubscriptionStatus, CompanyPlan, TenantConfig, TenantModule, Warehouse } from "@/lib/types";
 import { DEFAULT_TENANT_CONFIG } from "@/lib/types";
 import { createCompanyAdmin, listCompanyMembers, createCompanyProfile, resetProfilePassword, deleteProfile } from "@/lib/admin-users.functions";
@@ -101,7 +102,7 @@ function Kpi({ label, value }: { label: string; value: number }) {
 }
 
 function AdminDashboard() {
-  const [tab, setTab] = useState<"companies" | "warehouses">("companies");
+  const [tab, setTab] = useState<"companies" | "warehouses" | "support">("companies");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -204,7 +205,19 @@ function AdminDashboard() {
         >
           Global Warehouses
         </button>
+        <button
+          onClick={() => setTab("support")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            tab === "support"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Support
+        </button>
       </div>
+
+      {tab === "support" && <AdminSupportPanel companies={companies} />}
 
       {tab === "companies" && (
         <>
