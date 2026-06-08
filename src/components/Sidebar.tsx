@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Map, Truck, Warehouse, ClipboardList,
-  AlertTriangle, LogOut, Shield, Users, ScrollText,
+  AlertTriangle, LogOut, Shield, Users, ScrollText, LifeBuoy,
 } from "lucide-react";
 import { useAlertCount, useUnassignedJobCount } from "@/lib/use-alerts";
 import { useTenant, useFeatureFlags } from "@/lib/tenant-context";
@@ -9,6 +9,7 @@ import { signOut } from "@/lib/auth-context";
 import type { TenantModule } from "@/lib/types";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AutoRefreshButton } from "@/components/dispatch/toolbar";
+import { SupportCaseModal } from "@/components/support/SupportCaseModal";
 import { AIChatWidget } from "@/components/ai/ChatWidget";
 import { useTheme } from "@/lib/theme-context";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
@@ -33,6 +34,7 @@ const ALL_NAV: ReadonlyArray<{
 ];
 
 export function Sidebar() {
+  const [caseOpen, setCaseOpen] = useState(false);
   const path = useRouterState({ select: (s) => s.location.pathname });
   const alertCount      = useAlertCount();
   const unassignedCount = useUnassignedJobCount();
@@ -183,7 +185,9 @@ export function Sidebar() {
               <AutoRefreshButton />
               {flags.modules.includes("ai_agent") && <AIChatWidget />}
             </div>
+            <button type="button" onClick={() => setCaseOpen(true)} title="Create a support case" aria-label="Create a support case" className="grid place-items-center rounded-md transition-colors" style={{ width: 24, height: 24, background: "var(--color-surface-2)", border: "1px solid var(--color-border)", color: "var(--color-muted-foreground)" }}><LifeBuoy className="size-3.5" /></button>
             <ThemeToggle compact />
+            {caseOpen && <SupportCaseModal onClose={() => setCaseOpen(false)} />}
           </div>
         </div>
       </div>
