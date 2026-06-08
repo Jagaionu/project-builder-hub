@@ -116,7 +116,7 @@ function LiveDashboard() {
         ? drivers.filter((d) => d.id === focusedDriverId)
         : drivers.filter(
             (d) =>
-              schedule[d.id] !== "not_scheduled" ||
+              (schedule[d.id] !== "not_scheduled" && schedule[d.id] !== "holiday") ||
               (activeJobsByDriver[d.id]?.length ?? 0) > 0,
           ),
     [drivers, focusedDriverId, schedule, activeJobsByDriver],

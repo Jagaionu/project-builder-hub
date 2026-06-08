@@ -43,7 +43,7 @@ export function useDriverSchedule(driverIds: string[]): Record<string, ScheduleS
       for (const id of driverIds) {
         const ov = overrideRef.current.get(id);
         if (ov === true) next[id] = "scheduled";
-        else if (ov === false) next[id] = "not_scheduled";
+        else if (ov === false) next[id] = "holiday";
         else next[id] = templateDaysRef.current.has(id) ? "scheduled" : "not_scheduled";
       }
       setSchedule(next);
