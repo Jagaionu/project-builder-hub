@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/lib/tenant-context";
 import { toast } from "sonner";
 import { ArrowLeft, Send } from "lucide-react";
+import { PersonAvatar } from "@/components/support/PersonAvatar";
 
 const sb = supabase as unknown as {
   from: (t: string) => any;
@@ -10,7 +11,7 @@ const sb = supabase as unknown as {
 };
 
 type Ticket = { id: string; ref: string | null; title: string; category: string; severity: number; status: string; created_at: string; created_by_name: string | null; description: string };
-type Msg = { id: string; author_name: string | null; is_admin: boolean; is_system: boolean; body: string; created_at: string };
+type Msg = { id: string; author_name: string | null; is_admin: boolean; is_system: boolean; body: string; created_at: string; author_avatar: string | null };
 const SEV: Record<number, string> = { 1: "Critical", 2: "High", 3: "Medium", 4: "Low", 5: "Trivial" };
 const STATUS: Record<string, { label: string; bg: string }> = {
   pending: { label: "Pending", bg: "var(--destructive)" },
@@ -20,7 +21,7 @@ const STATUS: Record<string, { label: string; bg: string }> = {
 function when(iso: string): string { return new Date(iso).toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); }
 
 export function SupportTicketThread({ ticketId, isAdmin, onBack }: { ticketId: string; isAdmin: boolean; onBack?: () => void }) {
-  const { name, userId } = useTenant();
+  const { name, userId, avatarUrl } = useTenant();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [body, setBody] = useState("");
@@ -32,7 +33,7 @@ export function SupportTicketThread({ ticketId, isAdmin, onBack }: { ticketId: s
     setTicket(data as Ticket | null);
   }, [ticketId]);
   const loadMsgs = useCallback(async () => {
-    const { data } = await sb.from("support_ticket_messages").select("id,author_name,is_admin,is_system,body,created_at").eq("ticket_id", ticketId).order("created_at", { ascending: true });
+    const { data } = await sb.from("support_ticket_messages").select("id,author_name,author_avatar,is_admin,is_system,body,created_at").eq("ticket_id", ticketId).order("created_at", { ascending: true });
     setMsgs((data ?? []) as Msg[]);
   }, [ticketId]);
   useEffect(() => { void loadTicket(); void loadMsgs(); }, [loadTicket, loadMsgs]);
@@ -50,7 +51,7 @@ export function SupportTicketThread({ ticketId, isAdmin, onBack }: { ticketId: s
     await sb.from("support_ticket_messages").insert({
       ticket_id: ticketId, author_id: userId ?? null,
       author_name: name ?? (isAdmin ? "Support" : "Reporter"),
-      is_admin: isAdmin, is_system: system, body: t,
+      is_admin: isAdmin, is_system: system, body: t, author_avatar: avatarUrl ?? null,
     });
   };
   const send = async () => {
@@ -59,7 +60,9 @@ export function SupportTicketThread({ ticketId, isAdmin, onBack }: { ticketId: s
     catch { toast.error("Could not send"); } finally { setBusy(false); }
   };
   const setStatus = async (status: string, sysMsg: string) => {
-    const { error } = await sb.from("support_tickets").update({ status }).eq("id", ticketId);
+    const patch: Record<string, unknown> = { status };
+    if (status === "in_progress") { patch.assigned_to = userId ?? null; patch.assigned_name = name ?? null; patch.assigned_avatar = avatarUrl ?? null; }
+    const { error } = await sb.from("support_tickets").update(patch).eq("id", ticketId);
     if (error) { toast.error("Could not update status"); return; }
     await post(sysMsg, true); await loadTicket(); await loadMsgs();
   };
@@ -94,7 +97,7 @@ export function SupportTicketThread({ ticketId, isAdmin, onBack }: { ticketId: s
           ) : (
             <div key={m.id} className={"flex flex-col max-w-[80%] " + (m.is_admin ? "items-start" : "items-end ml-auto")}>
               <div className={"rounded-2xl px-3 py-2 text-sm " + (m.is_admin ? "bg-surface-2 text-foreground" : "bg-primary text-primary-foreground")}>{m.body}</div>
-              <span className="text-[9px] text-muted-foreground mt-0.5">{m.is_admin ? (m.author_name ?? "Support") : (m.author_name ?? "You")} - {when(m.created_at)}</span>
+              <span className="flex items-center gap-1 text-[9px] text-muted-foreground mt-0.5"><PersonAvatar name={m.author_name} url={m.author_avatar} size={14} />{m.author_name ?? (m.is_admin ? "Support" : "You")} - {when(m.created_at)}</span>
             </div>
           )
         ))}
