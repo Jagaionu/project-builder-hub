@@ -67,7 +67,7 @@ export function effectiveJobStatus(job: JobLite, nowMs: number = Date.now()): st
   return isJobScheduledFuture(job, nowMs) ? "SCHEDULED" : job.status;
 }
 
-export type ScheduleStatus = "scheduled" | "not_scheduled" | "unknown";
+export type ScheduleStatus = "scheduled" | "not_scheduled" | "holiday" | "unknown";
 
 // A driver is only "ON_ROUTE" when at least one of their active jobs has
 // actually started (first pickup time has passed or a stop was reached).
@@ -86,6 +86,11 @@ export function effectiveDriverStatus(
   nowMs: number = Date.now(),
   schedule: ScheduleStatus = "unknown",
 ): string {
+  if (schedule === "holiday") {
+    const onActiveRoute = driverJobs.some((j) => ACTIVE_STATUSES.has(j.status) ? !isJobScheduledFuture(j, nowMs) : false);
+    if (!onActiveRoute) return "OFF_SHIFT";
+  }
+
   if (rawStatus === "ON_ROUTE") {
     const anyStarted = driverJobs.some(
       (j) => ACTIVE_STATUSES.has(j.status) && !isJobScheduledFuture(j, nowMs),
