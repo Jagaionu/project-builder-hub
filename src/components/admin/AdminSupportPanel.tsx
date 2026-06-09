@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Company } from "@/lib/types";
 import { SupportTicketThread } from "@/components/support/SupportTicketThread";
+import { Search } from "lucide-react";
 
 const sb = supabase as unknown as { from: (t: string) => any };
 type Ticket = {
@@ -24,11 +25,18 @@ export function AdminSupportPanel({ companies }: { companies: Company[] }) {
   const [rows, setRows] = useState<Ticket[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [search, setSearch] = useState("");
   const nameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const c of companies) m.set(c.id, c.name);
     return m;
   }, [companies]);
+
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((t) => [t.ref ?? "", t.title, t.category, STATUS[t.status]?.label ?? t.status, nameById.get(t.tenant_id) ?? ""].some((f) => f.toLowerCase().includes(q)));
+  }, [rows, search, nameById]);
 
   const load = useCallback(async () => {
     let q = sb.from("support_tickets")
@@ -73,7 +81,11 @@ export function AdminSupportPanel({ companies }: { companies: Company[] }) {
             {f === "in_progress" ? "In progress" : f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
           </button>
         ))}
-        <span className="ml-auto text-xs text-muted-foreground">{rows.length} case(s)</span>
+        <div className="ml-auto relative">
+          <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search company, title, ref, status…" className="h-8 w-64 pl-8 pr-2 rounded-md border border-border bg-surface text-xs focus:outline-none focus:ring-1 focus:ring-ring" />
+        </div>
+        <span className="text-xs text-muted-foreground whitespace-nowrap">{shown.length} case(s)</span>
       </div>
       <div className="rounded-lg border border-border overflow-hidden">
         <table className="w-full text-sm">
@@ -83,7 +95,7 @@ export function AdminSupportPanel({ companies }: { companies: Company[] }) {
             <th className="px-3 py-2 text-left">Title</th><th className="px-3 py-2 text-left">Status</th></tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {rows.map((t) => {
+            {shown.map((t) => {
               const st = STATUS[t.status] ?? STATUS.pending;
               const isOpen = openId === t.id;
               return (
@@ -115,7 +127,7 @@ export function AdminSupportPanel({ companies }: { companies: Company[] }) {
                 </Fragment>
               );
             })}
-            {rows.length === 0 && (
+            {shown.length === 0 && (
               <tr><td colSpan={6} className="px-3 py-8 text-center text-xs text-muted-foreground">No cases</td></tr>
             )}
           </tbody>
