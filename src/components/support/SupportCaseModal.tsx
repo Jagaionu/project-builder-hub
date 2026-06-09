@@ -95,7 +95,7 @@ export function SupportCaseModal({ onClose }: { onClose: () => void }) {
   };
 
   const Shell = ({ children }: { children: React.ReactNode }) => (
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[2000] grid place-items-center bg-black/60 p-4" onClick={onClose}>
       <div className="w-full max-w-4xl max-h-[88vh] flex flex-col box-border rounded-2xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {children}
       </div>

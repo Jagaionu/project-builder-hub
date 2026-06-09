@@ -2,6 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { useDrivers, useComplianceWithLedger, useDriverDayHours, useWarehouses, reloadDrivers } from "@/lib/hooks";
+import { useTheme } from "@/lib/theme-context";
 import { StatusBadge } from "@/components/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
@@ -90,6 +91,7 @@ function EquipmentPicker({ value, onChange, options }: { value: string[]; onChan
 function DriversPage() {
   const router = useRouter();
   const drivers = useDrivers();
+  const { accentColor } = useTheme();
   const warehouses = useWarehouses();
   const compliance = useComplianceWithLedger(useDriverDayHours());
   const activeJobsByDriver = useActiveJobsByDriver();
@@ -322,7 +324,7 @@ function DriversPage() {
   return (
     <div className="h-full flex flex-col">
       {/* Header with filters in the middle */}
-      <header className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+      <header className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4" style={accentColor ? { background: accentColor } : undefined}>
         <div className="min-w-0">
           <h1 className="text-base font-semibold tracking-tight">Drivers</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
