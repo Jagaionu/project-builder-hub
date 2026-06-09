@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminSupportPanel } from "@/components/admin/AdminSupportPanel";
+import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
 import type { Company, SubscriptionStatus, CompanyPlan, TenantConfig, TenantModule, Warehouse } from "@/lib/types";
 import { DEFAULT_TENANT_CONFIG } from "@/lib/types";
 import { createCompanyAdmin, listCompanyMembers, createCompanyProfile, resetProfilePassword, deleteProfile } from "@/lib/admin-users.functions";
@@ -231,12 +232,7 @@ function AdminDashboard() {
               <Plus className="size-4" /> New Company
             </button>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Kpi label="Companies" value={companies.length} />
-            <Kpi label="Active drivers" value={totals.drivers} />
-            <Kpi label="VRIDs · 30d" value={totals.vrids} />
-            <Kpi label="Activity · 14d" value={totals.activity} />
-          </div>
+          <AdminAnalytics companies={companies} usage={usage} />
 
           {expiringTrials.length > 0 && (
             <div className="rounded-lg border border-warning/30 bg-warning/5 p-4">
