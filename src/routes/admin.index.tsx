@@ -8,7 +8,7 @@ import { DEFAULT_TENANT_CONFIG } from "@/lib/types";
 import { createCompanyAdmin, listCompanyMembers, createCompanyProfile, resetProfilePassword, deleteProfile } from "@/lib/admin-users.functions";
 import {
   CheckCircle, XCircle, Clock, Ban,
-  Plus, ChevronDown, ChevronUp, Save, UserPlus, Copy, Trash2, Pencil,
+  Plus, ChevronDown, ChevronUp, Save, UserPlus, Copy, Trash2, Pencil, Search,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -110,6 +110,7 @@ function AdminDashboard() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newWarehouse, setNewWarehouse] = useState({ code: "", name: "", latitude: 0, longitude: 0, address: "" });
   const [showAddWarehouse, setShowAddWarehouse] = useState(false);
+  const [whSearch, setWhSearch] = useState("");
   const [editingWarehouseId, setEditingWarehouseId] = useState<string | null>(null);
   const [editingWarehouse, setEditingWarehouse] = useState({ code: "", name: "", latitude: 0, longitude: 0, address: "" });
 
@@ -413,8 +414,18 @@ function AdminDashboard() {
             </div>
           )}
 
+          <div className="relative max-w-md">
+            <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              value={whSearch}
+              onChange={(e) => setWhSearch(e.target.value)}
+              placeholder="Search by code, name, address, or company…"
+              className="w-full h-9 pl-9 pr-3 rounded-md border border-border bg-surface text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
           <div className="space-y-2">
-            {warehouses.map((wh) => (
+            {warehouses.filter((wh) => { const q = whSearch.trim().toLowerCase(); const co = (wh as unknown as { companies?: { name?: string } }).companies?.name ?? ""; return !q || [wh.code, wh.name, wh.address ?? "", co].some((f) => String(f).toLowerCase().includes(q)); }).map((wh) => (
               <div key={wh.id} className={`rounded-lg border ${editingWarehouseId === wh.id ? 'border-primary/40 bg-surface' : 'border-border bg-surface'} p-4`}>
                 {editingWarehouseId === wh.id ? (
                   <div className="space-y-3">
