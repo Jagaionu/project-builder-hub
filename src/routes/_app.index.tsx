@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { useDrivers, useJobs, useWarehouses } from "@/lib/hooks";
+import { useTheme } from "@/lib/theme-context";
 import { useJobStops } from "@/lib/dispatch/use-job-stops";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ClientOnly } from "@/components/ClientOnly";
@@ -79,6 +80,7 @@ function LiveDashboard() {
   const { focusJob: focusJobId } = Route.useSearch();
   const navigate = useNavigate();
   const [selected, setSelected] = useState<string | null>(null);
+  const [fleetSearch, setFleetSearch] = useState("");
   const nowMs = Date.now();
 
   // Resolve focused job + driver (drives the filter + auto-selection).
@@ -216,8 +218,18 @@ function LiveDashboard() {
             className="px-4 py-3 shrink-0"
             style={{ borderBottom: "1px solid var(--sidebar-divider)" }}
           >
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Fleet</div>
-            <div className="text-sm font-semibold mt-0.5">{drivers.length} drivers</div>
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Fleet</div>
+                <div className="text-sm font-semibold mt-0.5">{drivers.length} drivers</div>
+              </div>
+              <input
+                value={fleetSearch}
+                onChange={(e) => setFleetSearch(e.target.value)}
+                placeholder="Search…"
+                className="w-28 h-7 px-2 rounded-md border border-border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
           </div>
 
           {/* Selected driver detail */}
@@ -303,7 +315,7 @@ function LiveDashboard() {
 
           {/* Driver list */}
           <ul className="flex-1 overflow-y-auto divide-y" style={{ borderColor: "var(--sidebar-divider)" }}>
-            {drivers.map((d) => {
+            {(fleetSearch.trim() ? drivers.filter((d) => (d.name ?? "").toLowerCase().includes(fleetSearch.trim().toLowerCase())) : drivers).map((d) => {
               const eff = effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs, schedule[d.id] ?? "unknown");
               const le = nextStopEta(d, jobs, stopsMap, warehouses);
               const isSelected = selected === d.id;
@@ -386,10 +398,11 @@ export function PageHeader({
   subtitle?: string;
   right?: React.ReactNode;
 }) {
+  const { accentColor } = useTheme();
   return (
     <header
       className="px-5 py-3 flex items-center justify-between shrink-0"
-      style={{ borderBottom: "1px solid var(--sidebar-divider)" }}
+      style={{ borderBottom: "1px solid var(--sidebar-divider)", ...(accentColor ? { background: accentColor } : {}) }}
     >
       <div>
         <h1 className="text-sm font-semibold tracking-tight">{title}</h1>
