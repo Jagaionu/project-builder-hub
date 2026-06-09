@@ -43,6 +43,12 @@ export function useTenant(): AuthCtx {
   return ctx;
 }
 
+// Non-throwing variant for components shared between tenant routes and the
+// super-admin area (which has no TenantProvider). Returns null when absent.
+export function useOptionalTenant(): AuthCtx | null {
+  return useContext(TenantContext);
+}
+
 export function useFeatureFlags(): TenantConfig {
   const { company } = useTenant();
   return { ...DEFAULT_TENANT_CONFIG, ...company.config };

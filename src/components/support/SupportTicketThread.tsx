@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useTenant } from "@/lib/tenant-context";
+import { useOptionalTenant } from "@/lib/tenant-context";
+import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import { ArrowLeft, Send } from "lucide-react";
 import { PersonAvatar } from "@/components/support/PersonAvatar";
@@ -21,7 +22,11 @@ const STATUS: Record<string, { label: string; bg: string }> = {
 function when(iso: string): string { return new Date(iso).toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); }
 
 export function SupportTicketThread({ ticketId, isAdmin, onBack }: { ticketId: string; isAdmin: boolean; onBack?: () => void }) {
-  const { name, userId, avatarUrl } = useTenant();
+  const tenant = useOptionalTenant();
+  const { user } = useAuth();
+  const name = tenant?.name ?? user?.email ?? (isAdmin ? "Support" : "Reporter");
+  const userId = tenant?.userId ?? user?.id ?? null;
+  const avatarUrl = tenant?.avatarUrl ?? null;
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [body, setBody] = useState("");
