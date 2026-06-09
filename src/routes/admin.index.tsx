@@ -20,6 +20,23 @@ function generatePassword(len = 16) {
   return Array.from(arr, (n) => chars[n % chars.length]).join("");
 }
 
+// Per-plan caps (driver + own-warehouse counts, on top of the global warehouses).
+// 0 = unlimited (enterprise).
+const PLAN_LIMITS: Record<CompanyPlan, { drivers: number; warehouses: number }> = {
+  starter:    { drivers: 30, warehouses: 25 },
+  pro:        { drivers: 70, warehouses: 50 },
+  enterprise: { drivers: 0,  warehouses: 0 },
+};
+const planCap = (n: number | null | undefined) => (!n ? "∞" : n);
+
+// Synthetic logins are `name@{slug}.team`; show admins the short `name@slug`.
+function shortLogin(email: string | null | undefined): string {
+  if (!email) return "";
+  const at = email.indexOf("@");
+  if (at < 0) return email;
+  return email.slice(0, at) + "@" + email.slice(at + 1).split(".")[0];
+}
+
 export const Route = createFileRoute("/admin/")({
   component: AdminDashboard,
 });
@@ -661,8 +678,8 @@ function CompanyRow({
             <span className="px-1.5 py-0.5 rounded bg-surface-2 text-foreground/80">{company.plan.toUpperCase()}</span>
             {usage && (
               <>
-                <span title="Active drivers">🚚 {usage.drivers}/{company.config?.maxDrivers ?? "∞"}</span>
-                <span title="Warehouses">🏭 {usage.warehouses}</span>
+                <span title="Active drivers">🚚 {usage.drivers}/{planCap(company.config?.maxDrivers)}</span>
+                <span title="Warehouses (own, excl. global)">🏭 {usage.warehouses}/{planCap(company.config?.maxWarehouses)}</span>
                 <span title="Team members">👥 {usage.members}</span>
                 <span title="VRIDs (30d)">📦 {usage.vrids30d}</span>
                 <span title="Activity events (14d)">⚡ {usage.activity14d}</span>
@@ -712,23 +729,31 @@ function CompanyRow({
           <div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Plan</div>
             <div className="flex gap-2">
-              {(["starter", "pro", "enterprise"] as CompanyPlan[]).map((p) => (
+              {(["starter", "pro", "enterprise"] as CompanyPlan[]).map((p) => {
+                const lim = PLAN_LIMITS[p];
+                return (
                 <button
                   key={p}
                   onClick={async () => {
-                    await supabase.from("companies" as never).update({ plan: p } as never).eq("id", company.id);
-                    toast.success("Plan updated");
+                    const newConfig = { ...config, maxDrivers: lim.drivers, maxWarehouses: lim.warehouses };
+                    setConfig(newConfig);
+                    await supabase.from("companies" as never).update({ plan: p, config: newConfig } as never).eq("id", company.id);
+                    toast.success(`Plan set to ${p}`);
                     onChanged();
                   }}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors capitalize ${
+                  className={`flex flex-col items-start px-3 py-1.5 rounded-md text-xs font-medium border transition-colors capitalize ${
                     company.plan === p
                       ? "bg-primary text-primary-foreground border-primary"
                       : "border-border text-muted-foreground hover:border-border hover:text-foreground"
                   }`}
                 >
-                  {p}
+                  <span>{p}</span>
+                  <span className={`text-[9px] font-normal lowercase ${company.plan === p ? "text-primary-foreground/80" : "text-muted-foreground/70"}`}>
+                    {lim.drivers ? `${lim.drivers} drivers · ${lim.warehouses} wh` : "unlimited"}
+                  </span>
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -786,25 +811,28 @@ function CompanyRow({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Max Drivers</label>
-              <input
-                type="number"
-                value={config.maxDrivers}
-                onChange={(e) => setConfig((p) => ({ ...p, maxDrivers: Number(e.target.value) }))}
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+          <div>
+            <div className="flex gap-6">
+              <div>
+                <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Max Drivers</label>
+                <input
+                  type="number"
+                  value={config.maxDrivers}
+                  onChange={(e) => setConfig((p) => ({ ...p, maxDrivers: Number(e.target.value) }))}
+                  className="mt-1 w-28 rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Max Warehouses</label>
+                <input
+                  type="number"
+                  value={config.maxWarehouses}
+                  onChange={(e) => setConfig((p) => ({ ...p, maxWarehouses: Number(e.target.value) }))}
+                  className="mt-1 w-28 rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Max Warehouses</label>
-              <input
-                type="number"
-                value={config.maxWarehouses}
-                onChange={(e) => setConfig((p) => ({ ...p, maxWarehouses: Number(e.target.value) }))}
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
+            <p className="mt-1 text-[10px] text-muted-foreground">Set by the plan — override here if needed. 0 = unlimited. Excludes global warehouses.</p>
           </div>
 
           <div>
@@ -819,56 +847,18 @@ function CompanyRow({
               Enable custom branding
             </label>
             {config.customBranding && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Brand Name</label>
-                  <input
-                    type="text"
-                    value={config.brandName ?? ""}
-                    onChange={(e) => setConfig((p) => ({ ...p, brandName: e.target.value || null }))}
-                    placeholder="Acme Logistics"
-                    className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Brand Color (hex)</label>
-                  <div className="mt-1 flex gap-2">
-                    <input
-                      type="color"
-                      value={config.brandColor ?? "#000000"}
-                      onChange={(e) => setConfig((p) => ({ ...p, brandColor: e.target.value }))}
-                      className="h-9 w-12 rounded border border-border cursor-pointer"
-                    />
-                    <input
-                      type="text"
-                      value={config.brandColor ?? ""}
-                      onChange={(e) => setConfig((p) => ({ ...p, brandColor: e.target.value || null }))}
-                      placeholder="#1a56db"
-                      className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                </div>
+              <div className="max-w-xs">
+                <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Brand Name</label>
+                <input
+                  type="text"
+                  value={config.brandName ?? ""}
+                  onChange={(e) => setConfig((p) => ({ ...p, brandName: e.target.value || null }))}
+                  placeholder="Acme Logistics"
+                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <p className="mt-1 text-[10px] text-muted-foreground">Logo is uploaded as a PNG.</p>
               </div>
             )}
-          </div>
-
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">Feature Toggles</div>
-            <div className="space-y-2">
-              {[
-                { key: "showComplianceModule" as const, label: "Driver compliance tracking" },
-              ].map(({ key, label }) => (
-                <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={config[key]}
-                    onChange={(e) => setConfig((p) => ({ ...p, [key]: e.target.checked }))}
-                    className="rounded border-border"
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
           </div>
 
           <button
@@ -885,8 +875,8 @@ function CompanyRow({
                 {members.map((m) => (
                   <div key={m.id} className="flex items-center justify-between gap-2 rounded-md bg-surface-2 px-3 py-2 text-sm">
                     <div className="min-w-0">
-                      <div className="text-xs font-medium truncate">{m.name ?? m.email ?? m.user_id.slice(0, 8)}</div>
-                      <div className="font-mono text-[11px] text-muted-foreground truncate">{m.email}</div>
+                      <div className="text-xs font-medium truncate">{m.name ?? shortLogin(m.email) ?? m.user_id.slice(0, 8)}</div>
+                      <div className="font-mono text-[11px] text-muted-foreground truncate">{shortLogin(m.email)}</div>
                       <div className="text-[11px] text-muted-foreground capitalize">
                         {m.role}{m.must_set_password ? " · must set password" : ""}
                       </div>
@@ -945,7 +935,7 @@ function CompanyRow({
             {issued && (
               <div className="mt-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-primary mb-1">One-time credentials — copy now</div>
-                <div className="font-mono break-all">{issued.email}</div>
+                <div className="font-mono break-all">{shortLogin(issued.email)}</div>
                 <div className="flex items-center justify-between gap-2 mt-1">
                   <span className="font-mono break-all">{issued.tempPassword}</span>
                   <button
@@ -964,7 +954,7 @@ function CompanyRow({
                 value={profileName}
                 onChange={(e) => setProfileName(e.target.value)}
                 placeholder="Associate name (e.g. Jane Smith)"
-                className="flex-1 min-w-[180px] rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full max-w-xs rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               />
               <button
                 type="button"
