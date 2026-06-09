@@ -35,9 +35,15 @@ function LoginPage() {
     setLoading(true);
     setError(null);
 
+    // Associate logins are shown short (name@slug); complete the domain so the
+    // real auth email (name@slug.team) is used when a single-label domain is typed.
+    const raw = email.trim().toLowerCase();
+    const at = raw.indexOf("@");
+    const loginEmail = at > 0 && !raw.slice(at + 1).includes(".") ? `${raw}.team` : raw;
+
     const { data: authData, error: authError } =
       await supabase.auth.signInWithPassword({
-        email:    email.trim().toLowerCase(),
+        email:    loginEmail,
         password,
       });
 
