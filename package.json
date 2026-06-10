@@ -17,6 +17,7 @@
     "check:env": "node scripts/check-ai-env.mjs",
     "diagnose:supabase": "node --env-file=.env scripts/diagnose-supabase-env.mjs",
     "ingest:knowledge": "node scripts/check-ai-env.mjs && tsx --env-file=.env scripts/ingest-knowledge.ts",
+    "ai:trace": "tsx --env-file=.env scripts/ai-retrieval-trace.ts",
     "benchmark": "tsx --env-file=.env scripts/plan-benchmark.ts",
     "benchmark:backfill": "tsx --env-file=.env scripts/run-lane-backfill.ts",
     "test:integration": "tsx --env-file=.env scripts/integration-test.ts",
