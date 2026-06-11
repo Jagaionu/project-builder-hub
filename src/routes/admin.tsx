@@ -26,7 +26,7 @@ function AdminLayout() {
       <header className="border-b border-border px-6 py-3 flex items-center gap-3">
         <div className="size-6 rounded bg-primary grid place-items-center text-primary-foreground font-mono text-xs font-bold">A</div>
         <span className="text-sm font-semibold">Super Admin</span>
-        <span className="text-xs text-muted-foreground font-mono">— Full platform control</span>
+        <span className="text-xs text-muted-foreground font-mono hidden sm:inline">— Full platform control</span>
         <div className="ml-auto">
           <button
             onClick={async () => {
@@ -39,7 +39,9 @@ function AdminLayout() {
           </button>
         </div>
       </header>
-      <Outlet />
+      <div className="px-4 sm:px-6 lg:px-8 py-4 max-w-[1440px] mx-auto">
+        <Outlet />
+      </div>
     </div>
   );
 }

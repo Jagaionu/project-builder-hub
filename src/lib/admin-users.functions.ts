@@ -331,3 +331,46 @@ export const setMemberAvatar = createServerFn({ method: "POST" })
     await sbAny.from("company_members").update({ avatar_url: data.avatarUrl }).eq("user_id", context.userId);
     return { ok: true };
   });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Delete an entire company — cascades through members, auth users,
+// admin_credentials, and all tenant-owned data (warehouses, drivers,
+// jobs, driver_events, activity_log via ON DELETE CASCADE).
+// ─────────────────────────────────────────────────────────────────────────
+const DeleteCompanyInput = z.object({ companyId: z.string().uuid() });
+
+export const deleteCompany = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => DeleteCompanyInput.parse(data))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.userId);
+
+    // 1. Collect all auth user IDs linked to this company so we can
+    //    clean them up after the cascade deletes the member rows.
+    const { data: members } = await sbAny
+      .from("company_members")
+      .select("user_id")
+      .eq("company_id", data.companyId);
+
+    const userIds: string[] = (members ?? []).map((m: { user_id: string }) => m.user_id);
+
+    // 2. Delete all admin_credentials rows for these users.
+    if (userIds.length > 0) {
+      await sbAny.from("admin_credentials").delete().in("user_id", userIds);
+    }
+
+    // 3. Delete the company — this cascades to company_members, and
+    //    all tenant-scoped tables (warehouses, drivers, jobs, events, etc.).
+    const { error } = await supabaseAdmin
+      .from("companies")
+      .delete()
+      .eq("id", data.companyId);
+    if (error) throw new Error(error.message);
+
+    // 4. Delete the auth users themselves.
+    for (const uid of userIds) {
+      await supabaseAdmin.auth.admin.deleteUser(uid);
+    }
+
+    return { ok: true };
+  });

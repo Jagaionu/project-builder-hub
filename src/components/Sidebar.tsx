@@ -236,10 +236,16 @@ function FooterAvatar({ userId, avatarUrl, fallback }: { userId: string; avatarU
         title="Change photo"
         onClick={() => inputRef.current?.click()}
         disabled={busy}
-        className="size-6 rounded-md grid place-items-center shrink-0 text-[10px] font-mono font-bold overflow-hidden disabled:opacity-50"
-        style={{ background: "var(--secondary)", color: "var(--muted-foreground)", border: "1px solid var(--border)" }}
+        className="size-10 rounded-md overflow-hidden shrink-0 disabled:opacity-50 hover:opacity-80 transition-opacity"
+        style={{ background: avatarUrl ? "transparent" : "var(--secondary)" }}
       >
-        {avatarUrl ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" /> : fallback}
+        {avatarUrl ? (
+          <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <span className="grid place-items-center w-full h-full text-sm font-mono font-bold" style={{ color: "var(--muted-foreground)" }}>
+            {fallback}
+          </span>
+        )}
       </button>
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
     </>

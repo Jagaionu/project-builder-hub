@@ -626,7 +626,10 @@ function DispatchPage() {
     <div className="h-full flex flex-col">
       {PlanningOverlay}
 
-      <header className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4" style={accentColor ? { background: accentColor } : undefined}>
+      <header
+        className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4"
+        style={accentColor ? { background: `linear-gradient(to right, ${accentColor} 0%, ${accentColor} 32%, var(--color-background) 100%)` } : undefined}
+      >
         <div className="min-w-0">
           <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
         </div>
