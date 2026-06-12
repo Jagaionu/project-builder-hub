@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AdminSupportPanel } from "@/components/admin/AdminSupportPanel";
 import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
+import { AdminBilling } from "@/components/admin/AdminBilling";
 import { StatsBar, StatsBarSkeleton } from "@/routes/admin/stats-bar";
 import { SearchFilterBar } from "@/routes/admin/search-filter-bar";
 import { CompanyCard, CompanyCardSkeleton } from "@/routes/admin/company-card";
@@ -60,7 +61,7 @@ function useCompanyUsage(): Record<string, CompanyUsage> {
 }
 
 function AdminDashboard() {
-  const [tab, setTab] = useState<"companies" | "warehouses" | "support">("companies");
+  const [tab, setTab] = useState<"companies" | "warehouses" | "support" | "billing">("companies");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -195,9 +196,21 @@ function AdminDashboard() {
         >
           Support
         </button>
+        <button
+          onClick={() => setTab("billing")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            tab === "billing"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Billing
+        </button>
       </div>
 
       {tab === "support" && <AdminSupportPanel companies={companies} />}
+
+      {tab === "billing" && <AdminBilling companies={companies} />}
 
       {tab === "companies" && (
         <>

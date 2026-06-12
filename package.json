@@ -22,7 +22,9 @@
     "benchmark:backfill": "tsx --env-file=.env scripts/run-lane-backfill.ts",
     "test:integration": "tsx --env-file=.env scripts/integration-test.ts",
     "db:types": "supabase gen types typescript --project-id ftvzuqmgshbkvjvfzwzv --schema public > src/integrations/supabase/types.ts",
-    "build:driver": "vite build --config vite.config.driver.ts && rm -rf dist/driver && cp -r dist/client dist/driver && cp dist/driver/_shell.html dist/driver/index.html"
+    "build:driver": "vite build --config vite.config.driver.ts && rm -rf dist/driver && cp -r dist/client dist/driver && cp dist/driver/_shell.html dist/driver/index.html",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -67,6 +69,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
+    "gocardless-nodejs": "^8.3.0",
     "input-otp": "^1.4.2",
     "js-tiktoken": "^1.0.20",
     "leaflet": "^1.9.4",
@@ -84,6 +87,7 @@
     "recharts": "^2.15.4",
     "remark-gfm": "^4.0.1",
     "sonner": "^2.0.7",
+    "stripe": "^22.2.0",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.1",
     "tw-animate-css": "^1.3.4",
@@ -110,6 +114,7 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^7.3.1",
-    "vite-plugin-pwa": "^1.3.0"
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^2.1.9"
   }
 }
