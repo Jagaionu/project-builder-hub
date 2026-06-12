@@ -89,7 +89,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const accentColor = resolvedTheme === "dark" ? "" : BRAND_ACCENTS[accentIndex];
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, accentIndex, accentColor, cycleAccent }}>
+    <ThemeContext.Provider
+      value={{ theme, resolvedTheme, setTheme, accentIndex, accentColor, cycleAccent }}
+    >
       {children}
     </ThemeContext.Provider>
   );

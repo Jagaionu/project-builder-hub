@@ -12,10 +12,16 @@ export const Route = createFileRoute("/_app")({
   ssr: false,
   // ── AUTH & SUBSCRIPTION GATE ──────────────────────────────────────────────
   beforeLoad: async ({ location }): Promise<AuthContext> => {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
     if (sessionError || !session) {
-      const claimed = typeof window !== "undefined" ? localStorage.getItem("device.companyId") : null;
-      throw redirect(claimed ? { to: "/lock" } : { to: "/login", search: { redirect: location.href } });
+      const claimed =
+        typeof window !== "undefined" ? localStorage.getItem("device.companyId") : null;
+      throw redirect(
+        claimed ? { to: "/lock" } : { to: "/login", search: { redirect: location.href } },
+      );
     }
 
     // Super admins don't belong to a company — send them to the admin console
@@ -33,7 +39,13 @@ export const Route = createFileRoute("/_app")({
       .from("company_members" as never)
       .select("role, company_id, name, must_set_password, avatar_url")
       .eq("user_id", session.user.id)
-      .maybeSingle<{ role: string; company_id: string; name: string | null; must_set_password: boolean | null; avatar_url: string | null }>();
+      .maybeSingle<{
+        role: string;
+        company_id: string;
+        name: string | null;
+        must_set_password: boolean | null;
+        avatar_url: string | null;
+      }>();
 
     if (memberError || !memberRow) {
       await supabase.auth.signOut();
@@ -51,7 +63,10 @@ export const Route = createFileRoute("/_app")({
       throw redirect({ to: "/login", search: { error: "company_not_found" } });
     }
 
-    if (company.subscription_status === "suspended" || company.subscription_status === "cancelled") {
+    if (
+      company.subscription_status === "suspended" ||
+      company.subscription_status === "cancelled"
+    ) {
       throw redirect({ to: "/suspended" });
     }
     if (
@@ -126,7 +141,10 @@ function SetPasswordGate() {
 
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground p-4">
-      <form onSubmit={submit} className="w-full max-w-sm rounded-xl border border-border bg-surface p-6 space-y-4">
+      <form
+        onSubmit={submit}
+        className="w-full max-w-sm rounded-xl border border-border bg-surface p-6 space-y-4"
+      >
         <div>
           <h1 className="text-lg font-semibold">Set your password</h1>
           <p className="text-xs text-muted-foreground mt-1">

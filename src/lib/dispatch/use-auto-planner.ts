@@ -64,7 +64,11 @@ async function runPlan(
     if (!job || job.manual_override) continue;
     await assignDriver(a.jobId, a.driverId);
     fillPromises.push(
-      fillStopTimes(job.scheduled_at ?? new Date().toISOString(), stopsMap[a.jobId] ?? [], warehouses),
+      fillStopTimes(
+        job.scheduled_at ?? new Date().toISOString(),
+        stopsMap[a.jobId] ?? [],
+        warehouses,
+      ),
     );
   }
   await Promise.all(fillPromises);
@@ -72,7 +76,12 @@ async function runPlan(
   // Pass 2 — planned (not-yet-assigned) follow-on routes.
   const desired = new Map(plan.planned.map((p) => [p.jobId, p] as const));
   const toClear: string[] = [];
-  type DesiredUpdate = { id: string; planned_driver_id: string; planned_sequence: number; planned_start_at: string };
+  type DesiredUpdate = {
+    id: string;
+    planned_driver_id: string;
+    planned_sequence: number;
+    planned_start_at: string;
+  };
   const toApply: DesiredUpdate[] = [];
   const toFill: Array<{ id: string; startAt: string }> = [];
 
@@ -107,23 +116,28 @@ async function runPlan(
       .update({ planned_driver_id: null, planned_sequence: null, planned_start_at: null })
       .in("id", toClear);
     if (error) console.error("[auto-planner] clear failed", error.message);
-    else for (const id of toClear) {
-      applyJobPatch(id, { planned_driver_id: null, planned_sequence: null, planned_start_at: null });
-    }
+    else
+      for (const id of toClear) {
+        applyJobPatch(id, {
+          planned_driver_id: null,
+          planned_sequence: null,
+          planned_start_at: null,
+        });
+      }
   }
 
   if (toApply.length) {
-    await Promise.all(toApply.map(async (u) => {
-      const { id, ...patch } = u;
-      const { error } = await supabase.from("jobs").update(patch).eq("id", id);
-      if (error) console.error("[auto-planner] update failed", id, error.message);
-      else applyJobPatch(id, patch);
-    }));
+    await Promise.all(
+      toApply.map(async (u) => {
+        const { id, ...patch } = u;
+        const { error } = await supabase.from("jobs").update(patch).eq("id", id);
+        if (error) console.error("[auto-planner] update failed", id, error.message);
+        else applyJobPatch(id, patch);
+      }),
+    );
   }
 
-  await Promise.all(
-    toFill.map((f) => fillStopTimes(f.startAt, stopsMap[f.id] ?? [], warehouses)),
-  );
+  await Promise.all(toFill.map((f) => fillStopTimes(f.startAt, stopsMap[f.id] ?? [], warehouses)));
 }
 
 /**
@@ -143,7 +157,9 @@ export async function fillStopTimes(
     const t = times[i];
     if (!s.id || !t) continue;
     if (s.scheduled_at === t) continue;
-    writes.push(Promise.resolve(supabase.from("job_stops").update({ scheduled_at: t }).eq("id", s.id)));
+    writes.push(
+      Promise.resolve(supabase.from("job_stops").update({ scheduled_at: t }).eq("id", s.id)),
+    );
   }
   await Promise.all(writes);
 }

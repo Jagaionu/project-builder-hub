@@ -16,13 +16,16 @@ function DriverLogin() {
 
   const handleSubmit = async () => {
     if (digits.length !== 6) return;
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
     try {
       await loginWithPairingCode(digits);
       navigate({ to: "/d" });
     } catch (e) {
       setError((e as Error).message ?? "Login failed");
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -41,7 +44,10 @@ function DriverLogin() {
             6-Digit Pairing Code
           </label>
           <input
-            type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={6}
             value={digits}
             onChange={(e) => setCode(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
@@ -59,8 +65,11 @@ function DriverLogin() {
           </div>
         )}
 
-        <button onClick={handleSubmit} disabled={digits.length !== 6 || loading}
-          className="w-full bg-primary text-primary-foreground font-semibold rounded-xl py-4 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99] transition">
+        <button
+          onClick={handleSubmit}
+          disabled={digits.length !== 6 || loading}
+          className="w-full bg-primary text-primary-foreground font-semibold rounded-xl py-4 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99] transition"
+        >
           {loading ? "Signing in…" : "Sign in"}
         </button>
       </div>

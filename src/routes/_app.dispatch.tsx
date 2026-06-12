@@ -2,12 +2,27 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BrainCircuit, Calendar as CalendarIcon, ChevronDown, MapPin, RotateCcw, Search, Truck } from "lucide-react";
+import {
+  BrainCircuit,
+  Calendar as CalendarIcon,
+  ChevronDown,
+  MapPin,
+  RotateCcw,
+  Search,
+  Truck,
+} from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { useCompliance, useDrivers, useJobs, useWarehouses, applyJobPatch, reloadJobs } from "@/lib/hooks";
+import {
+  useCompliance,
+  useDrivers,
+  useJobs,
+  useWarehouses,
+  applyJobPatch,
+  reloadJobs,
+} from "@/lib/hooks";
 import type { PlannedAssign } from "@/lib/planner";
 import type { DriverShift, DriverAvailabilityOverride } from "@/lib/types";
 import { planJobs } from "@/lib/plan-jobs.functions";
@@ -229,7 +244,18 @@ function DispatchPage() {
   // Planned-by-job map derived from jobs table (populated by server-side planJobs).
   // Replaces client-side computePlan — single source of truth: the DB.
   const plannedByJob = useMemo(() => {
-    const m = new Map<string, { jobId: string; driverId: string; sequence: number; startAt: string; distKm: number; dailyHoursLeft: number; weeklyHoursLeft: number }>();
+    const m = new Map<
+      string,
+      {
+        jobId: string;
+        driverId: string;
+        sequence: number;
+        startAt: string;
+        distKm: number;
+        dailyHoursLeft: number;
+        weeklyHoursLeft: number;
+      }
+    >();
     for (const j of jobs) {
       if (j.planned_driver_id && j.planned_sequence != null) {
         m.set(j.id, {
@@ -323,7 +349,12 @@ function DispatchPage() {
       } catch (e) {
         console.warn("[dispatch] failed to log JOB_ASSIGNED", e);
       }
-      void logActivity("job.assign", { entityType: "job", entityId: jobId, entityRef: job?.reference, metadata: { driverId, manual: opts?.manual ?? false } });
+      void logActivity("job.assign", {
+        entityType: "job",
+        entityId: jobId,
+        entityRef: job?.reference,
+        metadata: { driverId, manual: opts?.manual ?? false },
+      });
     } else if (job?.assigned_driver_id) {
       await supabase
         .from("drivers")
@@ -385,7 +416,12 @@ function DispatchPage() {
         if (se) toast.error(se.message);
       }
       await Promise.all([reloadJobs(), reloadJobStops()]);
-      void logActivity("job.clone", { entityType: "job", entityId: newId, entityRef: (nj as { reference?: string }).reference, metadata: { clonedFrom: job.reference } });
+      void logActivity("job.clone", {
+        entityType: "job",
+        entityId: newId,
+        entityRef: (nj as { reference?: string }).reference,
+        metadata: { clonedFrom: job.reference },
+      });
       toast.success(`Cloned → ${(nj as { reference?: string }).reference ?? "new route"}`);
       setSelectedJobId(newId);
     } catch (e) {
@@ -407,7 +443,10 @@ function DispatchPage() {
       const msg = `Planned ${r.assigned}/${r.totalJobs} routes · ${r.driversPlanned} driver${r.driversPlanned === 1 ? "" : "s"}`;
       if (r.unassignable.length) toast.warning(`${msg} · ${r.unassignable.length} unassignable`);
       else toast.success(msg);
-      void logActivity("plan.run", { entityType: "plan", metadata: { assigned: r.assigned, total: r.totalJobs, driversPlanned: r.driversPlanned } });
+      void logActivity("plan.run", {
+        entityType: "plan",
+        metadata: { assigned: r.assigned, total: r.totalJobs, driversPlanned: r.driversPlanned },
+      });
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -436,11 +475,20 @@ function DispatchPage() {
       return;
     }
     if (status === "CANCELLED") {
-      void logActivity("job.cancel", { entityType: "job", entityId: jobId, entityRef: job.reference });
+      void logActivity("job.cancel", {
+        entityType: "job",
+        entityId: jobId,
+        entityRef: job.reference,
+      });
     }
     if (!opts?.silent) {
       if (status !== "CANCELLED") {
-        void logActivity("job.status", { entityType: "job", entityId: jobId, entityRef: job.reference, metadata: { status } });
+        void logActivity("job.status", {
+          entityType: "job",
+          entityId: jobId,
+          entityRef: job.reference,
+          metadata: { status },
+        });
       }
       toast.success(`Status → ${STATUS_CONFIG[status as JobStatus]?.label ?? status}`);
     }
@@ -578,7 +626,6 @@ function DispatchPage() {
     [jobDays],
   );
 
-
   const PlanningOverlay =
     planning && typeof document !== "undefined"
       ? createPortal(
@@ -586,9 +633,7 @@ function DispatchPage() {
             <style>{`@keyframes plan-slide{0%{transform:translateX(-100%)}100%{transform:translateX(320%)}}`}</style>
             <div className="size-9 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
             <div className="text-center">
-              <p className="text-base font-semibold text-foreground mb-1">
-                Planning Routes
-              </p>
+              <p className="text-base font-semibold text-foreground mb-1">Planning Routes</p>
               <p className="text-xs text-muted-foreground font-mono">
                 Assigning drivers — please wait, do not navigate away
               </p>
@@ -628,7 +673,13 @@ function DispatchPage() {
 
       <header
         className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4"
-        style={accentColor ? { background: `linear-gradient(to right, ${accentColor} 0%, ${accentColor} 32%, var(--color-background) 100%)` } : undefined}
+        style={
+          accentColor
+            ? {
+                background: `linear-gradient(to right, ${accentColor} 0%, ${accentColor} 32%, var(--color-background) 100%)`,
+              }
+            : undefined
+        }
       >
         <div className="min-w-0">
           <h1 className="text-base font-semibold tracking-tight">Dispatch</h1>
@@ -695,94 +746,94 @@ function DispatchPage() {
         <ImportCsvButton />
 
         <div className="inline-flex items-center rounded-lg border border-border bg-surface overflow-hidden">
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              className={cn(
-                "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs transition-all whitespace-nowrap hover:bg-input",
-                dateRange ? "text-foreground" : "text-muted-foreground",
-              )}
-            >
-              <CalendarIcon className="size-3.5" />
-              {dateLabel}
-              <ChevronDown className="size-3" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="end">
-            <div className="flex items-center gap-1 border-b border-border px-2 py-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+          <Popover>
+            <PopoverTrigger asChild>
               <button
-                onClick={() => {
-                  const t = startOfDay(new Date());
-                  setDateRange({ from: t, to: t });
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs transition-all whitespace-nowrap hover:bg-input",
+                  dateRange ? "text-foreground" : "text-muted-foreground",
+                )}
+              >
+                <CalendarIcon className="size-3.5" />
+                {dateLabel}
+                <ChevronDown className="size-3" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <div className="flex items-center gap-1 border-b border-border px-2 py-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                <button
+                  onClick={() => {
+                    const t = startOfDay(new Date());
+                    setDateRange({ from: t, to: t });
+                  }}
+                  className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                >
+                  Today
+                </button>
+                <button
+                  onClick={() => {
+                    const y = startOfDay(new Date(Date.now() - 86400000));
+                    setDateRange({ from: y, to: y });
+                  }}
+                  className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                >
+                  Yesterday
+                </button>
+                <button
+                  onClick={() => {
+                    const tm = startOfDay(new Date(Date.now() + 86400000));
+                    setDateRange({ from: tm, to: tm });
+                  }}
+                  className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                >
+                  Tomorrow
+                </button>
+                <button
+                  onClick={() => {
+                    const to = startOfDay(new Date());
+                    const from = startOfDay(new Date(Date.now() - 6 * 86400000));
+                    setDateRange({ from, to });
+                  }}
+                  className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                >
+                  7d
+                </button>
+                <button
+                  onClick={() => setDateRange(undefined)}
+                  className="ml-auto rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
+                >
+                  All
+                </button>
+              </div>
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={1}
+                modifiers={{ hasJobs: (d) => hasJobsOn(d) }}
+                modifiersClassNames={{
+                  hasJobs: "font-semibold underline underline-offset-4 decoration-primary/70",
                 }}
-                className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
-              >
-                Today
-              </button>
-              <button
-                onClick={() => {
-                  const y = startOfDay(new Date(Date.now() - 86400000));
-                  setDateRange({ from: y, to: y });
-                }}
-                className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
-              >
-                Yesterday
-              </button>
-              <button
-                onClick={() => {
-                  const tm = startOfDay(new Date(Date.now() + 86400000));
-                  setDateRange({ from: tm, to: tm });
-                }}
-                className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
-              >
-                Tomorrow
-              </button>
-              <button
-                onClick={() => {
-                  const to = startOfDay(new Date());
-                  const from = startOfDay(new Date(Date.now() - 6 * 86400000));
-                  setDateRange({ from, to });
-                }}
-                className="rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
-              >
-                7d
-              </button>
-              <button
-                onClick={() => setDateRange(undefined)}
-                className="ml-auto rounded px-2 py-1 hover:bg-surface-2 hover:text-foreground"
-              >
-                All
-              </button>
-            </div>
-            <Calendar
-              mode="range"
-              selected={dateRange}
-              onSelect={setDateRange}
-              numberOfMonths={1}
-              modifiers={{ hasJobs: (d) => hasJobsOn(d) }}
-              modifiersClassNames={{
-                hasJobs: "font-semibold underline underline-offset-4 decoration-primary/70",
-              }}
-              className={cn("p-3 pointer-events-auto")}
-            />
-          </PopoverContent>
-        </Popover>
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
 
-        {!isDefaultFilters && (
-          <button
-            onClick={() => {
-              setSearch("");
-              setStatusFilter(null);
-              setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"]));
-              setDateRange({ from: today, to: today });
-              setTourDriverId(null);
-            }}
-            title="Reset filters"
-            className="px-2 py-1.5 border-l border-border text-muted-foreground transition-all hover:text-foreground hover:bg-input"
-          >
-            <RotateCcw className="size-3.5" />
-          </button>
-        )}
+          {!isDefaultFilters && (
+            <button
+              onClick={() => {
+                setSearch("");
+                setStatusFilter(null);
+                setHiddenStatuses(new Set<JobStatus>(["COMPLETED", "CANCELLED"]));
+                setDateRange({ from: today, to: today });
+                setTourDriverId(null);
+              }}
+              title="Reset filters"
+              className="px-2 py-1.5 border-l border-border text-muted-foreground transition-all hover:text-foreground hover:bg-input"
+            >
+              <RotateCcw className="size-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -796,7 +847,10 @@ function DispatchPage() {
           lookups={lookups}
           plannedByJob={plannedByJob}
           onSelect={setSelectedJobId}
-          onShowTour={(driverId) => { setTourDriverId((p) => (p === driverId ? null : driverId)); setSearch(""); }}
+          onShowTour={(driverId) => {
+            setTourDriverId((p) => (p === driverId ? null : driverId));
+            setSearch("");
+          }}
         />
 
         <div className="overflow-y-auto bg-background">
@@ -848,7 +902,8 @@ function DispatchPage() {
               initial={{
                 scheduled_at: editingJob.scheduled_at,
                 stops: stopsMap[editingJob.id] ?? [],
-                handling_minutes: (editingJob as { handling_minutes?: number | null }).handling_minutes,
+                handling_minutes: (editingJob as { handling_minutes?: number | null })
+                  .handling_minutes,
                 estimated_cost: (editingJob as { estimated_cost?: string | null }).estimated_cost,
               }}
               onClose={() => setEditJobId(null)}

@@ -17,11 +17,15 @@ export function useEquipmentTypes(): string[] {
       ]);
       if (cancelled) return;
       const set = new Set<string>();
-      for (const r of (j ?? []) as Array<{ equipment_type: string | null }>) if (r.equipment_type) set.add(r.equipment_type);
-      for (const r of (de ?? []) as Array<{ equipment_type: string | null }>) if (r.equipment_type) set.add(r.equipment_type);
+      for (const r of (j ?? []) as Array<{ equipment_type: string | null }>)
+        if (r.equipment_type) set.add(r.equipment_type);
+      for (const r of (de ?? []) as Array<{ equipment_type: string | null }>)
+        if (r.equipment_type) set.add(r.equipment_type);
       setTypes([...set].sort());
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
   return types;
 }

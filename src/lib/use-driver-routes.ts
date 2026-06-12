@@ -56,7 +56,9 @@ export function useActiveJobsByDriver(): Record<string, ActiveJob[]> {
     let pending: ReturnType<typeof setTimeout> | null = null;
     const debouncedLoad = () => {
       if (pending) clearTimeout(pending);
-      pending = setTimeout(() => { void load(); }, 500);
+      pending = setTimeout(() => {
+        void load();
+      }, 500);
     };
     const ch = supabase
       .channel(`rt-active-jobs-${Math.random().toString(36).slice(2)}`)

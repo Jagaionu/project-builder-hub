@@ -60,13 +60,18 @@ export function ProfileSwitcher({ currentUserId }: { currentUserId: string }) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={close}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={close}
+        >
           <div
             className="bg-surface rounded-xl border border-border shadow-2xl w-full max-w-xs p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">{picked ? "Enter password" : "Switch profile"}</h3>
+              <h3 className="text-sm font-semibold">
+                {picked ? "Enter password" : "Switch profile"}
+              </h3>
               <button onClick={close} className="text-muted-foreground hover:text-foreground">
                 <X className="size-4" />
               </button>
@@ -74,7 +79,9 @@ export function ProfileSwitcher({ currentUserId }: { currentUserId: string }) {
 
             {!picked ? (
               members.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-4 text-center">No other profiles in this company.</p>
+                <p className="text-xs text-muted-foreground py-4 text-center">
+                  No other profiles in this company.
+                </p>
               ) : (
                 <ul className="space-y-1 max-h-[50vh] overflow-y-auto">
                   {members.map((m) => (
@@ -83,13 +90,21 @@ export function ProfileSwitcher({ currentUserId }: { currentUserId: string }) {
                         onClick={() => setPicked(m)}
                         className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-surface-2 transition-colors"
                       >
-                        <span className="size-7 rounded-md grid place-items-center shrink-0 text-[11px] font-mono font-bold"
-                          style={{ background: "var(--secondary)", color: "var(--muted-foreground)", border: "1px solid var(--border)" }}>
+                        <span
+                          className="size-7 rounded-md grid place-items-center shrink-0 text-[11px] font-mono font-bold"
+                          style={{
+                            background: "var(--secondary)",
+                            color: "var(--muted-foreground)",
+                            border: "1px solid var(--border)",
+                          }}
+                        >
                           {(m.name ?? m.email ?? "?").charAt(0).toUpperCase()}
                         </span>
                         <span className="min-w-0">
                           <span className="block text-sm truncate">{m.name ?? m.email}</span>
-                          <span className="block text-[10px] font-mono text-muted-foreground truncate">{m.email}</span>
+                          <span className="block text-[10px] font-mono text-muted-foreground truncate">
+                            {m.email}
+                          </span>
                         </span>
                       </button>
                     </li>
@@ -99,7 +114,8 @@ export function ProfileSwitcher({ currentUserId }: { currentUserId: string }) {
             ) : (
               <form onSubmit={switchTo} className="space-y-3">
                 <p className="text-xs text-muted-foreground">
-                  Password for <span className="font-medium text-foreground">{picked.name ?? picked.email}</span>
+                  Password for{" "}
+                  <span className="font-medium text-foreground">{picked.name ?? picked.email}</span>
                 </p>
                 <input
                   type="password"
@@ -109,7 +125,9 @@ export function ProfileSwitcher({ currentUserId }: { currentUserId: string }) {
                   autoFocus
                   className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
-                <p className="text-[10px] text-muted-foreground">Switching reloads the app; unsaved changes may be lost.</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Switching reloads the app; unsaved changes may be lost.
+                </p>
                 <div className="flex gap-2">
                   <button
                     type="button"

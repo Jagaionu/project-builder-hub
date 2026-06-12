@@ -24,11 +24,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function RouteDialog({
-  mode, jobId, initial, onClose, warehouses,
+  mode,
+  jobId,
+  initial,
+  onClose,
+  warehouses,
 }: {
   mode: "create" | "edit";
   jobId?: string;
-  initial?: { scheduled_at: string | null; stops: Stop[]; handling_minutes?: number | null; estimated_cost?: string | null };
+  initial?: {
+    scheduled_at: string | null;
+    stops: Stop[];
+    handling_minutes?: number | null;
+    estimated_cost?: string | null;
+  };
   onClose: () => void;
   warehouses: Warehouse[];
 }) {
@@ -46,7 +55,9 @@ export default function RouteDialog({
   const [open, setOpen] = useState(true);
   const HANDLING_PRESETS = [10, 15, 20, 25, 30];
   const [handling, setHandling] = useState<number>(initial?.handling_minutes ?? 20);
-  const [customHandling, setCustomHandling] = useState<boolean>(!HANDLING_PRESETS.includes(initial?.handling_minutes ?? 20));
+  const [customHandling, setCustomHandling] = useState<boolean>(
+    !HANDLING_PRESETS.includes(initial?.handling_minutes ?? 20),
+  );
   const [cost, setCost] = useState<string>(initial?.estimated_cost ?? "");
 
   const startIso = stops[0]?.scheduled_at ?? initial?.scheduled_at ?? new Date().toISOString();
@@ -123,7 +134,11 @@ export default function RouteDialog({
         }
         const jobData = data as { id: string; reference: string };
         targetJobId = jobData.id;
-        void logActivity("lane.create", { entityType: "job", entityId: jobData.id, entityRef: jobData.reference });
+        void logActivity("lane.create", {
+          entityType: "job",
+          entityId: jobData.id,
+          entityRef: jobData.reference,
+        });
         // Show the auto-generated reference if one was created
         if (!vrid.trim()) {
           toast.info(`Created with ID: ${jobData.reference}`);
@@ -137,16 +152,26 @@ export default function RouteDialog({
           planned_sequence: null,
           planned_start_at: null,
         };
-        const { error } = await supabase.from("jobs").update(editPayload as never).eq("id", targetJobId!);
+        const { error } = await supabase
+          .from("jobs")
+          .update(editPayload as never)
+          .eq("id", targetJobId!);
         if (error) {
           console.error("[jobs.update]", error);
           toast.error(`Job update failed: ${error.message}`);
           return;
         }
-        void logActivity("lane.edit", { entityType: "job", entityId: targetJobId ?? undefined, entityRef: vrid.trim() || undefined });
+        void logActivity("lane.edit", {
+          entityType: "job",
+          entityId: targetJobId ?? undefined,
+          entityRef: vrid.trim() || undefined,
+        });
       }
 
-      const { error: delErr } = await supabase.from("job_stops").delete().eq("job_id", targetJobId!);
+      const { error: delErr } = await supabase
+        .from("job_stops")
+        .delete()
+        .eq("job_id", targetJobId!);
       if (delErr) {
         console.error("[stops.delete]", delErr);
         toast.error(`Clear stops failed: ${delErr.message}`);
@@ -158,8 +183,7 @@ export default function RouteDialog({
         seq: i,
         kind: s.kind as never,
         warehouse_id: s.warehouse_id,
-        scheduled_at:
-          i === 0 ? (s.scheduled_at ?? autoTimes[i] ?? null) : (autoTimes[i] ?? null),
+        scheduled_at: i === 0 ? (s.scheduled_at ?? autoTimes[i] ?? null) : (autoTimes[i] ?? null),
       }));
       const { error: stopErr } = await supabase.from("job_stops").insert(rows as never);
       if (stopErr) {
@@ -207,12 +231,15 @@ export default function RouteDialog({
   const warehouseMap = new Map(warehouses.map((w) => [w.id, w]));
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen) {
-        setOpen(false);
-        onClose();
-      }
-    }}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          setOpen(false);
+          onClose();
+        }
+      }}
+    >
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? "Create Route" : "Edit Route"}</DialogTitle>
@@ -227,7 +254,10 @@ export default function RouteDialog({
           {/* VRID / Reference Field */}
           {mode === "create" && (
             <div className="space-y-2 px-6">
-              <Label htmlFor="vrid" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <Label
+                htmlFor="vrid"
+                className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+              >
                 Job ID / VRID
               </Label>
               <div className="flex gap-2">
@@ -264,12 +294,17 @@ export default function RouteDialog({
                 value={customHandling ? "custom" : String(handling)}
                 onChange={(e) => {
                   if (e.target.value === "custom") setCustomHandling(true);
-                  else { setCustomHandling(false); setHandling(Number(e.target.value)); }
+                  else {
+                    setCustomHandling(false);
+                    setHandling(Number(e.target.value));
+                  }
                 }}
                 className="h-9 px-2 rounded-md border border-border bg-surface text-sm"
               >
                 {HANDLING_PRESETS.map((p) => (
-                  <option key={p} value={p}>{p} min</option>
+                  <option key={p} value={p}>
+                    {p} min
+                  </option>
                 ))}
                 <option value="custom">Custom…</option>
               </select>
@@ -292,7 +327,10 @@ export default function RouteDialog({
 
           {/* Estimated cost (bulk-upload value; edit-only) */}
           <div className="space-y-2 px-6">
-            <Label htmlFor="cost" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <Label
+              htmlFor="cost"
+              className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+            >
               Estimated cost
             </Label>
             <Input
@@ -408,7 +446,10 @@ export default function RouteDialog({
 
                     {/* Warehouse Selection */}
                     <div>
-                      <Label htmlFor={`warehouse-${i}`} className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5 block">
+                      <Label
+                        htmlFor={`warehouse-${i}`}
+                        className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5 block"
+                      >
                         Warehouse
                       </Label>
                       <select
@@ -434,7 +475,10 @@ export default function RouteDialog({
 
                     {/* Time Selection */}
                     <div>
-                      <Label htmlFor={`time-${i}`} className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5 block">
+                      <Label
+                        htmlFor={`time-${i}`}
+                        className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5 block"
+                      >
                         {isFirst ? "Pickup Time" : "Estimated Arrival"}
                       </Label>
                       {isFirst ? (
@@ -446,7 +490,9 @@ export default function RouteDialog({
                             value={s.scheduled_at ? toLocalInput(s.scheduled_at) : ""}
                             onChange={(e) =>
                               update(i, {
-                                scheduled_at: e.target.value ? new Date(e.target.value).toISOString() : null,
+                                scheduled_at: e.target.value
+                                  ? new Date(e.target.value).toISOString()
+                                  : null,
                               })
                             }
                             className="flex-1 px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
@@ -458,7 +504,11 @@ export default function RouteDialog({
                           <Clock className="size-4 text-muted-foreground" />
                           {auto
                             ? new Date(auto).toLocaleString("en-GB", {
-                                day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false,
+                                day: "2-digit",
+                                month: "short",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: false,
                               })
                             : "—"}
                           <span className="ml-auto text-[10px] text-muted-foreground">auto</span>
@@ -504,10 +554,7 @@ export default function RouteDialog({
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={saving}
-                >
+                <Button type="submit" disabled={saving}>
                   {saving ? "Saving…" : mode === "create" ? "Create Route" : "Save Changes"}
                 </Button>
               </div>

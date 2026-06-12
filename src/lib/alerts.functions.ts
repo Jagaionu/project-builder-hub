@@ -9,10 +9,14 @@ import { getUserTenantId, isSuperAdmin } from "@/lib/auth-helpers.server";
  */
 export const ackAlert = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ 
-    id: z.string(),
-    type: z.enum(["event", "parked", "reimport"])
-  }).parse(input))
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string(),
+        type: z.enum(["event", "parked", "reimport"]),
+      })
+      .parse(input),
+  )
   .handler(async ({ data, context }) => {
     const { userId } = context;
 
@@ -23,7 +27,7 @@ export const ackAlert = createServerFn({ method: "POST" })
         .select("id, tenant_id")
         .eq("id", data.id)
         .maybeSingle();
-      
+
       if (fetchErr) throw new Error(fetchErr.message);
       if (!ev) return { ok: true };
 
@@ -46,13 +50,13 @@ export const ackAlert = createServerFn({ method: "POST" })
         .select("id, tenant_id")
         .eq("id", data.id)
         .maybeSingle();
-      
+
       if (fetchErr) throw new Error(fetchErr.message);
       if (!p) return { ok: true };
 
       if (!(await isSuperAdmin(userId))) {
         const callerTenant = await getUserTenantId(userId);
-        if (!callerTenant || (p as any).tenant_id && callerTenant !== (p as any).tenant_id) {
+        if (!callerTenant || ((p as any).tenant_id && callerTenant !== (p as any).tenant_id)) {
           throw new Error("Forbidden");
         }
       }

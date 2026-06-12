@@ -150,10 +150,16 @@ export function PwaInstallPrompt() {
               Install the app on your phone for faster access and offline support.
             </p>
             <div className="flex gap-3">
-              <button onClick={dismiss} className="flex-1 px-4 py-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium">
+              <button
+                onClick={dismiss}
+                className="flex-1 px-4 py-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium"
+              >
                 Not now
               </button>
-              <button onClick={handleInstall} className="flex-1 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium flex items-center justify-center gap-2">
+              <button
+                onClick={handleInstall}
+                className="flex-1 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium flex items-center justify-center gap-2"
+              >
                 <Download className="size-4" />
                 Install
               </button>
@@ -166,7 +172,11 @@ export function PwaInstallPrompt() {
             <Header
               icon={<ExternalLink className="size-6 text-amber-400" />}
               title="Open in your browser"
-              subtitle={inAppName ? `You're in ${inAppName}'s in-app browser` : "You're in an in-app browser"}
+              subtitle={
+                inAppName
+                  ? `You're in ${inAppName}'s in-app browser`
+                  : "You're in an in-app browser"
+              }
               onClose={dismiss}
             />
             <p className="text-sm text-slate-300 mb-4">
@@ -175,22 +185,35 @@ export function PwaInstallPrompt() {
             <ol className="text-sm text-slate-200 space-y-2 mb-5 list-decimal pl-5">
               <li className="flex items-start gap-2 -ml-5 list-none">
                 <span className="font-bold text-blue-400 w-5">1.</span>
-                <span>Tap the <MoreVertical className="inline size-4 align-text-bottom" /> menu (three dots) in the top-right corner.</span>
+                <span>
+                  Tap the <MoreVertical className="inline size-4 align-text-bottom" /> menu (three
+                  dots) in the top-right corner.
+                </span>
               </li>
               <li className="flex items-start gap-2 -ml-5 list-none">
                 <span className="font-bold text-blue-400 w-5">2.</span>
-                <span>Choose <strong>"Open in browser"</strong> (Chrome on Android, Safari on iPhone).</span>
+                <span>
+                  Choose <strong>"Open in browser"</strong> (Chrome on Android, Safari on iPhone).
+                </span>
               </li>
               <li className="flex items-start gap-2 -ml-5 list-none">
                 <span className="font-bold text-blue-400 w-5">3.</span>
-                <span>You'll then see the <strong>Install</strong> option here.</span>
+                <span>
+                  You'll then see the <strong>Install</strong> option here.
+                </span>
               </li>
             </ol>
             <div className="flex gap-3">
-              <button onClick={copyLink} className="flex-1 px-4 py-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium">
+              <button
+                onClick={copyLink}
+                className="flex-1 px-4 py-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium"
+              >
                 Copy link
               </button>
-              <button onClick={dismiss} className="flex-1 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium">
+              <button
+                onClick={dismiss}
+                className="flex-1 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium"
+              >
                 Got it
               </button>
             </div>
@@ -208,18 +231,28 @@ export function PwaInstallPrompt() {
             <ol className="text-sm text-slate-200 space-y-2 mb-5">
               <li className="flex items-start gap-2">
                 <span className="font-bold text-blue-400 w-5">1.</span>
-                <span>Tap the <Share className="inline size-4 align-text-bottom" /> Share button at the bottom of Safari.</span>
+                <span>
+                  Tap the <Share className="inline size-4 align-text-bottom" /> Share button at the
+                  bottom of Safari.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-blue-400 w-5">2.</span>
-                <span>Scroll and tap <strong>"Add to Home Screen"</strong>.</span>
+                <span>
+                  Scroll and tap <strong>"Add to Home Screen"</strong>.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-blue-400 w-5">3.</span>
-                <span>Tap <strong>Add</strong> in the top-right corner.</span>
+                <span>
+                  Tap <strong>Add</strong> in the top-right corner.
+                </span>
               </li>
             </ol>
-            <button onClick={dismiss} className="w-full px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium">
+            <button
+              onClick={dismiss}
+              className="w-full px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium"
+            >
               Got it
             </button>
           </>
@@ -249,7 +282,10 @@ function Header({
           <p className="text-sm text-slate-400">{subtitle}</p>
         </div>
       </div>
-      <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors p-1 -m-1">
+      <button
+        onClick={onClose}
+        className="text-slate-400 hover:text-white transition-colors p-1 -m-1"
+      >
         <X className="size-5" />
       </button>
     </div>

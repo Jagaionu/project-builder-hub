@@ -4,7 +4,12 @@ import { weekStartOf, addWeeks, ukToday } from "@/lib/week";
 
 const sb = supabase as unknown as { from: (t: string) => any };
 
-type SubRow = { driver_id: string; period_start: string; drive_minutes: number | null; status: string };
+type SubRow = {
+  driver_id: string;
+  period_start: string;
+  drive_minutes: number | null;
+  status: string;
+};
 
 // Submitted weekly tachograph totals override the GPS estimate in the compliance
 // rings. Backed by tachograph_requests (status=submitted); keyed by week start
@@ -24,14 +29,21 @@ export function usePendingTacho() {
     void load();
     const ch = supabase
       .channel("rt-tacho-sub-" + Math.random().toString(36).slice(2))
-      .on("postgres_changes", { event: "*", schema: "public", table: "tachograph_requests" }, () => void load())
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tachograph_requests" },
+        () => void load(),
+      )
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, []);
 
   const approvedByDriver = useMemo(() => {
     const m: Record<string, Record<string, number>> = {};
-    for (const r of rows) if (r.drive_minutes != null) (m[r.driver_id] ||= {})[r.period_start] = r.drive_minutes;
+    for (const r of rows)
+      if (r.drive_minutes != null) (m[r.driver_id] ||= {})[r.period_start] = r.drive_minutes;
     return m;
   }, [rows]);
 

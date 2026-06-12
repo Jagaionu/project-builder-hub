@@ -75,12 +75,16 @@ const svcRole = jwtRole(vars.get("SUPABASE_SERVICE_ROLE_KEY"));
 const pubRef = jwtRef(vars.get("VITE_SUPABASE_PUBLISHABLE_KEY"));
 
 if (!urlRef) {
-  console.error("SUPABASE_URL is invalid. Expected https://YOUR-PROJECT-REF.supabase.co (no quotes).");
+  console.error(
+    "SUPABASE_URL is invalid. Expected https://YOUR-PROJECT-REF.supabase.co (no quotes).",
+  );
   process.exit(1);
 }
 
 if (svcRole !== "service_role") {
-  console.error("SUPABASE_SERVICE_ROLE_KEY must be the service_role key, not the anon/publishable key.");
+  console.error(
+    "SUPABASE_SERVICE_ROLE_KEY must be the service_role key, not the anon/publishable key.",
+  );
   process.exit(1);
 }
 
@@ -88,7 +92,11 @@ if (svcRef && svcRef !== urlRef) {
   console.error("SUPABASE_SERVICE_ROLE_KEY is from a different Supabase project.");
   console.error(`  .env URL project:     ${urlRef}`);
   console.error(`  service_role key ref: ${svcRef}`);
-  console.error("Fix: Supabase Dashboard → project", urlRef, "→ Settings → API → service_role → copy again.");
+  console.error(
+    "Fix: Supabase Dashboard → project",
+    urlRef,
+    "→ Settings → API → service_role → copy again.",
+  );
   process.exit(1);
 }
 
@@ -97,9 +105,12 @@ if (pubRef && pubRef !== urlRef) {
   process.exit(1);
 }
 
-const quoted = ["SUPABASE_URL", "VITE_SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY", "VITE_SUPABASE_PUBLISHABLE_KEY"].filter(
-  (k) => /^["']/.test(vars.get(k) ?? ""),
-);
+const quoted = [
+  "SUPABASE_URL",
+  "VITE_SUPABASE_URL",
+  "SUPABASE_PUBLISHABLE_KEY",
+  "VITE_SUPABASE_PUBLISHABLE_KEY",
+].filter((k) => /^["']/.test(vars.get(k) ?? ""));
 if (quoted.length) {
   console.warn("Warning: remove wrapping quotes from:", quoted.join(", "));
 }

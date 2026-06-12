@@ -77,7 +77,11 @@ function JobDetail() {
       : null;
   const startTime = (() => {
     const firstCrit = plannedTimes[0] ?? scheduleBasis;
-    const firstArrival = stopCriticalWindow(firstCrit, sortedStops[0]?.kind ?? "PICKUP", hm).arrival;
+    const firstArrival = stopCriticalWindow(
+      firstCrit,
+      sortedStops[0]?.kind ?? "PICKUP",
+      hm,
+    ).arrival;
     return firstArrival
       ? new Date(firstArrival).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
       : null;
@@ -100,19 +104,17 @@ function JobDetail() {
         .from("drivers")
         .update({ status: "AVAILABLE" } as never)
         .eq("id", driver.id);
-      await supabase
-        .from("driver_events")
-        .insert({
-          driver_id: driver.id,
-          type: "CANT_COMPLETE",
-          payload: {
-            job_id: job.id,
-            job_reference: job.reference,
-            driver_name: driver.name,
-            reason: "Driver reported cannot complete",
-          },
-          tenant_id: await getTenantId(),
-        } as never);
+      await supabase.from("driver_events").insert({
+        driver_id: driver.id,
+        type: "CANT_COMPLETE",
+        payload: {
+          job_id: job.id,
+          job_reference: job.reference,
+          driver_name: driver.name,
+          reason: "Driver reported cannot complete",
+        },
+        tenant_id: await getTenantId(),
+      } as never);
       toast.success("Reported — dispatcher notified");
       navigate({ to: "/d" });
     } catch (e) {
@@ -128,8 +130,14 @@ function JobDetail() {
     if (!driver) return;
     setBusy(true);
     try {
-      await supabase.from("jobs").update({ status: "COMPLETED" } as never).eq("id", job.id);
-      await supabase.from("drivers").update({ status: "AVAILABLE" } as never).eq("id", driver.id);
+      await supabase
+        .from("jobs")
+        .update({ status: "COMPLETED" } as never)
+        .eq("id", job.id);
+      await supabase
+        .from("drivers")
+        .update({ status: "AVAILABLE" } as never)
+        .eq("id", driver.id);
       await supabase.from("driver_events").insert({
         driver_id: driver.id,
         type: "UNLOADED",
@@ -258,7 +266,6 @@ function JobDetail() {
           ✓ Confirm unloaded
         </button>
       )}
-
 
       <div className="mt-6 bg-card border border-border rounded-2xl p-4">
         <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">

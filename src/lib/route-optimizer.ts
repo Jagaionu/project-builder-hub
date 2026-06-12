@@ -133,7 +133,10 @@ function defaultCanTake(d: OptDriver, j: OptJob): boolean {
   return d.equipment.includes(j.equipmentType);
 }
 
-function breakMsFor(currentContinuous: number, driveAdd: number): { breakMs: number; newCont: number } {
+function breakMsFor(
+  currentContinuous: number,
+  driveAdd: number,
+): { breakMs: number; newCont: number } {
   let cont = currentContinuous;
   let rem = driveAdd;
   let breaks = 0;
@@ -157,11 +160,11 @@ export function optimizeRoutes(input: OptInput): OptResult {
 
   const firstPickup = (stops: PlannerStop[]) => {
     const s = stops.find((x) => x.kind === "PICKUP") ?? stops[0];
-    return s ? whById[s.warehouse_id] ?? null : null;
+    return s ? (whById[s.warehouse_id] ?? null) : null;
   };
   const lastDrop = (stops: PlannerStop[]) => {
     const s = [...stops].reverse().find((x) => x.kind === "DROP") ?? stops[stops.length - 1];
-    return s ? whById[s.warehouse_id] ?? null : null;
+    return s ? (whById[s.warehouse_id] ?? null) : null;
   };
   const schedMs = (iso: string | null | undefined) => {
     if (!iso) return null;
@@ -175,7 +178,10 @@ export function optimizeRoutes(input: OptInput): OptResult {
 
   // Loaded driving + total wall time for a job's own stops, computed via the
   // TravelFn (so lane times apply to the loaded legs too, not just deadhead).
-  const jobLegs = (stops: PlannerStop[], departHintMs: number): { driveH: number; wallH: number } | null => {
+  const jobLegs = (
+    stops: PlannerStop[],
+    departHintMs: number,
+  ): { driveH: number; wallH: number } | null => {
     let driveMin = 0;
     let cur = departHintMs;
     for (let i = 0; i < stops.length - 1; i++) {
@@ -184,8 +190,13 @@ export function optimizeRoutes(input: OptInput): OptResult {
       if (!a || !b) return null;
       cur += stopDwellMinutes(stops[i].kind) * 60_000;
       const legMin =
-        Math.round(travel({ lat: a.latitude, lon: a.longitude, whId: a.id }, { lat: b.latitude, lon: b.longitude, whId: b.id }, cur) * 60) +
-        ARRIVAL_BUFFER_MINUTES;
+        Math.round(
+          travel(
+            { lat: a.latitude, lon: a.longitude, whId: a.id },
+            { lat: b.latitude, lon: b.longitude, whId: b.id },
+            cur,
+          ) * 60,
+        ) + ARRIVAL_BUFFER_MINUTES;
       driveMin += legMin;
       cur += legMin * 60_000;
     }
@@ -216,7 +227,11 @@ export function optimizeRoutes(input: OptInput): OptResult {
       if (!fp || !ld) return null;
 
       const ddKm = haversineKm(lat, lon, fp.latitude, fp.longitude);
-      const legTo = travel({ lat, lon, whId: lastWhId ?? undefined }, { lat: fp.latitude, lon: fp.longitude, whId: fp.id }, t);
+      const legTo = travel(
+        { lat, lon, whId: lastWhId ?? undefined },
+        { lat: fp.latitude, lon: fp.longitude, whId: fp.id },
+        t,
+      );
       // Pickup scheduled = CPT (Critical Pull Time = the depart deadline). The
       // truck must ARRIVE by CPT − loading so it can load and pull on time.
       const sched = schedMs(job.stops[0]?.scheduled_at);
@@ -240,11 +255,14 @@ export function optimizeRoutes(input: OptInput): OptResult {
 
       if (driver.shiftEndMs != null && completionMs > driver.shiftEndMs) return null;
 
-      const pickupLate = arriveBy !== null ? Math.max(0, Math.round((arriveMs - arriveBy) / 60_000)) : 0;
+      const pickupLate =
+        arriveBy !== null ? Math.max(0, Math.round((arriveMs - arriveBy) / 60_000)) : 0;
       const dropSched = schedMs(job.stops[job.stops.length - 1]?.scheduled_at);
       const finalDwellMs = stopDwellMinutes(job.stops[job.stops.length - 1].kind) * 60_000;
       const deliveryLate =
-        dropSched !== null ? Math.max(0, Math.round((completionMs - finalDwellMs - dropSched) / 60_000)) : 0;
+        dropSched !== null
+          ? Math.max(0, Math.round((completionMs - finalDwellMs - dropSched) / 60_000))
+          : 0;
       if (pickupLate > MAX_LATE_MINUTES || deliveryLate > MAX_LATE_MINUTES) return null;
 
       dayDrive += driveAdd;
@@ -257,7 +275,12 @@ export function optimizeRoutes(input: OptInput): OptResult {
       lon = ld.longitude;
       lastWhId = ld.id;
       t = completionMs;
-      perJob.push({ jobId: jid, startMs: departMs, arriveMs, lateMinutes: pickupLate + deliveryLate });
+      perJob.push({
+        jobId: jid,
+        startMs: departMs,
+        arriveMs,
+        lateMinutes: pickupLate + deliveryLate,
+      });
     }
 
     // Return-to-base (only if required and the driver actually worked).
@@ -266,7 +289,11 @@ export function optimizeRoutes(input: OptInput): OptResult {
       const home = whById[driver.homeWarehouseId];
       if (home) {
         const returnKm = haversineKm(lat, lon, home.latitude, home.longitude);
-        const returnH = travel({ lat, lon, whId: lastWhId ?? undefined }, { lat: home.latitude, lon: home.longitude, whId: home.id }, t);
+        const returnH = travel(
+          { lat, lon, whId: lastWhId ?? undefined },
+          { lat: home.latitude, lon: home.longitude, whId: home.id },
+          t,
+        );
         if (dayDrive + returnH > driver.hoursLeft) return null;
         if (weekDrive + returnH > WEEKLY_CAP) return null;
         if (fortDrive + returnH > FORTNIGHT_CAP) return null;
@@ -336,7 +363,11 @@ export function optimizeRoutes(input: OptInput): OptResult {
         const ev = evaluate(d, cand);
         if (!ev) continue;
         const marginal = routeCost(ev) - base;
-        if (!best || marginal < best.marginal || (marginal === best.marginal && d.id < best.driverId)) {
+        if (
+          !best ||
+          marginal < best.marginal ||
+          (marginal === best.marginal && d.id < best.driverId)
+        ) {
           best = { driverId: d.id, pos: p, marginal };
         }
       }
@@ -364,7 +395,11 @@ export function optimizeRoutes(input: OptInput): OptResult {
           if (!ev) continue;
           const marginal = routeCost(ev) - base;
           top.push(marginal);
-          if (!bestIns || marginal < bestIns.marginal || (marginal === bestIns.marginal && d.id < bestIns.driverId)) {
+          if (
+            !bestIns ||
+            marginal < bestIns.marginal ||
+            (marginal === bestIns.marginal && d.id < bestIns.driverId)
+          ) {
             bestIns = { driverId: d.id, pos: p, marginal };
           }
         }
@@ -383,7 +418,10 @@ export function optimizeRoutes(input: OptInput): OptResult {
 
     for (const jid of stillUnplaceable) {
       unplaced.delete(jid);
-      uncovered.push({ jobId: jid, reason: "No feasible driver (hours / shift / window / equipment / return-to-base)" });
+      uncovered.push({
+        jobId: jid,
+        reason: "No feasible driver (hours / shift / window / equipment / return-to-base)",
+      });
     }
     if (!pick) break;
     routes[pick.ins.driverId].splice(pick.ins.pos, 0, pick.jid);
@@ -418,7 +456,8 @@ export function optimizeRoutes(input: OptInput): OptResult {
 
     // Swap pairs of placed jobs across different drivers.
     const placedPairs: { d: string; i: number; jid: string }[] = [];
-    for (const d of drivers) routes[d.id].forEach((jid, i) => placedPairs.push({ d: d.id, i, jid }));
+    for (const d of drivers)
+      routes[d.id].forEach((jid, i) => placedPairs.push({ d: d.id, i, jid }));
     for (let a = 0; a < placedPairs.length; a++) {
       for (let b = a + 1; b < placedPairs.length; b++) {
         const A = placedPairs[a];

@@ -40,8 +40,14 @@ async function embed(text: string): Promise<number[]> {
 }
 
 function cosine(a: number[], b: number[]): number {
-  let dot = 0, na = 0, nb = 0;
-  for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  let dot = 0,
+    na = 0,
+    nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
   return dot / (Math.sqrt(na) * Math.sqrt(nb));
 }
 
@@ -57,14 +63,29 @@ async function probe(label: string, query: string, chunkId: string, stored: numb
   console.log("\n-- " + label + " --");
   console.log('  query:          "' + query + '"');
   console.log("  raw cosine sim: " + sim.toFixed(4) + "  (vector leg health)");
-  if (error) { console.log("  RPC ERROR: " + error.message); return false; }
+  if (error) {
+    console.log("  RPC ERROR: " + error.message);
+    return false;
+  }
   const rows = (data ?? []) as Array<{ id: string; chunk_text: string; score: number }>;
   rows.forEach((r, i) => {
     const mark = r.id === chunkId ? "  <- trace chunk" : "";
-    console.log("  #" + (i + 1) + " rrf=" + Number(r.score).toFixed(5) + " " + r.chunk_text.slice(0, 46) + "..." + mark);
+    console.log(
+      "  #" +
+        (i + 1) +
+        " rrf=" +
+        Number(r.score).toFixed(5) +
+        " " +
+        r.chunk_text.slice(0, 46) +
+        "..." +
+        mark,
+    );
   });
   const rank = rows.findIndex((r) => r.id === chunkId);
-  if (rank === -1) { console.log("  RESULT: x NOT retrieved"); return false; }
+  if (rank === -1) {
+    console.log("  RESULT: x NOT retrieved");
+    return false;
+  }
   console.log("  RESULT: " + (rank === 0 ? "ok #1" : "~ #" + (rank + 1)));
   return true;
 }
@@ -72,26 +93,51 @@ async function probe(label: string, query: string, chunkId: string, stored: numb
 async function main() {
   await supabase.from("ai_knowledge_chunks").delete().eq("source_path", TRACE_PATH);
   const embedding = await embed(TRACE_CHUNK);
-  const { data: ins, error } = await supabase.from("ai_knowledge_chunks").insert({
-    tenant_id: null,
-    chunk_text: TRACE_CHUNK,
-    embedding,
-    source_type: "sop",
-    source_path: TRACE_PATH,
-    metadata: { trace: true },
-    is_global: true,
-  }).select("id").single();
-  if (error || !ins) { console.error("Insert failed:", error?.message); process.exit(1); }
+  const { data: ins, error } = await supabase
+    .from("ai_knowledge_chunks")
+    .insert({
+      tenant_id: null,
+      chunk_text: TRACE_CHUNK,
+      embedding,
+      source_type: "sop",
+      source_path: TRACE_PATH,
+      metadata: { trace: true },
+      is_global: true,
+    })
+    .select("id")
+    .single();
+  if (error || !ins) {
+    console.error("Insert failed:", error?.message);
+    process.exit(1);
+  }
   const chunkId = (ins as { id: string }).id;
   console.log("Inserted chunk " + chunkId);
 
-  const r1 = await probe("keyword + semantic", "What is a VRID and what does it contain?", chunkId, embedding);
-  const r2 = await probe("semantic-only paraphrase", "How is a single delivery journey identified in this system?", chunkId, embedding);
+  const r1 = await probe(
+    "keyword + semantic",
+    "What is a VRID and what does it contain?",
+    chunkId,
+    embedding,
+  );
+  const r2 = await probe(
+    "semantic-only paraphrase",
+    "How is a single delivery journey identified in this system?",
+    chunkId,
+    embedding,
+  );
 
   await supabase.from("ai_knowledge_chunks").delete().eq("source_path", TRACE_PATH);
   const ok = r1 && r2;
-  console.log("\n" + (ok ? "PASS - retrieval path proven (semantic + hybrid both return the chunk)" : "FAIL - see scores above"));
+  console.log(
+    "\n" +
+      (ok
+        ? "PASS - retrieval path proven (semantic + hybrid both return the chunk)"
+        : "FAIL - see scores above"),
+  );
   process.exit(ok ? 0 : 1);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

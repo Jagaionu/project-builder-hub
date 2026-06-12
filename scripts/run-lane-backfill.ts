@@ -46,8 +46,8 @@ async function main() {
   if (!legCount || legCount === 0) {
     console.log(
       "  ⚠ driving_legs is empty — no telemetry to aggregate.\n" +
-      "  Lane travel times will populate once drivers start recording legs.\n" +
-      "  Until then, the planner falls back to haversine (60 km/h avg).",
+        "  Lane travel times will populate once drivers start recording legs.\n" +
+        "  Until then, the planner falls back to haversine (60 km/h avg).",
     );
     return;
   }

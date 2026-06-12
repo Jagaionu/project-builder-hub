@@ -47,9 +47,9 @@ type ShiftEvent = { type: "START_SHIFT" | "END_SHIFT"; t: number };
 // Build closed [start,end] segments from raw events, capped at `nowMs`.
 // Merges adjacent segments with gap < MERGE_GAP_MS to absorb accidental
 // END→START toggles. Drops any segment shorter than MIN_SEG_MS.
-const MIN_SEG_MS = 5 * 60_000;       // 5 min
-const MERGE_GAP_MS = 10 * 60_000;    // 10 min
-const MAX_SHIFT_MS = 15 * 3600_000;  // auto-close a shift left open longer than this
+const MIN_SEG_MS = 5 * 60_000; // 5 min
+const MERGE_GAP_MS = 10 * 60_000; // 10 min
+const MAX_SHIFT_MS = 15 * 3600_000; // auto-close a shift left open longer than this
 
 function buildShiftSegments(
   events: ShiftEvent[],
@@ -139,18 +139,16 @@ export async function recomputeDriverDay(driverId: string, day: string): Promise
   const elapsedMinInDay = Math.max(0, Math.round((dayEndCap - start) / 60_000));
   const offMinutes = Math.max(0, elapsedMinInDay - shiftMinutes);
 
-  await supabaseAdmin
-    .from("driver_day_hours")
-    .upsert(
-      {
-        driver_id: driverId,
-        day,
-        shift_minutes: shiftMinutes,
-        drive_minutes: driveMinutes,
-        off_minutes: offMinutes,
-      } as never,
-      { onConflict: "driver_id,day" },
-    );
+  await supabaseAdmin.from("driver_day_hours").upsert(
+    {
+      driver_id: driverId,
+      day,
+      shift_minutes: shiftMinutes,
+      drive_minutes: driveMinutes,
+      off_minutes: offMinutes,
+    } as never,
+    { onConflict: "driver_id,day" },
+  );
 }
 
 // Planned driving minutes for a driver on a UK service day, derived from the
@@ -196,21 +194,34 @@ async function computeChainDriveMinutes(driverId: string, day: string): Promise<
 
   const jobIds = jobs.map((j) => j.id);
   const [{ data: stopRows }, { data: whRows }] = await Promise.all([
-    supabaseAdmin.from("job_stops").select("job_id,seq,warehouse_id").in("job_id", jobIds).order("seq", { ascending: true }),
+    supabaseAdmin
+      .from("job_stops")
+      .select("job_id,seq,warehouse_id")
+      .in("job_id", jobIds)
+      .order("seq", { ascending: true }),
     supabaseAdmin.from("warehouses").select("id,latitude,longitude"),
   ]);
   const whById = new Map(((whRows ?? []) as WhLike[]).map((w) => [w.id, w]));
   const stopsByJob: Record<string, Array<{ seq: number; warehouse_id: string }>> = {};
-  for (const r of (stopRows ?? []) as Array<{ job_id: string; seq: number; warehouse_id: string }>) {
+  for (const r of (stopRows ?? []) as Array<{
+    job_id: string;
+    seq: number;
+    warehouse_id: string;
+  }>) {
     (stopsByJob[r.job_id] ||= []).push({ seq: r.seq, warehouse_id: r.warehouse_id });
   }
 
   const legMin = (from: WhLike | null | undefined, to: WhLike | null | undefined): number =>
-    from && to ? transitTimeHours(haversineKm(from.latitude, from.longitude, to.latitude, to.longitude)) * 60 : 0;
+    from && to
+      ? transitTimeHours(haversineKm(from.latitude, from.longitude, to.latitude, to.longitude)) * 60
+      : 0;
 
-  const home = d?.home_warehouse_id ? whById.get(d.home_warehouse_id) ?? null : null;
+  const home = d?.home_warehouse_id ? (whById.get(d.home_warehouse_id) ?? null) : null;
   let cursor: WhLike | null =
-    home ?? (d?.current_lat != null && d?.current_lon != null ? { id: "", latitude: d.current_lat, longitude: d.current_lon } : null);
+    home ??
+    (d?.current_lat != null && d?.current_lon != null
+      ? { id: "", latitude: d.current_lat, longitude: d.current_lon }
+      : null);
 
   let total = 0;
   for (const job of jobs) {
@@ -266,7 +277,10 @@ async function computeDriveMinutesForDay(
     supabaseAdmin.from("warehouses").select("id,latitude,longitude"),
   ]);
   const warehouses = (whRows ?? []) as WhLike[];
-  const stopsByJob: Record<string, Array<StopLike & { arrived_at: string | null; scheduled_at: string | null }>> = {};
+  const stopsByJob: Record<
+    string,
+    Array<StopLike & { arrived_at: string | null; scheduled_at: string | null }>
+  > = {};
   for (const r of (stopRows ?? []) as Array<{
     job_id: string;
     seq: number;
@@ -283,8 +297,7 @@ async function computeDriveMinutesForDay(
     });
   }
 
-  const inAnyShift = (ms: number) =>
-    segWindows.some((w) => ms >= w.start && ms <= w.end);
+  const inAnyShift = (ms: number) => segWindows.some((w) => ms >= w.start && ms <= w.end);
 
   let drive = 0;
   for (const job of jobs) {

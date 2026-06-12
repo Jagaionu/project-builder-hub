@@ -32,21 +32,12 @@ type JobLite = {
   stops?: StopLite[];
 };
 
-const ACTIVE_STATUSES = new Set([
-  "ASSIGNED",
-  "IN_PROGRESS",
-  "ARRIVED_PICKUP",
-  "EN_ROUTE_DELIVERY",
-]);
+const ACTIVE_STATUSES = new Set(["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"]);
 
 export function jobStartMs(job: JobLite): number | null {
   const sorted = [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq);
   const first = sorted[0];
-  const iso =
-    first?.scheduled_at ??
-    job.planned_start_at ??
-    job.scheduled_at ??
-    null;
+  const iso = first?.scheduled_at ?? job.planned_start_at ?? job.scheduled_at ?? null;
   if (!iso) return null;
   const t = new Date(iso).getTime();
   return Number.isFinite(t) ? t : null;
@@ -87,7 +78,9 @@ export function effectiveDriverStatus(
   schedule: ScheduleStatus = "unknown",
 ): string {
   if (schedule === "holiday") {
-    const onActiveRoute = driverJobs.some((j) => ACTIVE_STATUSES.has(j.status) ? !isJobScheduledFuture(j, nowMs) : false);
+    const onActiveRoute = driverJobs.some((j) =>
+      ACTIVE_STATUSES.has(j.status) ? !isJobScheduledFuture(j, nowMs) : false,
+    );
     if (!onActiveRoute) return "OFF_SHIFT";
   }
 

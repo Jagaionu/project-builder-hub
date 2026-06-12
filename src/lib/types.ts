@@ -56,7 +56,6 @@ export interface Job {
   estimated_cost?: string | null;
 }
 
-
 export interface DriverEvent {
   id: string;
   driver_id: string;
@@ -70,7 +69,15 @@ export interface DriverEvent {
 export type SubscriptionStatus = "active" | "trial" | "suspended" | "cancelled";
 export type CompanyPlan = "starter" | "pro" | "enterprise";
 export type MemberRole = "admin" | "member";
-export type TenantModule = "dispatch" | "jobs" | "drivers" | "warehouses" | "alerts" | "events" | "maps" | "ai_agent";
+export type TenantModule =
+  | "dispatch"
+  | "jobs"
+  | "drivers"
+  | "warehouses"
+  | "alerts"
+  | "events"
+  | "maps"
+  | "ai_agent";
 
 export interface TenantConfig {
   modules: TenantModule[];
@@ -121,7 +128,7 @@ export const DEFAULT_TENANT_CONFIG: TenantConfig = {
   customBranding: false,
   brandName: null,
   brandColor: null,
-}
+};
 
 // Aggregated weekly availability for a driver, derived from the per-day
 // driver_shift_templates rows. days_of_week is the set of weekdays the driver
@@ -147,8 +154,8 @@ export interface DriverShiftTemplate {
   tenant_id: string | null;
   driver_id: string;
   day_of_week: number; // 0=Sun..6=Sat
-  start_time: string | null;  // "HH:MM[:SS]" or null = no fixed start (available all day)
-  end_time: string | null;    // "HH:MM[:SS]" or null = no fixed end; end < start = crosses midnight
+  start_time: string | null; // "HH:MM[:SS]" or null = no fixed start (available all day)
+  end_time: string | null; // "HH:MM[:SS]" or null = no fixed end; end < start = crosses midnight
   is_primary: boolean;
   created_at: string;
   updated_at: string;
@@ -159,7 +166,6 @@ export interface DriverAvailabilityOverride {
   driver_id: string;
   date: string; // YYYY-MM-DD
   available: boolean;
-  set_by: 'driver' | 'planner';
+  set_by: "driver" | "planner";
   created_at: string;
-};
-
+}

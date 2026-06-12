@@ -69,9 +69,7 @@ type StopRow = {
   scheduled_at: string | null;
 };
 
-async function loadDay(
-  dateStr: string,
-): Promise<{
+async function loadDay(dateStr: string): Promise<{
   jobs: Job[];
   drivers: Driver[];
   warehouses: Warehouse[];
@@ -110,9 +108,12 @@ async function loadDay(
       .order("timestamp", { ascending: true }),
     admin.from("driver_day_hours").select("*"),
     (admin as any).from("driver_equipment").select("driver_id,equipment_type"),
-    admin.from("lane_travel_times").select(
-      "from_warehouse_id,to_warehouse_id,day_of_week,hour_of_day,p50_duration_minutes,avg_duration_minutes"
-    ).limit(50000),
+    admin
+      .from("lane_travel_times")
+      .select(
+        "from_warehouse_id,to_warehouse_id,day_of_week,hour_of_day,p50_duration_minutes,avg_duration_minutes",
+      )
+      .limit(50000),
   ]);
 
   const jobList = (jobs ?? []) as Job[];
@@ -157,12 +158,8 @@ async function loadDay(
     const fortRows = rows.filter((r) => r.day >= fortnightAgo && r.day <= today);
     compliance[d.id] = computeCompliance(eventsByDriver[d.id] ?? [], nowMs, {
       daily: todayRow ? todayRow.drive_minutes / 60 : 0,
-      weekly: weekRows.length
-        ? weekRows.reduce((s, r) => s + r.drive_minutes, 0) / 60
-        : 0,
-      twoWeek: fortRows.length
-        ? fortRows.reduce((s, r) => s + r.drive_minutes, 0) / 60
-        : 0,
+      weekly: weekRows.length ? weekRows.reduce((s, r) => s + r.drive_minutes, 0) / 60 : 0,
+      twoWeek: fortRows.length ? fortRows.reduce((s, r) => s + r.drive_minutes, 0) / 60 : 0,
     });
   }
 
@@ -326,9 +323,13 @@ function greedyDriverPerspective(
       unclaimed.delete(bestJob.job.id);
 
       const stops = stopsMap[bestJob.job.id] ?? [];
-      const lastDrop = [...stops].reverse().find((s) => s.kind === "DROP") ?? stops[stops.length - 1];
+      const lastDrop =
+        [...stops].reverse().find((s) => s.kind === "DROP") ?? stops[stops.length - 1];
       const ldWh = warehouses.find((w) => w.id === lastDrop.warehouse_id);
-      if (ldWh) { lat = ldWh.latitude; lon = ldWh.longitude; }
+      if (ldWh) {
+        lat = ldWh.latitude;
+        lon = ldWh.longitude;
+      }
 
       if (bestJob.job.scheduled_at) {
         const schedMs = new Date(bestJob.job.scheduled_at).getTime();
@@ -406,9 +407,13 @@ function greedyDetailedDebug(
       unclaimed.delete(bestJob.job.id);
 
       const stops = stopsMap[bestJob.job.id] ?? [];
-      const lastDrop = [...stops].reverse().find((s) => s.kind === "DROP") ?? stops[stops.length - 1];
+      const lastDrop =
+        [...stops].reverse().find((s) => s.kind === "DROP") ?? stops[stops.length - 1];
       const ldWh = warehouses.find((w) => w.id === lastDrop.warehouse_id);
-      if (ldWh) { lat = ldWh.latitude; lon = ldWh.longitude; }
+      if (ldWh) {
+        lat = ldWh.latitude;
+        lon = ldWh.longitude;
+      }
     }
   }
 
@@ -417,7 +422,6 @@ function greedyDetailedDebug(
 
 // ── Greedy endpoints (imported from planner.ts) ────────────────────────────
 // isDriverAvailableOnDate is imported at top of file.
-
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
@@ -512,14 +516,26 @@ async function main() {
   // ── Run greedy baselines ──────────────────────────────────────────────────
   console.log("  Running greedy baseline…");
   const greedy1 = greedyBaseline(
-    ctx.jobs, ctx.stopsMap, ctx.drivers, ctx.warehouses,
-    ctx.compliance, ctx.driverShifts, ctx.overrides, dateStr,
+    ctx.jobs,
+    ctx.stopsMap,
+    ctx.drivers,
+    ctx.warehouses,
+    ctx.compliance,
+    ctx.driverShifts,
+    ctx.overrides,
+    dateStr,
   );
 
   console.log("  Running greedy driver-chaining…");
   const greedy2 = greedyDriverPerspective(
-    ctx.jobs, ctx.stopsMap, ctx.drivers, ctx.warehouses,
-    ctx.compliance, ctx.driverShifts, ctx.overrides, dateStr,
+    ctx.jobs,
+    ctx.stopsMap,
+    ctx.drivers,
+    ctx.warehouses,
+    ctx.compliance,
+    ctx.driverShifts,
+    ctx.overrides,
+    dateStr,
   );
 
   // ── SCORECARD ─────────────────────────────────────────────────────────────
@@ -530,21 +546,29 @@ async function main() {
   // Coverage
   console.log(`\n  📊 COVERAGE (jobs assigned / total jobs)`);
   console.log(`     Optimizer   : ${assignedNew}/${ctx.jobs.length} (${coverageNew.toFixed(1)}%)`);
-  console.log(`     Old Greedy  : ${oldPlan.planned.length}/${ctx.jobs.length} (${(oldPlan.planned.length / Math.max(1, ctx.jobs.length) * 100).toFixed(1)}%)`);
-  console.log(`     Greedy (NF) : ${greedy1.assigned}/${greedy1.totalJobs} (${(greedy1.assigned / Math.max(1, greedy1.totalJobs) * 100).toFixed(1)}%)`);
-  console.log(`     Greedy (DC) : ${greedy2.assigned}/${greedy2.totalJobs} (${(greedy2.assigned / Math.max(1, greedy2.totalJobs) * 100).toFixed(1)}%)`);
+  console.log(
+    `     Old Greedy  : ${oldPlan.planned.length}/${ctx.jobs.length} (${((oldPlan.planned.length / Math.max(1, ctx.jobs.length)) * 100).toFixed(1)}%)`,
+  );
+  console.log(
+    `     Greedy (NF) : ${greedy1.assigned}/${greedy1.totalJobs} (${((greedy1.assigned / Math.max(1, greedy1.totalJobs)) * 100).toFixed(1)}%)`,
+  );
+  console.log(
+    `     Greedy (DC) : ${greedy2.assigned}/${greedy2.totalJobs} (${((greedy2.assigned / Math.max(1, greedy2.totalJobs)) * 100).toFixed(1)}%)`,
+  );
 
   // Deadhead
-  const oldDeadhead = oldPlan.planned.reduce((s, p) => s + p.distKm, 0) +
+  const oldDeadhead =
+    oldPlan.planned.reduce((s, p) => s + p.distKm, 0) +
     oldPlan.returns.reduce((s, r) => s + r.distKm, 0);
   console.log(`\n  🛣️  DEADHEAD KM (lower is better)`);
   console.log(`     Optimizer   : ${deadheadNew.toFixed(1)} km`);
   console.log(`     Old Greedy  : ${oldDeadhead.toFixed(1)} km`);
   console.log(`     Greedy (NF) : ${greedy1.totalDeadheadKm.toFixed(1)} km`);
   console.log(`     Greedy (DC) : ${greedy2.totalDeadheadKm.toFixed(1)} km`);
-  const vsDC = greedy2.totalDeadheadKm > 0
-    ? ((deadheadNew - greedy2.totalDeadheadKm) / greedy2.totalDeadheadKm * 100)
-    : 0;
+  const vsDC =
+    greedy2.totalDeadheadKm > 0
+      ? ((deadheadNew - greedy2.totalDeadheadKm) / greedy2.totalDeadheadKm) * 100
+      : 0;
   console.log(`     Δ vs DC     : ${vsDC >= 0 ? "+" : ""}${vsDC.toFixed(1)}%`);
 
   // Lateness
@@ -576,24 +600,40 @@ async function main() {
   console.log("\n" + "─".repeat(60));
   console.log("  🎯 W_LATE TUNING — Deadhead vs Lateness Trade-off (sensitivity)");
   console.log("─".repeat(60));
-  console.log(`  The current weights are: W_UNCOVERED=1e6  W_DEADHEAD=100  W_LATE=1  W_BALANCE=0.1`);
+  console.log(
+    `  The current weights are: W_UNCOVERED=1e6  W_DEADHEAD=100  W_LATE=1  W_BALANCE=0.1`,
+  );
   console.log(`  Below is the output at default weights. To tune W_LATE, change`);
   console.log(`  the constant in src/lib/route-optimizer.ts and re-run this benchmark.`);
-  console.log(`  Trade-off: deadhead = ${deadheadNew.toFixed(1)} km, lateness = ${lateMinutesNew} min`);
-  console.log(`  → ${deadheadNew > 0 ? `deadhead / late-min ratio = ${(deadheadNew / Math.max(1, lateMinutesNew)).toFixed(2)}` : "not applicable"}`);
-  console.log(`  → Avg deadhead per assigned job  : ${assignedNew > 0 ? (deadheadNew / assignedNew).toFixed(1) : "N/A"} km`);
-  console.log(`  → Avg late minutes per assigned job : ${assignedNew > 0 ? (lateMinutesNew / assignedNew).toFixed(1) : "N/A"} min`);
+  console.log(
+    `  Trade-off: deadhead = ${deadheadNew.toFixed(1)} km, lateness = ${lateMinutesNew} min`,
+  );
+  console.log(
+    `  → ${deadheadNew > 0 ? `deadhead / late-min ratio = ${(deadheadNew / Math.max(1, lateMinutesNew)).toFixed(2)}` : "not applicable"}`,
+  );
+  console.log(
+    `  → Avg deadhead per assigned job  : ${assignedNew > 0 ? (deadheadNew / assignedNew).toFixed(1) : "N/A"} km`,
+  );
+  console.log(
+    `  → Avg late minutes per assigned job : ${assignedNew > 0 ? (lateMinutesNew / assignedNew).toFixed(1) : "N/A"} min`,
+  );
 
   // ── Job-level comparison ──────────────────────────────────────────────────
   const optAssigned = new Set(optResult.assignments.map((a) => a.jobId));
   console.log(`\n  🔍 JOB-LEVEL COMPARISON`);
-  console.log(`     Optimizer: ${optResult.assignments.length} jobs on ${Object.keys(optResult.metrics.driverHours).length} drivers`);
+  console.log(
+    `     Optimizer: ${optResult.assignments.length} jobs on ${Object.keys(optResult.metrics.driverHours).length} drivers`,
+  );
   for (const did of Object.keys(optResult.metrics.driverHours).sort()) {
-    const jobs = optResult.assignments.filter((a) => a.driverId === did).sort((a, b) => a.sequence - b.sequence);
+    const jobs = optResult.assignments
+      .filter((a) => a.driverId === did)
+      .sort((a, b) => a.sequence - b.sequence);
     const h = optResult.metrics.driverHours[did];
     console.log(`       Driver ${did.slice(0, 8)}  →  ${jobs.length} jobs  ${h.toFixed(1)}h drive`);
     for (const a of jobs.slice(0, 5)) {
-      console.log(`         #${a.sequence} ${a.jobId.slice(0, 8)}  arrive ${a.arriveAt?.slice(11, 19) ?? "?"}  late ${a.lateMinutes}min`);
+      console.log(
+        `         #${a.sequence} ${a.jobId.slice(0, 8)}  arrive ${a.arriveAt?.slice(11, 19) ?? "?"}  late ${a.lateMinutes}min`,
+      );
     }
     if (jobs.length > 5) console.log(`         … + ${jobs.length - 5} more`);
   }
@@ -602,15 +642,25 @@ async function main() {
   console.log(`\n     ${"─".repeat(54)}`);
   console.log(`     Greedy DC assigned (top 10 by deadhead):`);
   const greedyDetailed = greedyDetailedDebug(
-    ctx.jobs, ctx.stopsMap, ctx.drivers, ctx.warehouses,
-    ctx.compliance, ctx.driverShifts, ctx.overrides, dateStr,
+    ctx.jobs,
+    ctx.stopsMap,
+    ctx.drivers,
+    ctx.warehouses,
+    ctx.compliance,
+    ctx.driverShifts,
+    ctx.overrides,
+    dateStr,
   );
   for (const a of greedyDetailed.slice(0, 10)) {
     const shared = optAssigned.has(a.jobId) ? "  [opt also picked]" : "";
-    console.log(`       · ${a.ref} → ${a.driverId.slice(0, 6)}  deadhead ${a.deadheadKm.toFixed(0)} km${shared}`);
+    console.log(
+      `       · ${a.ref} → ${a.driverId.slice(0, 6)}  deadhead ${a.deadheadKm.toFixed(0)} km${shared}`,
+    );
   }
 
-  console.log(`\n     Shared jobs between optimizer and greedy(DC): ${greedyDetailed.filter((a) => optAssigned.has(a.jobId)).length} of ${optAssigned.size}`);
+  console.log(
+    `\n     Shared jobs between optimizer and greedy(DC): ${greedyDetailed.filter((a) => optAssigned.has(a.jobId)).length} of ${optAssigned.size}`,
+  );
 
   // Uncovered reasons
   if (unassignedNew > 0) {
@@ -618,7 +668,8 @@ async function main() {
     for (const u of optResult.uncovered.slice(0, 10)) {
       console.log(`     · ${u.jobId.slice(0, 8)} — ${u.reason}`);
     }
-    if (optResult.uncovered.length > 10) console.log(`     … and ${optResult.uncovered.length - 10} more`);
+    if (optResult.uncovered.length > 10)
+      console.log(`     … and ${optResult.uncovered.length - 10} more`);
   }
 
   // Timing
@@ -630,7 +681,7 @@ async function main() {
   console.log(`\n  ${"─".repeat(56)}`);
   console.log(`  VERDICT`);
 
-  const optimizerCovers = coverageNew >= (greedy2.assigned / Math.max(1, greedy2.totalJobs) * 100);
+  const optimizerCovers = coverageNew >= (greedy2.assigned / Math.max(1, greedy2.totalJobs)) * 100;
   const optimizerBeatsDeadhead = vsDC < -5;
   const beatsLateness = lateJobCount < greedy2.lateAssignments;
 

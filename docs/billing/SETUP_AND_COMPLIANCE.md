@@ -72,6 +72,7 @@ Money is **always** integer minor units (pence). `gross = net + tax + fee`.
 ## 3. How pricing works (fee-inclusive)
 
 `net -> tax -> fee`:
+
 1. `net` from `plan_prices` (pence).
 2. `tax` = VAT on net. UK = 20%; EU with a valid VAT number = reverse charge
    (0%); outside UK/EU = zero-rated. (`tax_calculation_method`.)
@@ -87,13 +88,13 @@ Example (reverse-charge or pre-VAT, £600 net via GoCardless 1% + £0.20 capped
 
 The pure state machine maps events to status + actions:
 
-| Trigger | Result |
-|---|---|
-| Super admin changes plan/level | new entitlements (modules/limits) applied; prorated invoice if mid-term |
-| Payment succeeded / mandate active / bank transfer reconciled | `active`, period extended |
-| Payment failed | dunning ladder day1 → day3 → suspended_warning; suspend after grace |
-| Subscription cancelled | `cancelled` |
-| Trial expired (sweep) | `suspended` |
+| Trigger                                                       | Result                                                                  |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Super admin changes plan/level                                | new entitlements (modules/limits) applied; prorated invoice if mid-term |
+| Payment succeeded / mandate active / bank transfer reconciled | `active`, period extended                                               |
+| Payment failed                                                | dunning ladder day1 → day3 → suspended_warning; suspend after grace     |
+| Subscription cancelled                                        | `cancelled`                                                             |
+| Trial expired (sweep)                                         | `suspended`                                                             |
 
 Suspension is enforced automatically by existing RLS
 (`current_subscription_status() IN ('active','trial')`).
@@ -125,7 +126,7 @@ Suspension is enforced automatically by existing RLS
 - [ ] **Refund & cancellation policy**; chargeback/dispute process.
 - [ ] **Fee disclosure** before payment. The billing page states fees are
       included and that the customer contracts as a **business**.
-- [ ] **Surcharge legality:** passing card/Direct-Debit fees to *consumers* is
+- [ ] **Surcharge legality:** passing card/Direct-Debit fees to _consumers_ is
       illegal in the UK/EU; it is permitted for **business customers**. Confirm
       every tenant contracts as a business. (Customers here are companies.)
 - [ ] Merchant agreements with Stripe and GoCardless accepted.

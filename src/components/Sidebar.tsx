@@ -1,7 +1,16 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  Map, Truck, Warehouse, ClipboardList,
-  AlertTriangle, LogOut, Shield, Users, ScrollText, LifeBuoy, CreditCard,
+  Map,
+  Truck,
+  Warehouse,
+  ClipboardList,
+  AlertTriangle,
+  LogOut,
+  Shield,
+  Users,
+  ScrollText,
+  LifeBuoy,
+  CreditCard,
 } from "lucide-react";
 import { useAlertCount, useUnassignedJobCount } from "@/lib/use-alerts";
 import { useTenant, useFeatureFlags } from "@/lib/tenant-context";
@@ -25,30 +34,27 @@ const ALL_NAV: ReadonlyArray<{
   icon: typeof Map;
   module: TenantModule | null;
 }> = [
-  { to: "/",           label: "Live Map",   icon: Map,           module: "maps" },
-  { to: "/dispatch",   label: "Dispatch",   icon: Truck,         module: "dispatch" },
-  { to: "/drivers",    label: "Drivers",    icon: Users,         module: "drivers" },
-  { to: "/warehouses", label: "Warehouses", icon: Warehouse,     module: "warehouses" },
-  { to: "/alerts",     label: "Alerts",     icon: AlertTriangle, module: "alerts" },
-  { to: "/events",     label: "Events",     icon: ScrollText,    module: "events" },
-  { to: "/billing",    label: "Billing",    icon: CreditCard,    module: null },
+  { to: "/", label: "Live Map", icon: Map, module: "maps" },
+  { to: "/dispatch", label: "Dispatch", icon: Truck, module: "dispatch" },
+  { to: "/drivers", label: "Drivers", icon: Users, module: "drivers" },
+  { to: "/warehouses", label: "Warehouses", icon: Warehouse, module: "warehouses" },
+  { to: "/alerts", label: "Alerts", icon: AlertTriangle, module: "alerts" },
+  { to: "/events", label: "Events", icon: ScrollText, module: "events" },
+  { to: "/billing", label: "Billing", icon: CreditCard, module: null },
 ];
 
 export function Sidebar() {
   const [caseOpen, setCaseOpen] = useState(false);
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const alertCount      = useAlertCount();
+  const alertCount = useAlertCount();
   const unassignedCount = useUnassignedJobCount();
   const { company, email, role, isSuperAdmin, name, userId, avatarUrl } = useTenant();
   const flags = useFeatureFlags();
   const { cycleAccent, accentColor } = useTheme();
 
-  const visibleNav = ALL_NAV.filter(
-    (n) => n.module === null || flags.modules.includes(n.module),
-  );
+  const visibleNav = ALL_NAV.filter((n) => n.module === null || flags.modules.includes(n.module));
 
-  const displayName =
-    flags.customBranding && flags.brandName ? flags.brandName : company.name;
+  const displayName = flags.customBranding && flags.brandName ? flags.brandName : company.name;
 
   return (
     <aside
@@ -61,8 +67,16 @@ export function Sidebar() {
       {/* ── Brand header ── */}
       <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--sidebar-divider)" }}>
         <div className="flex items-center gap-2.5">
-          <div className="size-10 shrink-0 cursor-pointer" onClick={cycleAccent} title="Click to cycle background accent">
-            <img src={brandLogo} alt={`${displayName} logo`} className="w-full h-full object-contain" />
+          <div
+            className="size-10 shrink-0 cursor-pointer"
+            onClick={cycleAccent}
+            title="Click to cycle background accent"
+          >
+            <img
+              src={brandLogo}
+              alt={`${displayName} logo`}
+              className="w-full h-full object-contain"
+            />
           </div>
           <div className="min-w-0">
             <div className="text-sm font-semibold tracking-tight truncate leading-tight">
@@ -75,7 +89,8 @@ export function Sidebar() {
         </div>
 
         {company.subscription_status === "trial" && (
-          <div className="mt-3 rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-wide text-center"
+          <div
+            className="mt-3 rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-wide text-center"
             style={{
               background: "oklch(0.80 0.18 72 / 0.08)",
               border: "1px solid oklch(0.80 0.18 72 / 0.25)",
@@ -93,21 +108,29 @@ export function Sidebar() {
           const Icon = n.icon;
           const active = path === n.to;
           const badgeCount =
-            n.to === "/alerts"   ? alertCount :
-            n.to === "/dispatch" ? unassignedCount :
-            n.to === "/drivers"  ? 0 : 0;
+            n.to === "/alerts"
+              ? alertCount
+              : n.to === "/dispatch"
+                ? unassignedCount
+                : n.to === "/drivers"
+                  ? 0
+                  : 0;
 
           return (
             <Link
               key={n.to}
               to={n.to}
               className="nav-item"
-              style={active ? {
-                color: "var(--primary-bright)",
-                background: "oklch(0.62 0.22 245 / 0.12)",
-                borderLeft: "2px solid var(--primary)",
-                paddingLeft: "calc(0.75rem - 2px)",
-              } : {}}
+              style={
+                active
+                  ? {
+                      color: "var(--primary-bright)",
+                      background: "oklch(0.62 0.22 245 / 0.12)",
+                      borderLeft: "2px solid var(--primary)",
+                      paddingLeft: "calc(0.75rem - 2px)",
+                    }
+                  : {}
+              }
             >
               <Icon
                 className="size-4 shrink-0"
@@ -118,20 +141,23 @@ export function Sidebar() {
                 <span
                   className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full font-mono font-bold text-[10px] tabular-nums"
                   style={{
-                    background: n.to === "/alerts"
-                      ? "oklch(0.63 0.22 20 / 0.9)"
-                      : n.to === "/drivers"
-                        ? "oklch(0.80 0.18 72 / 0.95)"
-                        : "oklch(0.62 0.22 245 / 0.9)",
+                    background:
+                      n.to === "/alerts"
+                        ? "oklch(0.63 0.22 20 / 0.9)"
+                        : n.to === "/drivers"
+                          ? "oklch(0.80 0.18 72 / 0.95)"
+                          : "oklch(0.62 0.22 245 / 0.9)",
                     color: n.to === "/drivers" ? "#1a1200" : "var(--primary-foreground)",
-                    boxShadow: n.to === "/alerts"
-                      ? "0 0 6px oklch(0.63 0.22 20 / 0.4)"
-                      : n.to === "/drivers"
-                        ? "0 0 6px oklch(0.80 0.18 72 / 0.5)"
-                        : "0 0 6px oklch(0.62 0.22 245 / 0.4)",
+                    boxShadow:
+                      n.to === "/alerts"
+                        ? "0 0 6px oklch(0.63 0.22 20 / 0.4)"
+                        : n.to === "/drivers"
+                          ? "0 0 6px oklch(0.80 0.18 72 / 0.5)"
+                          : "0 0 6px oklch(0.62 0.22 245 / 0.4)",
                   }}
                 >
-                  {n.to === "/drivers" ? "! " : ""}{badgeCount > 99 ? "99+" : badgeCount}
+                  {n.to === "/drivers" ? "! " : ""}
+                  {badgeCount > 99 ? "99+" : badgeCount}
                 </span>
               )}
             </Link>
@@ -140,16 +166,23 @@ export function Sidebar() {
 
         {isSuperAdmin && (
           <>
-            <div className="my-2 mx-1" style={{ height: 1, background: "var(--sidebar-divider)" }} />
+            <div
+              className="my-2 mx-1"
+              style={{ height: 1, background: "var(--sidebar-divider)" }}
+            />
             <Link
               to="/admin"
               className="nav-item"
-              style={path.startsWith("/admin") ? {
-                color: "var(--primary-bright)",
-                background: "oklch(0.62 0.22 245 / 0.12)",
-                borderLeft: "2px solid var(--primary)",
-                paddingLeft: "calc(0.75rem - 2px)",
-              } : {}}
+              style={
+                path.startsWith("/admin")
+                  ? {
+                      color: "var(--primary-bright)",
+                      background: "oklch(0.62 0.22 245 / 0.12)",
+                      borderLeft: "2px solid var(--primary)",
+                      paddingLeft: "calc(0.75rem - 2px)",
+                    }
+                  : {}
+              }
             >
               <Shield className="size-4 shrink-0" style={{ color: "var(--primary)" }} />
               <span className="flex-1">Admin Panel</span>
@@ -160,13 +193,24 @@ export function Sidebar() {
 
       {/* ── Footer ── unified identity + controls card */}
       <div className="p-2" style={{ borderTop: "1px solid var(--sidebar-divider)" }}>
-        <div className="rounded-xl border border-border/60 overflow-hidden" style={{ background: accentColor || "var(--surface)" }}>
+        <div
+          className="rounded-xl border border-border/60 overflow-hidden"
+          style={{ background: accentColor || "var(--surface)" }}
+        >
           {/* Identity */}
           <div className="flex items-center gap-2.5 px-2.5 py-2">
-            <FooterAvatar userId={userId} avatarUrl={avatarUrl ?? null} fallback={(name ?? email).charAt(0).toUpperCase()} />
+            <FooterAvatar
+              userId={userId}
+              avatarUrl={avatarUrl ?? null}
+              fallback={(name ?? email).charAt(0).toUpperCase()}
+            />
             <div className="min-w-0 flex-1">
-              <div className="text-xs font-semibold text-foreground truncate leading-tight">{name ?? email}</div>
-              <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/70 mt-0.5">{role}</div>
+              <div className="text-xs font-semibold text-foreground truncate leading-tight">
+                {name ?? email}
+              </div>
+              <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/70 mt-0.5">
+                {role}
+              </div>
             </div>
             <ProfileSwitcher currentUserId={userId} />
             <button
@@ -195,7 +239,11 @@ export function Sidebar() {
               title="Create a support case"
               aria-label="Create a support case"
               className="w-full inline-flex items-center justify-center gap-1.5 h-7 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-colors hover:bg-primary/10"
-              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                color: "var(--foreground)",
+              }}
             >
               <LifeBuoy className="size-3.5 text-primary" /> Create case
             </button>
@@ -207,8 +255,15 @@ export function Sidebar() {
   );
 }
 
-
-function FooterAvatar({ userId, avatarUrl, fallback }: { userId: string; avatarUrl: string | null; fallback: string }) {
+function FooterAvatar({
+  userId,
+  avatarUrl,
+  fallback,
+}: {
+  userId: string;
+  avatarUrl: string | null;
+  fallback: string;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const saveAvatar = useServerFn(setMemberAvatar);
   const [busy, setBusy] = useState(false);
@@ -243,7 +298,10 @@ function FooterAvatar({ userId, avatarUrl, fallback }: { userId: string; avatarU
         {avatarUrl ? (
           <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
         ) : (
-          <span className="grid place-items-center w-full h-full text-sm font-mono font-bold" style={{ color: "var(--muted-foreground)" }}>
+          <span
+            className="grid place-items-center w-full h-full text-sm font-mono font-bold"
+            style={{ color: "var(--muted-foreground)" }}
+          >
             {fallback}
           </span>
         )}

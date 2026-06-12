@@ -27,12 +27,18 @@ function LockScreen() {
 
   useEffect(() => {
     const id = typeof window !== "undefined" ? localStorage.getItem(DEVICE_KEY) : null;
-    if (!id) { navigate({ to: "/login", replace: true }); return; }
+    if (!id) {
+      navigate({ to: "/login", replace: true });
+      return;
+    }
     list({ data: { companyId: id } })
       .then((r) => {
         const rows = r as Profile[];
         // Self-heal: a claimed device with no profiles falls back to the company login.
-        if (rows.length === 0) { exitToLogin(); return; }
+        if (rows.length === 0) {
+          exitToLogin();
+          return;
+        }
         setProfiles(rows);
       })
       .catch(() => setProfiles([]));
@@ -49,7 +55,10 @@ function LockScreen() {
         access_token: string;
         refresh_token: string;
       };
-      const { error } = await supabase.auth.setSession({ access_token: t.access_token, refresh_token: t.refresh_token });
+      const { error } = await supabase.auth.setSession({
+        access_token: t.access_token,
+        refresh_token: t.refresh_token,
+      });
       if (error) throw new Error(error.message);
       window.location.href = "/";
     } catch (e) {
@@ -104,12 +113,20 @@ function LockScreen() {
               {profiles.map((p) => (
                 <button
                   key={p.memberId}
-                  onClick={() => { setPicked(p); setPw(""); setErr(null); }}
+                  onClick={() => {
+                    setPicked(p);
+                    setPw("");
+                    setErr(null);
+                  }}
                   className="flex flex-col items-center gap-2 w-24 group"
                 >
                   <span
                     className="size-16 rounded-full grid place-items-center text-xl font-bold overflow-hidden transition-all group-hover:ring-2 group-hover:ring-primary/60"
-                    style={{ background: "var(--secondary)", color: "var(--muted-foreground)", border: "1px solid var(--border)" }}
+                    style={{
+                      background: "var(--secondary)",
+                      color: "var(--muted-foreground)",
+                      border: "1px solid var(--border)",
+                    }}
                   >
                     {p.avatarUrl ? (
                       <img src={p.avatarUrl} alt={p.name} className="w-full h-full object-cover" />
@@ -126,10 +143,18 @@ function LockScreen() {
               <div className="flex flex-col items-center gap-2">
                 <span
                   className="size-16 rounded-full grid place-items-center text-xl font-bold overflow-hidden"
-                  style={{ background: "var(--secondary)", color: "var(--muted-foreground)", border: "1px solid var(--border)" }}
+                  style={{
+                    background: "var(--secondary)",
+                    color: "var(--muted-foreground)",
+                    border: "1px solid var(--border)",
+                  }}
                 >
                   {picked.avatarUrl ? (
-                    <img src={picked.avatarUrl} alt={picked.name} className="w-full h-full object-cover" />
+                    <img
+                      src={picked.avatarUrl}
+                      alt={picked.name}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     picked.name.charAt(0).toUpperCase()
                   )}
@@ -140,7 +165,11 @@ function LockScreen() {
               {err && (
                 <div
                   className="rounded-lg px-3.5 py-2.5 text-xs"
-                  style={{ background: "oklch(0.63 0.22 20 / 0.08)", border: "1px solid oklch(0.63 0.22 20 / 0.3)", color: "var(--destructive-fg)" }}
+                  style={{
+                    background: "oklch(0.63 0.22 20 / 0.08)",
+                    border: "1px solid oklch(0.63 0.22 20 / 0.3)",
+                    color: "var(--destructive-fg)",
+                  }}
                 >
                   {err}
                 </div>
@@ -168,7 +197,9 @@ function LockScreen() {
                   type="submit"
                   disabled={busy || !pw}
                   className="flex-1 h-10 rounded-lg text-sm font-semibold text-primary-foreground transition-all disabled:opacity-50"
-                  style={{ background: "linear-gradient(135deg, var(--primary), var(--primary-2))" }}
+                  style={{
+                    background: "linear-gradient(135deg, var(--primary), var(--primary-2))",
+                  }}
                 >
                   {busy ? "Signing in…" : "Sign in"}
                 </button>

@@ -33,8 +33,12 @@ async function loadDriverCompliance(driverId: string, tenantId: string) {
 
   return computeCompliance(complianceEvents, nowMs, {
     daily: todayRow ? (todayRow.drive_minutes as number) / 60 : undefined,
-    weekly: weekRows.length ? weekRows.reduce((s, r) => s + (r.drive_minutes as number), 0) / 60 : undefined,
-    twoWeek: fortRows.length ? fortRows.reduce((s, r) => s + (r.drive_minutes as number), 0) / 60 : undefined,
+    weekly: weekRows.length
+      ? weekRows.reduce((s, r) => s + (r.drive_minutes as number), 0) / 60
+      : undefined,
+    twoWeek: fortRows.length
+      ? fortRows.reduce((s, r) => s + (r.drive_minutes as number), 0) / 60
+      : undefined,
   });
 }
 

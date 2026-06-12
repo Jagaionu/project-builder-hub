@@ -38,12 +38,12 @@ type Panel =
 
 // ─── Status colour map ─────────────────────────────────────────────────────
 const STATUS_MAP: Record<string, { bg: string; glow: string; label: string }> = {
-  AVAILABLE: { bg: "#16a34a", glow: "rgba(22,163,74,0.35)",   label: "Available"  },
-  ON_SHIFT:  { bg: "#2563eb", glow: "rgba(37,99,235,0.35)",   label: "On Shift"   },
-  ON_ROUTE:  { bg: "#7c3aed", glow: "rgba(124,58,237,0.35)",  label: "On Route"   },
-  DELAYED:   { bg: "#dc2626", glow: "rgba(220,38,38,0.35)",   label: "Delayed"    },
-  OFF_SHIFT: { bg: "#94a3b8", glow: "rgba(148,163,184,0.2)",  label: "Off Shift"  },
-  ON_BREAK:  { bg: "#d97706", glow: "rgba(217,119,6,0.35)",   label: "On Break"   },
+  AVAILABLE: { bg: "#16a34a", glow: "rgba(22,163,74,0.35)", label: "Available" },
+  ON_SHIFT: { bg: "#2563eb", glow: "rgba(37,99,235,0.35)", label: "On Shift" },
+  ON_ROUTE: { bg: "#7c3aed", glow: "rgba(124,58,237,0.35)", label: "On Route" },
+  DELAYED: { bg: "#dc2626", glow: "rgba(220,38,38,0.35)", label: "Delayed" },
+  OFF_SHIFT: { bg: "#94a3b8", glow: "rgba(148,163,184,0.2)", label: "Off Shift" },
+  ON_BREAK: { bg: "#d97706", glow: "rgba(217,119,6,0.35)", label: "On Break" },
 };
 const DEF_STATUS = STATUS_MAP.ON_SHIFT;
 
@@ -54,8 +54,10 @@ function driverHtml(name: string, status: string, selected: boolean): string {
   const ring = selected
     ? `box-shadow:0 0 0 3px #fff,0 0 0 5px ${s.bg},0 6px 20px ${s.glow}`
     : `box-shadow:0 0 0 2px #fff,0 3px 10px rgba(0,0,0,0.2)`;
-  const pulse = status !== "OFF_SHIFT" && !selected
-    ? `<span class="drv-pulse" style="border-color:${s.bg}"></span>` : "";
+  const pulse =
+    status !== "OFF_SHIFT" && !selected
+      ? `<span class="drv-pulse" style="border-color:${s.bg}"></span>`
+      : "";
   return `
 <div class="drv-mk" style="width:${sz}px;height:${sz}px;background:${s.bg};${ring}">
   <span class="drv-init" style="font-size:${sz * 0.38}px">${(name[0] ?? "?").toUpperCase()}</span>
@@ -129,7 +131,7 @@ const MAP_CSS = `
 // Accepts an ordered list of waypoints so a multi-stop route (e.g. SNG1 → SBS2,
 // or a multi-drop run) is routed along real roads through every stop in order.
 async function fetchRoute(
-  points: { lat: number; lon: number }[]
+  points: { lat: number; lon: number }[],
 ): Promise<{ coords: [number, number][]; distKm: number; minutes: number }> {
   const coordStr = points.map((p) => `${p.lon},${p.lat}`).join(";");
   const url =
@@ -142,18 +144,19 @@ async function fetchRoute(
   if (!data.routes?.length) throw new Error("no route");
   const r = data.routes[0];
   // GeoJSON coords are [lon, lat], flip to [lat, lon] for Leaflet
-  const coords: [number, number][] = r.geometry.coordinates.map(
-    ([lon, lat]: [number, number]) => [lat, lon]
-  );
+  const coords: [number, number][] = r.geometry.coordinates.map(([lon, lat]: [number, number]) => [
+    lat,
+    lon,
+  ]);
   const distKm = r.distance / 1000;
   // Transit time formula: city segment (≤12.87 km @ 16.09 km/h) + motorway segment (>12.87 km @ 64.37 km/h)
-  const CITY_DIST   = 12.87;  // km
-  const CITY_SPEED  = 16.09;  // km/h
-  const MWY_SPEED   = 64.37;  // km/h
+  const CITY_DIST = 12.87; // km
+  const CITY_SPEED = 16.09; // km/h
+  const MWY_SPEED = 64.37; // km/h
   const tHours =
     distKm <= CITY_DIST
       ? distKm / CITY_SPEED
-      : (CITY_DIST / CITY_SPEED) + ((distKm - CITY_DIST) / MWY_SPEED);
+      : CITY_DIST / CITY_SPEED + (distKm - CITY_DIST) / MWY_SPEED;
   return {
     coords,
     distKm,
@@ -162,16 +165,25 @@ async function fetchRoute(
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
-export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, selectedDriverId, onSelectDriver, focused }: Props) {
-  const containerRef        = useRef<HTMLDivElement | null>(null);
-  const mapRef              = useRef<L.Map | null>(null);
-  const clusterLayerRef     = useRef<any | null>(null);
-  const whClusterLayerRef   = useRef<any | null>(null);
-  const routeLayerRef       = useRef<L.LayerGroup | null>(null);
-  const breadcrumbLayerRef  = useRef<L.LayerGroup | null>(null);
+export function LiveMap({
+  drivers,
+  warehouses,
+  jobs,
+  jobStops,
+  breadcrumbs,
+  selectedDriverId,
+  onSelectDriver,
+  focused,
+}: Props) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const clusterLayerRef = useRef<any | null>(null);
+  const whClusterLayerRef = useRef<any | null>(null);
+  const routeLayerRef = useRef<L.LayerGroup | null>(null);
+  const breadcrumbLayerRef = useRef<L.LayerGroup | null>(null);
 
-  const [panel, setPanel]         = useState<Panel>({ kind: "idle" });
-  const [routeEta, setRouteEta]   = useState<RouteEta | null>(null);
+  const [panel, setPanel] = useState<Panel>({ kind: "idle" });
+  const [routeEta, setRouteEta] = useState<RouteEta | null>(null);
   const [isRouting, setIsRouting] = useState(false);
   // Manual route: driver selected → user clicks any WH to get ad-hoc ETA
   const [manualTargetWh, setManualTargetWh] = useState<Warehouse | null>(null);
@@ -197,57 +209,72 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
     });
 
     // Voyager — closest to Google Maps: coloured roads, POI labels, full detail
-    L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-      { maxZoom: 20, attribution: "" }
-    ).addTo(map);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      maxZoom: 20,
+      attribution: "",
+    }).addTo(map);
 
-    L.control.attribution({ position: "bottomleft", prefix: "© CartoDB © OpenStreetMap" }).addTo(map);
+    L.control
+      .attribution({ position: "bottomleft", prefix: "© CartoDB © OpenStreetMap" })
+      .addTo(map);
     L.control.zoom({ position: "topright" }).addTo(map);
 
-    clusterLayerRef.current = (L as any).markerClusterGroup({
-      showCoverageOnHover: false,
-      spiderfyOnMaxZoom: true,
-      maxClusterRadius: 48,
-      disableClusteringAtZoom: 13,
-      zoomToBoundsOnClick: true,
-    }).addTo(map);
+    clusterLayerRef.current = (L as any)
+      .markerClusterGroup({
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        maxClusterRadius: 48,
+        disableClusteringAtZoom: 13,
+        zoomToBoundsOnClick: true,
+      })
+      .addTo(map);
 
     // Warehouse cluster — orange-themed, separate from driver cluster
-    whClusterLayerRef.current = (L as any).markerClusterGroup({
-      showCoverageOnHover: false,
-      spiderfyOnMaxZoom: true,
-      maxClusterRadius: 55,
-      disableClusteringAtZoom: 12,
-      zoomToBoundsOnClick: true,
-      iconCreateFunction: (cluster: any) => {
-        const count = cluster.getChildCount();
-        const sz    = count < 5 ? "small" : count < 15 ? "medium" : "large";
-        return L.divIcon({
-          html: `<div><span>${count}</span></div>`,
-          className: `marker-cluster wh-cluster-${sz}`,
-          iconSize: L.point(40, 40),
-        });
-      },
-    }).addTo(map);
+    whClusterLayerRef.current = (L as any)
+      .markerClusterGroup({
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        maxClusterRadius: 55,
+        disableClusteringAtZoom: 12,
+        zoomToBoundsOnClick: true,
+        iconCreateFunction: (cluster: any) => {
+          const count = cluster.getChildCount();
+          const sz = count < 5 ? "small" : count < 15 ? "medium" : "large";
+          return L.divIcon({
+            html: `<div><span>${count}</span></div>`,
+            className: `marker-cluster wh-cluster-${sz}`,
+            iconSize: L.point(40, 40),
+          });
+        },
+      })
+      .addTo(map);
 
     routeLayerRef.current = L.layerGroup().addTo(map);
     breadcrumbLayerRef.current = L.layerGroup().addTo(map);
 
     mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; };
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
   }, []);
 
   // ── Fit bounds to data ────────────────────────────────────────────────────
   useEffect(() => {
     if (!mapRef.current) return;
     const pts: L.LatLngExpression[] = [
-      ...warehouses.map(w => [w.latitude, w.longitude] as [number, number]),
-      ...drivers.filter(d => d.current_lat != null).map(d => [d.current_lat!, d.current_lon!] as [number, number]),
+      ...warehouses.map((w) => [w.latitude, w.longitude] as [number, number]),
+      ...drivers
+        .filter((d) => d.current_lat != null)
+        .map((d) => [d.current_lat!, d.current_lon!] as [number, number]),
     ];
     if (!pts.length) return;
-    mapRef.current.flyToBounds(L.latLngBounds(pts), { padding: [60, 60], maxZoom: 9, duration: 1.4 });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    mapRef.current.flyToBounds(L.latLngBounds(pts), {
+      padding: [60, 60],
+      maxZoom: 9,
+      duration: 1.4,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warehouses.length > 0]);
 
   // ── Warehouse markers (with manual route click handler) ─────────────────
@@ -256,39 +283,46 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
     if (!layer) return;
     layer.clearLayers();
 
-    warehouses.forEach(wh => {
+    warehouses.forEach((wh) => {
       const nearbyDrivers = drivers
-        .filter(d => {
+        .filter((d) => {
           if (d.current_lat == null) return false;
           const dx = d.current_lat - wh.latitude;
           const dy = d.current_lon! - wh.longitude;
           return Math.sqrt(dx * dx + dy * dy) < 0.08;
         })
         .sort((a, b) => {
-          const da = Math.sqrt((a.current_lat! - wh.latitude) ** 2 + (a.current_lon! - wh.longitude) ** 2);
-          const db = Math.sqrt((b.current_lat! - wh.latitude) ** 2 + (b.current_lon! - wh.longitude) ** 2);
+          const da = Math.sqrt(
+            (a.current_lat! - wh.latitude) ** 2 + (a.current_lon! - wh.longitude) ** 2,
+          );
+          const db = Math.sqrt(
+            (b.current_lat! - wh.latitude) ** 2 + (b.current_lon! - wh.longitude) ** 2,
+          );
           return da - db;
         });
 
       const icon = L.divIcon({
         className: "",
         html: warehouseHtml(wh.code),
-        iconSize:   [40, 52],
+        iconSize: [40, 52],
         iconAnchor: [20, 52],
-        popupAnchor:[0, -54],
+        popupAnchor: [0, -54],
       });
 
       L.marker([wh.latitude, wh.longitude], { icon, zIndexOffset: 2000 })
         .on("click", () => {
           // MANUAL ROUTE: if a driver is selected, calculate ad‑hoc route driver → this WH
           if (selectedDriverId) {
-            const driver = drivers.find(d => d.id === selectedDriverId);
+            const driver = drivers.find((d) => d.id === selectedDriverId);
             if (driver) {
               setManualTargetWh(wh);
               // Keep driver panel open; ETA will appear once route resolves
-              const job = jobs.find(j =>
-                j.assigned_driver_id === driver.id &&
-                ["ASSIGNED","IN_PROGRESS","ARRIVED_PICKUP","EN_ROUTE_DELIVERY"].includes(j.status)
+              const job = jobs.find(
+                (j) =>
+                  j.assigned_driver_id === driver.id &&
+                  ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(
+                    j.status,
+                  ),
               );
               setPanel({ kind: "driver", driver, job });
               return;
@@ -308,19 +342,20 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
     if (!cluster) return;
     cluster.clearLayers();
 
-    drivers.forEach(d => {
+    drivers.forEach((d) => {
       if (d.current_lat == null || d.current_lon == null) return;
       const sel = d.id === selectedDriverId;
-      const sz  = sel ? 26 : 20;
+      const sz = sel ? 26 : 20;
       const icon = L.divIcon({
         className: "",
         html: driverHtml(d.name, d.status, sel),
-        iconSize:   [sz, sz],
+        iconSize: [sz, sz],
         iconAnchor: [sz / 2, sz / 2],
       });
-      const job = jobs.find(j =>
-        j.assigned_driver_id === d.id &&
-        ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status)
+      const job = jobs.find(
+        (j) =>
+          j.assigned_driver_id === d.id &&
+          ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
       );
       L.marker([d.current_lat, d.current_lon], { icon, zIndexOffset: sel ? 2000 : 0 })
         .on("click", () => {
@@ -339,8 +374,8 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
   }, [selectedDriverId]);
 
   const selectedDriver = useMemo(
-    () => drivers.find(d => d.id === selectedDriverId) ?? null,
-    [drivers, selectedDriverId]
+    () => drivers.find((d) => d.id === selectedDriverId) ?? null,
+    [drivers, selectedDriverId],
   );
 
   const activeJob = useMemo(() => {
@@ -352,7 +387,9 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
     return (
       mine.find((j) =>
         ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
-      ) ?? mine[0] ?? null
+      ) ??
+      mine[0] ??
+      null
     );
   }, [jobs, selectedDriverId]);
 
@@ -365,7 +402,8 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
     if (stops.length >= 2) {
       for (const s of stops) {
         const wh = warehouses.find((w) => w.id === s.warehouse_id);
-        if (wh) pts.push({ lat: wh.latitude, lon: wh.longitude, code: wh.code, arrived: !!s.arrived_at });
+        if (wh)
+          pts.push({ lat: wh.latitude, lon: wh.longitude, code: wh.code, arrived: !!s.arrived_at });
       }
     } else {
       // Fallback to the origin/destination columns when stops aren't loaded.
@@ -412,7 +450,13 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
       return driverPos ? [driverPos, ...pts] : pts;
     }
     return [] as { lat: number; lon: number }[];
-  }, [manualTargetWh, stopCoords, focused, selectedDriver?.current_lat, selectedDriver?.current_lon]);
+  }, [
+    manualTargetWh,
+    stopCoords,
+    focused,
+    selectedDriver?.current_lat,
+    selectedDriver?.current_lon,
+  ]);
 
   // Endpoint label for the side panel — reflects the current phase.
   const routeTarget = useMemo(() => {
@@ -426,9 +470,10 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
   // ── Fetch road geometry (expensive: OSRM call) ────────────────────────────
   // Kept separate from drawing so the line can be recoloured (GPS staleness)
   // without re-hitting the routing API.
-  const [routeGeom, setRouteGeom] = useState<
-    { coords: [number, number][]; points: { lat: number; lon: number }[] } | null
-  >(null);
+  const [routeGeom, setRouteGeom] = useState<{
+    coords: [number, number][];
+    points: { lat: number; lon: number }[];
+  } | null>(null);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -437,9 +482,9 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
       setRouteGeom(null);
       setRouteEta(null);
       if (selectedDriver?.current_lat != null && selectedDriver.current_lon != null) {
-        mapRef.current.flyTo(
-          [selectedDriver.current_lat, selectedDriver.current_lon], 12, { duration: 1.4 },
-        );
+        mapRef.current.flyTo([selectedDriver.current_lat, selectedDriver.current_lon], 12, {
+          duration: 1.4,
+        });
       }
       return;
     }
@@ -452,9 +497,11 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
         setRouteGeom({ coords, points: routePoints });
         setRouteEta({ distKm, minutes });
         setIsRouting(false);
-        mapRef.current?.flyToBounds(
-          L.latLngBounds(coords), { padding: [90, 90], maxZoom: 11, duration: 1.6 },
-        );
+        mapRef.current?.flyToBounds(L.latLngBounds(coords), {
+          padding: [90, 90],
+          maxZoom: 11,
+          duration: 1.6,
+        });
       })
       .catch(() => {
         if (cancelled) return;
@@ -465,8 +512,10 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
         setIsRouting(false);
         mapRef.current?.flyToBounds(L.latLngBounds(latlngs), { padding: [80, 80], maxZoom: 11 });
       });
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routePoints]);
 
   // Re-evaluate GPS staleness once a minute so the line greys out live.
@@ -497,21 +546,37 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
 
     // Glow / halo underlay
     L.polyline(coords, {
-      color: lineColor, weight: 14, opacity: 0.12, lineCap: "round", lineJoin: "round",
+      color: lineColor,
+      weight: 14,
+      opacity: 0.12,
+      lineCap: "round",
+      lineJoin: "round",
     }).addTo(layer);
     // White border (road feel)
     L.polyline(coords, {
-      color: "#fff", weight: 7, opacity: 0.7, lineCap: "round", lineJoin: "round",
+      color: "#fff",
+      weight: 7,
+      opacity: 0.7,
+      lineCap: "round",
+      lineJoin: "round",
     }).addTo(layer);
     // Main coloured route
     L.polyline(coords, {
-      color: lineColor, weight: 5, opacity: 0.95, lineCap: "round", lineJoin: "round",
+      color: lineColor,
+      weight: 5,
+      opacity: 0.95,
+      lineCap: "round",
+      lineJoin: "round",
     }).addTo(layer);
     // Animated dashes overlay (skip when greyed to reinforce "not live")
     if (!gpsStale) {
       L.polyline(coords, {
-        color: "#fff", weight: 2, opacity: 0.9, lineCap: "round",
-        dashArray: "1 16", className: "route-anim",
+        color: "#fff",
+        weight: 2,
+        opacity: 0.9,
+        lineCap: "round",
+        dashArray: "1 16",
+        className: "route-anim",
       }).addTo(layer);
     }
 
@@ -519,7 +584,11 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
     if (routeEta) {
       const mid = coords[Math.floor(coords.length / 2)];
       L.marker(mid, {
-        icon: L.divIcon({ className: "", html: etaHtml(routeEta.distKm, routeEta.minutes), iconAnchor: [80, 16] }),
+        icon: L.divIcon({
+          className: "",
+          html: etaHtml(routeEta.distKm, routeEta.minutes),
+          iconAnchor: [80, 16],
+        }),
         interactive: false,
         zIndexOffset: 3000,
       }).addTo(layer);
@@ -560,7 +629,9 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
       })
         .bindTooltip(
           new Date(b.created_at).toLocaleTimeString([], {
-            hour: "2-digit", minute: "2-digit", hour12: false,
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
           }),
           { direction: "top" },
         )
@@ -569,18 +640,20 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
   }, [breadcrumbs, selectedDriverId]);
 
   // ── Stats ─────────────────────────────────────────────────────────────────
-  const stats = useMemo(() => ({
-    total:   drivers.length,
-    onMap:   drivers.filter(d => d.current_lat != null).length,
-    active:  drivers.filter(d =>
-      ["AVAILABLE", "ON_SHIFT", "ON_ROUTE"].includes(d.status) && d.current_lat != null
-    ).length,
-    onRoute: drivers.filter(d => d.status === "ON_ROUTE").length,
-    delayed: drivers.filter(d => d.status === "DELAYED").length,
-  }), [drivers]);
+  const stats = useMemo(
+    () => ({
+      total: drivers.length,
+      onMap: drivers.filter((d) => d.current_lat != null).length,
+      active: drivers.filter(
+        (d) => ["AVAILABLE", "ON_SHIFT", "ON_ROUTE"].includes(d.status) && d.current_lat != null,
+      ).length,
+      onRoute: drivers.filter((d) => d.status === "ON_ROUTE").length,
+      delayed: drivers.filter((d) => d.status === "DELAYED").length,
+    }),
+    [drivers],
+  );
 
-  const fmtTime = (m: number) =>
-    m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`;
+  const fmtTime = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`);
 
   // ── Panel sub-components ──────────────────────────────────────────────────
   function PanelIdle() {
@@ -607,16 +680,28 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-slate-900 truncate leading-tight">{driver.name}</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: s.bg }} />
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
+                style={{ background: s.bg }}
+              />
               <span className="text-[11px] font-semibold text-slate-500">{s.label}</span>
             </div>
           </div>
           <button
-            onClick={() => { setPanel({ kind: "idle" }); }}
+            onClick={() => {
+              setPanel({ kind: "idle" });
+            }}
             className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors flex-shrink-0"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M18 6L6 18M6 6l12 12"/>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -624,7 +709,9 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
         {/* Active job */}
         {job && (
           <div className="rounded-xl p-3 border border-violet-100 bg-violet-50">
-            <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-1">Active Job</p>
+            <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-1">
+              Active Job
+            </p>
             <p className="text-xs font-bold text-violet-900 truncate">{job.reference}</p>
             <p className="text-[11px] text-violet-500 mt-0.5">{job.status.replaceAll("_", " ")}</p>
           </div>
@@ -643,7 +730,9 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
             <div className="w-px h-6 bg-white/10" />
             <div className="flex-1 text-center">
               <p className="text-base font-black leading-none">{fmtTime(routeEta.minutes)}</p>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">ETA</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                ETA
+              </p>
             </div>
           </div>
         )}
@@ -651,10 +740,22 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
         {/* Manual route clear button */}
         {manualTargetWh && routeEta && (
           <button
-            onClick={() => { setManualTargetWh(null); setRouteEta(null); }}
+            onClick={() => {
+              setManualTargetWh(null);
+              setRouteEta(null);
+            }}
             className="w-full flex items-center justify-center gap-1.5 text-[10px] font-semibold text-slate-400 hover:text-slate-600 transition-colors py-0.5"
           >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
             Clear manual route
           </button>
         )}
@@ -669,8 +770,17 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
         {/* Hint: click any WH to calculate ad-hoc transit time */}
         {!isRouting && !routeEta && (
           <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-slate-50 border border-slate-100">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" className="flex-shrink-0">
-              <path d="M2 22V9l10-7 10 7v13H2z"/><path d="M9 22v-8h6v8"/>
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#94a3b8"
+              strokeWidth="2"
+              className="flex-shrink-0"
+            >
+              <path d="M2 22V9l10-7 10 7v13H2z" />
+              <path d="M9 22v-8h6v8" />
             </svg>
             <p className="text-[10px] text-slate-400 leading-snug">
               Click any warehouse to calculate transit time
@@ -691,9 +801,18 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
         {/* Header */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-orange-100 border border-orange-200 flex items-center justify-center flex-shrink-0">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 22V9l10-7 10 7v13H2z"/>
-              <path d="M9 22v-8h6v8"/>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#ea580c"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M2 22V9l10-7 10 7v13H2z" />
+              <path d="M9 22v-8h6v8" />
             </svg>
           </div>
           <div className="flex-1 min-w-0">
@@ -704,8 +823,15 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
             onClick={() => setPanel({ kind: "idle" })}
             className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors flex-shrink-0"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M18 6L6 18M6 6l12 12"/>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -722,19 +848,27 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
             Nearby Drivers ({nearbyDrivers.length})
           </p>
           {nearbyDrivers.length === 0 ? (
-            <p className="text-[11px] text-slate-400 italic text-center py-3">No drivers in proximity</p>
+            <p className="text-[11px] text-slate-400 italic text-center py-3">
+              No drivers in proximity
+            </p>
           ) : (
             <div className="space-y-1.5 max-h-52 overflow-y-auto pr-0.5">
-              {nearbyDrivers.map(d => {
+              {nearbyDrivers.map((d) => {
                 const s = STATUS_MAP[d.status] ?? DEF_STATUS;
                 return (
                   <button
                     key={d.id}
                     onClick={() => {
                       onSelectDriver?.(d.id);
-                      const job = jobs.find(j =>
-                        j.assigned_driver_id === d.id &&
-                        ["ASSIGNED","IN_PROGRESS","ARRIVED_PICKUP","EN_ROUTE_DELIVERY"].includes(j.status)
+                      const job = jobs.find(
+                        (j) =>
+                          j.assigned_driver_id === d.id &&
+                          [
+                            "ASSIGNED",
+                            "IN_PROGRESS",
+                            "ARRIVED_PICKUP",
+                            "EN_ROUTE_DELIVERY",
+                          ].includes(j.status),
                       );
                       setPanel({ kind: "driver", driver: d, job });
                     }}
@@ -747,11 +881,19 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
                       {(d.name[0] ?? "?").toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-slate-900 truncate leading-tight">{d.name}</p>
+                      <p className="text-xs font-semibold text-slate-900 truncate leading-tight">
+                        {d.name}
+                      </p>
                       <p className="text-[10px] text-slate-400">{s.label}</p>
                     </div>
-                    <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M9 18l6-6-6-6"/>
+                    <svg
+                      className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
+                      <path d="M9 18l6-6-6-6" />
                     </svg>
                   </button>
                 );
@@ -765,16 +907,21 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
 
   function renderPanel() {
     switch (panel.kind) {
-      case "idle":      return <PanelIdle />;
-      case "driver":    return <PanelDriver driver={panel.driver} job={panel.job} />;
-      case "warehouse": return <PanelWarehouse wh={panel.wh} nearbyDrivers={panel.nearbyDrivers} />;
-      case "loading":   return (
-        <div className="flex flex-col items-center gap-3 py-8">
-          <div className="w-8 h-8 rounded-full border-2 border-slate-100 border-t-violet-500 animate-spin" />
-          <p className="text-xs text-slate-400 font-medium">Calculating route…</p>
-        </div>
-      );
-      default: return null;
+      case "idle":
+        return <PanelIdle />;
+      case "driver":
+        return <PanelDriver driver={panel.driver} job={panel.job} />;
+      case "warehouse":
+        return <PanelWarehouse wh={panel.wh} nearbyDrivers={panel.nearbyDrivers} />;
+      case "loading":
+        return (
+          <div className="flex flex-col items-center gap-3 py-8">
+            <div className="w-8 h-8 rounded-full border-2 border-slate-100 border-t-violet-500 animate-spin" />
+            <p className="text-xs text-slate-400 font-medium">Calculating route…</p>
+          </div>
+        );
+      default:
+        return null;
     }
   }
 
@@ -809,20 +956,24 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
 
       {/* ── Bottom-left: stat pills ─────────────────────────────────────── */}
       <div className="absolute bottom-6 left-5 z-[998] flex flex-col gap-1.5">
-        <StatPill color="#2563eb" count={stats.onMap}   label="Connected" />
-        {stats.active  > 0 && <StatPill color="#16a34a" count={stats.active}  label="Active"    pulse />}
-        {stats.onRoute > 0 && <StatPill color="#7c3aed" count={stats.onRoute} label="On Route"  />}
-        {stats.delayed > 0 && <StatPill color="#dc2626" count={stats.delayed} label="Delayed"   />}
+        <StatPill color="#2563eb" count={stats.onMap} label="Connected" />
+        {stats.active > 0 && <StatPill color="#16a34a" count={stats.active} label="Active" pulse />}
+        {stats.onRoute > 0 && <StatPill color="#7c3aed" count={stats.onRoute} label="On Route" />}
+        {stats.delayed > 0 && <StatPill color="#dc2626" count={stats.delayed} label="Delayed" />}
       </div>
 
       {/* ── Bottom-right: info panel ────────────────────────────────────── */}
-      <div className={`absolute bottom-6 right-5 z-[998] transition-all duration-200 ${
-        panel.kind === "idle" ? "" : "w-72"
-      }`}>
+      <div
+        className={`absolute bottom-6 right-5 z-[998] transition-all duration-200 ${
+          panel.kind === "idle" ? "" : "w-72"
+        }`}
+      >
         {panel.kind === "idle" ? (
           <div className="inline-flex items-center gap-1.5 bg-white/95 backdrop-blur border border-slate-200/80 px-3 py-1.5 rounded-full shadow-sm">
             <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
-            <span className="text-[11px] font-medium text-slate-600">Click a driver to view details</span>
+            <span className="text-[11px] font-medium text-slate-600">
+              Click a driver to view details
+            </span>
           </div>
         ) : (
           <div className="bg-white/97 backdrop-blur-md border border-slate-200 rounded-2xl p-4 shadow-2xl">
@@ -836,9 +987,15 @@ export function LiveMap({ drivers, warehouses, jobs, jobStops, breadcrumbs, sele
 
 // ── Stat pill ────────────────────────────────────────────────────────────────
 function StatPill({
-  color, count, label, pulse,
+  color,
+  count,
+  label,
+  pulse,
 }: {
-  color: string; count: number; label: string; pulse?: boolean;
+  color: string;
+  count: number;
+  label: string;
+  pulse?: boolean;
 }) {
   return (
     <div className="flex items-center gap-2 bg-white/95 backdrop-blur border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm">
@@ -847,7 +1004,9 @@ function StatPill({
         style={{ background: color }}
       />
       <span className="text-xs font-black text-slate-800">{count}</span>
-      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+        {label}
+      </span>
     </div>
   );
 }

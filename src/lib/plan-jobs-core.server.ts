@@ -85,15 +85,9 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
     .select("*, jobs!inner(tenant_id)")
     .order("seq", { ascending: true });
 
-  let driversQ = supabaseAdmin
-    .from("drivers")
-    .select("*")
-    .order("id", { ascending: true });
+  let driversQ = supabaseAdmin.from("drivers").select("*").order("id", { ascending: true });
 
-  let whQ = supabaseAdmin
-    .from("warehouses")
-    .select("*")
-    .order("id", { ascending: true });
+  let whQ = supabaseAdmin.from("warehouses").select("*").order("id", { ascending: true });
 
   let eventsQ = supabaseAdmin
     .from("driver_events")
@@ -123,10 +117,15 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
     whQ,
     stopsQ,
     eventsQ,
-    (supabaseAdmin as unknown as { from: (t: string) => any }).from("driver_equipment").select("driver_id,equipment_type"),
-    (supabaseAdmin as unknown as { from: (t: string) => any }).from("lane_travel_times").select(
-      "from_warehouse_id,to_warehouse_id,day_of_week,hour_of_day,p50_duration_minutes,avg_duration_minutes"
-    ).limit(50000),
+    (supabaseAdmin as unknown as { from: (t: string) => any })
+      .from("driver_equipment")
+      .select("driver_id,equipment_type"),
+    (supabaseAdmin as unknown as { from: (t: string) => any })
+      .from("lane_travel_times")
+      .select(
+        "from_warehouse_id,to_warehouse_id,day_of_week,hour_of_day,p50_duration_minutes,avg_duration_minutes",
+      )
+      .limit(50000),
   ]);
 
   const jobList = (jobs ?? []) as Job[];
@@ -145,7 +144,10 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
 
   // Build driver equipment capability map.
   const driverEquipment: Record<string, Set<string>> = {};
-  for (const row of (equipRows ?? []) as unknown as { driver_id: string; equipment_type: string }[]) {
+  for (const row of (equipRows ?? []) as unknown as {
+    driver_id: string;
+    equipment_type: string;
+  }[]) {
     (driverEquipment[row.driver_id] ||= new Set()).add(row.equipment_type);
   }
 
@@ -259,16 +261,12 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
     const sbAny = supabaseAdmin as unknown as { from: (t: string) => any };
 
     for (const pr of persistedRoutes) {
-      const { data: routeRow } = await sbAny
-        .from("routes")
-        .insert(pr.route)
-        .select("id")
-        .single();
+      const { data: routeRow } = await sbAny.from("routes").insert(pr.route).select("id").single();
 
       if (routeRow?.id) {
-        await sbAny.from("route_jobs").insert(
-          pr.jobs.map((j) => ({ ...j, route_id: routeRow.id }))
-        );
+        await sbAny
+          .from("route_jobs")
+          .insert(pr.jobs.map((j) => ({ ...j, route_id: routeRow.id })));
         if (pr.route.ends_at_home) rtbLegsAdded++;
       }
     }
@@ -289,7 +287,11 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
   // current immediately after planning (not stale until the nightly rollover).
   for (const key of refreshPairs) {
     const [did, day] = key.split("|");
-    try { await recomputeDriverDay(did, day); } catch (e) { console.warn("[plan] hours refresh failed", did, day, e); }
+    try {
+      await recomputeDriverDay(did, day);
+    } catch (e) {
+      console.warn("[plan] hours refresh failed", did, day, e);
+    }
   }
 
   return {

@@ -10,8 +10,7 @@ export const Route = createFileRoute("/api/public/cron/shift-rollover")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const expected =
-          process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+        const expected = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;
         if (!expected) {
           return new Response("Server misconfigured", { status: 503 });
         }

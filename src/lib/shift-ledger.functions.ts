@@ -11,9 +11,7 @@ import { assertDriverAccess, isSuperAdmin } from "@/lib/auth-helpers.server";
 
 export const recomputeShiftLedger = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ driverId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => z.object({ driverId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await assertDriverAccess(context.userId, data.driverId);
     await recomputeRecent(data.driverId);

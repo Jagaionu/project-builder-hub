@@ -56,10 +56,16 @@ export const createCompanyAdmin = createServerFn({ method: "POST" })
       let page = 1;
       const perPage = 200;
       while (!userIdToLink) {
-        const { data: list, error: lErr } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+        const { data: list, error: lErr } = await supabaseAdmin.auth.admin.listUsers({
+          page,
+          perPage,
+        });
         if (lErr) throw new Error(lErr.message);
         const match = list.users.find((u) => u.email?.toLowerCase() === data.email);
-        if (match) { userIdToLink = match.id; break; }
+        if (match) {
+          userIdToLink = match.id;
+          break;
+        }
         if (list.users.length < perPage) break;
         page += 1;
       }
@@ -107,8 +113,6 @@ export const createCompanyAdmin = createServerFn({ method: "POST" })
     return { userId: userIdToLink, email: data.email };
   });
 
-
-
 const ListInput = z.object({ companyId: z.string().uuid() });
 
 export const listCompanyMembers = createServerFn({ method: "POST" })
@@ -123,14 +127,25 @@ export const listCompanyMembers = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!sa) throw new Error("Forbidden");
 
-    const { data: members, error } = await (supabaseAdmin as unknown as { from: (t: string) => any })
+    const { data: members, error } = await (
+      supabaseAdmin as unknown as { from: (t: string) => any }
+    )
       .from("company_members")
       .select("id, user_id, role, name, must_set_password, created_at")
       .eq("company_id", data.companyId)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
 
-    const results: Array<{ id: string; user_id: string; role: string; name: string | null; must_set_password: boolean; email: string | null; password: string | null; created_at: string }> = [];
+    const results: Array<{
+      id: string;
+      user_id: string;
+      role: string;
+      name: string | null;
+      must_set_password: boolean;
+      email: string | null;
+      password: string | null;
+      created_at: string;
+    }> = [];
     for (const m of members ?? []) {
       const { data: u } = await supabaseAdmin.auth.admin.getUserById(m.user_id);
       const { data: cred } = await supabaseAdmin
@@ -145,13 +160,12 @@ export const listCompanyMembers = createServerFn({ method: "POST" })
         name: m.name ?? null,
         must_set_password: !!m.must_set_password,
         email: m.email ?? u.user?.email ?? null,
-        password: ((cred as { password?: string } | null)?.password) ?? null,
+        password: (cred as { password?: string } | null)?.password ?? null,
         created_at: m.created_at,
       });
     }
     return results;
   });
-
 
 // ─────────────────────────────────────────────────────────────────────────
 // Per-company profiles (name-based login). Super-admin managed: create / reset
@@ -328,7 +342,10 @@ export const setMemberAvatar = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ avatarUrl: z.string().url().max(1000) }).parse(d))
   .handler(async ({ data, context }) => {
-    await sbAny.from("company_members").update({ avatar_url: data.avatarUrl }).eq("user_id", context.userId);
+    await sbAny
+      .from("company_members")
+      .update({ avatar_url: data.avatarUrl })
+      .eq("user_id", context.userId);
     return { ok: true };
   });
 
@@ -361,10 +378,7 @@ export const deleteCompany = createServerFn({ method: "POST" })
 
     // 3. Delete the company — this cascades to company_members, and
     //    all tenant-scoped tables (warehouses, drivers, jobs, events, etc.).
-    const { error } = await supabaseAdmin
-      .from("companies")
-      .delete()
-      .eq("id", data.companyId);
+    const { error } = await supabaseAdmin.from("companies").delete().eq("id", data.companyId);
     if (error) throw new Error(error.message);
 
     // 4. Delete the auth users themselves.

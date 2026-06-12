@@ -6,7 +6,7 @@ import brandLogo from "@/assets/brand-logo.png";
 
 const searchSchema = z.object({
   redirect: z.string().optional(),
-  error:    z.string().optional(),
+  error: z.string().optional(),
 });
 
 export const Route = createFileRoute("/login")({
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/login")({
 });
 
 const ERROR_MESSAGES: Record<string, string> = {
-  no_company:        "Your account is not linked to any company. Contact support.",
+  no_company: "Your account is not linked to any company. Contact support.",
   company_not_found: "Company configuration error. Contact support.",
 };
 
@@ -23,10 +23,10 @@ function LoginPage() {
   const navigate = useNavigate();
   const { redirect: redirectTo, error: queryError } = useSearch({ from: "/login" });
 
-  const [email,    setEmail]    = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState<string | null>(
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(
     queryError ? (ERROR_MESSAGES[queryError] ?? "An error occurred.") : null,
   );
 
@@ -41,11 +41,10 @@ function LoginPage() {
     const at = raw.indexOf("@");
     const loginEmail = at > 0 && !raw.slice(at + 1).includes(".") ? `${raw}.team` : raw;
 
-    const { data: authData, error: authError } =
-      await supabase.auth.signInWithPassword({
-        email:    loginEmail,
-        password,
-      });
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: loginEmail,
+      password,
+    });
 
     if (authError || !authData.session) {
       setError(authError?.message ?? "Sign-in failed");
@@ -139,17 +138,15 @@ function LoginPage() {
           }}
         >
           <h1 className="text-lg font-semibold tracking-tight mb-1">Sign in</h1>
-          <p className="text-xs text-muted-foreground mb-6">
-            Access your company's dispatch panel
-          </p>
+          <p className="text-xs text-muted-foreground mb-6">Access your company's dispatch panel</p>
 
           {error && (
             <div
               className="mb-5 rounded-lg px-3.5 py-2.5 text-xs fade-up"
               style={{
                 background: "oklch(0.63 0.22 20 / 0.08)",
-                border:     "1px solid oklch(0.63 0.22 20 / 0.3)",
-                color:      "var(--destructive-fg)",
+                border: "1px solid oklch(0.63 0.22 20 / 0.3)",
+                color: "var(--destructive-fg)",
               }}
             >
               {error}
@@ -199,11 +196,15 @@ function LoginPage() {
                   ? "none"
                   : "0 4px 12px oklch(0.62 0.22 245 / 0.35), inset 0 1px 0 oklch(1 0 0 / 0.12)",
               }}
-              onMouseEnter={e => {
-                if (!loading) e.currentTarget.style.boxShadow = "0 6px 16px oklch(0.62 0.22 245 / 0.5), inset 0 1px 0 oklch(1 0 0 / 0.12)";
+              onMouseEnter={(e) => {
+                if (!loading)
+                  e.currentTarget.style.boxShadow =
+                    "0 6px 16px oklch(0.62 0.22 245 / 0.5), inset 0 1px 0 oklch(1 0 0 / 0.12)";
               }}
-              onMouseLeave={e => {
-                if (!loading) e.currentTarget.style.boxShadow = "0 4px 12px oklch(0.62 0.22 245 / 0.35), inset 0 1px 0 oklch(1 0 0 / 0.12)";
+              onMouseLeave={(e) => {
+                if (!loading)
+                  e.currentTarget.style.boxShadow =
+                    "0 4px 12px oklch(0.62 0.22 245 / 0.35), inset 0 1px 0 oklch(1 0 0 / 0.12)";
               }}
             >
               {loading ? (
@@ -211,7 +212,9 @@ function LoginPage() {
                   <span className="size-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
                   Signing in…
                 </span>
-              ) : "Sign in"}
+              ) : (
+                "Sign in"
+              )}
             </button>
           </form>
         </div>

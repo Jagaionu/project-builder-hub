@@ -18,12 +18,15 @@ export async function answerQuestion(
 ) {
   const qEmbedding = await embed(question);
 
-  const { data: chunks, error: rpcError } = await (supabaseAdmin as any).rpc("match_ai_knowledge_rrf", {
-    query_text: question,
-    query_embedding: qEmbedding,
-    match_count: 6,
-    p_tenant_id: tenantId,
-  });
+  const { data: chunks, error: rpcError } = await (supabaseAdmin as any).rpc(
+    "match_ai_knowledge_rrf",
+    {
+      query_text: question,
+      query_embedding: qEmbedding,
+      match_count: 6,
+      p_tenant_id: tenantId,
+    },
+  );
 
   if (rpcError) {
     console.error("match_ai_knowledge_rrf failed", rpcError);

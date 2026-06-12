@@ -21,7 +21,12 @@ interface Props {
 // A base warehouse implies "return to base at end of shift": setting a base turns
 // the return on, leaving it empty (free agent) turns it off — no separate tick.
 // Compact display by default; the dropdown only appears in edit mode.
-export function BaseWarehouseSelector({ driverId, homeWarehouseId, onSaved, compact = false }: Props) {
+export function BaseWarehouseSelector({
+  driverId,
+  homeWarehouseId,
+  onSaved,
+  compact = false,
+}: Props) {
   const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(homeWarehouseId);
   const [editing, setEditing] = useState(false);
@@ -69,7 +74,9 @@ export function BaseWarehouseSelector({ driverId, homeWarehouseId, onSaved, comp
     : "text-xs font-bold uppercase tracking-wider text-muted-foreground";
 
   return (
-    <div className={`bg-card/50 border border-border/50 rounded-lg ${compact ? "p-2 space-y-2" : "p-3 space-y-3"}`}>
+    <div
+      className={`bg-card/50 border border-border/50 rounded-lg ${compact ? "p-2 space-y-2" : "p-3 space-y-3"}`}
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <WarehouseIcon size={compact ? 12 : 14} className="text-muted-foreground" />
@@ -101,7 +108,8 @@ export function BaseWarehouseSelector({ driverId, homeWarehouseId, onSaved, comp
             ))}
           </select>
           <p className="text-[10px] text-muted-foreground">
-            Setting a base means you return there at the end of each shift. Leave empty for no return.
+            Setting a base means you return there at the end of each shift. Leave empty for no
+            return.
           </p>
           <div className="flex gap-1.5">
             <button
@@ -132,10 +140,16 @@ export function BaseWarehouseSelector({ driverId, homeWarehouseId, onSaved, comp
           }`}
         >
           <span className="text-xs font-semibold text-foreground">
-            {homeWarehouseId ? (selectedWh ? `${selectedWh.code} — ${selectedWh.name}` : "Loading…") : "No base — no return"}
+            {homeWarehouseId
+              ? selectedWh
+                ? `${selectedWh.code} — ${selectedWh.name}`
+                : "Loading…"
+              : "No base — no return"}
           </span>
           {homeWarehouseId && (
-            <span className="text-[9px] font-mono uppercase tracking-wider text-primary">↩ Return</span>
+            <span className="text-[9px] font-mono uppercase tracking-wider text-primary">
+              ↩ Return
+            </span>
           )}
         </div>
       )}

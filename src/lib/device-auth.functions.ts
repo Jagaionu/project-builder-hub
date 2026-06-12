@@ -10,17 +10,21 @@ const sb = supabaseAdmin as unknown as { from: (t: string) => any };
 // the device claim, stored locally after a manager signs in with the company login.
 export const listDeviceProfiles = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ companyId: z.string().uuid() }).parse(d))
-  .handler(async ({ data }): Promise<Array<{ memberId: string; name: string; avatarUrl: string | null }>> => {
-    const { data: rows } = await sb
-      .from("company_members")
-      .select("id, name, avatar_url")
-      .eq("company_id", data.companyId)
-      .eq("role", "member")
-      .order("name", { ascending: true });
-    return ((rows ?? []) as Array<{ id: string; name: string | null; avatar_url: string | null }>)
-      .filter((m) => m.name)
-      .map((m) => ({ memberId: m.id, name: m.name as string, avatarUrl: m.avatar_url ?? null }));
-  });
+  .handler(
+    async ({
+      data,
+    }): Promise<Array<{ memberId: string; name: string; avatarUrl: string | null }>> => {
+      const { data: rows } = await sb
+        .from("company_members")
+        .select("id, name, avatar_url")
+        .eq("company_id", data.companyId)
+        .eq("role", "member")
+        .order("name", { ascending: true });
+      return ((rows ?? []) as Array<{ id: string; name: string | null; avatar_url: string | null }>)
+        .filter((m) => m.name)
+        .map((m) => ({ memberId: m.id, name: m.name as string, avatarUrl: m.avatar_url ?? null }));
+    },
+  );
 
 // PUBLIC (pre-login). Verifies a profile's password server-side and returns the
 // session tokens for the browser to adopt via supabase.auth.setSession(). The
@@ -41,8 +45,16 @@ export const profileSignIn = createServerFn({ method: "POST" })
     const anonKey = process.env.SUPABASE_PUBLISHABLE_KEY;
     if (!url || !anonKey) throw new Error("Auth not configured");
 
-    const anon = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { data: signed, error } = await anon.auth.signInWithPassword({ email: m.email, password: data.password });
+    const anon = createClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: signed, error } = await anon.auth.signInWithPassword({
+      email: m.email,
+      password: data.password,
+    });
     if (error || !signed.session) throw new Error("Incorrect password");
-    return { access_token: signed.session.access_token, refresh_token: signed.session.refresh_token };
+    return {
+      access_token: signed.session.access_token,
+      refresh_token: signed.session.refresh_token,
+    };
   });

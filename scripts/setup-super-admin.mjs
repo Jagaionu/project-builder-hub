@@ -40,9 +40,7 @@ function fail(message) {
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const email = (argValue("email") ?? process.env.SUPER_ADMIN_EMAIL ?? "")
-  .trim()
-  .toLowerCase();
+const email = (argValue("email") ?? process.env.SUPER_ADMIN_EMAIL ?? "").trim().toLowerCase();
 const password = argValue("password") ?? process.env.SUPER_ADMIN_PASSWORD ?? "";
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {

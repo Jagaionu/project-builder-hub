@@ -10,18 +10,30 @@ export function parseCsv(text: string): string[][] {
     const ch = text[i];
     if (inQuotes) {
       if (ch === '"') {
-        if (text[i + 1] === '"') { cur += '"'; i++; }
-        else inQuotes = false;
+        if (text[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else inQuotes = false;
       } else cur += ch;
     } else {
       if (ch === '"') inQuotes = true;
-      else if (ch === ",") { row.push(cur); cur = ""; }
-      else if (ch === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; }
-      else if (ch === "\r") { /* skip */ }
-      else cur += ch;
+      else if (ch === ",") {
+        row.push(cur);
+        cur = "";
+      } else if (ch === "\n") {
+        row.push(cur);
+        rows.push(row);
+        row = [];
+        cur = "";
+      } else if (ch === "\r") {
+        /* skip */
+      } else cur += ch;
     }
   }
-  if (cur.length > 0 || row.length > 0) { row.push(cur); rows.push(row); }
+  if (cur.length > 0 || row.length > 0) {
+    row.push(cur);
+    rows.push(row);
+  }
   return rows.filter((r) => r.some((c) => c.trim() !== ""));
 }
 
@@ -31,13 +43,25 @@ function parseDateTime(dateStr: string, timeStr: string, dateFmt: string): strin
   const d = (dateStr || "").trim();
   const t = (timeStr || "").trim();
   if (!d || !t) return null;
-  let y = 0, mo = 0, da = 0;
+  let y = 0,
+    mo = 0,
+    da = 0;
   const fmt = (dateFmt || "dd/MM/yyyy").toLowerCase();
   const parts = d.split(/[\/\-\.]/);
   if (parts.length !== 3) return null;
-  if (fmt.startsWith("dd")) { da = +parts[0]; mo = +parts[1]; y = +parts[2]; }
-  else if (fmt.startsWith("mm")) { mo = +parts[0]; da = +parts[1]; y = +parts[2]; }
-  else { y = +parts[0]; mo = +parts[1]; da = +parts[2]; }
+  if (fmt.startsWith("dd")) {
+    da = +parts[0];
+    mo = +parts[1];
+    y = +parts[2];
+  } else if (fmt.startsWith("mm")) {
+    mo = +parts[0];
+    da = +parts[1];
+    y = +parts[2];
+  } else {
+    y = +parts[0];
+    mo = +parts[1];
+    da = +parts[2];
+  }
   const [hh, mm] = t.split(":").map((x) => +x);
   if (!y || !mo || !da || Number.isNaN(hh) || Number.isNaN(mm)) return null;
   const dt = new Date(y, mo - 1, da, hh, mm, 0);
@@ -87,7 +111,6 @@ export function csvToImportRows(text: string): ImportRow[] {
   return out;
 }
 
-
 // Parse a single FMC datetime cell. Handles ISO (UTC) and dd/MM/yyyy HH:mm[:ss].
 function parseFmcDateTime(value: string): string | null {
   const s = (value || "").trim();
@@ -100,7 +123,12 @@ function parseFmcDateTime(value: string): string | null {
   // dd/MM/yyyy HH:mm[:ss] (European — matches the rest of the importer).
   const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
   if (m) {
-    const mo = +m[1], da = +m[2], y = +m[3], hh = +m[4], mm = +m[5], ss = m[6] ? +m[6] : 0;
+    const mo = +m[1],
+      da = +m[2],
+      y = +m[3],
+      hh = +m[4],
+      mm = +m[5],
+      ss = m[6] ? +m[6] : 0;
     const dt = new Date(y, mo - 1, da, hh, mm, ss);
     return Number.isNaN(dt.getTime()) ? null : dt.toISOString();
   }
@@ -146,7 +174,14 @@ function fmcToImportRows(rows: string[][], header: string[]): ImportRow[] {
       stopYardDeparture.push(sc.dep >= 0 ? parseFmcDateTime(row[sc.dep] || "") : null);
     }
     if (codes.length < 2) continue;
-    out.push({ reference, lane: codes.join("->"), equipmentType: equip, estimatedCost, stopScheduledAt, stopYardDeparture });
+    out.push({
+      reference,
+      lane: codes.join("->"),
+      equipmentType: equip,
+      estimatedCost,
+      stopScheduledAt,
+      stopYardDeparture,
+    });
   }
   return out;
 }

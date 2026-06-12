@@ -82,10 +82,7 @@ export async function fetchShiftsByDriver(
 /**
  * Fetch a single driver's working weekdays (sorted). Empty array = no pattern.
  */
-export async function fetchShiftDays(
-  client: AnySupabase,
-  driverId: string,
-): Promise<number[]> {
+export async function fetchShiftDays(client: AnySupabase, driverId: string): Promise<number[]> {
   const map = await fetchShiftsByDriver(client, [driverId]);
   return map[driverId]?.days_of_week ?? [];
 }
@@ -102,7 +99,9 @@ export async function saveShiftDays(
   days: number[],
   tenantId?: string | null,
 ): Promise<void> {
-  const unique = Array.from(new Set(days)).filter((d) => d >= 0 && d <= 6).sort((a, b) => a - b);
+  const unique = Array.from(new Set(days))
+    .filter((d) => d >= 0 && d <= 6)
+    .sort((a, b) => a - b);
 
   await client.from("driver_shift_templates").delete().eq("driver_id", driverId);
 
@@ -121,7 +120,11 @@ export async function saveShiftDays(
 }
 
 // A working day in the pattern. Times are OPTIONAL: null = no fixed hours.
-export type ShiftPatternDay = { day_of_week: number; start_time: string | null; end_time: string | null };
+export type ShiftPatternDay = {
+  day_of_week: number;
+  start_time: string | null;
+  end_time: string | null;
+};
 
 /**
  * Fetch a single driver's full shift pattern — working weekdays plus per-day

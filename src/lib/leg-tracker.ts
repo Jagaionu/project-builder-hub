@@ -64,11 +64,15 @@ export async function checkGeofences(
           // Real departure happened during the previous ping interval — backdate
           // it (never before arrival at this stop) for accurate transit/dwell.
           const dwelledStop = sorted.find((s) => s.warehouse_id === lastWh.id && s.arrived_at);
-          const arrivedMs = dwelledStop?.arrived_at ? new Date(dwelledStop.arrived_at).getTime() : 0;
-          const departedIso = new Date(Math.max(arrivedMs, pos.ts - DEPARTURE_BACKDATE_MS)).toISOString();
-          await closeDwell({ data: { dwellId: legState.activeDwellId, departedAt: departedIso } }).catch(
-            (e) => console.error("[legs] closeDwell", e),
-          );
+          const arrivedMs = dwelledStop?.arrived_at
+            ? new Date(dwelledStop.arrived_at).getTime()
+            : 0;
+          const departedIso = new Date(
+            Math.max(arrivedMs, pos.ts - DEPARTURE_BACKDATE_MS),
+          ).toISOString();
+          await closeDwell({
+            data: { dwellId: legState.activeDwellId, departedAt: departedIso },
+          }).catch((e) => console.error("[legs] closeDwell", e));
           // Record the actual (GPS-derived) departure on the stop the driver left.
           if (dwelledStop?.id) {
             await supabase
@@ -176,22 +180,18 @@ export async function checkGeofences(
             lastKnownWarehouseId: nextWh.id,
           });
           // Update local jobs cache
-          useDriverStore
-            .getState()
-            .setJobs(
-              useDriverStore
-                .getState()
-                .jobs.map((j) =>
-                  j.id !== job.id
-                    ? j
-                    : {
-                        ...j,
-                        stops: j.stops.map((s) =>
-                          s.id === nextStop.id ? { ...s, arrived_at: nowIso } : s,
-                        ),
-                      },
-                ),
-            );
+          useDriverStore.getState().setJobs(
+            useDriverStore.getState().jobs.map((j) =>
+              j.id !== job.id
+                ? j
+                : {
+                    ...j,
+                    stops: j.stops.map((s) =>
+                      s.id === nextStop.id ? { ...s, arrived_at: nowIso } : s,
+                    ),
+                  },
+            ),
+          );
         } catch (e) {
           console.error("[legs] openDwell", e);
         }

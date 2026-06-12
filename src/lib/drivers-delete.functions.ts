@@ -20,7 +20,7 @@ export const deleteDriver = createServerFn({ method: "POST" })
       .eq("id", data.driverId)
       .maybeSingle();
     if (fetchErr) throw new Error(fetchErr.message);
-    if (!drv) return { ok: true }
+    if (!drv) return { ok: true };
 
     if (!(await isSuperAdmin(userId))) {
       const callerTenant = await getUserTenantId(userId);
@@ -29,10 +29,7 @@ export const deleteDriver = createServerFn({ method: "POST" })
       }
     }
 
-    const { error: delErr } = await supabaseAdmin
-      .from("drivers")
-      .delete()
-      .eq("id", data.driverId);
+    const { error: delErr } = await supabaseAdmin.from("drivers").delete().eq("id", data.driverId);
     if (delErr) throw new Error(delErr.message);
 
     if (drv.user_id) {

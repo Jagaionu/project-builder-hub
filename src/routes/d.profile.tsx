@@ -62,21 +62,16 @@ function ProfilePage() {
         </div>
       )}
 
-
       {/* Shift Calendar */}
       {driver && (
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <CalendarDays size={18} style={{ color: "var(--primary)" }} />
-          <h2 className="text-base font-bold text-foreground">My Schedule</h2>
+            <h2 className="text-base font-bold text-foreground">My Schedule</h2>
           </div>
           <ShiftCalendar driverId={driver.id} isPlanner={false} />
-
         </div>
       )}
-
-
-
     </div>
   );
 }

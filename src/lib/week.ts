@@ -17,7 +17,10 @@ export function addWeeks(weekStart: string, n: number): string {
 /** Today's UK (Europe/London) calendar date as YYYY-MM-DD. */
 export function ukToday(ms: number = Date.now()): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   }).formatToParts(new Date(ms));
   const g = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
   return `${g("year")}-${g("month")}-${g("day")}`;

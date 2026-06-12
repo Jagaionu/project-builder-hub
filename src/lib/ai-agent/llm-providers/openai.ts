@@ -36,13 +36,18 @@ export const openaiProvider: LLMProvider = {
     const toolCall = choice.message.tool_calls?.[0];
     return {
       content: choice.message.content || "",
-      functionCall: toolCall?.type === "function"
-        ? { name: toolCall.function.name, arguments: toolCall.function.arguments }
-        : undefined,
+      functionCall:
+        toolCall?.type === "function"
+          ? { name: toolCall.function.name, arguments: toolCall.function.arguments }
+          : undefined,
     };
   },
 
-  async streamChat(messages: ChatMessage[], onToken: (token: string) => void, functions?: FunctionDefinition[]) {
+  async streamChat(
+    messages: ChatMessage[],
+    onToken: (token: string) => void,
+    functions?: FunctionDefinition[],
+  ) {
     const stream = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: messages as OpenAI.ChatCompletionMessageParam[],

@@ -51,7 +51,10 @@ export const deleteImportBatch = createServerFn({ method: "POST" })
     if (delErr) throw new Error(delErr.message);
 
     const { data: actor } = await (supabaseAdmin as unknown as { from: (t: string) => any })
-      .from("company_members").select("name, email").eq("user_id", userId).maybeSingle();
+      .from("company_members")
+      .select("name, email")
+      .eq("user_id", userId)
+      .maybeSingle();
     await logActivityServer({
       tenantId: (batch as { tenant_id: string }).tenant_id,
       actorUserId: userId,
