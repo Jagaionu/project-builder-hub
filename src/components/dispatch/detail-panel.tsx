@@ -1,10 +1,29 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Ban, Check, Clock, Copy, CopyPlus, MapPin, MoreHorizontal, Pencil, RotateCcw, X } from "lucide-react";
+import {
+  ArrowRight,
+  Ban,
+  Check,
+  Clock,
+  Copy,
+  CopyPlus,
+  MapPin,
+  MoreHorizontal,
+  Pencil,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { isJobScheduledFuture } from "@/lib/effective-status";
-import { computeStopSchedule, etaMinutes, haversineKm, stopDwellMinutes, stopCriticalWindow, transitTimeHours } from "@/lib/geo";
+import {
+  computeStopSchedule,
+  etaMinutes,
+  haversineKm,
+  stopDwellMinutes,
+  stopCriticalWindow,
+  transitTimeHours,
+} from "@/lib/geo";
 import { isDriverAvailableOnDate } from "@/lib/planner";
 import type { Compliance } from "@/lib/compliance";
 import type { Driver, DriverShift, DriverAvailabilityOverride, Job, Warehouse } from "@/lib/types";
@@ -29,7 +48,13 @@ const VRID_AUDIT_LABEL: Record<string, string> = {
   "import.delete": "Import deleted",
 };
 
-type AuditRow = { id: string; actor_name: string | null; actor_email: string | null; action: string; created_at: string };
+type AuditRow = {
+  id: string;
+  actor_name: string | null;
+  actor_email: string | null;
+  action: string;
+  created_at: string;
+};
 
 // Clickable VRID → per-job audit trail (Login | Event Date | Action), regardless
 // of the job's status. Reads the 14-day activity_log for this job's entity_id.
@@ -46,7 +71,10 @@ function VridAuditButton({ jobId, reference }: { jobId: string; reference: strin
       .eq("entity_type", "job")
       .eq("entity_id", jobId)
       .order("created_at", { ascending: false })
-      .then(({ data }: { data: AuditRow[] | null }) => { setRows(data ?? []); setLoaded(true); });
+      .then(({ data }: { data: AuditRow[] | null }) => {
+        setRows(data ?? []);
+        setLoaded(true);
+      });
   }, [open, loaded, jobId]);
 
   return (
@@ -60,16 +88,31 @@ function VridAuditButton({ jobId, reference }: { jobId: string; reference: strin
         {reference}
       </button>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setOpen(false)}>
-          <div className="bg-surface rounded-xl border border-border shadow-2xl w-full max-w-lg p-5 max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-surface rounded-xl border border-border shadow-2xl w-full max-w-lg p-5 max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-0.5">
               <h3 className="text-sm font-semibold">Audit · {reference}</h3>
-              <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+              <button
+                onClick={() => setOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
             </div>
-            <p className="text-[11px] text-muted-foreground mb-3">Activity for this lane (last 14 days)</p>
+            <p className="text-[11px] text-muted-foreground mb-3">
+              Activity for this lane (last 14 days)
+            </p>
             <div className="flex-1 overflow-auto">
               {rows.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6">{loaded ? "No audit events for this lane." : "Loading…"}</p>
+                <p className="text-xs text-muted-foreground text-center py-6">
+                  {loaded ? "No audit events for this lane." : "Loading…"}
+                </p>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
@@ -84,7 +127,13 @@ function VridAuditButton({ jobId, reference }: { jobId: string; reference: strin
                       <tr key={r.id} className="border-b border-border/50">
                         <td className="py-2 pr-4">{r.actor_name ?? r.actor_email ?? "—"}</td>
                         <td className="py-2 pr-4 font-mono text-xs text-muted-foreground whitespace-nowrap">
-                          {new Date(r.created_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}
+                          {new Date(r.created_at).toLocaleString(undefined, {
+                            day: "2-digit",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: false,
+                          })}
                         </td>
                         <td className="py-2">{VRID_AUDIT_LABEL[r.action] ?? r.action}</td>
                       </tr>
@@ -101,9 +150,19 @@ function VridAuditButton({ jobId, reference }: { jobId: string; reference: strin
 }
 
 export const JobDetailPanel = memo(function JobDetailPanel({
-  job, stops, warehouses, drivers, compliance, lookups, planned,
-  driverShifts, shiftOverrides,
-  onAssignDriver, onSetStatus, onEdit, onClone,
+  job,
+  stops,
+  warehouses,
+  drivers,
+  compliance,
+  lookups,
+  planned,
+  driverShifts,
+  shiftOverrides,
+  onAssignDriver,
+  onSetStatus,
+  onEdit,
+  onClone,
 }: {
   job: Job;
   stops: Stop[];
@@ -120,7 +179,9 @@ export const JobDetailPanel = memo(function JobDetailPanel({
   onClone: () => void;
 }) {
   const isMR = stops.length > 2;
-  const laneString = stops.map((s) => lookups.warehousesById.get(s.warehouse_id)?.code ?? "?").join("->");
+  const laneString = stops
+    .map((s) => lookups.warehousesById.get(s.warehouse_id)?.code ?? "?")
+    .join("->");
   const driver = job.assigned_driver_id ? lookups.driversById.get(job.assigned_driver_id) : null;
   const origin = stops[0] ? lookups.warehousesById.get(stops[0].warehouse_id) : null;
 
@@ -129,27 +190,34 @@ export const JobDetailPanel = memo(function JobDetailPanel({
       {
         ...job,
         stops: stops.map((s, idx) => ({
-          seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
-          scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
+          seq: idx,
+          kind: s.kind,
+          warehouse_id: s.warehouse_id,
+          scheduled_at: s.scheduled_at,
+          arrived_at: s.arrived_at ?? null,
         })),
       },
       Date.now(),
-    ) ? "SCHEDULED" : job.status;
+    )
+      ? "SCHEDULED"
+      : job.status;
   }, [job, stops]);
 
   // Anchor planned times to the SCHEDULED run start — the first stop's
   // scheduled time — so the schedule shows even before the planner runs and
   // stays consistent with the driver app. Falls back to job-level start, then
   // to the raw per-stop scheduled times.
-  const stopTimes = useMemo(
-    () => {
-      const basis = stops[0]?.scheduled_at ?? job.planned_start_at ?? job.scheduled_at;
-      return basis
-        ? computeStopSchedule(stops, basis, warehouses, (job as { handling_minutes?: number | null }).handling_minutes ?? undefined)
-        : stops.map((s) => s.scheduled_at);
-    },
-    [job.planned_start_at, job.scheduled_at, stops, warehouses],
-  );
+  const stopTimes = useMemo(() => {
+    const basis = stops[0]?.scheduled_at ?? job.planned_start_at ?? job.scheduled_at;
+    return basis
+      ? computeStopSchedule(
+          stops,
+          basis,
+          warehouses,
+          (job as { handling_minutes?: number | null }).handling_minutes ?? undefined,
+        )
+      : stops.map((s) => s.scheduled_at);
+  }, [job.planned_start_at, job.scheduled_at, stops, warehouses]);
   // First stop not yet arrived — the one we project a live GPS ETA for (dispatcher only).
   const nextUnarrivedIdx = stops.findIndex((s) => !s.arrived_at);
 
@@ -166,7 +234,8 @@ export const JobDetailPanel = memo(function JobDetailPanel({
     for (let i = 0; i < stops.length - 1; i++) {
       const a = lookups.warehousesById.get(stops[i].warehouse_id);
       const b = lookups.warehousesById.get(stops[i + 1].warehouse_id);
-      if (a && b) interH += transitTimeHours(haversineKm(a.latitude, a.longitude, b.latitude, b.longitude));
+      if (a && b)
+        interH += transitTimeHours(haversineKm(a.latitude, a.longitude, b.latitude, b.longitude));
     }
     return drivers
       .filter((d) => isDriverAvailableOnDate(d.id, targetDate, driverShifts, shiftOverrides))
@@ -182,18 +251,38 @@ export const JobDetailPanel = memo(function JobDetailPanel({
         const deadheadH = transitTimeHours(
           haversineKm(d.current_lat!, d.current_lon!, origin.latitude, origin.longitude),
         );
-        if (dc && deadheadH + interH > Math.min(dc.dailyHeadroom, dc.weeklyHeadroom, dc.twoWeekHeadroom)) {
+        if (
+          dc &&
+          deadheadH + interH > Math.min(dc.dailyHeadroom, dc.weeklyHeadroom, dc.twoWeekHeadroom)
+        ) {
           return false;
         }
         return true;
       })
       .map((d) => {
-        const distKm = haversineKm(d.current_lat!, d.current_lon!, origin.latitude, origin.longitude);
+        const distKm = haversineKm(
+          d.current_lat!,
+          d.current_lon!,
+          origin.latitude,
+          origin.longitude,
+        );
         return { driver: d, distKm, eta: etaMinutes(distKm) };
       })
       .sort((a, b) => a.distKm - b.distKm)
       .slice(0, 3);
-  }, [driver, isLaneAssigned, drivers, origin, job, stops, driverShifts, shiftOverrides, compliance, driverEquip, lookups]);
+  }, [
+    driver,
+    isLaneAssigned,
+    drivers,
+    origin,
+    job,
+    stops,
+    driverShifts,
+    shiftOverrides,
+    compliance,
+    driverEquip,
+    lookups,
+  ]);
 
   // Only run auto-validation and status transitions for assigned/active jobs,
   // never for PENDING runs — timestamps must not appear on unassigned jobs.
@@ -210,7 +299,11 @@ export const JobDetailPanel = memo(function JobDetailPanel({
               <VridAuditButton jobId={job.id} reference={job.reference} />
               <CopyButton value={job.reference} title="Copy reference" />
             </div>
-            <StatusPill status={effectiveStatus} onChange={onSetStatus} disabled={job.status === "COMPLETED" || job.status === "CANCELLED"} />
+            <StatusPill
+              status={effectiveStatus}
+              onChange={onSetStatus}
+              disabled={job.status === "COMPLETED" || job.status === "CANCELLED"}
+            />
             {isMR && (
               <span className="inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[10px] border border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5">
                 MR · {stops.length} stops
@@ -225,10 +318,18 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                 const wh = lookups.warehousesById.get(s.warehouse_id);
                 return (
                   <span key={i} className="flex items-center gap-2">
-                    <span className={s.kind === "PICKUP" ? "text-blue-500 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"}>
+                    <span
+                      className={
+                        s.kind === "PICKUP"
+                          ? "text-blue-500 dark:text-blue-400"
+                          : "text-emerald-600 dark:text-emerald-400"
+                      }
+                    >
                       {wh?.code ?? "?"}
                     </span>
-                    {i < stops.length - 1 && <ArrowRight className="size-4 text-muted-foreground" />}
+                    {i < stops.length - 1 && (
+                      <ArrowRight className="size-4 text-muted-foreground" />
+                    )}
                   </span>
                 );
               })
@@ -236,10 +337,12 @@ export const JobDetailPanel = memo(function JobDetailPanel({
             {stops.length > 0 && <CopyButton value={laneString} title="Copy lane" />}
           </h2>
           <p className="text-xs text-muted-foreground mt-1">
-            {stops.map((s) => {
-              const wh = lookups.warehousesById.get(s.warehouse_id);
-              return `${s.kind === "PICKUP" ? "📦" : "🏁"} ${wh?.name ?? "?"}`;
-            }).join(" → ")}
+            {stops
+              .map((s) => {
+                const wh = lookups.warehousesById.get(s.warehouse_id);
+                return `${s.kind === "PICKUP" ? "📦" : "🏁"} ${wh?.name ?? "?"}`;
+              })
+              .join(" → ")}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -267,7 +370,8 @@ export const JobDetailPanel = memo(function JobDetailPanel({
         />
         {(job.status === "COMPLETED" || job.status === "CANCELLED") && (
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Driver can't be changed on a {job.status === "COMPLETED" ? "completed" : "cancelled"} route.
+            Driver can't be changed on a {job.status === "COMPLETED" ? "completed" : "cancelled"}{" "}
+            route.
           </p>
         )}
         {!driver && (planned || job.planned_driver_id) && (
@@ -290,7 +394,8 @@ export const JobDetailPanel = memo(function JobDetailPanel({
             job.assigned_driver_id ?? planned?.driverId ?? job.planned_driver_id ?? null;
           if (!activeDriverId) return null;
           const activeDriver = lookups.driversById.get(activeDriverId);
-          if (!activeDriver?.return_to_base_required || !activeDriver?.home_warehouse_id) return null;
+          if (!activeDriver?.return_to_base_required || !activeDriver?.home_warehouse_id)
+            return null;
           const homeWh = lookups.warehousesById.get(activeDriver.home_warehouse_id);
 
           // Check if the last stop for this job already ends at home warehouse.
@@ -303,8 +408,8 @@ export const JobDetailPanel = memo(function JobDetailPanel({
               <RotateCcw size={12} className="shrink-0" />
               <span>
                 Driver must return to{" "}
-                <span className="font-semibold">{homeWh?.code ?? "home base"}</span>
-                {" "}— deadhead leg will be added by the planner
+                <span className="font-semibold">{homeWh?.code ?? "home base"}</span> — deadhead leg
+                will be added by the planner
               </span>
             </div>
           );
@@ -349,7 +454,9 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                         <button
                           onClick={() => onAssignDriver(d.id)}
                           disabled={blocked}
-                          title={blocked ? dc?.issues.find((i) => i.level === "breach")?.msg : undefined}
+                          title={
+                            blocked ? dc?.issues.find((i) => i.level === "breach")?.msg : undefined
+                          }
                           className="px-2.5 py-1 rounded bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           Assign
@@ -388,12 +495,16 @@ export const JobDetailPanel = memo(function JobDetailPanel({
               // for a pickup, CIT (inject/arrive) for a drop. Derive the implied
               // arrival + departure so a pickup arrives BEFORE its CPT.
               const plannedRaw = s.scheduled_at ?? stopTimes[idx];
-              const win = stopCriticalWindow(plannedRaw, s.kind, (job as { handling_minutes?: number | null }).handling_minutes ?? undefined);
+              const win = stopCriticalWindow(
+                plannedRaw,
+                s.kind,
+                (job as { handling_minutes?: number | null }).handling_minutes ?? undefined,
+              );
               // Imported (FMC) stops carry an explicit yard departure, and their
               // scheduled_at IS the yard arrival. Created routes compute the yard
               // (CPT − 20 / CIT) and show the critical dock time (CPT/CIT).
               const isImported = s.yard_departure != null;
-              const arr = isImported ? plannedRaw : win.arrival;          // planned yard arrival
+              const arr = isImported ? plannedRaw : win.arrival; // planned yard arrival
               const dockTime = isImported ? s.yard_departure : plannedRaw; // departure: imported yard / created dock
               // Live estimated arrival for the NEXT un-arrived stop, from the
               // assigned driver's current GPS — only once they've left the
@@ -401,13 +512,21 @@ export const JobDetailPanel = memo(function JobDetailPanel({
               let estArrIso: string | null = null;
               const dLat = driver?.current_lat ?? null;
               const dLon = driver?.current_lon ?? null;
-              if (idx === nextUnarrivedIdx && isAssignedOrActive && dLat != null && dLon != null && wh) {
+              if (
+                idx === nextUnarrivedIdx &&
+                isAssignedOrActive &&
+                dLat != null &&
+                dLon != null &&
+                wh
+              ) {
                 const prev = idx > 0 ? stops[idx - 1] : null;
                 const prevWh = prev ? lookups.warehousesById.get(prev.warehouse_id) : null;
                 const prevDeparted =
                   idx === 0 ||
                   !!(prev as { departed_at?: string | null } | null)?.departed_at ||
-                  (prevWh ? haversineKm(dLat, dLon, prevWh.latitude, prevWh.longitude) * 1000 > 300 : true);
+                  (prevWh
+                    ? haversineKm(dLat, dLon, prevWh.latitude, prevWh.longitude) * 1000 > 300
+                    : true);
                 if (prevDeparted) {
                   const km = haversineKm(dLat, dLon, wh.latitude, wh.longitude);
                   estArrIso = new Date(Date.now() + etaMinutes(km) * 60_000).toISOString();
@@ -416,23 +535,34 @@ export const JobDetailPanel = memo(function JobDetailPanel({
               const fmt = (iso: string | null | undefined) =>
                 iso
                   ? new Date(iso).toLocaleString(undefined, {
-                      day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false,
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
                     })
                   : "—";
               // Lateness: a PICKUP is late only if it DEPARTED (GPS) after its
               // planned departure (CPT / yard departure) — arriving early at the
               // yard is NOT late. A DROP is late if it ARRIVED after its planned
               // arrival (CIT / yard arrival).
-              const lateEvent = s.kind === "PICKUP" ? s.departed_at ?? null : s.arrived_at ?? null;
+              const lateEvent =
+                s.kind === "PICKUP" ? (s.departed_at ?? null) : (s.arrived_at ?? null);
               const lateTarget = s.kind === "PICKUP" ? dockTime : arr;
-              const delayMin = lateEvent && lateTarget
-                ? Math.round((new Date(lateEvent).getTime() - new Date(lateTarget).getTime()) / 60_000)
-                : null;
+              const delayMin =
+                lateEvent && lateTarget
+                  ? Math.round(
+                      (new Date(lateEvent).getTime() - new Date(lateTarget).getTime()) / 60_000,
+                    )
+                  : null;
               const isDelayed = delayMin != null && delayMin > 5;
 
               // GPS time shown in the Estimated column: a pickup's pull (departure)
               // once it happens, else its yard arrival; a drop's arrival.
-              const gpsTime = s.kind === "PICKUP" ? (s.departed_at ?? s.arrived_at ?? null) : (s.arrived_at ?? null);
+              const gpsTime =
+                s.kind === "PICKUP"
+                  ? (s.departed_at ?? s.arrived_at ?? null)
+                  : (s.arrived_at ?? null);
               const isGpsConfirmed = !!(s.arrived_at && plannedRaw && s.arrived_at !== plannedRaw);
 
               return (
@@ -445,7 +575,9 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                   <div className="col-span-3 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="font-mono text-xs text-foreground">{wh?.code ?? "?"}</span>
-                      <span className={`font-mono text-[9px] uppercase ${s.kind === "PICKUP" ? "text-blue-500 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+                      <span
+                        className={`font-mono text-[9px] uppercase ${s.kind === "PICKUP" ? "text-blue-500 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"}`}
+                      >
                         {s.kind === "PICKUP" ? "Pick" : "Drop"}
                       </span>
                     </div>
@@ -456,7 +588,9 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                     {fmt(dockTime)}
                     {!isImported && dockTime && (
                       <span
-                        title={s.kind === "PICKUP" ? "Critical Pull Time" : "Critical Injection Time"}
+                        title={
+                          s.kind === "PICKUP" ? "Critical Pull Time" : "Critical Injection Time"
+                        }
                         className={`ml-1 text-[9px] font-semibold ${s.kind === "PICKUP" ? "text-blue-500 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"}`}
                       >
                         {s.kind === "PICKUP" ? "CPT" : "CIT"}
@@ -467,17 +601,39 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                     {isAssignedOrActive && gpsTime ? (
                       <div className="flex flex-col items-start gap-0.5">
                         <div className="flex items-center gap-1">
-                          <span className={isDelayed ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}>
-                            {new Date(gpsTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
+                          <span
+                            className={
+                              isDelayed
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-emerald-600 dark:text-emerald-400"
+                            }
+                          >
+                            {new Date(gpsTime).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: false,
+                            })}
                           </span>
                           {isGpsConfirmed && (
-                            <span className="inline-flex items-center px-1 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-[8px] font-bold text-orange-600 dark:text-orange-400">GPS</span>
+                            <span className="inline-flex items-center px-1 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-[8px] font-bold text-orange-600 dark:text-orange-400">
+                              GPS
+                            </span>
                           )}
                         </div>
-                        {isDelayed && <span className="text-[9px] text-amber-600 dark:text-amber-400">+{delayMin}m late</span>}
+                        {isDelayed && (
+                          <span className="text-[9px] text-amber-600 dark:text-amber-400">
+                            +{delayMin}m late
+                          </span>
+                        )}
                       </div>
                     ) : estArrIso ? (
-                      <span className="text-primary">{new Date(estArrIso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}</span>
+                      <span className="text-primary">
+                        {new Date(estArrIso).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: false,
+                        })}
+                      </span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
@@ -493,7 +649,11 @@ export const JobDetailPanel = memo(function JobDetailPanel({
         <Clock className="size-3" />
         {job.scheduled_at
           ? `Scheduled ${new Date(job.scheduled_at).toLocaleString(undefined, {
-              day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false,
+              day: "2-digit",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
             })}`
           : "No scheduled start"}
       </div>
@@ -510,7 +670,9 @@ function useAutoStatusTransition(
   onSetStatus: (s: string, opts?: { silent?: boolean }) => void,
 ) {
   const onSetStatusRef = useRef(onSetStatus);
-  useEffect(() => { onSetStatusRef.current = onSetStatus; }, [onSetStatus]);
+  useEffect(() => {
+    onSetStatusRef.current = onSetStatus;
+  }, [onSetStatus]);
 
   useEffect(() => {
     if (stops.length === 0) return;
@@ -576,16 +738,24 @@ function useAutoValidateArrivals(
           .update({ arrived_at: u.planned })
           .eq("id", u.id)
           .is("arrived_at", null)
-          .then(({ error }) => { if (error) autoValidatedStops.delete(u.id); }),
+          .then(({ error }) => {
+            if (error) autoValidatedStops.delete(u.id);
+          }),
       ),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.id, job.status, stops, stopTimes, lastDriverUpdateIso]);
 }
 
-function useAutoComplete(job: Job, stops: Stop[], onSetStatus: (s: string, opts?: { silent?: boolean }) => void) {
+function useAutoComplete(
+  job: Job,
+  stops: Stop[],
+  onSetStatus: (s: string, opts?: { silent?: boolean }) => void,
+) {
   const onSetStatusRef = useRef(onSetStatus);
-  useEffect(() => { onSetStatusRef.current = onSetStatus; }, [onSetStatus]);
+  useEffect(() => {
+    onSetStatusRef.current = onSetStatus;
+  }, [onSetStatus]);
 
   useEffect(() => {
     if (stops.length === 0) return;
@@ -598,7 +768,9 @@ function useAutoComplete(job: Job, stops: Stop[], onSetStatus: (s: string, opts?
     // can finish earlier via the "Confirm unloaded" button.
     const last = stops[stops.length - 1];
     const handlingMin = (job as { handling_minutes?: number | null }).handling_minutes ?? 20;
-    const dropDepartMs = last.scheduled_at ? new Date(last.scheduled_at).getTime() + handlingMin * 60_000 : 0;
+    const dropDepartMs = last.scheduled_at
+      ? new Date(last.scheduled_at).getTime() + handlingMin * 60_000
+      : 0;
     if (dropDepartMs && Date.now() < dropDepartMs) return;
 
     const anyDelayed = stops.some((s) => {
@@ -648,7 +820,8 @@ function RouteActionsMenu({
   onCancel: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const item = "w-full flex items-center gap-2 text-left px-2 py-1.5 rounded text-xs hover:bg-surface-2";
+  const item =
+    "w-full flex items-center gap-2 text-left px-2 py-1.5 rounded text-xs hover:bg-surface-2";
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -661,11 +834,23 @@ function RouteActionsMenu({
       </PopoverTrigger>
       <PopoverContent align="end" className="w-44 p-1">
         {effectiveStatus !== "COMPLETED" && (
-          <button className={`${item} text-foreground`} onClick={() => { setOpen(false); onEdit(); }}>
+          <button
+            className={`${item} text-foreground`}
+            onClick={() => {
+              setOpen(false);
+              onEdit();
+            }}
+          >
             <Pencil className="size-3.5 text-muted-foreground" /> Edit route
           </button>
         )}
-        <button className={`${item} text-foreground`} onClick={() => { setOpen(false); onClone(); }}>
+        <button
+          className={`${item} text-foreground`}
+          onClick={() => {
+            setOpen(false);
+            onClone();
+          }}
+        >
           <CopyPlus className="size-3.5 text-muted-foreground" /> Clone route
         </button>
         {effectiveStatus !== "COMPLETED" && effectiveStatus !== "CANCELLED" && (
@@ -673,7 +858,11 @@ function RouteActionsMenu({
             className={`${item} text-red-600`}
             onClick={() => {
               setOpen(false);
-              if (typeof window === "undefined" || window.confirm("Cancel this route? It will move to the Cancelled tab.")) onCancel();
+              if (
+                typeof window === "undefined" ||
+                window.confirm("Cancel this route? It will move to the Cancelled tab.")
+              )
+                onCancel();
             }}
           >
             <Ban className="size-3.5" /> Cancel route
@@ -695,7 +884,11 @@ function ViewOnMapButton({ job }: { job: Job }) {
         navigate({ to: "/", search: { focusJob: job.id } as never });
       }}
       disabled={disabled}
-      title={disabled ? "Assign or plan a driver to view route on map" : "View this route on the live map"}
+      title={
+        disabled
+          ? "Assign or plan a driver to view route on map"
+          : "View this route on the live map"
+      }
       className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/15 disabled:opacity-40 disabled:cursor-not-allowed"
     >
       <MapPin className="size-3" /> View on map

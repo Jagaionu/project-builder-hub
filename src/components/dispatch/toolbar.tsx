@@ -12,7 +12,12 @@ import { reloadJobStops } from "@/lib/dispatch/use-job-stops";
 // ── ToolbarButton ───────────────────────────────────────────────────────────
 
 export function ToolbarButton({
-  onClick, disabled, icon, children, primary, title,
+  onClick,
+  disabled,
+  icon,
+  children,
+  primary,
+  title,
 }: {
   onClick: () => void;
   disabled?: boolean;
@@ -46,7 +51,12 @@ export function ToolbarButton({
       )}
     >
       {icon && (
-        <span className={cn("inline-flex items-center justify-center [&_svg]:size-3.5", primary ? "opacity-90" : "text-muted-foreground")}>
+        <span
+          className={cn(
+            "inline-flex items-center justify-center [&_svg]:size-3.5",
+            primary ? "opacity-90" : "text-muted-foreground",
+          )}
+        >
           {icon}
         </span>
       )}
@@ -54,7 +64,6 @@ export function ToolbarButton({
     </button>
   );
 }
-
 
 // ── ImportCsvButton ─────────────────────────────────────────────────────────
 
@@ -70,7 +79,10 @@ export function ImportCsvButton() {
     try {
       const text = await file.text();
       const rows = csvToImportRows(text);
-      if (rows.length === 0) { toast.error("No rows found in CSV"); return; }
+      if (rows.length === 0) {
+        toast.error("No rows found in CSV");
+        return;
+      }
       const res = await runImport({ data: { rows, fileName: file.name } });
       // Import writes server-side via supabaseAdmin; refetch so the new routes
       // appear immediately instead of waiting on a realtime echo / manual reload.
@@ -98,8 +110,18 @@ export function ImportCsvButton() {
 
   return (
     <>
-      <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
-      <ToolbarButton onClick={() => inputRef.current?.click()} disabled={busy} icon={<Upload className="size-3.5" />}>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv,text/csv"
+        className="hidden"
+        onChange={onFile}
+      />
+      <ToolbarButton
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        icon={<Upload className="size-3.5" />}
+      >
         {busy ? "Importing…" : "Import CSV"}
       </ToolbarButton>
     </>
@@ -109,9 +131,17 @@ export function ImportCsvButton() {
 // ── DispatchStat ────────────────────────────────────────────────────────────
 
 export function DispatchStat({
-  label, value, color, active, onClick,
+  label,
+  value,
+  color,
+  active,
+  onClick,
 }: {
-  label: string; value: number; color: string; active?: boolean; onClick?: () => void;
+  label: string;
+  value: number;
+  color: string;
+  active?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <button
@@ -136,15 +166,12 @@ export function DispatchStat({
       <div className="text-[9px] font-mono uppercase tracking-[0.08em] text-muted-foreground leading-none whitespace-nowrap">
         {label}
       </div>
-      <div
-        className="font-mono font-bold leading-none mt-1 text-[1.35rem] tabular-nums text-foreground"
-      >
+      <div className="font-mono font-bold leading-none mt-1 text-[1.35rem] tabular-nums text-foreground">
         {value}
       </div>
     </button>
   );
 }
-
 
 // ── AutoRefreshButton ─────────────────────────────────────────────────────────
 // Minimal icon-only dropdown to auto re-fetch dispatch data on an interval.
@@ -164,15 +191,24 @@ export function AutoRefreshButton() {
     try {
       if (minutes && minutes > 0) localStorage.setItem("dispatch.autoRefreshMin", String(minutes));
       else localStorage.removeItem("dispatch.autoRefreshMin");
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
     if (!minutes || minutes <= 0) return;
     const id = setInterval(() => window.location.reload(), minutes * 60_000);
     return () => clearInterval(id);
   }, [minutes]);
 
-  const pick = (m: number | null) => { setMinutes(m); setCustom(""); setOpen(false); };
+  const pick = (m: number | null) => {
+    setMinutes(m);
+    setCustom("");
+    setOpen(false);
+  };
   const itemCls = (a: boolean) =>
-    cn("w-full text-left px-2 py-1.5 rounded text-xs hover:bg-surface-2", a ? "text-primary font-semibold" : "text-foreground");
+    cn(
+      "w-full text-left px-2 py-1.5 rounded text-xs hover:bg-surface-2",
+      a ? "text-primary font-semibold" : "text-foreground",
+    );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -182,28 +218,47 @@ export function AutoRefreshButton() {
           aria-label="Auto-refresh"
           title={minutes ? `Auto-refresh whole page every ${minutes} min` : "Auto-refresh off"}
           className="grid place-items-center rounded-md transition-colors"
-          style={{ width: 24, height: 24, background: "var(--color-surface-2)", border: "1px solid var(--color-border)", color: minutes ? "var(--color-primary)" : "var(--color-muted-foreground)" }}
+          style={{
+            width: 24,
+            height: 24,
+            background: "var(--color-surface-2)",
+            border: "1px solid var(--color-border)",
+            color: minutes ? "var(--color-primary)" : "var(--color-muted-foreground)",
+          }}
         >
           <RefreshCw className="size-3.5" />
         </button>
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-40 p-1">
-        <div className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Auto-refresh</div>
-        <button onClick={() => pick(null)} className={itemCls(minutes === null)}>Off</button>
+        <div className="px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+          Auto-refresh
+        </div>
+        <button onClick={() => pick(null)} className={itemCls(minutes === null)}>
+          Off
+        </button>
         {REFRESH_OPTIONS.map((m) => (
-          <button key={m} onClick={() => pick(m)} className={itemCls(minutes === m)}>{m} min</button>
+          <button key={m} onClick={() => pick(m)} className={itemCls(minutes === m)}>
+            {m} min
+          </button>
         ))}
         <div className="flex items-center gap-1 px-2 py-1.5">
           <input
-            type="number" min={1} value={custom}
+            type="number"
+            min={1}
+            value={custom}
             onChange={(e) => setCustom(e.target.value)}
             placeholder="min"
             className="w-14 h-7 px-2 rounded border border-border bg-surface text-xs"
           />
           <button
-            onClick={() => { const n = Number(custom); if (Number.isFinite(n) && n > 0) pick(n); }}
+            onClick={() => {
+              const n = Number(custom);
+              if (Number.isFinite(n) && n > 0) pick(n);
+            }}
             className="h-7 px-2 rounded bg-primary text-primary-foreground text-xs"
-          >Set</button>
+          >
+            Set
+          </button>
         </div>
       </PopoverContent>
     </Popover>

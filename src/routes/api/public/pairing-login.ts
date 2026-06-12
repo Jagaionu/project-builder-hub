@@ -28,7 +28,11 @@ export const Route = createFileRoute("/api/public/pairing-login")({
       OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
       POST: async ({ request }) => {
         let body: { code?: string };
-        try { body = await request.json(); } catch { return text("Bad JSON", 400); }
+        try {
+          body = await request.json();
+        } catch {
+          return text("Bad JSON", 400);
+        }
         const code = String(body?.code ?? "").replace(/\D/g, "");
         if (code.length !== 6) return text("Invalid code format", 400);
 
@@ -50,7 +54,9 @@ export const Route = createFileRoute("/api/public/pairing-login")({
 
         if (drv.user_id) {
           const { error: updErr } = await supabaseAdmin.auth.admin.updateUserById(drv.user_id, {
-            password, email, email_confirm: true,
+            password,
+            email,
+            email_confirm: true,
           });
           if (updErr) {
             console.error("[pairing-login] updateUserById failed", updErr);
@@ -58,7 +64,9 @@ export const Route = createFileRoute("/api/public/pairing-login")({
           }
         } else {
           const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-            email, password, email_confirm: true,
+            email,
+            password,
+            email_confirm: true,
           });
           if (createErr || !created?.user) {
             console.error("[pairing-login] createUser failed", createErr);

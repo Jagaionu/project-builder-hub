@@ -90,9 +90,9 @@ function buildRows(driver: Driver, jobs: ActiveJob[]): TimelineRow[] {
     const stops = [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq);
 
     if (ji > 0) {
-      rows.push({ 
-        kind: "separator", 
-        label: `Next Job · ${(job as { reference?: string }).reference ?? job.id.slice(0, 8).toUpperCase()}` 
+      rows.push({
+        kind: "separator",
+        label: `Next Job · ${(job as { reference?: string }).reference ?? job.id.slice(0, 8).toUpperCase()}`,
       });
     }
 
@@ -138,7 +138,9 @@ function buildRows(driver: Driver, jobs: ActiveJob[]): TimelineRow[] {
       let dwellMinutes: number | null = null;
       const nextStop = stops[si + 1] ?? todayJobs[ji + 1]?.stops?.[0];
       if (stop.scheduled_at && nextStop?.scheduled_at) {
-        const diff = (new Date(nextStop.scheduled_at).getTime() - new Date(stop.scheduled_at).getTime()) / 60_000;
+        const diff =
+          (new Date(nextStop.scheduled_at).getTime() - new Date(stop.scheduled_at).getTime()) /
+          60_000;
         if (diff > 0) dwellMinutes = Math.round(diff);
       }
 
@@ -183,7 +185,7 @@ function LegRowItem({ row }: { row: LegRow }) {
     <div className="relative flex items-center gap-4 pl-3 pr-1 py-3 group/leg">
       {/* Schematic Line Assembly */}
       <div className="absolute left-[21px] top-0 bottom-0 w-0.5 border-l-2 border-dashed border-muted/60" />
-      
+
       {/* Minor Icon Placement */}
       <div className="z-10 flex size-5 items-center justify-center rounded-full border border-muted-foreground/20 bg-background shadow-sm text-muted-foreground">
         <Truck className="size-3" />
@@ -199,15 +201,26 @@ function LegRowItem({ row }: { row: LegRow }) {
 
         <div className="flex items-center gap-3">
           <span className="font-semibold text-primary">{row.minutes} min</span>
-          
-          <Tooltip 
+
+          <Tooltip
             content={
               <div className="space-y-1 font-sans">
-                <p className="font-semibold text-foreground border-b pb-1 mb-1">Route Vector Data</p>
-                <p><span className="text-muted-foreground">Origin:</span> {row.fromLabel}</p>
-                <p><span className="text-muted-foreground">Destination:</span> {row.toLabel}</p>
-                <p><span className="text-muted-foreground">Est. Distance:</span> {fmtKm(row.km)}</p>
-                <p><span className="text-muted-foreground">Planned Window:</span> {fmtTime(row.departsAt)} - {fmtTime(row.arrivesAt)}</p>
+                <p className="font-semibold text-foreground border-b pb-1 mb-1">
+                  Route Vector Data
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Origin:</span> {row.fromLabel}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Destination:</span> {row.toLabel}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Est. Distance:</span> {fmtKm(row.km)}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Planned Window:</span>{" "}
+                  {fmtTime(row.departsAt)} - {fmtTime(row.arrivesAt)}
+                </p>
               </div>
             }
           >
@@ -221,19 +234,21 @@ function LegRowItem({ row }: { row: LegRow }) {
 
 function StopRowItem({ row }: { row: StopRow }) {
   const isPickup = row.stopKind === "PICKUP";
-  
+
   return (
     <div className="relative flex items-start gap-4 pl-3 pr-1 py-2 group/stop">
       {/* Continuous Axis Line Lineage */}
       <div className="absolute left-[21px] top-0 bottom-0 w-0.5 bg-border" />
-      
+
       {/* Node Anchor */}
-      <div className={`z-10 flex size-5 shrink-0 items-center justify-center rounded-full border shadow-sm transition-colors
-        ${row.arrivedAt 
-          ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-400" 
-          : isPickup 
-            ? "border-amber-500/60 bg-amber-500/10 text-amber-400" 
-            : "border-blue-500/60 bg-blue-500/10 text-blue-400"
+      <div
+        className={`z-10 flex size-5 shrink-0 items-center justify-center rounded-full border shadow-sm transition-colors
+        ${
+          row.arrivedAt
+            ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-400"
+            : isPickup
+              ? "border-amber-500/60 bg-amber-500/10 text-amber-400"
+              : "border-blue-500/60 bg-blue-500/10 text-blue-400"
         }`}
       >
         {row.arrivedAt ? <CheckCircle2 className="size-3" /> : <MapPin className="size-3" />}
@@ -243,21 +258,29 @@ function StopRowItem({ row }: { row: StopRow }) {
       <div className="flex-1 min-w-0 bg-surface border border-border/60 hover:border-border rounded-md px-3 py-2 flex items-center justify-between transition-all">
         <div className="space-y-0.5">
           <div className="flex items-center gap-2">
-            <span className="font-mono font-bold text-sm text-foreground tracking-tight">{row.code}</span>
-            <span className={`text-[10px] font-medium font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border
-              ${isPickup 
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-400" 
-                : "bg-blue-500/10 border-blue-500/30 text-blue-400"
+            <span className="font-mono font-bold text-sm text-foreground tracking-tight">
+              {row.code}
+            </span>
+            <span
+              className={`text-[10px] font-medium font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border
+              ${
+                isPickup
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                  : "bg-blue-500/10 border-blue-500/30 text-blue-400"
               }`}
             >
               {isPickup ? "Pickup" : "Drop-off"}
             </span>
           </div>
-          
+
           <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
-            <span className="flex items-center gap-1"><Clock className="size-3" /> ETA {fmtTime(row.plannedAt)}</span>
+            <span className="flex items-center gap-1">
+              <Clock className="size-3" /> ETA {fmtTime(row.plannedAt)}
+            </span>
             {row.dwellMinutes != null && row.dwellMinutes > 0 && (
-              <span className="flex items-center gap-1 text-muted-foreground/80"><Package className="size-3" /> {row.dwellMinutes}m dwell</span>
+              <span className="flex items-center gap-1 text-muted-foreground/80">
+                <Package className="size-3" /> {row.dwellMinutes}m dwell
+              </span>
             )}
           </div>
         </div>
@@ -269,15 +292,27 @@ function StopRowItem({ row }: { row: StopRow }) {
               Arrived {fmtTime(row.arrivedAt)}
             </span>
           )}
-          
-          <Tooltip 
+
+          <Tooltip
             content={
               <div className="space-y-1 font-sans">
-                <p className="font-semibold text-foreground border-b pb-1 mb-1">Stop Execution Detail</p>
-                <p><span className="text-muted-foreground">Node Code:</span> {row.code}</p>
-                <p><span className="text-muted-foreground">Operation:</span> {row.stopKind}</p>
-                <p><span className="text-muted-foreground">Target Slot:</span> {fmtTime(row.plannedAt)}</p>
-                <p><span className="text-muted-foreground">Actual Time:</span> {row.arrivedAt ? fmtTime(row.arrivedAt) : "Pending Activation"}</p>
+                <p className="font-semibold text-foreground border-b pb-1 mb-1">
+                  Stop Execution Detail
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Node Code:</span> {row.code}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Operation:</span> {row.stopKind}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Target Slot:</span>{" "}
+                  {fmtTime(row.plannedAt)}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Actual Time:</span>{" "}
+                  {row.arrivedAt ? fmtTime(row.arrivedAt) : "Pending Activation"}
+                </p>
               </div>
             }
           >
@@ -320,7 +355,9 @@ export function DriverItineraryTimeline({ driver, jobs }: DriverItineraryTimelin
 
       {rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 border border-dashed rounded-lg border-border bg-surface">
-          <p className="text-xs text-muted-foreground font-mono">No assignments found for current processing date</p>
+          <p className="text-xs text-muted-foreground font-mono">
+            No assignments found for current processing date
+          </p>
         </div>
       ) : (
         <div className="relative flex flex-col pl-1">

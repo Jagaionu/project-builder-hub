@@ -60,13 +60,20 @@ export function AIChatWidget() {
   const cycleColor = () =>
     setColorIdx((i) => {
       const next = (i + 1) % AI_COLORS.length;
-      try { localStorage.setItem("ai.accentIdx", String(next)); } catch { /* noop */ }
+      try {
+        localStorage.setItem("ai.accentIdx", String(next));
+      } catch {
+        /* noop */
+      }
       return next;
     });
 
   const requestClose = () => {
     setClosing(true);
-    setTimeout(() => { setClosing(false); setOpen(false); }, 280);
+    setTimeout(() => {
+      setClosing(false);
+      setOpen(false);
+    }, 280);
   };
 
   const send = useServerFn(aiChat);
@@ -167,7 +174,10 @@ export function AIChatWidget() {
         className="relative grid place-items-center size-7 rounded-full text-white shrink-0 transition-transform hover:scale-105 active:scale-95"
         style={{ background: accent }}
       >
-        <Sparkles className="size-3.5 relative" style={{ animation: "ai-door 6s ease-in-out infinite" }} />
+        <Sparkles
+          className="size-3.5 relative"
+          style={{ animation: "ai-door 6s ease-in-out infinite" }}
+        />
       </button>
 
       {open && (
@@ -226,19 +236,26 @@ export function AIChatWidget() {
           </div>
 
           {/* Messages */}
-          <div ref={scrollRef} className="relative flex-1 space-y-4 overflow-y-auto px-4 py-4 scroll-smooth">
+          <div
+            ref={scrollRef}
+            className="relative flex-1 space-y-4 overflow-y-auto px-4 py-4 scroll-smooth"
+          >
             {messages.length === 0 && (
               <div className="flex h-full flex-col items-center justify-center gap-5 text-center">
                 <div className="relative">
                   <div className="absolute inset-0 rounded-full bg-primary/20 blur-2xl" />
-                  <div className="relative flex size-14 items-center justify-center rounded-2xl text-white shadow-lg" style={{ background: accent }}>
+                  <div
+                    className="relative flex size-14 items-center justify-center rounded-2xl text-white shadow-lg"
+                    style={{ background: accent }}
+                  >
                     <Sparkles className="size-6" />
                   </div>
                 </div>
                 <div className="space-y-1">
                   <h3 className="text-base font-semibold text-foreground">How can I help today?</h3>
                   <p className="text-xs text-muted-foreground max-w-[260px]">
-                    Ask me about dispatch, planning, drivers, or imports. I can also run actions for you.
+                    Ask me about dispatch, planning, drivers, or imports. I can also run actions for
+                    you.
                   </p>
                 </div>
                 <div className="grid w-full grid-cols-2 gap-2 pt-2">
@@ -266,7 +283,10 @@ export function AIChatWidget() {
 
             {isLoading && (
               <div className="flex items-center gap-2">
-                <div className="flex size-7 items-center justify-center rounded-full text-white" style={{ background: accent }}>
+                <div
+                  className="flex size-7 items-center justify-center rounded-full text-white"
+                  style={{ background: accent }}
+                >
                   <Sparkles className="size-3.5" />
                 </div>
                 <div className="flex gap-1 rounded-2xl rounded-tl-sm bg-muted px-3 py-3">
@@ -284,18 +304,35 @@ export function AIChatWidget() {
                   <span className="text-sm font-semibold">Confirm action</span>
                 </div>
                 <p className="mt-1.5 text-xs text-muted-foreground">
-                  I'll run <span className="font-medium text-foreground">{pendingAction.type.replace(/_/g, " ")}</span>{" "}
+                  I'll run{" "}
+                  <span className="font-medium text-foreground">
+                    {pendingAction.type.replace(/_/g, " ")}
+                  </span>{" "}
                   with these parameters:
                 </p>
                 <pre className="mt-2 max-h-32 overflow-auto rounded-md bg-background/80 border border-border/60 p-2 text-[11px] font-mono text-foreground/80">
                   {JSON.stringify(pendingAction.params, null, 2)}
                 </pre>
                 <div className="mt-3 flex gap-2">
-                  <Button onClick={handleConfirm} disabled={isConfirming} size="sm" className="flex-1 gap-1.5">
-                    {isConfirming ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+                  <Button
+                    onClick={handleConfirm}
+                    disabled={isConfirming}
+                    size="sm"
+                    className="flex-1 gap-1.5"
+                  >
+                    {isConfirming ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Check className="size-3.5" />
+                    )}
                     {isConfirming ? "Running…" : "Confirm & run"}
                   </Button>
-                  <Button onClick={() => setPendingAction(null)} size="sm" variant="outline" disabled={isConfirming}>
+                  <Button
+                    onClick={() => setPendingAction(null)}
+                    size="sm"
+                    variant="outline"
+                    disabled={isConfirming}
+                  >
                     Cancel
                   </Button>
                 </div>
@@ -305,7 +342,12 @@ export function AIChatWidget() {
             {showScrollDown && (
               <button
                 type="button"
-                onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })}
+                onClick={() =>
+                  scrollRef.current?.scrollTo({
+                    top: scrollRef.current.scrollHeight,
+                    behavior: "smooth",
+                  })
+                }
                 className="sticky bottom-2 ml-auto flex size-8 items-center justify-center rounded-full border border-border bg-background shadow-md hover:bg-accent"
               >
                 <ArrowDown className="size-4" />
@@ -331,13 +373,27 @@ export function AIChatWidget() {
                 disabled={isLoading}
                 placeholder="Ask anything…"
               />
-              <Button onClick={() => void submit(input)} disabled={isLoading || !input.trim()} size="icon" className="size-8 shrink-0 rounded-lg">
-                {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              <Button
+                onClick={() => void submit(input)}
+                disabled={isLoading || !input.trim()}
+                size="icon"
+                className="size-8 shrink-0 rounded-lg"
+              >
+                {isLoading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Send className="size-4" />
+                )}
               </Button>
             </div>
             <p className="mt-1.5 px-1 text-[10px] text-muted-foreground">
-              Press <kbd className="rounded border border-border bg-muted px-1 font-mono">Enter</kbd> to send ·{" "}
-              <kbd className="rounded border border-border bg-muted px-1 font-mono">Shift+Enter</kbd> for newline
+              Press{" "}
+              <kbd className="rounded border border-border bg-muted px-1 font-mono">Enter</kbd> to
+              send ·{" "}
+              <kbd className="rounded border border-border bg-muted px-1 font-mono">
+                Shift+Enter
+              </kbd>{" "}
+              for newline
             </p>
           </div>
         </div>
@@ -351,14 +407,19 @@ function MessageBubble({ message, accent }: { message: Message; accent: string }
   return (
     <div className={cn("flex gap-2", isUser ? "justify-end" : "justify-start")}>
       {!isUser && (
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-full text-white" style={{ background: accent }}>
+        <div
+          className="flex size-7 shrink-0 items-center justify-center rounded-full text-white"
+          style={{ background: accent }}
+        >
           <Sparkles className="size-3.5" />
         </div>
       )}
       <div
         className={cn(
           "max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm",
-          isUser ? "rounded-tr-sm bg-primary text-primary-foreground" : "rounded-tl-sm bg-muted text-foreground",
+          isUser
+            ? "rounded-tr-sm bg-primary text-primary-foreground"
+            : "rounded-tl-sm bg-muted text-foreground",
         )}
       >
         {isUser ? (

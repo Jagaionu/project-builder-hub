@@ -39,10 +39,21 @@ type LiveEta = { estMs: number; lateMin: number | null; isLate: boolean; nextCod
 function nextStopEta(
   driver: { id: string; current_lat: number | null; current_lon: number | null },
   jobs: Array<{ id: string; assigned_driver_id: string | null; status: string }>,
-  stopsMap: Record<string, Array<{ kind: "PICKUP" | "DROP"; warehouse_id: string; arrived_at?: string | null; scheduled_at: string | null; departed_at?: string | null }>>,
+  stopsMap: Record<
+    string,
+    Array<{
+      kind: "PICKUP" | "DROP";
+      warehouse_id: string;
+      arrived_at?: string | null;
+      scheduled_at: string | null;
+      departed_at?: string | null;
+    }>
+  >,
   warehouses: Array<{ id: string; latitude: number; longitude: number; code: string }>,
 ): LiveEta {
-  const job = jobs.find((j) => j.assigned_driver_id === driver.id && ACTIVE_FOR_ETA.includes(j.status));
+  const job = jobs.find(
+    (j) => j.assigned_driver_id === driver.id && ACTIVE_FOR_ETA.includes(j.status),
+  );
   if (!job) return null;
   // Stops are already kept sorted by seq ascending (see use-job-stops).
   const stops = stopsMap[job.id] ?? [];
@@ -62,7 +73,8 @@ function nextStopEta(
     !!prev?.departed_at ||
     (prevWh ? haversineKm(dLat, dLon, prevWh.latitude, prevWh.longitude) * 1000 > 300 : true);
   if (!prevDeparted) return null;
-  const estMs = Date.now() + etaMinutes(haversineKm(dLat, dLon, wh.latitude, wh.longitude)) * 60_000;
+  const estMs =
+    Date.now() + etaMinutes(haversineKm(dLat, dLon, wh.latitude, wh.longitude)) * 60_000;
   // Compare against the REQUIRED arrival: CPT − handling for a pickup, CIT for a drop.
   const targetArrival = stopCriticalWindow(next.scheduled_at, next.kind).arrival;
   const plannedMs = targetArrival ? new Date(targetArrival).getTime() : null;
@@ -71,10 +83,10 @@ function nextStopEta(
 }
 
 function LiveDashboard() {
-  const drivers            = useDrivers();
-  const warehouses         = useWarehouses();
-  const jobs               = useJobs();
-  const stopsMap           = useJobStops();
+  const drivers = useDrivers();
+  const warehouses = useWarehouses();
+  const jobs = useJobs();
+  const stopsMap = useJobStops();
   const activeJobsByDriver = useActiveJobsByDriver();
   const schedule = useDriverSchedule(drivers.map((d) => d.id));
   const { focusJob: focusJobId } = Route.useSearch();
@@ -85,11 +97,11 @@ function LiveDashboard() {
 
   // Resolve focused job + driver (drives the filter + auto-selection).
   const focusedJob = useMemo(
-    () => (focusJobId ? jobs.find((j) => j.id === focusJobId) ?? null : null),
+    () => (focusJobId ? (jobs.find((j) => j.id === focusJobId) ?? null) : null),
     [jobs, focusJobId],
   );
   const focusedDriverId = focusedJob
-    ? focusedJob.assigned_driver_id ?? focusedJob.planned_driver_id ?? null
+    ? (focusedJob.assigned_driver_id ?? focusedJob.planned_driver_id ?? null)
     : null;
 
   // When entering focus mode, auto-select the assigned driver.
@@ -127,19 +139,20 @@ function LiveDashboard() {
     () => (focusWhIds ? warehouses.filter((w) => focusWhIds.has(w.id)) : warehouses),
     [warehouses, focusWhIds],
   );
-  const mapJobs = useMemo(
-    () => (focusedJob ? [focusedJob] : jobs),
-    [jobs, focusedJob],
-  );
+  const mapJobs = useMemo(() => (focusedJob ? [focusedJob] : jobs), [jobs, focusedJob]);
 
   const selectedDriver = drivers.find((d) => d.id === selected) ?? null;
-  const selectedDriverActiveJobs = selected ? activeJobsByDriver[selected] ?? [] : [];
+  const selectedDriverActiveJobs = selected ? (activeJobsByDriver[selected] ?? []) : [];
   // GPS breadcrumb trail for the selected driver — refetched whenever a new
   // ping lands (last_update_time bumps via the drivers realtime stream).
   const breadcrumbs = useDriverPositions(selected, selectedDriver?.last_update_time ?? null);
   const selectedJob = useMemo(
-    () => jobs.find((j) => j.assigned_driver_id === selected &&
-      ["ASSIGNED","IN_PROGRESS","ARRIVED_PICKUP","EN_ROUTE_DELIVERY"].includes(j.status)),
+    () =>
+      jobs.find(
+        (j) =>
+          j.assigned_driver_id === selected &&
+          ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
+      ),
     [jobs, selected],
   );
   const destWh = selectedJob
@@ -149,16 +162,24 @@ function LiveDashboard() {
           : w.id === selectedJob.destination_warehouse_id,
       )
     : null;
-  const distKm = selectedDriver && destWh && selectedDriver.current_lat && selectedDriver.current_lon
-    ? haversineKm(selectedDriver.current_lat, selectedDriver.current_lon, destWh.latitude, destWh.longitude)
-    : null;
+  const distKm =
+    selectedDriver && destWh && selectedDriver.current_lat && selectedDriver.current_lon
+      ? haversineKm(
+          selectedDriver.current_lat,
+          selectedDriver.current_lon,
+          destWh.latitude,
+          destWh.longitude,
+        )
+      : null;
   const selEta = selectedDriver ? nextStopEta(selectedDriver, jobs, stopsMap, warehouses) : null;
 
   return (
     <div className="h-full flex flex-col">
       <PageHeader
         title={focusedJob ? `Focused · ${focusedJob.reference}` : "Live Operations"}
-        subtitle={focusedJob ? "Showing only this VRID's driver and stops" : "Real-time fleet visibility"}
+        subtitle={
+          focusedJob ? "Showing only this VRID's driver and stops" : "Real-time fleet visibility"
+        }
         right={
           focusedJob ? (
             <div className="flex items-center gap-2">
@@ -207,7 +228,6 @@ function LiveDashboard() {
           </ClientOnly>
         </div>
 
-
         {/* Fleet panel */}
         <aside
           className="flex flex-col overflow-hidden"
@@ -220,7 +240,9 @@ function LiveDashboard() {
           >
             <div className="flex items-center justify-between gap-2">
               <div>
-                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Fleet</div>
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                  Fleet
+                </div>
                 <div className="text-sm font-semibold mt-0.5">{drivers.length} drivers</div>
               </div>
               <input
@@ -249,7 +271,11 @@ function LiveDashboard() {
                   <div className="text-sm font-semibold">{selectedDriver.name}</div>
                 </div>
                 <StatusBadge
-                  status={effectiveDriverStatus(selectedDriver.status, selectedDriverActiveJobs, nowMs)}
+                  status={effectiveDriverStatus(
+                    selectedDriver.status,
+                    selectedDriverActiveJobs,
+                    nowMs,
+                  )}
                   kind="driver"
                 />
               </div>
@@ -275,13 +301,18 @@ function LiveDashboard() {
                     {distKm != null && (
                       <div className="grid grid-cols-2 gap-1.5">
                         <MetricPill label="Dist" value={`${distKm.toFixed(1)} km`} />
-                        <MetricPill label="ETA"  value={`${etaMinutes(distKm)} min`} />
+                        <MetricPill label="ETA" value={`${etaMinutes(distKm)} min`} />
                       </div>
                     )}
                     {selEta && (
                       <div className="flex items-center justify-between gap-2 text-xs">
                         <span className="font-mono text-muted-foreground">
-                          Est arrival {new Date(selEta.estMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} → {selEta.nextCode}
+                          Est arrival{" "}
+                          {new Date(selEta.estMs).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}{" "}
+                          → {selEta.nextCode}
                         </span>
                         {selEta.isLate && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
@@ -303,7 +334,11 @@ function LiveDashboard() {
               {selectedDriver.last_update_time && (
                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono mt-2.5">
                   <Clock className="size-3" />
-                  {new Date(selectedDriver.last_update_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  {new Date(selectedDriver.last_update_time).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  })}
                 </div>
               )}
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono mt-1.5">
@@ -314,9 +349,22 @@ function LiveDashboard() {
           )}
 
           {/* Driver list */}
-          <ul className="flex-1 overflow-y-auto divide-y" style={{ borderColor: "var(--sidebar-divider)" }}>
-            {(fleetSearch.trim() ? drivers.filter((d) => (d.name ?? "").toLowerCase().includes(fleetSearch.trim().toLowerCase())) : drivers).map((d) => {
-              const eff = effectiveDriverStatus(d.status, activeJobsByDriver[d.id] ?? [], nowMs, schedule[d.id] ?? "unknown");
+          <ul
+            className="flex-1 overflow-y-auto divide-y"
+            style={{ borderColor: "var(--sidebar-divider)" }}
+          >
+            {(fleetSearch.trim()
+              ? drivers.filter((d) =>
+                  (d.name ?? "").toLowerCase().includes(fleetSearch.trim().toLowerCase()),
+                )
+              : drivers
+            ).map((d) => {
+              const eff = effectiveDriverStatus(
+                d.status,
+                activeJobsByDriver[d.id] ?? [],
+                nowMs,
+                schedule[d.id] ?? "unknown",
+              );
               const le = nextStopEta(d, jobs, stopsMap, warehouses);
               const isSelected = selected === d.id;
               return (
@@ -328,15 +376,21 @@ function LiveDashboard() {
                       background: isSelected ? "oklch(0.62 0.22 245 / 0.08)" : "transparent",
                       borderLeft: isSelected ? "2px solid var(--primary)" : "2px solid transparent",
                     }}
-                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "var(--surface)"; }}
-                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = "var(--surface)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = "transparent";
+                    }}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <div
                           className="size-6 rounded-md grid place-items-center text-[10px] font-mono font-bold shrink-0"
                           style={{
-                            background: isSelected ? "oklch(0.62 0.22 245 / 0.15)" : "var(--secondary)",
+                            background: isSelected
+                              ? "oklch(0.62 0.22 245 / 0.15)"
+                              : "var(--secondary)",
                             color: isSelected ? "var(--primary-bright)" : "var(--muted-foreground)",
                             border: `1px solid ${isSelected ? "oklch(0.62 0.22 245 / 0.3)" : "var(--border)"}`,
                           }}
@@ -347,7 +401,9 @@ function LiveDashboard() {
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {le?.isLate && (
-                          <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">LATE</span>
+                          <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                            LATE
+                          </span>
                         )}
                         <StatusBadge status={eff} kind="driver" />
                       </div>
@@ -383,7 +439,9 @@ function MetricPill({ label, value }: { label: string; value: string }) {
         border: "1px solid var(--border)",
       }}
     >
-      <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">
+        {label}
+      </div>
       <div className="font-mono text-xs mt-0.5 text-foreground">{value}</div>
     </div>
   );
@@ -402,13 +460,14 @@ export function PageHeader({
   return (
     <header
       className="px-5 py-3 flex items-center justify-between shrink-0"
-      style={{ borderBottom: "1px solid var(--sidebar-divider)", ...(accentColor ? { background: accentColor } : {}) }}
+      style={{
+        borderBottom: "1px solid var(--sidebar-divider)",
+        ...(accentColor ? { background: accentColor } : {}),
+      }}
     >
       <div>
         <h1 className="text-sm font-semibold tracking-tight">{title}</h1>
-        {subtitle && (
-          <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>
-        )}
+        {subtitle && <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>}
       </div>
       {right}
     </header>

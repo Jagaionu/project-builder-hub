@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { CompanyPlan } from "@/lib/types";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Building2 } from "lucide-react";
@@ -14,7 +20,10 @@ interface CreateCompanyDialogProps {
 }
 
 function toSlug(v: string) {
-  return v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return v
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 const PLANS: CompanyPlan[] = ["starter", "pro", "enterprise"];
@@ -38,7 +47,11 @@ export function CreateCompanyDialog({ open, onOpenChange, onCreated }: CreateCom
       subscription_status: "trial",
       subscription_ends_at: trialEndsAt.toISOString(),
     } as never);
-    if (error) { toast.error(error.message); setLoading(false); return; }
+    if (error) {
+      toast.error(error.message);
+      setLoading(false);
+      return;
+    }
     toast.success(`Company "${name}" created (trial expires in 14 days)`);
     setName("");
     setSlug("");
@@ -66,7 +79,10 @@ export function CreateCompanyDialog({ open, onOpenChange, onCreated }: CreateCom
               <label className="text-xs font-medium">Company Name</label>
               <Input
                 value={name}
-                onChange={(e) => { setName(e.target.value); setSlug(toSlug(e.target.value)); }}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setSlug(toSlug(e.target.value));
+                }}
                 required
                 placeholder="Acme Logistics Ltd"
               />

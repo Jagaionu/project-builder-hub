@@ -87,34 +87,47 @@ export function useJobStops(): JobStopsMap {
 
     const channel = supabase
       .channel(`rt-stops-${Math.random().toString(36).slice(2)}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "job_stops" }, (payload) => {
-        const row = payload.new as StopRow;
-        const next: JobStopsMap = { ...cache };
-        const existing = (next[row.job_id] ?? []) as Array<Stop & { seq?: number }>;
-        // Dedupe by id — multiple useJobStops() consumers each subscribe to
-        // realtime, so the same INSERT can be delivered N times. Without this
-        // guard the row gets appended once per active subscription.
-        if (existing.some((s) => s.id === row.id)) return;
-        const list: Array<Stop & { seq?: number }> = [...existing, rowToStop(row)]
-          .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
-        next[row.job_id] = list.map(({ seq: _seq, ...rest }) => rest);
-        broadcast(next);
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "job_stops" }, (payload) => {
-        const row = payload.new as StopRow;
-        const next: JobStopsMap = { ...cache };
-        const list = next[row.job_id] ?? [];
-        next[row.job_id] = list.map((s) => (s.id === row.id ? rowToStop(row) : s));
-        broadcast(next);
-      })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "job_stops" }, (payload) => {
-        const row = payload.old as StopRow;
-        const next: JobStopsMap = { ...cache };
-        const list = (next[row.job_id] ?? []).filter((s) => s.id !== row.id);
-        if (list.length) next[row.job_id] = list;
-        else delete next[row.job_id];
-        broadcast(next);
-      })
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "job_stops" },
+        (payload) => {
+          const row = payload.new as StopRow;
+          const next: JobStopsMap = { ...cache };
+          const existing = (next[row.job_id] ?? []) as Array<Stop & { seq?: number }>;
+          // Dedupe by id — multiple useJobStops() consumers each subscribe to
+          // realtime, so the same INSERT can be delivered N times. Without this
+          // guard the row gets appended once per active subscription.
+          if (existing.some((s) => s.id === row.id)) return;
+          const list: Array<Stop & { seq?: number }> = [...existing, rowToStop(row)].sort(
+            (a, b) => (a.seq ?? 0) - (b.seq ?? 0),
+          );
+          next[row.job_id] = list.map(({ seq: _seq, ...rest }) => rest);
+          broadcast(next);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "job_stops" },
+        (payload) => {
+          const row = payload.new as StopRow;
+          const next: JobStopsMap = { ...cache };
+          const list = next[row.job_id] ?? [];
+          next[row.job_id] = list.map((s) => (s.id === row.id ? rowToStop(row) : s));
+          broadcast(next);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "job_stops" },
+        (payload) => {
+          const row = payload.old as StopRow;
+          const next: JobStopsMap = { ...cache };
+          const list = (next[row.job_id] ?? []).filter((s) => s.id !== row.id);
+          if (list.length) next[row.job_id] = list;
+          else delete next[row.job_id];
+          broadcast(next);
+        },
+      )
       .subscribe();
 
     return () => {

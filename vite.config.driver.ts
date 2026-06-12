@@ -11,8 +11,12 @@ function stubPwaRegister(): Plugin {
   const resolved = "\0" + id;
   return {
     name: "stub-pwa-register",
-    resolveId(s) { if (s === id) return resolved; },
-    load(s) { if (s === resolved) return "export function registerSW(){ return () => {}; }"; },
+    resolveId(s) {
+      if (s === id) return resolved;
+    },
+    load(s) {
+      if (s === resolved) return "export function registerSW(){ return () => {}; }";
+    },
   };
 }
 

@@ -5,8 +5,8 @@ import { getUserTenantId, isSuperAdmin } from "@/lib/auth-helpers.server";
 import { logActivityServer } from "@/lib/activity-log.server";
 
 export type ImportRow = {
-  reference: string;          // Load #
-  lane: string;               // e.g. "BZDN->SWA_FR_GRAVUREE->CDG8"
+  reference: string; // Load #
+  lane: string; // e.g. "BZDN->SWA_FR_GRAVUREE->CDG8"
   equipmentType: string | null;
   estimatedCost?: string | null;
   // Per-stop arrival ISO strings (already parsed client-side from
@@ -140,21 +140,25 @@ export const importJobsCsv = createServerFn({ method: "POST" })
               .eq("tenant_id", tenantId as never)
               .eq("reference", row.reference);
           } else {
-            await supabaseAdmin
-              .from("reimport_alerts" as never)
-              .insert({
-                tenant_id: tenantId,
-                reference: row.reference,
-                lane: row.lane,
-              } as never);
+            await supabaseAdmin.from("reimport_alerts" as never).insert({
+              tenant_id: tenantId,
+              reference: row.reference,
+              lane: row.lane,
+            } as never);
             reimportRefs.add(row.reference);
           }
           out.skippedDuplicate.push(row.reference);
           continue;
         }
-        const codes = row.lane.split("->").map((c) => c.trim()).filter(Boolean);
+        const codes = row.lane
+          .split("->")
+          .map((c) => c.trim())
+          .filter(Boolean);
         if (codes.length < 2) {
-          out.errors.push({ reference: row.reference, message: `Lane needs >=2 stops, got "${row.lane}"` });
+          out.errors.push({
+            reference: row.reference,
+            message: `Lane needs >=2 stops, got "${row.lane}"`,
+          });
           continue;
         }
         const stopWhIds: string[] = [];
@@ -201,7 +205,6 @@ export const importJobsCsv = createServerFn({ method: "POST" })
           continue;
         }
 
-
         const firstScheduled = row.stopScheduledAt.find((s) => s) ?? null;
 
         const { data: job, error: jobErr } = await supabaseAdmin
@@ -222,7 +225,10 @@ export const importJobsCsv = createServerFn({ method: "POST" })
           .select("id")
           .single();
         if (jobErr || !job) {
-          out.errors.push({ reference: row.reference, message: jobErr?.message ?? "insert failed" });
+          out.errors.push({
+            reference: row.reference,
+            message: jobErr?.message ?? "insert failed",
+          });
           continue;
         }
 
@@ -234,7 +240,9 @@ export const importJobsCsv = createServerFn({ method: "POST" })
           scheduled_at: row.stopScheduledAt[i] ?? null,
           yard_departure: row.stopYardDeparture?.[i] ?? null,
         }));
-        const { error: stopsErr } = await supabaseAdmin.from("job_stops").insert(stopsPayload as never);
+        const { error: stopsErr } = await supabaseAdmin
+          .from("job_stops")
+          .insert(stopsPayload as never);
         if (stopsErr) {
           out.errors.push({ reference: row.reference, message: `stops: ${stopsErr.message}` });
           continue;
@@ -254,17 +262,20 @@ export const importJobsCsv = createServerFn({ method: "POST" })
       await supabaseAdmin
         .from("import_batches" as never)
         .update({
-          created_count:   out.created,
-          parked_count:    out.parked.length,
+          created_count: out.created,
+          parked_count: out.parked.length,
           duplicate_count: out.skippedDuplicate.length,
-          error_count:     out.errors.length,
+          error_count: out.errors.length,
         } as never)
         .eq("id", batchId);
     }
 
     if (tenantId) {
       const { data: actor } = await (supabaseAdmin as unknown as { from: (t: string) => any })
-        .from("company_members").select("name, email").eq("user_id", userId).maybeSingle();
+        .from("company_members")
+        .select("name, email")
+        .eq("user_id", userId)
+        .maybeSingle();
       await logActivityServer({
         tenantId,
         actorUserId: userId,

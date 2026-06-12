@@ -31,7 +31,10 @@ console.log("");
 console.log("Checks:");
 console.log("  URL matches publishable ref:", urlRef === pub.ref ? "YES" : "NO");
 console.log("  URL matches service role ref:", urlRef === svc.ref ? "YES" : "NO");
-console.log("  Service key is service_role:", svc.role === "service_role" ? "YES" : "NO — use service_role key, not anon");
+console.log(
+  "  Service key is service_role:",
+  svc.role === "service_role" ? "YES" : "NO — use service_role key, not anon",
+);
 console.log("  Publishable is anon:", pub.role === "anon" ? "YES" : "NO");
 
 const urlHasQuotes = /^["']/.test(process.env.SUPABASE_URL ?? "");

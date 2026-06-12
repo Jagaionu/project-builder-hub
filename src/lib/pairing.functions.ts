@@ -39,11 +39,13 @@ export const generateDriverPairingCode = rotateDriverLoginCode;
  * dispatch UI so codes survive page reloads.
  */
 export const getActiveDriverPairingCodes = createServerFn({ method: "GET" }).handler(async () => {
-  const { data, error } = await supabaseAdmin
-    .from("drivers")
-    .select("id, login_code");
+  const { data, error } = await supabaseAdmin.from("drivers").select("id, login_code");
   if (error) throw new Error(error.message);
   return (data ?? [])
     .filter((d) => d.login_code)
-    .map((d) => ({ driver_id: d.id as string, code: d.login_code as string, expires_at: null as string | null }));
+    .map((d) => ({
+      driver_id: d.id as string,
+      code: d.login_code as string,
+      expires_at: null as string | null,
+    }));
 });

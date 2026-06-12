@@ -50,7 +50,9 @@ export function toRoutePersistence(
   const out: PersistedRoute[] = [];
   for (const driverId of Object.keys(summariesByDriver).sort()) {
     const summaries = summariesByDriver[driverId];
-    const assignments = (assignmentsByDriver[driverId] ?? []).sort((a, b) => a.sequence - b.sequence);
+    const assignments = (assignmentsByDriver[driverId] ?? []).sort(
+      (a, b) => a.sequence - b.sequence,
+    );
     if (assignments.length === 0) continue;
 
     const totalDriveMin = summaries.reduce((s, sm) => s + sm.driveHours * 60, 0);

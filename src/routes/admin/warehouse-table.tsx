@@ -22,7 +22,13 @@ interface EditingState {
 
 export function WarehouseTable({ warehouses, searchQuery, onRefresh }: WarehouseTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editing, setEditing] = useState<EditingState>({ code: "", name: "", latitude: "", longitude: "", address: "" });
+  const [editing, setEditing] = useState<EditingState>({
+    code: "",
+    name: "",
+    latitude: "",
+    longitude: "",
+    address: "",
+  });
   const [saving, setSaving] = useState(false);
   const [showDeleteId, setShowDeleteId] = useState<string | null>(null);
 
@@ -72,7 +78,11 @@ export function WarehouseTable({ warehouses, searchQuery, onRefresh }: Warehouse
         address: editing.address.trim() || null,
       } as never)
       .eq("id", whId);
-    if (error) { toast.error(error.message); setSaving(false); return; }
+    if (error) {
+      toast.error(error.message);
+      setSaving(false);
+      return;
+    }
     toast.success(`Warehouse "${editing.code}" updated`);
     setEditingId(null);
     setSaving(false);
@@ -84,7 +94,10 @@ export function WarehouseTable({ warehouses, searchQuery, onRefresh }: Warehouse
       .from("warehouses" as never)
       .delete()
       .eq("id", whId);
-    if (error) { toast.error("Failed to delete warehouse"); return; }
+    if (error) {
+      toast.error("Failed to delete warehouse");
+      return;
+    }
     toast.success(`Warehouse "${whCode}" deleted`);
     setShowDeleteId(null);
     onRefresh();
@@ -94,7 +107,9 @@ export function WarehouseTable({ warehouses, searchQuery, onRefresh }: Warehouse
     return (
       <div className="text-center py-12 text-muted-foreground">
         <Globe className="size-8 mx-auto mb-2 opacity-30" />
-        <p className="text-sm">{searchQuery ? "No warehouses match your search" : "No warehouses yet"}</p>
+        <p className="text-sm">
+          {searchQuery ? "No warehouses match your search" : "No warehouses yet"}
+        </p>
       </div>
     );
   }
@@ -116,23 +131,66 @@ export function WarehouseTable({ warehouses, searchQuery, onRefresh }: Warehouse
           {filtered.map((wh) => {
             const isEditing = editingId === wh.id;
             const isGlobal = !(wh as Warehouse & { tenant_id?: string | null }).tenant_id;
-            const ownerName = (wh as Warehouse & { companies?: { name: string } | null }).companies?.name;
+            const ownerName = (wh as Warehouse & { companies?: { name: string } | null }).companies
+              ?.name;
 
             return (
               <tr key={wh.id}>
                 {isEditing ? (
                   <>
-                    <td><Input value={editing.code} onChange={(e) => setEditing((p) => ({ ...p, code: e.target.value }))} className="h-7 text-xs" /></td>
-                    <td><Input value={editing.name} onChange={(e) => setEditing((p) => ({ ...p, name: e.target.value }))} className="h-7 text-xs" /></td>
-                    <td className="space-x-1">
-                      <Input value={editing.latitude} onChange={(e) => setEditing((p) => ({ ...p, latitude: e.target.value }))} className="h-7 w-20 text-xs inline-block" />
-                      <Input value={editing.longitude} onChange={(e) => setEditing((p) => ({ ...p, longitude: e.target.value }))} className="h-7 w-20 text-xs inline-block" />
+                    <td>
+                      <Input
+                        value={editing.code}
+                        onChange={(e) => setEditing((p) => ({ ...p, code: e.target.value }))}
+                        className="h-7 text-xs"
+                      />
                     </td>
-                    <td colSpan={2}><Input value={editing.address} onChange={(e) => setEditing((p) => ({ ...p, address: e.target.value }))} placeholder="Address" className="h-7 text-xs" /></td>
+                    <td>
+                      <Input
+                        value={editing.name}
+                        onChange={(e) => setEditing((p) => ({ ...p, name: e.target.value }))}
+                        className="h-7 text-xs"
+                      />
+                    </td>
+                    <td className="space-x-1">
+                      <Input
+                        value={editing.latitude}
+                        onChange={(e) => setEditing((p) => ({ ...p, latitude: e.target.value }))}
+                        className="h-7 w-20 text-xs inline-block"
+                      />
+                      <Input
+                        value={editing.longitude}
+                        onChange={(e) => setEditing((p) => ({ ...p, longitude: e.target.value }))}
+                        className="h-7 w-20 text-xs inline-block"
+                      />
+                    </td>
+                    <td colSpan={2}>
+                      <Input
+                        value={editing.address}
+                        onChange={(e) => setEditing((p) => ({ ...p, address: e.target.value }))}
+                        placeholder="Address"
+                        className="h-7 text-xs"
+                      />
+                    </td>
                     <td>
                       <div className="flex gap-1">
-                        <Button size="sm" variant="default" onClick={() => handleSave(wh.id)} disabled={saving} className="h-7 text-[10px] px-2">{saving ? "..." : "Save"}</Button>
-                        <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-7 text-[10px] px-2">Cancel</Button>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => handleSave(wh.id)}
+                          disabled={saving}
+                          className="h-7 text-[10px] px-2"
+                        >
+                          {saving ? "..." : "Save"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={cancelEdit}
+                          className="h-7 text-[10px] px-2"
+                        >
+                          Cancel
+                        </Button>
                       </div>
                     </td>
                   </>
@@ -143,7 +201,9 @@ export function WarehouseTable({ warehouses, searchQuery, onRefresh }: Warehouse
                     <td className="text-[11px] font-mono text-muted-foreground">
                       <MapPin className="size-3 inline mr-1 text-muted-foreground/50" />
                       {wh.latitude.toFixed(4)}, {wh.longitude.toFixed(4)}
-                      {wh.address && <span className="ml-2 text-muted-foreground/60">{wh.address}</span>}
+                      {wh.address && (
+                        <span className="ml-2 text-muted-foreground/60">{wh.address}</span>
+                      )}
                     </td>
                     <td>
                       {isGlobal ? (
@@ -164,7 +224,10 @@ export function WarehouseTable({ warehouses, searchQuery, onRefresh }: Warehouse
                     </td>
                     <td>
                       <div className="flex gap-1">
-                        <button onClick={() => startEdit(wh)} className="p-1 rounded text-primary hover:bg-primary/10 transition-colors">
+                        <button
+                          onClick={() => startEdit(wh)}
+                          className="p-1 rounded text-primary hover:bg-primary/10 transition-colors"
+                        >
                           <Pencil className="size-3.5" />
                         </button>
                         {showDeleteId === wh.id ? (
@@ -183,7 +246,10 @@ export function WarehouseTable({ warehouses, searchQuery, onRefresh }: Warehouse
                             </button>
                           </div>
                         ) : (
-                          <button onClick={() => setShowDeleteId(wh.id)} className="p-1 rounded text-destructive/70 hover:text-destructive hover:bg-destructive/5 transition-colors">
+                          <button
+                            onClick={() => setShowDeleteId(wh.id)}
+                            className="p-1 rounded text-destructive/70 hover:text-destructive hover:bg-destructive/5 transition-colors"
+                          >
                             <Trash2 className="size-3.5" />
                           </button>
                         )}
@@ -217,12 +283,24 @@ export function WarehouseTableSkeleton() {
         <tbody>
           {Array.from({ length: 4 }).map((_, i) => (
             <tr key={i}>
-              <td><div className="skeleton h-4 w-12 rounded" /></td>
-              <td><div className="skeleton h-4 w-28 rounded" /></td>
-              <td><div className="skeleton h-4 w-32 rounded" /></td>
-              <td><div className="skeleton h-4 w-14 rounded" /></td>
-              <td><div className="skeleton h-4 w-20 rounded" /></td>
-              <td><div className="skeleton h-4 w-12 rounded" /></td>
+              <td>
+                <div className="skeleton h-4 w-12 rounded" />
+              </td>
+              <td>
+                <div className="skeleton h-4 w-28 rounded" />
+              </td>
+              <td>
+                <div className="skeleton h-4 w-32 rounded" />
+              </td>
+              <td>
+                <div className="skeleton h-4 w-14 rounded" />
+              </td>
+              <td>
+                <div className="skeleton h-4 w-20 rounded" />
+              </td>
+              <td>
+                <div className="skeleton h-4 w-12 rounded" />
+              </td>
             </tr>
           ))}
         </tbody>

@@ -1,6 +1,6 @@
 # Driver App on Capacitor - Native Setup Guide
 
-Goal: ship the driver UI (the /d/* routes) as a native iOS/Android app with
+Goal: ship the driver UI (the /d/\* routes) as a native iOS/Android app with
 true background GPS, reusing the existing React code. Do this on a Mac/PC with
 Xcode + Android Studio (it cannot be done in the headless dev sandbox).
 
@@ -11,7 +11,7 @@ plus a static client (dist/client), and the dispatcher side uses server
 functions. Capacitor, however, loads a STATIC bundle from the device - there is
 no SSR server on the phone.
 
-Good news: the driver UI (/d/* routes and src/components/driver/*) uses NO
+Good news: the driver UI (/d/_ routes and src/components/driver/_) uses NO
 server functions - every call goes straight to Supabase (auth, data, realtime,
 and the log_gps RPC). So the driver app can ship as a pure client SPA that talks
 directly to Supabase. Nothing driver-facing needs the SSR server.
@@ -48,6 +48,7 @@ npx cap add ios
 npx cap add android
 npx cap sync
 ```
+
 capacitor.config.ts is already committed (appId com.primeroute.driver, webDir
 dist/driver, no service-role key).
 
@@ -150,8 +151,9 @@ npx serve dist/driver     # open the served URL, then navigate to /d
 
 The shell boots the router at `/` (in the Capacitor shell the start URL is
 `capacitor://localhost/`). The driver app should land on `/d`. Pick one:
+
 - Add a `/` -> `/d` redirect in the driver build (a small index route redirect),
   or
 - Configure the initial path in the native layer.
-This is the last routing detail; it cannot be fully verified headless, so confirm
-it when you first run the app on a simulator/device.
+  This is the last routing detail; it cannot be fully verified headless, so confirm
+  it when you first run the app on a simulator/device.

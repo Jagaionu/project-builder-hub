@@ -12,7 +12,14 @@ import type { PlannedAssign } from "@/lib/planner";
 const ROW_HEIGHT = 76;
 
 export const JobQueue = memo(function JobQueue({
-  jobs, selectedJobId, totalJobs, stopsMap, lookups, plannedByJob, onSelect, onShowTour,
+  jobs,
+  selectedJobId,
+  totalJobs,
+  stopsMap,
+  lookups,
+  plannedByJob,
+  onSelect,
+  onShowTour,
 }: {
   jobs: Job[];
   selectedJobId: string | null;
@@ -28,7 +35,8 @@ export const JobQueue = memo(function JobQueue({
   const tourSize = useMemo(() => {
     const m = new Map<string, number>();
     for (const j of jobs) {
-      const id = j.assigned_driver_id ?? plannedByJob.get(j.id)?.driverId ?? j.planned_driver_id ?? null;
+      const id =
+        j.assigned_driver_id ?? plannedByJob.get(j.id)?.driverId ?? j.planned_driver_id ?? null;
       if (id) m.set(id, (m.get(id) ?? 0) + 1);
     }
     return m;
@@ -50,7 +58,11 @@ export const JobQueue = memo(function JobQueue({
     >
       <div
         className="px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground sticky top-0 z-10 flex items-center justify-between"
-        style={{ borderBottom: "1px solid var(--sidebar-divider)", background: "var(--background)", backdropFilter: "blur(4px)" }}
+        style={{
+          borderBottom: "1px solid var(--sidebar-divider)",
+          background: "var(--background)",
+          backdropFilter: "blur(4px)",
+        }}
       >
         <span>Queue</span>
         <span
@@ -64,7 +76,9 @@ export const JobQueue = memo(function JobQueue({
       {jobs.length === 0 ? (
         <div className="p-8 text-sm text-muted-foreground text-center">
           <MapPin className="size-8 mx-auto text-muted-foreground/30 mb-3" />
-          <p className="text-xs">{totalJobs === 0 ? "No routes yet." : "No routes match your filters."}</p>
+          <p className="text-xs">
+            {totalJobs === 0 ? "No routes yet." : "No routes match your filters."}
+          </p>
         </div>
       ) : (
         <div
@@ -110,7 +124,14 @@ export const JobQueue = memo(function JobQueue({
 });
 
 const QueueRow = memo(function QueueRow({
-  job, active, stopsMap, lookups, plannedByJob, onSelect, tourSize, onShowTour,
+  job,
+  active,
+  stopsMap,
+  lookups,
+  plannedByJob,
+  onSelect,
+  tourSize,
+  onShowTour,
 }: {
   job: Job;
   active: boolean;
@@ -128,15 +149,16 @@ const QueueRow = memo(function QueueRow({
 
   const planned = plannedByJob.get(job.id);
   const plannedDriverId = planned?.driverId ?? job.planned_driver_id ?? null;
-  const plannedDriver = !driver && plannedDriverId ? lookups.driversById.get(plannedDriverId) : null;
-  
-  // Chaining indicator: job is planned and has a sequence > 1, 
+  const plannedDriver =
+    !driver && plannedDriverId ? lookups.driversById.get(plannedDriverId) : null;
+
+  // Chaining indicator: job is planned and has a sequence > 1,
   // OR it's planned and there are other jobs planned for the same driver.
   const tourDriverId = job.assigned_driver_id ?? plannedDriverId ?? null;
   const tourCount = tourDriverId ? (tourSize.get(tourDriverId) ?? 0) : 0;
   const inTour = tourCount > 1;
   const tourSeq = planned?.sequence ?? job.planned_sequence ?? null;
-  
+
   const isMR = stops.length > 2;
 
   const effectiveStatus: EffectiveStatus = useMemo(() => {
@@ -144,12 +166,17 @@ const QueueRow = memo(function QueueRow({
       {
         ...job,
         stops: stops.map((s, idx) => ({
-          seq: idx, kind: s.kind, warehouse_id: s.warehouse_id,
-          scheduled_at: s.scheduled_at, arrived_at: s.arrived_at ?? null,
+          seq: idx,
+          kind: s.kind,
+          warehouse_id: s.warehouse_id,
+          scheduled_at: s.scheduled_at,
+          arrived_at: s.arrived_at ?? null,
         })),
       },
       Date.now(),
-    ) ? "SCHEDULED" : job.status;
+    )
+      ? "SCHEDULED"
+      : job.status;
   }, [job, stops]);
 
   const cfg = STATUS_CONFIG[effectiveStatus];
@@ -168,14 +195,25 @@ const QueueRow = memo(function QueueRow({
     >
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-xs font-semibold text-foreground tracking-tight">{job.reference}</span>
+          <span className="font-mono text-xs font-semibold text-foreground tracking-tight">
+            {job.reference}
+          </span>
           {inTour && tourDriverId && (
             <span
               role="button"
               tabIndex={0}
               title="Show this driver's full tour"
-              onClick={(e) => { e.stopPropagation(); onShowTour(tourDriverId); }}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onShowTour(tourDriverId); } }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onShowTour(tourDriverId);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onShowTour(tourDriverId);
+                }
+              }}
               className="inline-flex items-center gap-0.5 rounded-full bg-[color:var(--primary-bright)]/15 px-1.5 py-0.5 text-[9px] font-mono font-semibold text-[color:var(--primary-bright)] cursor-pointer hover:bg-[color:var(--primary-bright)]/30"
             >
               <LinkIcon className="size-2.5" />
@@ -183,27 +221,22 @@ const QueueRow = memo(function QueueRow({
             </span>
           )}
         </div>
-        <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tracking-wider", cfg.badge)}>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tracking-wider",
+            cfg.badge,
+          )}
+        >
           <span className={cn("size-1.5 rounded-full shrink-0", cfg.dot)} />
           {cfg.label}
         </span>
       </div>
       <div className="flex items-center gap-1.5 font-mono text-sm">
-        <span
-          className={cn(
-            "font-semibold truncate",
-            active ? "text-primary" : "text-foreground",
-          )}
-        >
+        <span className={cn("font-semibold truncate", active ? "text-primary" : "text-foreground")}>
           {o?.code ?? "?"}
         </span>
         <ArrowRight className="size-3 text-muted-foreground shrink-0" />
-        <span
-          className={cn(
-            "font-semibold truncate",
-            active ? "text-primary" : "text-foreground",
-          )}
-        >
+        <span className={cn("font-semibold truncate", active ? "text-primary" : "text-foreground")}>
           {d?.code ?? "?"}
         </span>
         {isMR && (
@@ -216,7 +249,11 @@ const QueueRow = memo(function QueueRow({
         <span className="font-mono">
           {job.scheduled_at
             ? new Date(job.scheduled_at).toLocaleString(undefined, {
-                day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false,
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
               })
             : "ASAP"}
         </span>

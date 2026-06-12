@@ -10,7 +10,9 @@ let cachedActor: { userId: string | null; email: string | null; name: string | n
 
 async function actor() {
   if (cachedActor) return cachedActor;
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   let name: string | null = null;
   if (user) {
     const { data } = await sb

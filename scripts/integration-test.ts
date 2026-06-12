@@ -104,7 +104,10 @@ async function main() {
   let jobsQ = admin.from("jobs").select("*").eq("status", "PENDING").is("assigned_driver_id", null);
   let driversQ = admin.from("drivers").select("*");
   let whQ = admin.from("warehouses").select("*");
-  let stopsQ = admin.from("job_stops").select("*, jobs!inner(tenant_id)").order("seq", { ascending: true });
+  let stopsQ = admin
+    .from("job_stops")
+    .select("*, jobs!inner(tenant_id)")
+    .order("seq", { ascending: true });
   let eventsQ = admin
     .from("driver_events")
     .select("driver_id,type,timestamp")
@@ -241,7 +244,8 @@ async function main() {
   }
 
   let totalAssigned = 0;
-  const allAssignments: Array<{ jobId: string; driverId: string; date: string; startAt: string }> = [];
+  const allAssignments: Array<{ jobId: string; driverId: string; date: string; startAt: string }> =
+    [];
   const driverDailyMinutes = new Map<string, number>();
 
   console.log("  Running planner…\n");
@@ -262,7 +266,12 @@ async function main() {
     );
 
     for (const p of result.planned) {
-      allAssignments.push({ jobId: p.jobId, driverId: p.driverId, date: dateStr, startAt: p.startAt });
+      allAssignments.push({
+        jobId: p.jobId,
+        driverId: p.driverId,
+        date: dateStr,
+        startAt: p.startAt,
+      });
       totalAssigned++;
 
       // Track daily hours per driver
@@ -290,11 +299,7 @@ async function main() {
     `${totalAssigned} jobs assigned across ${sortedDates.length} date(s)`,
   );
 
-  assert(
-    "no crash on empty data",
-    true,
-    `dates processed: ${sortedDates.length}`,
-  );
+  assert("no crash on empty data", true, `dates processed: ${sortedDates.length}`);
 
   // 2. All assigned jobs have required fields
   for (const a of allAssignments) {
@@ -341,27 +346,17 @@ async function main() {
     .from("driver_equipment")
     .select("*", { count: "exact", head: true });
 
-  assert(
-    "driver_equipment table accessible",
-    !equipErr,
-    `rows: ${equipCount ?? "?"}`,
-  );
+  assert("driver_equipment table accessible", !equipErr, `rows: ${equipCount ?? "?"}`);
 
   // 6. Verify routes table exists
   const { count: routeCount, error: routeErr } = await admin
     .from("routes")
     .select("*", { count: "exact", head: true });
 
-  assert(
-    "routes table accessible",
-    !routeErr,
-    `rows: ${routeCount ?? "?"}`,
-  );
+  assert("routes table accessible", !routeErr, `rows: ${routeCount ?? "?"}`);
 
   // 7. Error handling — planner should reject impossible jobs gracefully
-  const impossibleCount = allAssignments.filter(
-    (a) => a.startAt === "",
-  ).length;
+  const impossibleCount = allAssignments.filter((a) => a.startAt === "").length;
   assert(
     "no empty startAt in assignments",
     impossibleCount === 0,

@@ -67,24 +67,49 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "The Prime Route — UK Logistics Dispatch & Driver Tracking" },
-      { name: "description", content: "The Prime Route is a UK logistics platform for Amazon warehouse operations: real-time driver tracking, dispatch planning, shift management, and route optimization." },
-      { name: "keywords", content: "UK logistics, dispatch software, Amazon logistics, driver tracking, route optimization, fleet management, shift planning" },
+      {
+        name: "description",
+        content:
+          "The Prime Route is a UK logistics platform for Amazon warehouse operations: real-time driver tracking, dispatch planning, shift management, and route optimization.",
+      },
+      {
+        name: "keywords",
+        content:
+          "UK logistics, dispatch software, Amazon logistics, driver tracking, route optimization, fleet management, shift planning",
+      },
       { name: "author", content: "The Prime Route" },
       { name: "robots", content: "index, follow" },
-      { property: "og:title", content: "The Prime Route — UK Logistics Dispatch & Driver Tracking" },
-      { property: "og:description", content: "Real-time driver tracking, dispatch, and route optimization for UK Amazon warehouse logistics." },
+      {
+        property: "og:title",
+        content: "The Prime Route — UK Logistics Dispatch & Driver Tracking",
+      },
+      {
+        property: "og:description",
+        content:
+          "Real-time driver tracking, dispatch, and route optimization for UK Amazon warehouse logistics.",
+      },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://theprimeroute.co.uk/" },
       { property: "og:site_name", content: "The Prime Route" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "The Prime Route — UK Logistics Dispatch" },
-      { name: "twitter:description", content: "Real-time driver tracking, dispatch, and route optimization for UK Amazon warehouse logistics." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/532b9127-bc8f-4a7f-8298-e31a25825f17/id-preview-b66d18aa--de24c086-d49f-40b3-b183-98147b9f11b0.lovable.app-1779361381318.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/532b9127-bc8f-4a7f-8298-e31a25825f17/id-preview-b66d18aa--de24c086-d49f-40b3-b183-98147b9f11b0.lovable.app-1779361381318.png" },
+      {
+        name: "twitter:description",
+        content:
+          "Real-time driver tracking, dispatch, and route optimization for UK Amazon warehouse logistics.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/532b9127-bc8f-4a7f-8298-e31a25825f17/id-preview-b66d18aa--de24c086-d49f-40b3-b183-98147b9f11b0.lovable.app-1779361381318.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/532b9127-bc8f-4a7f-8298-e31a25825f17/id-preview-b66d18aa--de24c086-d49f-40b3-b183-98147b9f11b0.lovable.app-1779361381318.png",
+      },
     ],
-    scripts: [
-      { children: themeBootstrapScript },
-    ],
+    scripts: [{ children: themeBootstrapScript }],
     links: [
       { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -153,4 +178,3 @@ function ThemedToaster() {
   const { resolvedTheme } = useTheme();
   return <Toaster theme={resolvedTheme} position="bottom-right" />;
 }
-

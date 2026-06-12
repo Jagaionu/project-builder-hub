@@ -47,16 +47,20 @@ function cellClass(type: DayType, isToday: boolean, isPast: boolean) {
           ? "bg-[var(--shift-extra)] border-[var(--shift-extra-border)] text-[var(--shift-extra-fg)]"
           : "bg-transparent border-transparent text-[var(--shift-off-fg)]";
 
-  const today = isToday
-    ? " ring-1 ring-[var(--shift-today-ring)] font-bold"
-    : "";
+  const today = isToday ? " ring-1 ring-[var(--shift-today-ring)] font-bold" : "";
   const past = isPast ? " opacity-40" : "";
   return `${CELL_BASE} ${variant}${today}${past}`;
 }
 
-export function ShiftCalendar({ driverId, isPlanner = false, showPatternEditor = true }: ShiftCalendarProps) {
+export function ShiftCalendar({
+  driverId,
+  isPlanner = false,
+  showPatternEditor = true,
+}: ShiftCalendarProps) {
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
-  const [initialTimes, setInitialTimes] = useState<Record<number, { start_time: string | null; end_time: string | null }>>({});
+  const [initialTimes, setInitialTimes] = useState<
+    Record<number, { start_time: string | null; end_time: string | null }>
+  >({});
   const [overrides, setOverrides] = useState<DriverAvailabilityOverride[]>([]);
   const [overridesLoading, setOverridesLoading] = useState(true);
   const [patternVersion, setPatternVersion] = useState(0);
@@ -166,8 +170,7 @@ export function ShiftCalendar({ driverId, isPlanner = false, showPatternEditor =
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = todayLocalDateString();
   const monthName = currentMonth.toLocaleString("default", { month: "short", year: "numeric" });
-  const isCurrentMonth =
-    year === new Date().getFullYear() && month === new Date().getMonth();
+  const isCurrentMonth = year === new Date().getFullYear() && month === new Date().getMonth();
 
   const getDateStatus = (dayNum: number) => {
     const date = new Date(year, month, dayNum, 12);
@@ -256,10 +259,7 @@ export function ShiftCalendar({ driverId, isPlanner = false, showPatternEditor =
           ))}
           {overridesLoading
             ? Array.from({ length: daysInMonth }).map((_, i) => (
-                <div
-                  key={`s${i}`}
-                  className="aspect-square rounded-md skeleton"
-                />
+                <div key={`s${i}`} className="aspect-square rounded-md skeleton" />
               ))
             : Array.from({ length: daysInMonth }).map((_, i) => {
                 const dayNum = i + 1;
@@ -287,10 +287,10 @@ export function ShiftCalendar({ driverId, isPlanner = false, showPatternEditor =
                         : driverLockedToday
                           ? "Same-day changes are locked — ask your planner"
                           : isPast
-                          ? "Past date"
-                          : startHM && endHM
-                            ? `${startHM}–${endHM}`
-                            : undefined
+                            ? "Past date"
+                            : startHM && endHM
+                              ? `${startHM}–${endHM}`
+                              : undefined
                     }
                   >
                     <span className="leading-none">{dayNum}</span>
@@ -301,21 +301,23 @@ export function ShiftCalendar({ driverId, isPlanner = false, showPatternEditor =
                       </span>
                     )}
                     {locked && (
-                      <Lock
-                        size={6}
-                        className="absolute bottom-0.5 right-0.5 opacity-60"
-                      />
+                      <Lock size={6} className="absolute bottom-0.5 right-0.5 opacity-60" />
                     )}
                   </button>
-
                 );
               })}
         </div>
 
         <div className="flex gap-2 mt-3 flex-wrap">
           {[
-            { cls: "bg-[var(--shift-working)] border-[var(--shift-working-border)]", label: "Working" },
-            { cls: "bg-[var(--shift-holiday)] border-[var(--shift-holiday-border)]", label: "Holiday" },
+            {
+              cls: "bg-[var(--shift-working)] border-[var(--shift-working-border)]",
+              label: "Working",
+            },
+            {
+              cls: "bg-[var(--shift-holiday)] border-[var(--shift-holiday-border)]",
+              label: "Holiday",
+            },
             { cls: "bg-[var(--shift-extra)] border-[var(--shift-extra-border)]", label: "Extra" },
             { cls: "bg-transparent border-border", label: "Off" },
           ].map(({ cls, label }) => (

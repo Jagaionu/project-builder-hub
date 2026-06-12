@@ -1,7 +1,13 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { useDrivers, useComplianceWithLedger, useDriverDayHours, useWarehouses, reloadDrivers } from "@/lib/hooks";
+import {
+  useDrivers,
+  useComplianceWithLedger,
+  useDriverDayHours,
+  useWarehouses,
+  reloadDrivers,
+} from "@/lib/hooks";
 import { useTheme } from "@/lib/theme-context";
 import { StatusBadge } from "@/components/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,15 +57,29 @@ export const Route = createFileRoute("/_app/drivers")({
   head: () => ({ meta: [{ title: "Drivers — Planning System" }] }),
 });
 
-type DriverForm = { name: string; phone: string; home_warehouse_id: string; return_to_base_required: boolean };
+type DriverForm = {
+  name: string;
+  phone: string;
+  home_warehouse_id: string;
+  return_to_base_required: boolean;
+};
 
 // Chip multi-select for vehicle/equipment types. Options come from the data
 // (jobs + driver_equipment) so they match what the planner gates against; a
 // free-text "add" lets you introduce a new type when the fleet needs one.
-function EquipmentPicker({ value, onChange, options }: { value: string[]; onChange: (v: string[]) => void; options: string[] }) {
+function EquipmentPicker({
+  value,
+  onChange,
+  options,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  options: string[];
+}) {
   const [custom, setCustom] = useState("");
   const all = [...new Set([...options, ...value])].sort();
-  const toggle = (t: string) => onChange(value.includes(t) ? value.filter((x) => x !== t) : [...value, t]);
+  const toggle = (t: string) =>
+    onChange(value.includes(t) ? value.filter((x) => x !== t) : [...value, t]);
   const addCustom = () => {
     const t = custom.trim();
     if (t && !value.includes(t)) onChange([...value, t]);
@@ -67,22 +87,47 @@ function EquipmentPicker({ value, onChange, options }: { value: string[]; onChan
   };
   return (
     <div className="flex flex-wrap gap-1.5">
-      {all.length === 0 && <span className="text-xs text-muted-foreground w-full">None yet — add one below.</span>}
+      {all.length === 0 && (
+        <span className="text-xs text-muted-foreground w-full">None yet — add one below.</span>
+      )}
       {all.map((t) => {
         const on = value.includes(t);
         return (
-          <button key={t} type="button" onClick={() => toggle(t)}
-            className={"px-2 py-1 rounded-md text-[11px] font-mono border transition " + (on ? "bg-primary/15 border-primary text-primary" : "bg-surface border-border text-muted-foreground")}>
+          <button
+            key={t}
+            type="button"
+            onClick={() => toggle(t)}
+            className={
+              "px-2 py-1 rounded-md text-[11px] font-mono border transition " +
+              (on
+                ? "bg-primary/15 border-primary text-primary"
+                : "bg-surface border-border text-muted-foreground")
+            }
+          >
             {t}
           </button>
         );
       })}
       <div className="flex items-center gap-1 w-full mt-1">
-        <input value={custom} onChange={(e) => setCustom(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustom(); } }}
+        <input
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addCustom();
+            }
+          }}
           placeholder="Add a vehicle/equipment type…"
-          className="flex-1 h-8 px-2 rounded-md border border-border bg-surface text-xs focus:outline-none focus:ring-2 focus:ring-primary/40" />
-        <button type="button" onClick={addCustom} className="px-2 h-8 rounded-md border border-border text-xs hover:bg-surface-2">Add</button>
+          className="flex-1 h-8 px-2 rounded-md border border-border bg-surface text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <button
+          type="button"
+          onClick={addCustom}
+          className="px-2 h-8 rounded-md border border-border text-xs hover:bg-surface-2"
+        >
+          Add
+        </button>
       </div>
     </div>
   );
@@ -96,10 +141,23 @@ function DriversPage() {
   const compliance = useComplianceWithLedger(useDriverDayHours());
   const activeJobsByDriver = useActiveJobsByDriver();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<DriverForm>({ name: "", phone: "", home_warehouse_id: "", return_to_base_required: false });
+  const [form, setForm] = useState<DriverForm>({
+    name: "",
+    phone: "",
+    home_warehouse_id: "",
+    return_to_base_required: false,
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<DriverForm>({ name: "", phone: "", home_warehouse_id: "", return_to_base_required: false });
-  const [editPattern, setEditPattern] = useState<{ days: number[]; times: Record<number, { start_time: string | null; end_time: string | null }> } | null>(null);
+  const [editForm, setEditForm] = useState<DriverForm>({
+    name: "",
+    phone: "",
+    home_warehouse_id: "",
+    return_to_base_required: false,
+  });
+  const [editPattern, setEditPattern] = useState<{
+    days: number[];
+    times: Record<number, { start_time: string | null; end_time: string | null }>;
+  } | null>(null);
   const [editEquip, setEditEquip] = useState<string[]>([]);
   const [createEquip, setCreateEquip] = useState<string[]>([]);
   const equipmentTypes = useEquipmentTypes();
@@ -243,8 +301,15 @@ function DriversPage() {
       return;
     }
     const newId = (data as { id: string }).id;
-    if (createEquip.length) await eqClient.from("driver_equipment").insert(createEquip.map((t) => ({ driver_id: newId, equipment_type: t })));
-    void logActivity("driver.create", { entityType: "driver", entityId: newId, entityRef: form.name });
+    if (createEquip.length)
+      await eqClient
+        .from("driver_equipment")
+        .insert(createEquip.map((t) => ({ driver_id: newId, equipment_type: t })));
+    void logActivity("driver.create", {
+      entityType: "driver",
+      entityId: newId,
+      entityRef: form.name,
+    });
     const code = (data as { login_code?: string | null }).login_code;
     if (code) {
       await navigator.clipboard?.writeText(code).catch(() => {});
@@ -259,7 +324,13 @@ function DriversPage() {
     router.invalidate();
   }
 
-  function startEdit(d: { id: string; name: string; phone: string | null; home_warehouse_id?: string | null; return_to_base_required?: boolean }) {
+  function startEdit(d: {
+    id: string;
+    name: string;
+    phone: string | null;
+    home_warehouse_id?: string | null;
+    return_to_base_required?: boolean;
+  }) {
     setEditingId(d.id);
     setEditForm({
       name: d.name,
@@ -270,12 +341,19 @@ function DriversPage() {
     setEditPattern(null);
     setEditEquip([]);
     void (async () => {
-      const { data } = await eqClient.from("driver_equipment").select("equipment_type").eq("driver_id", d.id);
-      setEditEquip(((data ?? []) as Array<{ equipment_type: string }>).map((r) => r.equipment_type));
+      const { data } = await eqClient
+        .from("driver_equipment")
+        .select("equipment_type")
+        .eq("driver_id", d.id);
+      setEditEquip(
+        ((data ?? []) as Array<{ equipment_type: string }>).map((r) => r.equipment_type),
+      );
     })();
-    fetchShiftPattern(supabase, d.id).then((p) => {
-      setEditPattern({ days: p.days_of_week, times: p.shiftByDay });
-    }).catch(() => setEditPattern({ days: [], times: {} }));
+    fetchShiftPattern(supabase, d.id)
+      .then((p) => {
+        setEditPattern({ days: p.days_of_week, times: p.shiftByDay });
+      })
+      .catch(() => setEditPattern({ days: [], times: {} }));
   }
 
   async function saveEdit() {
@@ -290,10 +368,20 @@ function DriversPage() {
         return_to_base_required: editForm.return_to_base_required,
       })
       .eq("id", editingId);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     await eqClient.from("driver_equipment").delete().eq("driver_id", editingId);
-    if (editEquip.length) await eqClient.from("driver_equipment").insert(editEquip.map((t) => ({ driver_id: editingId, equipment_type: t })));
-    void logActivity("driver.edit", { entityType: "driver", entityId: editingId, entityRef: editForm.name });
+    if (editEquip.length)
+      await eqClient
+        .from("driver_equipment")
+        .insert(editEquip.map((t) => ({ driver_id: editingId, equipment_type: t })));
+    void logActivity("driver.edit", {
+      entityType: "driver",
+      entityId: editingId,
+      entityRef: editForm.name,
+    });
     toast.success("Driver updated");
     setEditingId(null);
     await reloadDrivers();
@@ -324,7 +412,10 @@ function DriversPage() {
   return (
     <div className="h-full flex flex-col">
       {/* Header with filters in the middle */}
-      <header className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4" style={accentColor ? { background: accentColor } : undefined}>
+      <header
+        className="px-5 py-3 border-b border-border grid grid-cols-[1fr_auto_1fr] items-center gap-4"
+        style={accentColor ? { background: accentColor } : undefined}
+      >
         <div className="min-w-0">
           <h1 className="text-base font-semibold tracking-tight">Drivers</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -377,7 +468,9 @@ function DriversPage() {
         </div>
       </header>
 
-      {tachoOpen && <DispatcherTachographTracker drivers={drivers} onClose={() => setTachoOpen(false)} />}
+      {tachoOpen && (
+        <DispatcherTachographTracker drivers={drivers} onClose={() => setTachoOpen(false)} />
+      )}
 
       {/* Create form modal */}
       {open && (
@@ -422,32 +515,42 @@ function DriversPage() {
                 >
                   <option value="">— None (free agent) —</option>
                   {warehouses.map((w) => (
-                    <option key={w.id} value={w.id}>{w.code} — {w.name}</option>
+                    <option key={w.id} value={w.id}>
+                      {w.code} — {w.name}
+                    </option>
                   ))}
                 </select>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-border bg-surface/50 px-3 py-2.5">
                 <div>
                   <p className="text-sm font-medium text-foreground">Return to base</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Planner will route driver back to home warehouse at end of day</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Planner will route driver back to home warehouse at end of day
+                  </p>
                 </div>
                 <button
                   type="button"
                   role="switch"
                   aria-checked={form.return_to_base_required}
                   disabled={!form.home_warehouse_id}
-                  onClick={() => setForm((f) => ({ ...f, return_to_base_required: !f.return_to_base_required }))}
+                  onClick={() =>
+                    setForm((f) => ({ ...f, return_to_base_required: !f.return_to_base_required }))
+                  }
                   className={
                     "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors " +
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
                     "disabled:cursor-not-allowed disabled:opacity-40 " +
-                    (form.return_to_base_required && form.home_warehouse_id ? "bg-primary" : "bg-muted")
+                    (form.return_to_base_required && form.home_warehouse_id
+                      ? "bg-primary"
+                      : "bg-muted")
                   }
                 >
                   <span
                     className={
                       "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform " +
-                      (form.return_to_base_required && form.home_warehouse_id ? "translate-x-5" : "translate-x-0")
+                      (form.return_to_base_required && form.home_warehouse_id
+                        ? "translate-x-5"
+                        : "translate-x-0")
                     }
                   />
                 </button>
@@ -455,14 +558,23 @@ function DriversPage() {
 
               {/* Vehicle / equipment capabilities */}
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">Vehicle / equipment</label>
-                <EquipmentPicker value={createEquip} onChange={setCreateEquip} options={equipmentTypes} />
+                <label className="text-xs font-medium text-muted-foreground block mb-2">
+                  Vehicle / equipment
+                </label>
+                <EquipmentPicker
+                  value={createEquip}
+                  onChange={setCreateEquip}
+                  options={equipmentTypes}
+                />
               </div>
             </div>
 
             <div className="flex gap-3">
               <button
-                onClick={() => { setOpen(false); setCreateEquip([]); }}
+                onClick={() => {
+                  setOpen(false);
+                  setCreateEquip([]);
+                }}
                 className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-surface hover:bg-surface-2 text-sm font-medium transition-colors"
               >
                 Cancel
@@ -520,32 +632,45 @@ function DriversPage() {
                 >
                   <option value="">— None (free agent) —</option>
                   {warehouses.map((w) => (
-                    <option key={w.id} value={w.id}>{w.code} — {w.name}</option>
+                    <option key={w.id} value={w.id}>
+                      {w.code} — {w.name}
+                    </option>
                   ))}
                 </select>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-border bg-surface/50 px-3 py-2.5">
                 <div>
                   <p className="text-sm font-medium text-foreground">Return to base</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Planner will route driver back to home warehouse at end of day</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Planner will route driver back to home warehouse at end of day
+                  </p>
                 </div>
                 <button
                   type="button"
                   role="switch"
                   aria-checked={editForm.return_to_base_required}
                   disabled={!editForm.home_warehouse_id}
-                  onClick={() => setEditForm((f) => ({ ...f, return_to_base_required: !f.return_to_base_required }))}
+                  onClick={() =>
+                    setEditForm((f) => ({
+                      ...f,
+                      return_to_base_required: !f.return_to_base_required,
+                    }))
+                  }
                   className={
                     "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors " +
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
                     "disabled:cursor-not-allowed disabled:opacity-40 " +
-                    (editForm.return_to_base_required && editForm.home_warehouse_id ? "bg-primary" : "bg-muted")
+                    (editForm.return_to_base_required && editForm.home_warehouse_id
+                      ? "bg-primary"
+                      : "bg-muted")
                   }
                 >
                   <span
                     className={
                       "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform " +
-                      (editForm.return_to_base_required && editForm.home_warehouse_id ? "translate-x-5" : "translate-x-0")
+                      (editForm.return_to_base_required && editForm.home_warehouse_id
+                        ? "translate-x-5"
+                        : "translate-x-0")
                     }
                   />
                 </button>
@@ -553,8 +678,14 @@ function DriversPage() {
 
               {/* Equipment capabilities */}
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">Vehicle / equipment</label>
-                <EquipmentPicker value={editEquip} onChange={setEditEquip} options={equipmentTypes} />
+                <label className="text-xs font-medium text-muted-foreground block mb-2">
+                  Vehicle / equipment
+                </label>
+                <EquipmentPicker
+                  value={editEquip}
+                  onChange={setEditEquip}
+                  options={equipmentTypes}
+                />
               </div>
 
               {/* Weekly schedule pattern */}

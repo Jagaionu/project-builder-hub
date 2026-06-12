@@ -1,5 +1,15 @@
 import { memo, useState } from "react";
-import { Copy, Share2, Phone, Code2, CheckCircle2, Pencil, Trash2, RefreshCw, CalendarDays } from "lucide-react";
+import {
+  Copy,
+  Share2,
+  Phone,
+  Code2,
+  CheckCircle2,
+  Pencil,
+  Trash2,
+  RefreshCw,
+  CalendarDays,
+} from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { Driver } from "@/lib/types";
@@ -9,7 +19,6 @@ import type { Compliance } from "@/lib/compliance";
 import { ShiftCalendar } from "@/components/driver/ShiftCalendar";
 import { DriverItineraryTimeline } from "@/components/drivers/DriverItineraryTimeline";
 import { DriverHoursStatus } from "@/components/drivers/DriverHoursStatus";
-
 
 export const DriverDetailPanel = memo(function DriverDetailPanel({
   driver,
@@ -69,7 +78,12 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
             <StatusBadge status={effectiveStatus} kind="driver" />
             {driver.last_update_time && (
               <span className="text-xs text-muted-foreground font-mono">
-                Last update: {new Date(driver.last_update_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                Last update:{" "}
+                {new Date(driver.last_update_time).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
               </span>
             )}
           </div>
@@ -110,8 +124,12 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                     onClick={() => copyToClipboard(driver.phone!, "Phone")}
                     className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors"
                     style={{
-                      background: copiedField === "Phone" ? "oklch(0.73 0.17 150 / 0.15)" : "oklch(0.62 0.22 245 / 0.08)",
-                      color: copiedField === "Phone" ? "var(--success-fg)" : "var(--primary-bright)",
+                      background:
+                        copiedField === "Phone"
+                          ? "oklch(0.73 0.17 150 / 0.15)"
+                          : "oklch(0.62 0.22 245 / 0.08)",
+                      color:
+                        copiedField === "Phone" ? "var(--success-fg)" : "var(--primary-bright)",
                     }}
                   >
                     {copiedField === "Phone" ? (
@@ -144,8 +162,14 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                         onClick={() => copyToClipboard(code, "App Code")}
                         className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors"
                         style={{
-                          background: copiedField === "App Code" ? "oklch(0.73 0.17 150 / 0.15)" : "oklch(0.62 0.22 245 / 0.08)",
-                          color: copiedField === "App Code" ? "var(--success-fg)" : "var(--primary-bright)",
+                          background:
+                            copiedField === "App Code"
+                              ? "oklch(0.73 0.17 150 / 0.15)"
+                              : "oklch(0.62 0.22 245 / 0.08)",
+                          color:
+                            copiedField === "App Code"
+                              ? "var(--success-fg)"
+                              : "var(--primary-bright)",
                         }}
                       >
                         {copiedField === "App Code" ? (
@@ -191,11 +215,15 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <div className="text-[10px] text-muted-foreground mb-1">Latitude</div>
-                  <div className="font-mono text-sm text-foreground">{driver.current_lat.toFixed(6)}</div>
+                  <div className="font-mono text-sm text-foreground">
+                    {driver.current_lat.toFixed(6)}
+                  </div>
                 </div>
                 <div>
                   <div className="text-[10px] text-muted-foreground mb-1">Longitude</div>
-                  <div className="font-mono text-sm text-foreground">{driver.current_lon.toFixed(6)}</div>
+                  <div className="font-mono text-sm text-foreground">
+                    {driver.current_lon.toFixed(6)}
+                  </div>
                 </div>
               </div>
             </div>
@@ -218,7 +246,6 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
             <ShiftCalendar driverId={driver.id} isPlanner={true} showPatternEditor={false} />
           </div>
         </div>
-
       </div>
     </div>
   );

@@ -10,13 +10,13 @@ export type ComplianceIssue = { level: "warn" | "breach"; msg: string };
 
 export type Compliance = {
   onShift: boolean;
-  daily: number;        // driving hours rolling 24h
-  weekly: number;       // driving hours rolling 7d
-  twoWeek: number;      // driving hours rolling 14d
-  restHours: number;    // continuous rest before current shift, or since last shift ended
+  daily: number; // driving hours rolling 24h
+  weekly: number; // driving hours rolling 7d
+  twoWeek: number; // driving hours rolling 14d
+  restHours: number; // continuous rest before current shift, or since last shift ended
   continuousDrive: number; // driving in current "4.5h cycle" (since last assumed break)
-  dailyHeadroom: number;   // hrs left until 10h hard daily cap
-  weeklyHeadroom: number;  // hrs left until 56h weekly cap
+  dailyHeadroom: number; // hrs left until 10h hard daily cap
+  weeklyHeadroom: number; // hrs left until 56h weekly cap
   twoWeekHeadroom: number; // hrs left until 90h fortnight cap
   issues: ComplianceIssue[];
   status: "ok" | "warn" | "breach";
@@ -71,10 +71,10 @@ function buildSegments(events: ComplianceEvent[], nowMs: number): Seg[] {
 }
 
 // Driving hours for a shift of `durHours`, auto-deducting 45min break per 4.5h driven.
-// Driving hours for a shift of `durHours`. 
+// Driving hours for a shift of `durHours`.
 // Removed auto-deduction logic as we now use actual transit-only driving minutes.
 export function driveHoursOf(durHours: number): number {
-  return 0; 
+  return 0;
 }
 
 function sumDrivingInWindow(segs: Seg[], fromMs: number, toMs: number): number {
@@ -82,7 +82,12 @@ function sumDrivingInWindow(segs: Seg[], fromMs: number, toMs: number): number {
   return 0;
 }
 
-export type LedgerTotals = { daily?: number; weekly?: number; twoWeek?: number; continuousDrive?: number };
+export type LedgerTotals = {
+  daily?: number;
+  weekly?: number;
+  twoWeek?: number;
+  continuousDrive?: number;
+};
 
 export function computeCompliance(
   events: ComplianceEvent[],
@@ -111,14 +116,20 @@ export function computeCompliance(
   const continuousDrive = ledger?.continuousDrive ?? 0;
 
   const issues: ComplianceIssue[] = [];
-  if (weekly > 56) issues.push({ level: "breach", msg: `Weekly cap exceeded (${weekly.toFixed(1)}/56h)` });
-  else if (weekly > 50) issues.push({ level: "warn", msg: `Near weekly cap (${weekly.toFixed(1)}/56h)` });
+  if (weekly > 56)
+    issues.push({ level: "breach", msg: `Weekly cap exceeded (${weekly.toFixed(1)}/56h)` });
+  else if (weekly > 50)
+    issues.push({ level: "warn", msg: `Near weekly cap (${weekly.toFixed(1)}/56h)` });
 
-  if (twoWeek > 90) issues.push({ level: "breach", msg: `2-week cap exceeded (${twoWeek.toFixed(1)}/90h)` });
-  else if (twoWeek > 80) issues.push({ level: "warn", msg: `Near 2-week cap (${twoWeek.toFixed(1)}/90h)` });
+  if (twoWeek > 90)
+    issues.push({ level: "breach", msg: `2-week cap exceeded (${twoWeek.toFixed(1)}/90h)` });
+  else if (twoWeek > 80)
+    issues.push({ level: "warn", msg: `Near 2-week cap (${twoWeek.toFixed(1)}/90h)` });
 
-  if (daily > 10) issues.push({ level: "breach", msg: `Daily cap exceeded (${daily.toFixed(1)}/10h)` });
-  else if (daily > 9) issues.push({ level: "warn", msg: `Over 9h today (${daily.toFixed(1)}h, 10h max 2×/wk)` });
+  if (daily > 10)
+    issues.push({ level: "breach", msg: `Daily cap exceeded (${daily.toFixed(1)}/10h)` });
+  else if (daily > 9)
+    issues.push({ level: "warn", msg: `Over 9h today (${daily.toFixed(1)}h, 10h max 2×/wk)` });
 
   // Daily rest rule (UK HGV): need 9h+ (reduced) rest in every rolling 24h.
   // Only flag once accumulated driving in the last 24h is meaningful (>=9h);
@@ -137,7 +148,10 @@ export function computeCompliance(
     }
     const longestRestH = longestRestMs / H;
     if (longestRestH < 9) {
-      issues.push({ level: "breach", msg: `Insufficient rest (${longestRestH.toFixed(1)}h < 9h in last 24h)` });
+      issues.push({
+        level: "breach",
+        msg: `Insufficient rest (${longestRestH.toFixed(1)}h < 9h in last 24h)`,
+      });
     } else if (longestRestH < 11) {
       issues.push({ level: "warn", msg: `Reduced rest (${longestRestH.toFixed(1)}h, 3×/wk max)` });
     }

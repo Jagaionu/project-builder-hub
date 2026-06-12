@@ -8,7 +8,8 @@ export const availableFunctions: FunctionDefinition[] = [
   },
   {
     name: "propose_assign_driver",
-    description: "Propose manually assigning a driver to a job. Use the job reference (Load #) and driver name.",
+    description:
+      "Propose manually assigning a driver to a job. Use the job reference (Load #) and driver name.",
     parameters: {
       type: "object",
       properties: {

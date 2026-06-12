@@ -11,7 +11,10 @@ export type LegState = {
 };
 
 const INITIAL_LEG_STATE: LegState = {
-  activeLegId: null, activeDwellId: null, currentJobId: null, lastKnownWarehouseId: null,
+  activeLegId: null,
+  activeDwellId: null,
+  currentJobId: null,
+  lastKnownWarehouseId: null,
 };
 
 interface DriverAppState {
@@ -43,5 +46,6 @@ export const useDriverStore = create<DriverAppState>((set) => ({
   setGpsPosition: (gpsPosition) => set({ gpsPosition }),
   setOnline: (isOnline) => set({ isOnline }),
   setLegState: (legState) => set({ legState }),
-  reset: () => set({ session: null, driver: null, jobs: [], gpsPosition: null, legState: INITIAL_LEG_STATE }),
+  reset: () =>
+    set({ session: null, driver: null, jobs: [], gpsPosition: null, legState: INITIAL_LEG_STATE }),
 }));

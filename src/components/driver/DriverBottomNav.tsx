@@ -50,7 +50,12 @@ export function DriverBottomNav() {
         const active = current === t.id;
         const { Icon } = t;
         return (
-          <Link key={t.id} to={t.path} activeOptions={{ exact: t.exact }} className={`driver-nav-item${active ? " active" : ""}`}>
+          <Link
+            key={t.id}
+            to={t.path}
+            activeOptions={{ exact: t.exact }}
+            className={`driver-nav-item${active ? " active" : ""}`}
+          >
             {active && (
               <span
                 className="absolute top-1.5 left-1/2 -translate-x-1/2 size-1 rounded-full"

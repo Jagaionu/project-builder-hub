@@ -10,7 +10,13 @@ interface Props {
   handlingMin?: number;
 }
 
-export function DriverStopTimeline({ job, driverPosition, onArrive, plannedTimes, handlingMin }: Props) {
+export function DriverStopTimeline({
+  job,
+  driverPosition,
+  onArrive,
+  plannedTimes,
+  handlingMin,
+}: Props) {
   const stops = [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq);
 
   return (
@@ -28,8 +34,8 @@ export function DriverStopTimeline({ job, driverPosition, onArrive, plannedTimes
         const dotColor = arrived
           ? "bg-success border-success"
           : isNext
-          ? "bg-primary border-primary animate-pulse"
-          : "bg-muted border-border";
+            ? "bg-primary border-primary animate-pulse"
+            : "bg-muted border-border";
 
         const kindIcon = stop.kind === "PICKUP" ? "📦" : "🏁";
         const kindLabel = stop.kind === "PICKUP" ? "Pickup" : "Drop-off";
@@ -47,29 +53,57 @@ export function DriverStopTimeline({ job, driverPosition, onArrive, plannedTimes
                   <p className="font-semibold text-sm text-foreground">
                     {kindIcon} Stop {i + 1} — {kindLabel}
                   </p>
-                  <p className="text-base font-bold text-foreground mt-0.5">{wh?.code} — {wh?.name}</p>
-                  {wh?.address && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{wh.address}</p>}
+                  <p className="text-base font-bold text-foreground mt-0.5">
+                    {wh?.code} — {wh?.name}
+                  </p>
+                  {wh?.address && (
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      {wh.address}
+                    </p>
+                  )}
                   {plannedArrival && (
                     <p className="text-xs text-muted-foreground mt-1 font-mono">
-                      Planned {new Date(plannedArrival).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      Planned{" "}
+                      {new Date(plannedArrival).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                       {stop.kind === "PICKUP" && win.departure && (
-                        <span className="text-muted-foreground/70"> · pull by {new Date(win.departure).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                        <span className="text-muted-foreground/70">
+                          {" "}
+                          · pull by{" "}
+                          {new Date(win.departure).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
                       )}
                     </p>
                   )}
                   {departedAt && (
                     <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5 font-mono">
-                      Departed {new Date(departedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · GPS
+                      Departed{" "}
+                      {new Date(departedAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}{" "}
+                      · GPS
                     </p>
                   )}
                 </div>
                 <div className="shrink-0 text-right">
                   {arrived ? (
                     <span className="text-xs text-success font-semibold">
-                      ✓ {new Date(stop.arrived_at!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      ✓{" "}
+                      {new Date(stop.arrived_at!).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </span>
                   ) : isNext ? (
-                    <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">Next</span>
+                    <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">
+                      Next
+                    </span>
                   ) : null}
                 </div>
               </div>

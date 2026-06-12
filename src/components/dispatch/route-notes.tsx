@@ -6,7 +6,14 @@ import { getTenantId } from "@/lib/tenant-insert";
 import { useTenant } from "@/lib/tenant-context";
 import { logActivity } from "@/lib/activity-log";
 
-type RouteNote = { id: string; body: string; created_at: string; author_name: string | null; author_email: string | null; author_avatar_url: string | null };
+type RouteNote = {
+  id: string;
+  body: string;
+  created_at: string;
+  author_name: string | null;
+  author_email: string | null;
+  author_avatar_url: string | null;
+};
 
 // Notes attached to a route/VRID. Backed by public.route_notes (see SQL in the
 // handoff); rows cascade-delete when the job is deleted. Typed via `as never`
@@ -30,7 +37,9 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
     setCount(rows.length);
   }, [jobId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   async function add() {
     const text = body.trim();
@@ -40,7 +49,15 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
       const tenant_id = await getTenantId();
       const { error } = await supabase
         .from("route_notes" as never)
-        .insert({ job_id: jobId, body: text, tenant_id, author_user_id: userId, author_name: name ?? null, author_email: email, author_avatar_url: avatarUrl ?? null } as never);
+        .insert({
+          job_id: jobId,
+          body: text,
+          tenant_id,
+          author_user_id: userId,
+          author_name: name ?? null,
+          author_email: email,
+          author_avatar_url: avatarUrl ?? null,
+        } as never);
       if (error) throw error;
       void logActivity("note.add", { entityType: "job", entityId: jobId, entityRef: reference });
       setBody("");
@@ -53,8 +70,14 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
   }
 
   async function remove(id: string) {
-    const { error } = await supabase.from("route_notes" as never).delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    const { error } = await supabase
+      .from("route_notes" as never)
+      .delete()
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     await load();
   }
 
@@ -67,17 +90,27 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
         className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-600 hover:bg-amber-500/15"
       >
         <span className="text-sm leading-none">📑</span> Notes
-        {count > 0 ? <span className="ml-0.5 inline-flex items-center justify-center min-w-[1rem] h-4 px-1 rounded-full bg-amber-500/20 text-amber-600 text-[10px] font-mono leading-none">{count}</span> : null}
+        {count > 0 ? (
+          <span className="ml-0.5 inline-flex items-center justify-center min-w-[1rem] h-4 px-1 rounded-full bg-amber-500/20 text-amber-600 text-[10px] font-mono leading-none">
+            {count}
+          </span>
+        ) : null}
       </button>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setOpen(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setOpen(false)}
+        >
           <div
             className="bg-surface rounded-xl border border-border shadow-2xl w-full max-w-md p-5 max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-0.5">
               <h3 className="text-sm font-semibold">Notes</h3>
-              <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => setOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X className="size-4" />
               </button>
             </div>
@@ -113,10 +146,20 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
                           <span className="font-medium truncate">
                             {n.author_name ?? n.author_email ?? "—"}
                             <span className="ml-1.5 font-mono opacity-50">
-                              {new Date(n.created_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}
+                              {new Date(n.created_at).toLocaleString(undefined, {
+                                day: "2-digit",
+                                month: "short",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: false,
+                              })}
                             </span>
                           </span>
-                          <button onClick={() => remove(n.id)} title="Delete note" className="shrink-0 opacity-60 hover:opacity-100 hover:text-red-600">
+                          <button
+                            onClick={() => remove(n.id)}
+                            title="Delete note"
+                            className="shrink-0 opacity-60 hover:opacity-100 hover:text-red-600"
+                          >
                             <Trash2 className="size-3" />
                           </button>
                         </div>
@@ -124,7 +167,6 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
                       </div>
                     </div>
                   </div>
-
                 ))
               )}
             </div>

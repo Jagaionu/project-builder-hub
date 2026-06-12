@@ -7,24 +7,13 @@
 // by the caller (worker). Accepts optional travelHours (from lane_travel_times),
 // ledger totals, and driver equipment capabilities.
 
-import type {
-  Driver,
-  Warehouse,
-  Job,
-  DriverShift,
-  DriverAvailabilityOverride,
-} from "@/lib/types";
+import type { Driver, Warehouse, Job, DriverShift, DriverAvailabilityOverride } from "@/lib/types";
 import type { StopsMap } from "@/lib/planner";
 import { shiftWindowMs, isDriverAvailableOnDate } from "@/lib/planner";
 import { computeCompliance } from "@/lib/compliance";
 import type { LedgerTotals } from "@/lib/compliance";
 import type { TravelFn } from "@/lib/route-optimizer";
-import {
-  optimizeRoutes,
-  type OptDriver,
-  type OptJob,
-  type OptResult,
-} from "@/lib/route-optimizer";
+import { optimizeRoutes, type OptDriver, type OptJob, type OptResult } from "@/lib/route-optimizer";
 import { haversineKm } from "@/lib/geo";
 
 export interface PlanDayInput {
@@ -82,13 +71,18 @@ export function planDay(input: PlanDayInput): OptResult {
     let lon = d.current_lon ?? 0;
     if (d.home_warehouse_id) {
       const homeWh = whById[d.home_warehouse_id];
-      if (homeWh) { lat = homeWh.latitude; lon = homeWh.longitude; }
+      if (homeWh) {
+        lat = homeWh.latitude;
+        lon = homeWh.longitude;
+      }
     }
 
     // Daily cap adjusted for weekly/fortnight headroom
     let cap = DAILY_CAP;
-    if (compliance.weekly >= WEEKLY_CAP - DAILY_CAP) cap = Math.min(cap, WEEKLY_CAP - compliance.weekly);
-    if (compliance.twoWeek >= FORTNIGHT_CAP - DAILY_CAP) cap = Math.min(cap, FORTNIGHT_CAP - compliance.twoWeek);
+    if (compliance.weekly >= WEEKLY_CAP - DAILY_CAP)
+      cap = Math.min(cap, WEEKLY_CAP - compliance.weekly);
+    if (compliance.twoWeek >= FORTNIGHT_CAP - DAILY_CAP)
+      cap = Math.min(cap, FORTNIGHT_CAP - compliance.twoWeek);
     if (cap <= 0) continue;
 
     const equipment = driverEquipment?.[d.id];

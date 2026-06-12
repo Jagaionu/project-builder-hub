@@ -31,7 +31,10 @@ export function makeTravelHours(rows: LaneTimeRow[]): TravelFn {
   for (const r of rows) {
     const mins = r.p50_duration_minutes ?? r.avg_duration_minutes ?? null;
     if (mins == null) continue;
-    exact.set(`${r.from_warehouse_id}|${r.to_warehouse_id}|${r.day_of_week}|${r.hour_of_day}`, mins);
+    exact.set(
+      `${r.from_warehouse_id}|${r.to_warehouse_id}|${r.day_of_week}|${r.hour_of_day}`,
+      mins,
+    );
     const k = `${r.from_warehouse_id}|${r.to_warehouse_id}`;
     const agg = laneAgg.get(k) ?? { sum: 0, n: 0 };
     agg.sum += mins;

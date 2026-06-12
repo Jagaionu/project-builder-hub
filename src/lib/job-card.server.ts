@@ -54,7 +54,8 @@ export async function buildJobCard(
   if (!job) return null;
 
   const stops = await getJobStops(jobId);
-  if (stops.length === 0) return { text: `<b>${job.reference}</b> · ${job.status}\n(No stops configured)` };
+  if (stops.length === 0)
+    return { text: `<b>${job.reference}</b> · ${job.status}\n(No stops configured)` };
 
   const whIds = Array.from(new Set(stops.map((s) => s.warehouse_id)));
   const { data: whs } = await supabaseAdmin
@@ -114,9 +115,13 @@ export async function buildJobCard(
     if (wh.address) lines.push(`📍 ${wh.address}`);
     lines.push(`🗺 https://maps.google.com/?q=${wh.latitude},${wh.longitude}`);
     if (s.arrived_at) {
-      lines.push(`✅ Arrived ${new Date(s.arrived_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+      lines.push(
+        `✅ Arrived ${new Date(s.arrived_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+      );
     } else if (legMin != null && legKm != null) {
-      lines.push(`🕒 <b>${wh.code} ETA ${fmtClock(cumulativeMin)}</b> · ${fmtMin(legMin)} (${legKm.toFixed(1)} km)`);
+      lines.push(
+        `🕒 <b>${wh.code} ETA ${fmtClock(cumulativeMin)}</b> · ${fmtMin(legMin)} (${legKm.toFixed(1)} km)`,
+      );
     } else if (i === 0 && !haveStart) {
       lines.push(`🕒 ${wh.code} ETA — share 📍 location to compute`);
     } else {
@@ -134,9 +139,13 @@ export async function buildJobCard(
   }
 
   if (haveStart) {
-    lines.push(`🏁 Total: ${fmtMin(cumulativeMin)} — ETA at final stop ~${fmtClock(cumulativeMin)}`);
+    lines.push(
+      `🏁 Total: ${fmtMin(cumulativeMin)} — ETA at final stop ~${fmtClock(cumulativeMin)}`,
+    );
   } else {
-    lines.push(`🏁 Total drive + ${LOADING_MINUTES}m/pickup loading: ${fmtMin(cumulativeMin)} (from first stop)`);
+    lines.push(
+      `🏁 Total drive + ${LOADING_MINUTES}m/pickup loading: ${fmtMin(cumulativeMin)} (from first stop)`,
+    );
   }
 
   return { text: lines.join("\n") };

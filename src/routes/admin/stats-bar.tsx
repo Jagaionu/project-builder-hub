@@ -21,7 +21,9 @@ export function StatsBar({ companies }: StatsBarProps) {
       new Date(c.subscription_ends_at) > now,
   );
   const hasUrgentExpiry = expiringTrials.some((c) => {
-    const daysLeft = Math.ceil((new Date(c.subscription_ends_at!).getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+    const daysLeft = Math.ceil(
+      (new Date(c.subscription_ends_at!).getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
+    );
     return daysLeft <= 3;
   });
 
@@ -30,7 +32,12 @@ export function StatsBar({ companies }: StatsBarProps) {
     { label: "Active", value: active, icon: CheckCircle, color: "text-success" },
     { label: "Trial", value: trial, icon: Clock, color: "text-warning" },
     { label: "Suspended", value: suspended, icon: Ban, color: "text-destructive" },
-    { label: "Expiring", value: expiringTrials.length, icon: AlertTriangle, color: hasUrgentExpiry ? "text-destructive" : "text-warning" },
+    {
+      label: "Expiring",
+      value: expiringTrials.length,
+      icon: AlertTriangle,
+      color: hasUrgentExpiry ? "text-destructive" : "text-warning",
+    },
   ];
 
   return (

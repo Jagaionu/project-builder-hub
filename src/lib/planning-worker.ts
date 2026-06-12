@@ -23,10 +23,7 @@ let supabaseAdmin: AnyClient | null = null;
 
 function getClient(): AnyClient {
   if (!supabaseAdmin) {
-    supabaseAdmin = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    supabaseAdmin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
   }
   return supabaseAdmin;
 }
@@ -84,11 +81,19 @@ async function processEvent(
   const [{ data: drivers }, { data: jobs }, { data: warehouses }, { data: lanes }] =
     await Promise.all([
       sb.from("drivers").select("*").eq("id", driverId).eq("tenant_id", tenantId),
-      sb.from("jobs").select("*").eq("assigned_driver_id", driverId).eq("for_date", targetDate).eq("tenant_id", tenantId),
+      sb
+        .from("jobs")
+        .select("*")
+        .eq("assigned_driver_id", driverId)
+        .eq("for_date", targetDate)
+        .eq("tenant_id", tenantId),
       sb.from("warehouses").select("*").eq("tenant_id", tenantId),
-      sb.from("lane_travel_times").select(
-        "from_warehouse_id,to_warehouse_id,day_of_week,hour_of_day,p50_duration_minutes,avg_duration_minutes"
-      ).eq("tenant_id", tenantId),
+      sb
+        .from("lane_travel_times")
+        .select(
+          "from_warehouse_id,to_warehouse_id,day_of_week,hour_of_day,p50_duration_minutes,avg_duration_minutes",
+        )
+        .eq("tenant_id", tenantId),
     ]);
 
   const driverList = (drivers ?? []) as any[];
@@ -115,9 +120,9 @@ async function processEvent(
   for (const pr of toRoutePersistence(result, { tenantId, routeDate: targetDate, plannerRunId })) {
     const { data: route } = await sb.from("routes").insert(pr.route).select("id").single();
     if (route) {
-      await sb.from("route_jobs").insert(
-        pr.jobs.map((j) => ({ ...j, route_id: (route as any).id }))
-      );
+      await sb
+        .from("route_jobs")
+        .insert(pr.jobs.map((j) => ({ ...j, route_id: (route as any).id })));
     }
   }
 

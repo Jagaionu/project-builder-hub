@@ -24,21 +24,10 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getUserTenantId, isSuperAdmin } from "@/lib/auth-helpers.server";
 import { computeCompliance, type ComplianceEvent } from "@/lib/compliance";
-import {
-  haversineKm,
-  transitTimeHours,
-  stopDwellMinutes,
-  ARRIVAL_BUFFER_MINUTES,
-} from "@/lib/geo";
+import { haversineKm, transitTimeHours, stopDwellMinutes, ARRIVAL_BUFFER_MINUTES } from "@/lib/geo";
 import { fetchShiftsByDriver } from "@/lib/driver-shifts";
 import { isDriverAvailableOnDate } from "@/lib/planner";
-import type {
-  Driver,
-  DriverAvailabilityOverride,
-  DriverShift,
-  Warehouse,
-  Job,
-} from "@/lib/types";
+import type { Driver, DriverAvailabilityOverride, DriverShift, Warehouse, Job } from "@/lib/types";
 import type { PlannerStop, StopsMap } from "@/lib/planner";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -201,9 +190,7 @@ function lastDropWh(stops: PlannerStop[], warehouses: Warehouse[]): Warehouse | 
   return warehouses.find((w) => w.id === ld.warehouse_id) ?? null;
 }
 
-function effectiveDailyCap(
-  compliance: ReturnType<typeof computeCompliance>,
-): number {
+function effectiveDailyCap(compliance: ReturnType<typeof computeCompliance>): number {
   let cap = DAILY_CAP_DEFAULT;
   if (compliance.weekly >= 47) cap = Math.min(cap, WEEKLY_CAP - compliance.weekly);
   if (compliance.twoWeek >= 81) cap = Math.min(cap, 90 - compliance.twoWeek);
@@ -234,12 +221,9 @@ export const auditPlan = createServerFn({ method: "POST" })
       .from("jobs")
       .select("*")
       .eq("status", "PENDING")
-      .is("assigned_driver_id", null);  // manual_override jobs are included — adjusted time ≠ exclude from planning
+      .is("assigned_driver_id", null); // manual_override jobs are included — adjusted time ≠ exclude from planning
 
-    const stopsQ = supabaseAdmin
-      .from("job_stops")
-      .select("*, jobs!inner(tenant_id)")
-      .order("seq");
+    const stopsQ = supabaseAdmin.from("job_stops").select("*, jobs!inner(tenant_id)").order("seq");
 
     const driversQ = supabaseAdmin.from("drivers").select("*");
     const whQ = supabaseAdmin.from("warehouses").select("*");
@@ -305,19 +289,15 @@ export const auditPlan = createServerFn({ method: "POST" })
       const todayRow = rows.find((r) => r.day === today);
       const weekRows = rows.filter((r) => r.day >= weekAgo && r.day <= today);
       const fortRows = rows.filter((r) => r.day >= fortnightAgo && r.day <= today);
-      complianceMap[d.id] = computeCompliance(
-        eventsByDriver[d.id] ?? [],
-        nowMs,
-        {
-          daily: todayRow ? todayRow.drive_minutes / 60 : undefined,
-          weekly: weekRows.length
-            ? weekRows.reduce((s, r) => s + r.drive_minutes, 0) / 60
-            : undefined,
-          twoWeek: fortRows.length
-            ? fortRows.reduce((s, r) => s + r.drive_minutes, 0) / 60
-            : undefined,
-        },
-      );
+      complianceMap[d.id] = computeCompliance(eventsByDriver[d.id] ?? [], nowMs, {
+        daily: todayRow ? todayRow.drive_minutes / 60 : undefined,
+        weekly: weekRows.length
+          ? weekRows.reduce((s, r) => s + r.drive_minutes, 0) / 60
+          : undefined,
+        twoWeek: fortRows.length
+          ? fortRows.reduce((s, r) => s + r.drive_minutes, 0) / 60
+          : undefined,
+      });
     }
 
     // ── 4. Shifts + overrides ─────────────────────────────────────────────────
@@ -377,11 +357,16 @@ export const auditPlan = createServerFn({ method: "POST" })
       }
       if (c.blockAssignment) {
         excluded.push(
-          `Compliance block: ${c.issues.filter((i) => i.level === "breach").map((i) => i.msg).join("; ")}`,
+          `Compliance block: ${c.issues
+            .filter((i) => i.level === "breach")
+            .map((i) => i.msg)
+            .join("; ")}`,
         );
       }
       if (cap <= 0) {
-        excluded.push(`Effective daily cap is 0h (weekly=${c.weekly.toFixed(1)}h, 2wk=${c.twoWeek.toFixed(1)}h)`);
+        excluded.push(
+          `Effective daily cap is 0h (weekly=${c.weekly.toFixed(1)}h, 2wk=${c.twoWeek.toFixed(1)}h)`,
+        );
       }
 
       driverEligibility.push({
@@ -521,15 +506,14 @@ export const auditPlan = createServerFn({ method: "POST" })
           const readyMs = driverReadyMs[did];
           const transitMs = transit * 3_600_000;
           const departMs =
-            schedPickupMs !== null
-              ? Math.max(readyMs, schedPickupMs - transitMs)
-              : readyMs;
+            schedPickupMs !== null ? Math.max(readyMs, schedPickupMs - transitMs) : readyMs;
 
           let skipReason: string | null = null;
 
           if (f.hoursLeft < driveAdd + breakMs / 3_600_000) {
             skipReason = `Insufficient hours: needs ${driveAdd.toFixed(2)}h drive + ${(breakMs / 3_600_000).toFixed(2)}h break, only ${f.hoursLeft.toFixed(2)}h left`;
-            if (!nearMissReason) nearMissReason = `Closest ineligible: ${driverName} — ${skipReason}`;
+            if (!nearMissReason)
+              nearMissReason = `Closest ineligible: ${driverName} — ${skipReason}`;
           }
 
           const eval_: CandidateEval = {
@@ -541,9 +525,7 @@ export const auditPlan = createServerFn({ method: "POST" })
             hours_left_before: parseFloat(f.hoursLeft.toFixed(4)),
             hours_left_after: parseFloat(Math.max(0, f.hoursLeft - driveAdd).toFixed(4)),
             weekly_before: parseFloat((complianceMap[did]?.weekly ?? 0).toFixed(4)),
-            weekly_after: parseFloat(
-              ((complianceMap[did]?.weekly ?? 0) + driveAdd).toFixed(4),
-            ),
+            weekly_after: parseFloat(((complianceMap[did]?.weekly ?? 0) + driveAdd).toFixed(4)),
             continuous_before: parseFloat(f.continuous.toFixed(4)),
             break_inserted: breakNeeded,
             depart_ms: departMs,
@@ -581,8 +563,7 @@ export const auditPlan = createServerFn({ method: "POST" })
           const arrivalMs = bestCandidate.depart_ms + bestCandidate.transit_hours * 3_600_000;
           const pickupStartMs =
             schedPickupMs !== null ? Math.max(arrivalMs, schedPickupMs) : arrivalMs;
-          driverReadyMs[bestCandidate.driverId] =
-            pickupStartMs + jobWallH * 3_600_000 + breakMs;
+          driverReadyMs[bestCandidate.driverId] = pickupStartMs + jobWallH * 3_600_000 + breakMs;
 
           const ld = lastDropWh(stops, whList);
           f.lat = ld?.latitude ?? f.lat;

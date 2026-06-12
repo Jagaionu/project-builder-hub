@@ -6,7 +6,9 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AdminSupportPanel } from "@/components/admin/AdminSupportPanel";
-const AdminAnalytics = lazy(() => import("@/components/admin/AdminAnalytics").then((m) => ({ default: m.AdminAnalytics })));
+const AdminAnalytics = lazy(() =>
+  import("@/components/admin/AdminAnalytics").then((m) => ({ default: m.AdminAnalytics })),
+);
 import { AdminBilling } from "@/components/admin/AdminBilling";
 import { StatsBar, StatsBarSkeleton } from "@/routes/admin/stats-bar";
 import { SearchFilterBar } from "@/routes/admin/search-filter-bar";
@@ -46,16 +48,58 @@ function useCompanyUsage(): Record<string, CompanyUsage> {
       if (cancelled) return;
       const m: Record<string, CompanyUsage> = {};
       const g = (id: string | null | undefined) =>
-        id ? (m[id] ||= { drivers: 0, warehouses: 0, members: 0, vrids30d: 0, activity14d: 0, lastActive: null }) : null;
-      const touch = (u: CompanyUsage, iso: string) => { const t = +new Date(iso); if (t && (!u.lastActive || t > u.lastActive)) u.lastActive = t; };
-      for (const r of (drv.data ?? []) as Array<{ tenant_id: string | null; deleted_at: string | null }>) if (!r.deleted_at) { const u = g(r.tenant_id); if (u) u.drivers++; }
-      for (const r of (wh.data ?? []) as Array<{ tenant_id: string | null }>) { const u = g(r.tenant_id); if (u) u.warehouses++; }
-      for (const r of (mem.data ?? []) as Array<{ company_id: string | null }>) { const u = g(r.company_id); if (u) u.members++; }
-      for (const r of (jobs.data ?? []) as Array<{ tenant_id: string | null; created_at: string }>) { const u = g(r.tenant_id); if (u) { u.vrids30d++; touch(u, r.created_at); } }
-      for (const r of (act.data ?? []) as Array<{ tenant_id: string | null; created_at: string }>) { const u = g(r.tenant_id); if (u) { u.activity14d++; touch(u, r.created_at); } }
+        id
+          ? (m[id] ||= {
+              drivers: 0,
+              warehouses: 0,
+              members: 0,
+              vrids30d: 0,
+              activity14d: 0,
+              lastActive: null,
+            })
+          : null;
+      const touch = (u: CompanyUsage, iso: string) => {
+        const t = +new Date(iso);
+        if (t && (!u.lastActive || t > u.lastActive)) u.lastActive = t;
+      };
+      for (const r of (drv.data ?? []) as Array<{
+        tenant_id: string | null;
+        deleted_at: string | null;
+      }>)
+        if (!r.deleted_at) {
+          const u = g(r.tenant_id);
+          if (u) u.drivers++;
+        }
+      for (const r of (wh.data ?? []) as Array<{ tenant_id: string | null }>) {
+        const u = g(r.tenant_id);
+        if (u) u.warehouses++;
+      }
+      for (const r of (mem.data ?? []) as Array<{ company_id: string | null }>) {
+        const u = g(r.company_id);
+        if (u) u.members++;
+      }
+      for (const r of (jobs.data ?? []) as Array<{
+        tenant_id: string | null;
+        created_at: string;
+      }>) {
+        const u = g(r.tenant_id);
+        if (u) {
+          u.vrids30d++;
+          touch(u, r.created_at);
+        }
+      }
+      for (const r of (act.data ?? []) as Array<{ tenant_id: string | null; created_at: string }>) {
+        const u = g(r.tenant_id);
+        if (u) {
+          u.activity14d++;
+          touch(u, r.created_at);
+        }
+      }
       setUsage(m);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
   return usage;
 }
@@ -68,15 +112,30 @@ function AdminDashboard() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCreateCompany, setShowCreateCompany] = useState(false);
   const [showAddWarehouse, setShowAddWarehouse] = useState(false);
-  const [newWarehouse, setNewWarehouse] = useState({ code: "", name: "", latitude: "", longitude: "", address: "" });
+  const [newWarehouse, setNewWarehouse] = useState({
+    code: "",
+    name: "",
+    latitude: "",
+    longitude: "",
+    address: "",
+  });
   const [companySearch, setCompanySearch] = useState("");
   const [companyStatusFilter, setCompanyStatusFilter] = useState<SubscriptionStatus | "all">("all");
   const [warehouseSearch, setWarehouseSearch] = useState("");
 
   const usage = useCompanyUsage();
   const totals = useMemo(() => {
-    let drivers = 0, vrids = 0, activity = 0;
-    for (const c of companies) { const u = usage[c.id]; if (u) { drivers += u.drivers; vrids += u.vrids30d; activity += u.activity14d; } }
+    let drivers = 0,
+      vrids = 0,
+      activity = 0;
+    for (const c of companies) {
+      const u = usage[c.id];
+      if (u) {
+        drivers += u.drivers;
+        vrids += u.vrids30d;
+        activity += u.activity14d;
+      }
+    }
     return { drivers, vrids, activity };
   }, [companies, usage]);
 
@@ -107,7 +166,10 @@ function AdminDashboard() {
       .from("companies" as never)
       .update({ subscription_status: status } as never)
       .eq("id", id);
-    if (error) { toast.error("Failed to update status"); return; }
+    if (error) {
+      toast.error("Failed to update status");
+      return;
+    }
     toast.success("Status updated to " + status);
     loadCompanies();
   }
@@ -117,14 +179,18 @@ function AdminDashboard() {
       .from("companies" as never)
       .update({ config } as never)
       .eq("id", id);
-    if (error) { toast.error("Failed to save config"); return; }
+    if (error) {
+      toast.error("Failed to save config");
+      return;
+    }
     toast.success("Config saved");
     loadCompanies();
   }
 
   const filteredCompanies = useMemo(() => {
     return companies.filter((c) => {
-      if (companyStatusFilter !== "all" && c.subscription_status !== companyStatusFilter) return false;
+      if (companyStatusFilter !== "all" && c.subscription_status !== companyStatusFilter)
+        return false;
       if (!companySearch) return true;
       const q = companySearch.toLowerCase();
       return c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q);
@@ -132,7 +198,10 @@ function AdminDashboard() {
   }, [companies, companySearch, companyStatusFilter]);
 
   const handleCompanySearch = useCallback((q: string) => setCompanySearch(q), []);
-  const handleCompanyStatusFilter = useCallback((s: SubscriptionStatus | "all") => setCompanyStatusFilter(s), []);
+  const handleCompanyStatusFilter = useCallback(
+    (s: SubscriptionStatus | "all") => setCompanyStatusFilter(s),
+    [],
+  );
   const handleWarehouseSearch = useCallback((q: string) => setWarehouseSearch(q), []);
 
   if (loading) {
@@ -227,7 +296,13 @@ function AdminDashboard() {
             }
           />
 
-          <Suspense fallback={<div className="h-72 grid place-items-center text-xs text-muted-foreground">Loading analytics…</div>}>
+          <Suspense
+            fallback={
+              <div className="h-72 grid place-items-center text-xs text-muted-foreground">
+                Loading analytics…
+              </div>
+            }
+          >
             <AdminAnalytics companies={companies} usage={usage} />
           </Suspense>
 
@@ -282,7 +357,9 @@ function AdminDashboard() {
               <div className="text-xs font-semibold text-primary">New Warehouse</div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Code</label>
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                    Code
+                  </label>
                   <input
                     type="text"
                     value={newWarehouse.code}
@@ -292,7 +369,9 @@ function AdminDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Name</label>
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                    Name
+                  </label>
                   <input
                     type="text"
                     value={newWarehouse.name}
@@ -304,7 +383,9 @@ function AdminDashboard() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Latitude</label>
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                    Latitude
+                  </label>
                   <input
                     type="number"
                     step="0.0001"
@@ -315,7 +396,9 @@ function AdminDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Longitude</label>
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                    Longitude
+                  </label>
                   <input
                     type="number"
                     step="0.0001"
@@ -327,7 +410,9 @@ function AdminDashboard() {
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Address (optional)</label>
+                <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                  Address (optional)
+                </label>
                 <input
                   type="text"
                   value={newWarehouse.address}
@@ -357,9 +442,18 @@ function AdminDashboard() {
                       longitude: lon,
                       address: newWarehouse.address.trim() || null,
                     } as never);
-                    if (error) { toast.error(error.message); return; }
-                    toast.success("Warehouse \"" + newWarehouse.name + "\" created");
-                    setNewWarehouse({ code: "", name: "", latitude: "", longitude: "", address: "" });
+                    if (error) {
+                      toast.error(error.message);
+                      return;
+                    }
+                    toast.success('Warehouse "' + newWarehouse.name + '" created');
+                    setNewWarehouse({
+                      code: "",
+                      name: "",
+                      latitude: "",
+                      longitude: "",
+                      address: "",
+                    });
                     setShowAddWarehouse(false);
                     loadWarehouses();
                   }}
@@ -373,7 +467,11 @@ function AdminDashboard() {
             </div>
           )}
 
-          <WarehouseTable warehouses={warehouses} searchQuery={warehouseSearch} onRefresh={loadWarehouses} />
+          <WarehouseTable
+            warehouses={warehouses}
+            searchQuery={warehouseSearch}
+            onRefresh={loadWarehouses}
+          />
         </>
       )}
     </div>

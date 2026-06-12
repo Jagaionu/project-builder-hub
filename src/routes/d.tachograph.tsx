@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { DriverTachographModal, usePendingTachoRequests } from "@/components/driver/DriverTachographModal";
+import {
+  DriverTachographModal,
+  usePendingTachoRequests,
+} from "@/components/driver/DriverTachographModal";
 
 export const Route = createFileRoute("/d/tachograph")({
   head: () => ({ meta: [{ title: "Tachograph — Driver" }] }),
@@ -14,7 +17,9 @@ function TachoPage() {
       {pending.length === 0 ? (
         <p className="text-sm text-muted-foreground">You are all caught up — no hours to submit.</p>
       ) : (
-        <p className="text-sm text-muted-foreground">You have {pending.length} week(s) to confirm below.</p>
+        <p className="text-sm text-muted-foreground">
+          You have {pending.length} week(s) to confirm below.
+        </p>
       )}
       <DriverTachographModal />
     </div>

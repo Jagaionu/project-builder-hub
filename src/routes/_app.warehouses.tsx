@@ -29,7 +29,9 @@ function WarehousesPage() {
 
   const q = query.trim().toLowerCase();
   const filtered = q
-    ? warehouses.filter((w) => [w.code, w.name, w.address ?? ""].some((f) => f.toLowerCase().includes(q)))
+    ? warehouses.filter((w) =>
+        [w.code, w.name, w.address ?? ""].some((f) => f.toLowerCase().includes(q)),
+      )
     : warehouses;
 
   async function add() {
@@ -166,20 +168,31 @@ function WarehousesPage() {
       const c = text[i];
       if (inQuotes) {
         if (c === '"') {
-          if (text[i + 1] === '"') { field += '"'; i++; } else { inQuotes = false; }
+          if (text[i + 1] === '"') {
+            field += '"';
+            i++;
+          } else {
+            inQuotes = false;
+          }
         } else field += c;
       } else {
         if (c === '"') inQuotes = true;
-        else if (c === ",") { cur.push(field); field = ""; }
-        else if (c === "\n" || c === "\r") {
+        else if (c === ",") {
+          cur.push(field);
+          field = "";
+        } else if (c === "\n" || c === "\r") {
           if (c === "\r" && text[i + 1] === "\n") i++;
-          cur.push(field); field = "";
+          cur.push(field);
+          field = "";
           if (cur.some((v) => v.length > 0)) rows.push(cur);
           cur = [];
         } else field += c;
       }
     }
-    if (field.length > 0 || cur.length > 0) { cur.push(field); if (cur.some((v) => v.length > 0)) rows.push(cur); }
+    if (field.length > 0 || cur.length > 0) {
+      cur.push(field);
+      if (cur.some((v) => v.length > 0)) rows.push(cur);
+    }
     return rows;
   }
 
@@ -188,7 +201,10 @@ function WarehousesPage() {
     try {
       const text = await file.text();
       const rows = parseCsv(text);
-      if (rows.length < 2) { toast.error("CSV is empty"); return; }
+      if (rows.length < 2) {
+        toast.error("CSV is empty");
+        return;
+      }
       const header = rows[0].map((h) => h.trim().toLowerCase());
       const idx = {
         code: header.indexOf("code"),
@@ -202,7 +218,14 @@ function WarehousesPage() {
       }
       const tenant_id = await getTenantId();
       const existingCodes = new Set(warehouses.map((w) => w.code.toUpperCase()));
-      const inserts: Array<{ code: string; name: string; address: string | null; latitude: number; longitude: number; tenant_id: string | null }> = [];
+      const inserts: Array<{
+        code: string;
+        name: string;
+        address: string | null;
+        latitude: number;
+        longitude: number;
+        tenant_id: string | null;
+      }> = [];
       const skipped: string[] = [];
       const invalid: string[] = [];
       for (let i = 1; i < rows.length; i++) {
@@ -211,13 +234,30 @@ function WarehousesPage() {
         const name = (r[idx.name] ?? "").trim();
         const address = idx.address >= 0 ? (r[idx.address] ?? "").trim() : "";
         const coords = (r[idx.coords] ?? "").trim();
-        if (!code || !name) { invalid.push(`Row ${i + 1}: missing code/name`); continue; }
+        if (!code || !name) {
+          invalid.push(`Row ${i + 1}: missing code/name`);
+          continue;
+        }
         const m = coords.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,;]\s*(-?\d+(?:\.\d+)?)\s*$/);
-        if (!m) { invalid.push(`Row ${i + 1} (${code}): invalid coordinates "${coords}"`); continue; }
-        const lat = parseFloat(m[1]); const lon = parseFloat(m[2]);
-        if (existingCodes.has(code)) { skipped.push(code); continue; }
+        if (!m) {
+          invalid.push(`Row ${i + 1} (${code}): invalid coordinates "${coords}"`);
+          continue;
+        }
+        const lat = parseFloat(m[1]);
+        const lon = parseFloat(m[2]);
+        if (existingCodes.has(code)) {
+          skipped.push(code);
+          continue;
+        }
         existingCodes.add(code);
-        inserts.push({ code, name, address: address || null, latitude: lat, longitude: lon, tenant_id });
+        inserts.push({
+          code,
+          name,
+          address: address || null,
+          latitude: lat,
+          longitude: lon,
+          tenant_id,
+        });
       }
       if (inserts.length === 0) {
         toast.error(`Nothing imported. ${skipped.length} duplicates, ${invalid.length} invalid.`);
@@ -225,8 +265,13 @@ function WarehousesPage() {
         return;
       }
       const { error } = await supabase.from("warehouses").insert(inserts);
-      if (error) { toast.error(error.message); return; }
-      toast.success(`Imported ${inserts.length} warehouses. Skipped ${skipped.length} duplicates, ${invalid.length} invalid.`);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success(
+        `Imported ${inserts.length} warehouses. Skipped ${skipped.length} duplicates, ${invalid.length} invalid.`,
+      );
       if (invalid.length) console.warn("Invalid rows:", invalid);
       await reloadWarehouses();
     } finally {
@@ -239,7 +284,11 @@ function WarehousesPage() {
     <div className="h-full flex flex-col">
       <PageHeader
         title="Warehouses"
-        subtitle={q ? `${filtered.length} of ${warehouses.length} sites` : `${warehouses.length} sites in network`}
+        subtitle={
+          q
+            ? `${filtered.length} of ${warehouses.length} sites`
+            : `${warehouses.length} sites in network`
+        }
         right={
           <div className="flex items-center gap-2">
             <input
@@ -247,7 +296,10 @@ function WarehousesPage() {
               type="file"
               accept=".csv,text/csv"
               className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) importCsv(f); }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) importCsv(f);
+              }}
             />
             <button
               onClick={exportCsv}
@@ -294,18 +346,41 @@ function WarehousesPage() {
           <div className="rounded-md border border-border bg-surface p-4 grid grid-cols-6 gap-3 items-end">
             <Field label="Code" value={form.code} onChange={(v) => setForm({ ...form, code: v })} />
             <Field label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-            <Field label="Latitude" value={form.latitude} onChange={(v) => setForm({ ...form, latitude: v })} />
-            <Field label="Longitude" value={form.longitude} onChange={(v) => setForm({ ...form, longitude: v })} />
-            <Field label="Address" value={form.address} onChange={(v) => setForm({ ...form, address: v })} />
-            <button onClick={add} className="h-9 px-3 rounded bg-primary text-primary-foreground text-sm">
+            <Field
+              label="Latitude"
+              value={form.latitude}
+              onChange={(v) => setForm({ ...form, latitude: v })}
+            />
+            <Field
+              label="Longitude"
+              value={form.longitude}
+              onChange={(v) => setForm({ ...form, longitude: v })}
+            />
+            <Field
+              label="Address"
+              value={form.address}
+              onChange={(v) => setForm({ ...form, address: v })}
+            />
+            <button
+              onClick={add}
+              className="h-9 px-3 rounded bg-primary text-primary-foreground text-sm"
+            >
               Create
             </button>
           </div>
         )}
         {editingId && (
           <div className="rounded-md border border-primary/40 bg-surface p-4 grid grid-cols-6 gap-3 items-end">
-            <Field label="Code" value={editForm.code} onChange={(v) => setEditForm({ ...editForm, code: v })} />
-            <Field label="Name" value={editForm.name} onChange={(v) => setEditForm({ ...editForm, name: v })} />
+            <Field
+              label="Code"
+              value={editForm.code}
+              onChange={(v) => setEditForm({ ...editForm, code: v })}
+            />
+            <Field
+              label="Name"
+              value={editForm.name}
+              onChange={(v) => setEditForm({ ...editForm, name: v })}
+            />
             <Field
               label="Latitude"
               value={editForm.latitude}
@@ -322,10 +397,16 @@ function WarehousesPage() {
               onChange={(v) => setEditForm({ ...editForm, address: v })}
             />
             <div className="flex gap-2">
-              <button onClick={saveEdit} className="h-9 px-3 rounded bg-primary text-primary-foreground text-sm">
+              <button
+                onClick={saveEdit}
+                className="h-9 px-3 rounded bg-primary text-primary-foreground text-sm"
+              >
                 Save
               </button>
-              <button onClick={() => setEditingId(null)} className="h-9 px-3 rounded border border-border text-sm">
+              <button
+                onClick={() => setEditingId(null)}
+                className="h-9 px-3 rounded border border-border text-sm"
+              >
                 Cancel
               </button>
             </div>
@@ -360,17 +441,24 @@ function WarehousesPage() {
                       )}
                     </td>
                     <td className="px-3 py-2.5">{w.name}</td>
-                    <td className="px-3 py-2.5 text-xs text-muted-foreground">{w.address ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                      {w.address ?? "—"}
+                    </td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs">
                       {w.latitude.toFixed(4)}, {w.longitude.toFixed(4)}
                     </td>
                     <td className="px-3 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                       {isGlobal ? (
-                        <span className="text-[10px] text-muted-foreground/40 font-mono">system</span>
+                        <span className="text-[10px] text-muted-foreground/40 font-mono">
+                          system
+                        </span>
                       ) : selectedId === w.id ? (
                         <div className="inline-flex items-center gap-1">
                           <button
-                            onClick={() => { startEdit(w); setSelectedId(null); }}
+                            onClick={() => {
+                              startEdit(w);
+                              setSelectedId(null);
+                            }}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border hover:bg-surface-2 text-xs"
                           >
                             <Pencil className="size-3.5" /> Edit
@@ -383,7 +471,10 @@ function WarehousesPage() {
                           </button>
                         </div>
                       ) : (
-                        <RowMenu onEdit={() => startEdit(w)} onDelete={() => remove(w.id, w.name)} />
+                        <RowMenu
+                          onEdit={() => startEdit(w)}
+                          onDelete={() => remove(w.id, w.name)}
+                        />
                       )}
                     </td>
                   </tr>

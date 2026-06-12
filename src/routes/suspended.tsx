@@ -17,9 +17,10 @@ function SuspendedPage() {
         </div>
         <h1 className="text-xl font-semibold text-foreground mb-2">Account Suspended</h1>
         <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-          Your company's subscription is no longer active. All access to the
-          Planning System has been paused.
-          <br /><br />
+          Your company's subscription is no longer active. All access to the Planning System has
+          been paused.
+          <br />
+          <br />
           Please contact us to resolve your account status and restore access.
         </p>
         <div className="space-y-3">

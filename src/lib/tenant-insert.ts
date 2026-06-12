@@ -8,7 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 let cached: { userId: string; tenantId: string } | null = null;
 
 export async function getTenantId(): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session) throw new Error("Not authenticated");
 
   if (cached && cached.userId === session.user.id) return cached.tenantId;

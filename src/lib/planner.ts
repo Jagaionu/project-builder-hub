@@ -550,7 +550,7 @@ export function computePlanForDate(
     driverById[d.id] = d;
     homeWhById[d.id] =
       d.return_to_base_required && d.home_warehouse_id
-        ? warehouses.find((w) => w.id === d.home_warehouse_id) ?? null
+        ? (warehouses.find((w) => w.id === d.home_warehouse_id) ?? null)
         : null;
   }
 
@@ -602,17 +602,15 @@ export function computePlanForDate(
     })();
     const finalDwellMs = stopDwellMinutes(stops[stops.length - 1].kind) * 60_000;
 
-    let best:
-      | {
-          id: string;
-          dist: number;
-          driveAdd: number;
-          transit: number;
-          departMs: number;
-          completionMs: number;
-          newContinuous: number;
-        }
-      | null = null;
+    let best: {
+      id: string;
+      dist: number;
+      driveAdd: number;
+      transit: number;
+      departMs: number;
+      completionMs: number;
+      newContinuous: number;
+    } | null = null;
     let nearMiss: { name: string; dist: number; reason: string } | null = null;
 
     for (const did of eligibleIds) {
@@ -722,9 +720,13 @@ export function computePlanForDate(
     const pickupArrivalMs = best.departMs + best.transit * 3_600_000;
     const deliveryArrivalMs = best.completionMs - finalDwellMs;
     const pickupLateMinutes =
-      schedPickupMs !== null ? Math.max(0, Math.round((pickupArrivalMs - schedPickupMs) / 60_000)) : 0;
+      schedPickupMs !== null
+        ? Math.max(0, Math.round((pickupArrivalMs - schedPickupMs) / 60_000))
+        : 0;
     const deliveryLateMinutes =
-      schedDropMs !== null ? Math.max(0, Math.round((deliveryArrivalMs - schedDropMs) / 60_000)) : 0;
+      schedDropMs !== null
+        ? Math.max(0, Math.round((deliveryArrivalMs - schedDropMs) / 60_000))
+        : 0;
 
     out.planned.push({
       jobId: job.id,

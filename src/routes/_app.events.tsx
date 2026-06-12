@@ -76,14 +76,19 @@ function ActivityLog() {
     <div className="h-full flex flex-col">
       <PageHeader title="Events" subtitle={`${filtered.length} of ${rows.length} · last 14 days`} />
 
-      <div className="px-5 py-3 flex flex-wrap items-center gap-2" style={{ borderBottom: "1px solid var(--sidebar-divider)" }}>
+      <div
+        className="px-5 py-3 flex flex-wrap items-center gap-2"
+        style={{ borderBottom: "1px solid var(--sidebar-divider)" }}
+      >
         <select
           value={actionFilter}
           onChange={(e) => setActionFilter(e.target.value)}
           className="h-8 rounded-md border border-border bg-surface px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
         >
           {actions.map((a) => (
-            <option key={a} value={a}>{a === "ALL" ? "All events" : labelFor(a)}</option>
+            <option key={a} value={a}>
+              {a === "ALL" ? "All events" : labelFor(a)}
+            </option>
           ))}
         </select>
         <input
@@ -112,10 +117,18 @@ function ActivityLog() {
                 <tr key={r.id} style={{ borderBottom: "1px solid var(--sidebar-divider)" }}>
                   <td className="py-2 pr-4">{r.actor_name ?? r.actor_email ?? "—"}</td>
                   <td className="py-2 pr-4 font-mono text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(r.created_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}
+                    {new Date(r.created_at).toLocaleString(undefined, {
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })}
                   </td>
                   <td className="py-2 pr-4">{labelFor(r.action)}</td>
-                  <td className="py-2 font-mono text-xs text-muted-foreground">{r.entity_ref ?? ""}</td>
+                  <td className="py-2 font-mono text-xs text-muted-foreground">
+                    {r.entity_ref ?? ""}
+                  </td>
                 </tr>
               ))}
             </tbody>

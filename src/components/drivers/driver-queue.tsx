@@ -16,10 +16,7 @@ export const DriverQueue = memo(function DriverQueue({
   onSelect: (id: string) => void;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const shown = useMemo(
-    () => drivers,
-    [drivers],
-  );
+  const shown = useMemo(() => drivers, [drivers]);
 
   const virtualizer = useVirtualizer({
     count: shown.length,
@@ -37,7 +34,11 @@ export const DriverQueue = memo(function DriverQueue({
     >
       <div
         className="px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground sticky top-0 z-10 flex items-center justify-between"
-        style={{ borderBottom: "1px solid var(--sidebar-divider)", background: "var(--background)", backdropFilter: "blur(4px)" }}
+        style={{
+          borderBottom: "1px solid var(--sidebar-divider)",
+          background: "var(--background)",
+          backdropFilter: "blur(4px)",
+        }}
       >
         <span>Names</span>
         <span

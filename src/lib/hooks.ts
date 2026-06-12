@@ -62,12 +62,15 @@ export function useDrivers(initialDrivers: Driver[] = []) {
   useEffect(() => {
     driversSubscribers.add(setDrivers);
     void reloadDrivers();
-    const ch = supabase.channel(channelNameRef.current)
+    const ch = supabase
+      .channel(channelNameRef.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, (payload) => {
         let next = cache.drivers;
         if (payload.eventType === "INSERT") next = [...cache.drivers, payload.new as Driver];
         else if (payload.eventType === "UPDATE")
-          next = cache.drivers.map((d) => (d.id === (payload.new as Driver).id ? (payload.new as Driver) : d));
+          next = cache.drivers.map((d) =>
+            d.id === (payload.new as Driver).id ? (payload.new as Driver) : d,
+          );
         else if (payload.eventType === "DELETE")
           next = cache.drivers.filter((d) => d.id !== (payload.old as Driver).id);
         broadcastDrivers([...next].sort((a, b) => a.name.localeCompare(b.name)));
@@ -106,7 +109,11 @@ export function useWarehouses() {
     void reloadWarehouses();
     const ch = supabase
       .channel(channelNameRef.current)
-      .on("postgres_changes", { event: "*", schema: "public", table: "warehouses" }, () => void reloadWarehouses())
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "warehouses" },
+        () => void reloadWarehouses(),
+      )
       .subscribe();
     return () => {
       warehousesSubscribers.delete(setWarehouses);
@@ -153,12 +160,15 @@ export function useJobs() {
   useEffect(() => {
     jobsSubscribers.add(setJobs);
     void reloadJobs();
-    const ch = supabase.channel(channelNameRef.current)
+    const ch = supabase
+      .channel(channelNameRef.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, (payload) => {
         let next = cache.jobs;
         if (payload.eventType === "INSERT") next = [payload.new as Job, ...cache.jobs];
         else if (payload.eventType === "UPDATE")
-          next = cache.jobs.map((j) => (j.id === (payload.new as Job).id ? (payload.new as Job) : j));
+          next = cache.jobs.map((j) =>
+            j.id === (payload.new as Job).id ? (payload.new as Job) : j,
+          );
         else if (payload.eventType === "DELETE")
           next = cache.jobs.filter((j) => j.id !== (payload.old as Job).id);
         broadcastJobs(next);
@@ -202,7 +212,11 @@ export function useDriverEventsByDriver(): Record<string, ComplianceEvent[]> {
     const debouncedLoad = debounce(load, 500);
     const ch = supabase
       .channel(channelNameRef.current)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "driver_events" }, debouncedLoad)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "driver_events" },
+        debouncedLoad,
+      )
       .subscribe();
     return () => {
       mounted = false;
@@ -235,22 +249,33 @@ export function useRecentDelays(): RecentDelay[] {
           .gte("timestamp", since)
           .order("timestamp", { ascending: false });
         if (!mounted || !data) return;
-        const next = (data as Array<{ id: string; driver_id: string; timestamp: string; payload: { reason?: string; category?: string; notes?: string; note?: string; job_id?: string } }>).map(
-          (r) => {
-            const headline = r.payload?.reason ?? r.payload?.category ?? "Delay reported";
-            const extra = (r.payload?.notes ?? r.payload?.note ?? "").trim();
-            return {
-              id: r.id,
-              driver_id: r.driver_id,
-              timestamp: r.timestamp,
-              reason: extra ? `${headline} — ${extra}` : headline,
-              job_id: r.payload?.job_id,
+        const next = (
+          data as Array<{
+            id: string;
+            driver_id: string;
+            timestamp: string;
+            payload: {
+              reason?: string;
+              category?: string;
+              notes?: string;
+              note?: string;
+              job_id?: string;
             };
-          },
-        );
+          }>
+        ).map((r) => {
+          const headline = r.payload?.reason ?? r.payload?.category ?? "Delay reported";
+          const extra = (r.payload?.notes ?? r.payload?.note ?? "").trim();
+          return {
+            id: r.id,
+            driver_id: r.driver_id,
+            timestamp: r.timestamp,
+            reason: extra ? `${headline} — ${extra}` : headline,
+            job_id: r.payload?.job_id,
+          };
+        });
 
-      cache.recentDelays = next;
-      setRows(next);
+        cache.recentDelays = next;
+        setRows(next);
       } catch (err) {
         // eslint-disable-next-line no-console
         console.warn("[useRecentDelays] query failed:", err);
@@ -260,7 +285,11 @@ export function useRecentDelays(): RecentDelay[] {
     const debouncedLoad = debounce(load, 500);
     const ch = supabase
       .channel(channelNameRef.current)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "driver_events" }, debouncedLoad)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "driver_events" },
+        debouncedLoad,
+      )
       .subscribe();
     return () => {
       mounted = false;
@@ -272,11 +301,11 @@ export function useRecentDelays(): RecentDelay[] {
 
 export type DriverDayHours = {
   driver_id: string;
-  day: string;            // YYYY-MM-DD
+  day: string; // YYYY-MM-DD
   shift_minutes: number;
   drive_minutes: number;
   off_minutes: number;
-  week_start: string;     // YYYY-MM-DD
+  week_start: string; // YYYY-MM-DD
   tachograph_drive_minutes?: number | null;
   tachograph_status?: string | null;
 };
@@ -288,12 +317,12 @@ export function useDriverDayHours(): Record<string, DriverDayHours[]> {
     let mounted = true;
     const load = async () => {
       try {
-        const since = new Date(Date.now() - 21 * 24 * 3600 * 1000)
-          .toISOString()
-          .slice(0, 10);
+        const since = new Date(Date.now() - 21 * 24 * 3600 * 1000).toISOString().slice(0, 10);
         const { data, error } = await (supabase as unknown as { from: (t: string) => any })
           .from("driver_day_hours")
-          .select("driver_id,day,shift_minutes,drive_minutes,off_minutes,week_start,tachograph_drive_minutes,tachograph_status")
+          .select(
+            "driver_id,day,shift_minutes,drive_minutes,off_minutes,week_start,tachograph_drive_minutes,tachograph_status",
+          )
           .gte("day", since)
           .order("day", { ascending: false });
 
@@ -322,7 +351,11 @@ export function useDriverDayHours(): Record<string, DriverDayHours[]> {
     const debouncedLoad = debounce(() => void load(), 500);
     const ch = supabase
       .channel(channelNameRef.current)
-      .on("postgres_changes", { event: "*", schema: "public", table: "driver_day_hours" }, debouncedLoad)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "driver_day_hours" },
+        debouncedLoad,
+      )
       .subscribe();
 
     return () => {
@@ -373,9 +406,7 @@ function useComplianceState(
 
       // Calculate continuous drive from active routes if the driver is actually ON_ROUTE
       let continuousDrive = 0;
-      const status = driver
-        ? effectiveDriverStatus(driver.status, activeJobs, now)
-        : "OFF_SHIFT";
+      const status = driver ? effectiveDriverStatus(driver.status, activeJobs, now) : "OFF_SHIFT";
       if (status === "ON_ROUTE") {
         for (const job of activeJobs) {
           const proj = projectedRouteDriveMinutes(

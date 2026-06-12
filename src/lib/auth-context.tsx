@@ -23,11 +23,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Listener first, then initial session — avoids race condition.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setState({ session, user: session?.user ?? null, loading: false });
-      },
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setState({ session, user: session?.user ?? null, loading: false });
+    });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setState({ session, user: session?.user ?? null, loading: false });

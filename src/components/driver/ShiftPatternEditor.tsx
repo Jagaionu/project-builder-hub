@@ -6,7 +6,15 @@ import { saveShiftPattern, type ShiftPatternDay } from "@/lib/driver-shifts";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DAY_ISO = [1, 2, 3, 4, 5, 6, 0]; // Mon=1..Sun=0
-const DAY_SHORT_MAP: Record<number, string> = { 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 0: "Sun" };
+const DAY_SHORT_MAP: Record<number, string> = {
+  1: "Mon",
+  2: "Tue",
+  3: "Wed",
+  4: "Thu",
+  5: "Fri",
+  6: "Sat",
+  0: "Sun",
+};
 
 const DEFAULT_START = "06:00";
 const DEFAULT_END = "18:00";
@@ -29,7 +37,9 @@ function stripSecs(t: string): string {
 
 // Map a stored entry to editor state: only treat it as a fixed window when
 // BOTH ends are present; otherwise it's "no fixed hours".
-function toState(saved: { start_time: string | null; end_time: string | null } | undefined): TimeState {
+function toState(
+  saved: { start_time: string | null; end_time: string | null } | undefined,
+): TimeState {
   if (saved && saved.start_time && saved.end_time) {
     return { start_time: stripSecs(saved.start_time), end_time: stripSecs(saved.end_time) };
   }
@@ -60,7 +70,13 @@ function summarize(selectedDays: number[], times: Record<number, TimeState>): st
   return anyTimed ? `${labels} · varied` : `${labels} · any time`;
 }
 
-export function ShiftPatternEditor({ driverId, initialDays, initialTimes, onSave, isPlanner = false }: ShiftPatternEditorProps) {
+export function ShiftPatternEditor({
+  driverId,
+  initialDays,
+  initialTimes,
+  onSave,
+  isPlanner = false,
+}: ShiftPatternEditorProps) {
   const [selectedDays, setSelectedDays] = useState<number[]>(initialDays);
   const [times, setTimes] = useState<Record<number, TimeState>>(() => buildTimes(initialTimes));
   const [saving, setSaving] = useState(false);
@@ -138,7 +154,9 @@ export function ShiftPatternEditor({ driverId, initialDays, initialTimes, onSave
   const selectedInOrder = DAY_ISO.filter((d) => selectedDays.includes(d));
 
   return (
-    <div className={`bg-card/50 border border-border/50 rounded-lg ${isPlanner ? "p-2 space-y-2" : "p-3 space-y-3"}`}>
+    <div
+      className={`bg-card/50 border border-border/50 rounded-lg ${isPlanner ? "p-2 space-y-2" : "p-3 space-y-3"}`}
+    >
       {/* Header — always clickable to expand/collapse */}
       <button
         type="button"
@@ -146,7 +164,9 @@ export function ShiftPatternEditor({ driverId, initialDays, initialTimes, onSave
         className="w-full flex items-center justify-between gap-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className={`${isPlanner ? "text-[10px]" : "text-xs"} font-bold uppercase tracking-wider text-muted-foreground shrink-0`}>
+          <span
+            className={`${isPlanner ? "text-[10px]" : "text-xs"} font-bold uppercase tracking-wider text-muted-foreground shrink-0`}
+          >
             Weekly Pattern
           </span>
           <span className={`${isPlanner ? "text-[10px]" : "text-xs"} text-foreground/80 truncate`}>
@@ -159,7 +179,6 @@ export function ShiftPatternEditor({ driverId, initialDays, initialTimes, onSave
           <ChevronDown size={isPlanner ? 12 : 14} className="text-muted-foreground shrink-0" />
         )}
       </button>
-
 
       {expanded && (
         <>
@@ -201,7 +220,9 @@ export function ShiftPatternEditor({ driverId, initialDays, initialTimes, onSave
                     </span>
                     {t === null ? (
                       <>
-                        <span className="text-[11px] text-muted-foreground flex-1">Any time (no fixed hours)</span>
+                        <span className="text-[11px] text-muted-foreground flex-1">
+                          Any time (no fixed hours)
+                        </span>
                         <button
                           type="button"
                           onClick={() => toggleHours(iso)}

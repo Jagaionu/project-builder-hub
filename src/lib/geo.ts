@@ -18,10 +18,7 @@ export const CITY_DISTANCE_KM = 12.87;
 export function transitTimeHours(distanceKm: number) {
   if (distanceKm <= 0) return 0;
   if (distanceKm <= CITY_DISTANCE_KM) return distanceKm / CITY_SPEED_KMH;
-  return (
-    CITY_DISTANCE_KM / CITY_SPEED_KMH +
-    (distanceKm - CITY_DISTANCE_KM) / HIGHWAY_SPEED_KMH
-  );
+  return CITY_DISTANCE_KM / CITY_SPEED_KMH + (distanceKm - CITY_DISTANCE_KM) / HIGHWAY_SPEED_KMH;
 }
 
 export function etaMinutes(distanceKm: number) {
@@ -44,7 +41,12 @@ export function stopDwellMinutes(kind: "PICKUP" | "DROP", handlingMin?: number):
 }
 
 export const GEOFENCE_RADIUS_M = 50;
-export function isInsideGeofence(driverLat: number, driverLon: number, whLat: number, whLon: number) {
+export function isInsideGeofence(
+  driverLat: number,
+  driverLon: number,
+  whLat: number,
+  whLon: number,
+) {
   return haversineKm(driverLat, driverLon, whLat, whLon) * 1000 <= GEOFENCE_RADIUS_M;
 }
 
@@ -85,7 +87,10 @@ export function computeStopSchedule(
     }
     const prev = warehouses.find((w) => w.id === stops[i - 1].warehouse_id);
     const curr = warehouses.find((w) => w.id === stops[i].warehouse_id);
-    if (!prev || !curr) { out.push(null); continue; }
+    if (!prev || !curr) {
+      out.push(null);
+      continue;
+    }
     const leg = legMinutes(stops[i - 1], prev, curr, handlingMin);
     t += leg.totalMin * 60_000;
     out.push(new Date(t).toISOString());
@@ -114,7 +119,11 @@ export function stopCriticalWindow(
 
 // Total minutes a driver is occupied by a job, from arrival at the first
 // stop through to "good to go" after checks at the final stop.
-export function jobTotalMinutes(stops: StopLike[], warehouses: WhLike[], handlingMin?: number): number {
+export function jobTotalMinutes(
+  stops: StopLike[],
+  warehouses: WhLike[],
+  handlingMin?: number,
+): number {
   if (stops.length === 0) return 0;
   let total = 0;
   for (let i = 0; i < stops.length - 1; i++) {
@@ -146,26 +155,47 @@ export function projectPosition(
 ): ProjectedPosition | null {
   if (stops.length === 0) return null;
   if (nowMs < startMs) {
-    return { phase: "BEFORE_START", stopIndex: 0, minutesUntilNextEvent: Math.round((startMs - nowMs) / 60_000) };
+    return {
+      phase: "BEFORE_START",
+      stopIndex: 0,
+      minutesUntilNextEvent: Math.round((startMs - nowMs) / 60_000),
+    };
   }
   // Add an initial arrival buffer to reach the first stop.
   let cursor = startMs + ARRIVAL_BUFFER_MINUTES * 60_000;
   if (nowMs < cursor) {
-    return { phase: "EN_ROUTE", stopIndex: 0, minutesUntilNextEvent: Math.round((cursor - nowMs) / 60_000) };
+    return {
+      phase: "EN_ROUTE",
+      stopIndex: 0,
+      minutesUntilNextEvent: Math.round((cursor - nowMs) / 60_000),
+    };
   }
   for (let i = 0; i < stops.length; i++) {
     const dwell = stopDwellMinutes(stops[i].kind) * 60_000;
     if (nowMs < cursor + dwell) {
-      return { phase: "AT_STOP", stopIndex: i, minutesUntilNextEvent: Math.round((cursor + dwell - nowMs) / 60_000) };
+      return {
+        phase: "AT_STOP",
+        stopIndex: i,
+        minutesUntilNextEvent: Math.round((cursor + dwell - nowMs) / 60_000),
+      };
     }
     cursor += dwell;
     if (i === stops.length - 1) break;
     const a = warehouses.find((w) => w.id === stops[i].warehouse_id);
     const b = warehouses.find((w) => w.id === stops[i + 1].warehouse_id);
     if (!a || !b) continue;
-    const transit = (Math.round(transitTimeHours(haversineKm(a.latitude, a.longitude, b.latitude, b.longitude)) * 60) + ARRIVAL_BUFFER_MINUTES) * 60_000;
+    const transit =
+      (Math.round(
+        transitTimeHours(haversineKm(a.latitude, a.longitude, b.latitude, b.longitude)) * 60,
+      ) +
+        ARRIVAL_BUFFER_MINUTES) *
+      60_000;
     if (nowMs < cursor + transit) {
-      return { phase: "EN_ROUTE", stopIndex: i + 1, minutesUntilNextEvent: Math.round((cursor + transit - nowMs) / 60_000) };
+      return {
+        phase: "EN_ROUTE",
+        stopIndex: i + 1,
+        minutesUntilNextEvent: Math.round((cursor + transit - nowMs) / 60_000),
+      };
     }
     cursor += transit;
   }

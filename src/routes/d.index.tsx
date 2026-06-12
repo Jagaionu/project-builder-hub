@@ -37,10 +37,15 @@ function DriverHome() {
     let cancelled = false;
     void (async () => {
       const { data } = await (supabase as unknown as { from: (t: string) => any })
-        .from("driver_equipment").select("equipment_type").eq("driver_id", driver.id);
-      if (!cancelled) setEquip(((data ?? []) as Array<{ equipment_type: string }>).map((r) => r.equipment_type));
+        .from("driver_equipment")
+        .select("equipment_type")
+        .eq("driver_id", driver.id);
+      if (!cancelled)
+        setEquip(((data ?? []) as Array<{ equipment_type: string }>).map((r) => r.equipment_type));
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [driver]);
 
   if (!driver) {
@@ -73,10 +78,7 @@ function DriverHome() {
       style={{ paddingTop: "env(safe-area-inset-top, 0)" }}
     >
       {/* ── Header ── */}
-      <div
-        className="px-5 pt-6 pb-5 sticky top-0 z-20"
-        style={{ background: "var(--background)" }}
-      >
+      <div className="px-5 pt-6 pb-5 sticky top-0 z-20" style={{ background: "var(--background)" }}>
         <div className="flex items-start justify-between">
           <div>
             <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -85,35 +87,38 @@ function DriverHome() {
             <h1 className="text-2xl font-bold mt-0.5 tracking-tight">{driver.name}</h1>
           </div>
           <div className="flex flex-col items-end gap-1.5">
-          {/* Status chip */}
-          <div
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full"
-            style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-            }}
-          >
-            <span
-              className="size-2 rounded-full shrink-0"
+            {/* Status chip */}
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full"
               style={{
-                background: dotColor,
-                boxShadow: `0 0 6px ${dotColor}`,
-                animation: isOnShift ? "pulse 2s ease infinite" : "none",
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
               }}
-            />
-            <span className="text-xs font-semibold" style={{ color: dotColor }}>
-              {STATUS_LABEL[displayStatus]}
-            </span>
-          </div>
-          {equip.length > 0 && (
-            <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
-              {equip.map((t) => (
-                <span key={t} className="text-[9px] font-mono px-1.5 py-0.5 rounded-full border border-border bg-surface text-muted-foreground">
-                  {t}
-                </span>
-              ))}
+            >
+              <span
+                className="size-2 rounded-full shrink-0"
+                style={{
+                  background: dotColor,
+                  boxShadow: `0 0 6px ${dotColor}`,
+                  animation: isOnShift ? "pulse 2s ease infinite" : "none",
+                }}
+              />
+              <span className="text-xs font-semibold" style={{ color: dotColor }}>
+                {STATUS_LABEL[displayStatus]}
+              </span>
             </div>
-          )}
+            {equip.length > 0 && (
+              <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
+                {equip.map((t) => (
+                  <span
+                    key={t}
+                    className="text-[9px] font-mono px-1.5 py-0.5 rounded-full border border-border bg-surface text-muted-foreground"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

@@ -16,13 +16,18 @@ function splitText(text: string, size: number, overlap: number, seps: string[]):
   const t = text.trim();
   if (t.length <= size) return t ? [t] : [];
   const sep = seps.find((s) => s && t.includes(s));
-  const parts = sep ? t.split(sep).map((p, i, a) => (i < a.length - 1 ? p + sep : p)) : Array.from(t);
+  const parts = sep
+    ? t.split(sep).map((p, i, a) => (i < a.length - 1 ? p + sep : p))
+    : Array.from(t);
   const rest = sep ? seps.slice(seps.indexOf(sep) + 1) : [];
   const chunks: string[] = [];
   let cur = "";
   for (const part of parts) {
     if (part.length > size) {
-      if (cur.trim()) { chunks.push(cur.trim()); cur = ""; }
+      if (cur.trim()) {
+        chunks.push(cur.trim());
+        cur = "";
+      }
       chunks.push(...splitText(part, size, overlap, rest));
     } else if ((cur + part).length > size) {
       if (cur.trim()) chunks.push(cur.trim());

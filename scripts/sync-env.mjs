@@ -46,7 +46,9 @@ function isPlaceholder(v) {
 }
 
 const existing = fs.existsSync(envPath) ? parseEnv(fs.readFileSync(envPath, "utf8")) : new Map();
-const template = fs.existsSync(examplePath) ? parseEnv(fs.readFileSync(examplePath, "utf8")) : new Map();
+const template = fs.existsSync(examplePath)
+  ? parseEnv(fs.readFileSync(examplePath, "utf8"))
+  : new Map();
 
 const merged = new Map(template);
 
@@ -127,7 +129,9 @@ if (missing.length) {
     process.exitCode = 1;
   } else if (urlRef && svcRef && svcRef !== urlRef) {
     console.log(`\nWARNING: service_role key is for project ${svcRef} but URL is ${urlRef}.`);
-    console.log(`Copy service_role from https://supabase.com/dashboard/project/${urlRef}/settings/api`);
+    console.log(
+      `Copy service_role from https://supabase.com/dashboard/project/${urlRef}/settings/api`,
+    );
     process.exitCode = 1;
   } else {
     console.log(`All required variables are set (project ${urlRef ?? projectId}).`);
