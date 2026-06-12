@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Company, SubscriptionStatus, Warehouse } from "@/lib/types";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AdminSupportPanel } from "@/components/admin/AdminSupportPanel";
-import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
+const AdminAnalytics = lazy(() => import("@/components/admin/AdminAnalytics").then((m) => ({ default: m.AdminAnalytics })));
 import { AdminBilling } from "@/components/admin/AdminBilling";
 import { StatsBar, StatsBarSkeleton } from "@/routes/admin/stats-bar";
 import { SearchFilterBar } from "@/routes/admin/search-filter-bar";
@@ -227,7 +227,9 @@ function AdminDashboard() {
             }
           />
 
-          <AdminAnalytics companies={companies} usage={usage} />
+          <Suspense fallback={<div className="h-72 grid place-items-center text-xs text-muted-foreground">Loading analytics…</div>}>
+            <AdminAnalytics companies={companies} usage={usage} />
+          </Suspense>
 
           <CreateCompanyDialog
             open={showCreateCompany}
