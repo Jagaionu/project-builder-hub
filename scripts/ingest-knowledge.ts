@@ -6,12 +6,37 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
-import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import fs from "fs/promises";
 import path from "path";
 
-const CHUNK_SIZE = 500;
-const CHUNK_OVERLAP = 50;
+// Local recursive character splitter (replaces @langchain/textsplitters, which
+// dragged in vulnerable langsmith/uuid transitively — see npm audit). Tries the
+// most semantic separator first and recurses down to a hard char cap.
+function splitText(text: string, size: number, overlap: number, seps: string[]): string[] {
+  const t = text.trim();
+  if (t.length <= size) return t ? [t] : [];
+  const sep = seps.find((s) => s && t.includes(s));
+  const parts = sep ? t.split(sep).map((p, i, a) => (i < a.length - 1 ? p + sep : p)) : Array.from(t);
+  const rest = sep ? seps.slice(seps.indexOf(sep) + 1) : [];
+  const chunks: string[] = [];
+  let cur = "";
+  for (const part of parts) {
+    if (part.length > size) {
+      if (cur.trim()) { chunks.push(cur.trim()); cur = ""; }
+      chunks.push(...splitText(part, size, overlap, rest));
+    } else if ((cur + part).length > size) {
+      if (cur.trim()) chunks.push(cur.trim());
+      cur = (overlap > 0 && chunks.length ? chunks[chunks.length - 1].slice(-overlap) : "") + part;
+    } else {
+      cur += part;
+    }
+  }
+  if (cur.trim()) chunks.push(cur.trim());
+  return chunks.filter(Boolean);
+}
+
+const CHUNK_SIZE = 700;
+const CHUNK_OVERLAP = 100;
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -27,11 +52,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 });
 const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
-const textSplitter = new RecursiveCharacterTextSplitter({
-  chunkSize: CHUNK_SIZE,
-  chunkOverlap: CHUNK_OVERLAP,
-  separators: ["\n## ", "\n### ", "\n\n", "\n", " "],
-});
+const SEPARATORS = ["\n## ", "\n### ", "\n\n", "\n", " "];
 
 async function embed(text: string): Promise<number[]> {
   const resp = await openai.embeddings.create({
@@ -49,7 +70,7 @@ async function ingestMarkdownFile(
 ) {
   const absPath = path.resolve(filePath);
   const content = await fs.readFile(absPath, "utf-8");
-  const chunks = await textSplitter.splitText(content);
+  const chunks = splitText(content, CHUNK_SIZE, CHUNK_OVERLAP, SEPARATORS);
 
   await supabase.from("ai_knowledge_chunks").delete().eq("source_path", absPath);
 
