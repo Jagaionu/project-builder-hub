@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Map, Truck, Warehouse, ClipboardList,
-  AlertTriangle, LogOut, Shield, Users, ScrollText, LifeBuoy,
+  AlertTriangle, LogOut, Shield, Users, ScrollText, LifeBuoy, CreditCard,
 } from "lucide-react";
 import { useAlertCount, useUnassignedJobCount } from "@/lib/use-alerts";
 import { useTenant, useFeatureFlags } from "@/lib/tenant-context";
@@ -31,6 +31,7 @@ const ALL_NAV: ReadonlyArray<{
   { to: "/warehouses", label: "Warehouses", icon: Warehouse,     module: "warehouses" },
   { to: "/alerts",     label: "Alerts",     icon: AlertTriangle, module: "alerts" },
   { to: "/events",     label: "Events",     icon: ScrollText,    module: "events" },
+  { to: "/billing",    label: "Billing",    icon: CreditCard,    module: null },
 ];
 
 export function Sidebar() {

@@ -27,10 +27,14 @@ import { Route as AppWarehousesRouteImport } from './routes/_app.warehouses'
 import { Route as AppEventsRouteImport } from './routes/_app.events'
 import { Route as AppDriversRouteImport } from './routes/_app.drivers'
 import { Route as AppDispatchRouteImport } from './routes/_app.dispatch'
+import { Route as AppBillingRouteImport } from './routes/_app.billing'
 import { Route as AppAlertsRouteImport } from './routes/_app.alerts'
 import { Route as DRoutesJobIdRouteImport } from './routes/d.routes.$jobId'
 import { Route as ApiPublicPairingLoginRouteImport } from './routes/api/public/pairing-login'
+import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
+import { Route as ApiPublicWebhooksGocardlessRouteImport } from './routes/api/public/webhooks/gocardless'
 import { Route as ApiPublicCronShiftRolloverRouteImport } from './routes/api/public/cron/shift-rollover'
+import { Route as ApiPublicCronBillingSweepRouteImport } from './routes/api/public/cron/billing-sweep'
 
 const SuspendedRoute = SuspendedRouteImport.update({
   id: '/suspended',
@@ -121,6 +125,11 @@ const AppDispatchRoute = AppDispatchRouteImport.update({
   path: '/dispatch',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBillingRoute = AppBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAlertsRoute = AppAlertsRouteImport.update({
   id: '/alerts',
   path: '/alerts',
@@ -136,10 +145,27 @@ const ApiPublicPairingLoginRoute = ApiPublicPairingLoginRouteImport.update({
   path: '/api/public/pairing-login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicWebhooksStripeRoute = ApiPublicWebhooksStripeRouteImport.update({
+  id: '/api/public/webhooks/stripe',
+  path: '/api/public/webhooks/stripe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicWebhooksGocardlessRoute =
+  ApiPublicWebhooksGocardlessRouteImport.update({
+    id: '/api/public/webhooks/gocardless',
+    path: '/api/public/webhooks/gocardless',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronShiftRolloverRoute =
   ApiPublicCronShiftRolloverRouteImport.update({
     id: '/api/public/cron/shift-rollover',
     path: '/api/public/cron/shift-rollover',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicCronBillingSweepRoute =
+  ApiPublicCronBillingSweepRouteImport.update({
+    id: '/api/public/cron/billing-sweep',
+    path: '/api/public/cron/billing-sweep',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -152,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
   '/alerts': typeof AppAlertsRoute
+  '/billing': typeof AppBillingRoute
   '/dispatch': typeof AppDispatchRoute
   '/drivers': typeof AppDriversRoute
   '/events': typeof AppEventsRoute
@@ -164,7 +191,10 @@ export interface FileRoutesByFullPath {
   '/d/': typeof DIndexRoute
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
   '/d/routes/$jobId': typeof DRoutesJobIdRoute
+  '/api/public/cron/billing-sweep': typeof ApiPublicCronBillingSweepRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
+  '/api/public/webhooks/gocardless': typeof ApiPublicWebhooksGocardlessRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
 }
 export interface FileRoutesByTo {
   '/lock': typeof LockRoute
@@ -172,6 +202,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
   '/alerts': typeof AppAlertsRoute
+  '/billing': typeof AppBillingRoute
   '/dispatch': typeof AppDispatchRoute
   '/drivers': typeof AppDriversRoute
   '/events': typeof AppEventsRoute
@@ -185,7 +216,10 @@ export interface FileRoutesByTo {
   '/d': typeof DIndexRoute
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
   '/d/routes/$jobId': typeof DRoutesJobIdRoute
+  '/api/public/cron/billing-sweep': typeof ApiPublicCronBillingSweepRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
+  '/api/public/webhooks/gocardless': typeof ApiPublicWebhooksGocardlessRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -197,6 +231,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
   '/_app/alerts': typeof AppAlertsRoute
+  '/_app/billing': typeof AppBillingRoute
   '/_app/dispatch': typeof AppDispatchRoute
   '/_app/drivers': typeof AppDriversRoute
   '/_app/events': typeof AppEventsRoute
@@ -210,7 +245,10 @@ export interface FileRoutesById {
   '/d/': typeof DIndexRoute
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
   '/d/routes/$jobId': typeof DRoutesJobIdRoute
+  '/api/public/cron/billing-sweep': typeof ApiPublicCronBillingSweepRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
+  '/api/public/webhooks/gocardless': typeof ApiPublicWebhooksGocardlessRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -223,6 +261,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/suspended'
     | '/alerts'
+    | '/billing'
     | '/dispatch'
     | '/drivers'
     | '/events'
@@ -235,7 +274,10 @@ export interface FileRouteTypes {
     | '/d/'
     | '/api/public/pairing-login'
     | '/d/routes/$jobId'
+    | '/api/public/cron/billing-sweep'
     | '/api/public/cron/shift-rollover'
+    | '/api/public/webhooks/gocardless'
+    | '/api/public/webhooks/stripe'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/lock'
@@ -243,6 +285,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/suspended'
     | '/alerts'
+    | '/billing'
     | '/dispatch'
     | '/drivers'
     | '/events'
@@ -256,7 +299,10 @@ export interface FileRouteTypes {
     | '/d'
     | '/api/public/pairing-login'
     | '/d/routes/$jobId'
+    | '/api/public/cron/billing-sweep'
     | '/api/public/cron/shift-rollover'
+    | '/api/public/webhooks/gocardless'
+    | '/api/public/webhooks/stripe'
   id:
     | '__root__'
     | '/_app'
@@ -267,6 +313,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/suspended'
     | '/_app/alerts'
+    | '/_app/billing'
     | '/_app/dispatch'
     | '/_app/drivers'
     | '/_app/events'
@@ -280,7 +327,10 @@ export interface FileRouteTypes {
     | '/d/'
     | '/api/public/pairing-login'
     | '/d/routes/$jobId'
+    | '/api/public/cron/billing-sweep'
     | '/api/public/cron/shift-rollover'
+    | '/api/public/webhooks/gocardless'
+    | '/api/public/webhooks/stripe'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -292,7 +342,10 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SuspendedRoute: typeof SuspendedRoute
   ApiPublicPairingLoginRoute: typeof ApiPublicPairingLoginRoute
+  ApiPublicCronBillingSweepRoute: typeof ApiPublicCronBillingSweepRoute
   ApiPublicCronShiftRolloverRoute: typeof ApiPublicCronShiftRolloverRoute
+  ApiPublicWebhooksGocardlessRoute: typeof ApiPublicWebhooksGocardlessRoute
+  ApiPublicWebhooksStripeRoute: typeof ApiPublicWebhooksStripeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -423,6 +476,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDispatchRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/billing': {
+      id: '/_app/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof AppBillingRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/alerts': {
       id: '/_app/alerts'
       path: '/alerts'
@@ -444,6 +504,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPairingLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/webhooks/stripe': {
+      id: '/api/public/webhooks/stripe'
+      path: '/api/public/webhooks/stripe'
+      fullPath: '/api/public/webhooks/stripe'
+      preLoaderRoute: typeof ApiPublicWebhooksStripeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webhooks/gocardless': {
+      id: '/api/public/webhooks/gocardless'
+      path: '/api/public/webhooks/gocardless'
+      fullPath: '/api/public/webhooks/gocardless'
+      preLoaderRoute: typeof ApiPublicWebhooksGocardlessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/shift-rollover': {
       id: '/api/public/cron/shift-rollover'
       path: '/api/public/cron/shift-rollover'
@@ -451,11 +525,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronShiftRolloverRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/billing-sweep': {
+      id: '/api/public/cron/billing-sweep'
+      path: '/api/public/cron/billing-sweep'
+      fullPath: '/api/public/cron/billing-sweep'
+      preLoaderRoute: typeof ApiPublicCronBillingSweepRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AppRouteChildren {
   AppAlertsRoute: typeof AppAlertsRoute
+  AppBillingRoute: typeof AppBillingRoute
   AppDispatchRoute: typeof AppDispatchRoute
   AppDriversRoute: typeof AppDriversRoute
   AppEventsRoute: typeof AppEventsRoute
@@ -465,6 +547,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAlertsRoute: AppAlertsRoute,
+  AppBillingRoute: AppBillingRoute,
   AppDispatchRoute: AppDispatchRoute,
   AppDriversRoute: AppDriversRoute,
   AppEventsRoute: AppEventsRoute,
@@ -513,7 +596,10 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SuspendedRoute: SuspendedRoute,
   ApiPublicPairingLoginRoute: ApiPublicPairingLoginRoute,
+  ApiPublicCronBillingSweepRoute: ApiPublicCronBillingSweepRoute,
   ApiPublicCronShiftRolloverRoute: ApiPublicCronShiftRolloverRoute,
+  ApiPublicWebhooksGocardlessRoute: ApiPublicWebhooksGocardlessRoute,
+  ApiPublicWebhooksStripeRoute: ApiPublicWebhooksStripeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
