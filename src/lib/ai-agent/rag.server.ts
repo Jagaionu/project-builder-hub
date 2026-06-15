@@ -75,11 +75,17 @@ export async function answerQuestion(
 
   if (logId) {
     const responseTokens = response.content ? enc.encode(response.content).length : 0;
+    // Flag content gaps: no docs retrieved, or the model said it doesn't know.
+    const answered =
+      retrieved.length > 0 &&
+      !/\bi (?:don'?t|do not) (?:know|have)\b/i.test(response.content ?? "");
     await (supabaseAdmin as any)
       .from("ai_query_logs")
       .update({
         latency_ms: endTime - startTime,
         token_usage: totalTokens + responseTokens,
+        answer: response.content ?? "",
+        answered,
       })
       .eq("id", logId);
   }
