@@ -35,6 +35,7 @@ import {
   Key,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTeamSync } from "@/lib/use-team-sync";
 
 function generatePassword(len = 16) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
@@ -124,6 +125,7 @@ export function CompanyCard({
   });
   const [creating, setCreating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const notifyTeam = useTeamSync(company.id, expanded, () => setRefreshKey((k) => k + 1));
   const [members, setMembers] = useState<Member[]>([]);
   const createAdmin = useServerFn(createCompanyAdmin);
   const fetchMembers = useServerFn(listCompanyMembers);
@@ -171,6 +173,7 @@ export function CompanyCard({
         `Password ${members.length > 0 ? "regenerated" : "generated"} for ${company.name}`,
       );
       setRefreshKey((k) => k + 1);
+      notifyTeam();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create user");
     } finally {
@@ -508,6 +511,7 @@ export function CompanyCard({
                                 });
                                 toast.success("Password reset — copy the new credentials below");
                                 setRefreshKey((k) => k + 1);
+                                notifyTeam();
                               } catch (err) {
                                 toast.error(err instanceof Error ? err.message : "Reset failed");
                               } finally {
@@ -617,6 +621,7 @@ export function CompanyCard({
                               });
                               toast.success("Password reset");
                               setRefreshKey((k) => k + 1);
+                              notifyTeam();
                             } catch (err) {
                               toast.error(err instanceof Error ? err.message : "Reset failed");
                             } finally {
@@ -641,6 +646,7 @@ export function CompanyCard({
                               await delProfile({ data: { memberId: m.id } });
                               toast.success("Member removed");
                               setRefreshKey((k) => k + 1);
+                              notifyTeam();
                             } catch (err) {
                               toast.error(err instanceof Error ? err.message : "Remove failed");
                             } finally {
@@ -706,6 +712,7 @@ export function CompanyCard({
                     setProfileName("");
                     toast.success(`Profile "${r.name}" created`);
                     setRefreshKey((k) => k + 1);
+                    notifyTeam();
                   } catch (err) {
                     toast.error(err instanceof Error ? err.message : "Create failed");
                   } finally {
