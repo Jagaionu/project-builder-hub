@@ -24,6 +24,7 @@ import { Route as DReportRouteImport } from './routes/d.report'
 import { Route as DProfileRouteImport } from './routes/d.profile'
 import { Route as DLoginRouteImport } from './routes/d.login'
 import { Route as AppWarehousesRouteImport } from './routes/_app.warehouses'
+import { Route as AppTeamRouteImport } from './routes/_app.team'
 import { Route as AppEventsRouteImport } from './routes/_app.events'
 import { Route as AppDriversRouteImport } from './routes/_app.drivers'
 import { Route as AppDispatchRouteImport } from './routes/_app.dispatch'
@@ -110,6 +111,11 @@ const AppWarehousesRoute = AppWarehousesRouteImport.update({
   path: '/warehouses',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTeamRoute = AppTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppEventsRoute = AppEventsRouteImport.update({
   id: '/events',
   path: '/events',
@@ -182,6 +188,7 @@ export interface FileRoutesByFullPath {
   '/dispatch': typeof AppDispatchRoute
   '/drivers': typeof AppDriversRoute
   '/events': typeof AppEventsRoute
+  '/team': typeof AppTeamRoute
   '/warehouses': typeof AppWarehousesRoute
   '/d/login': typeof DLoginRoute
   '/d/profile': typeof DProfileRoute
@@ -206,6 +213,7 @@ export interface FileRoutesByTo {
   '/dispatch': typeof AppDispatchRoute
   '/drivers': typeof AppDriversRoute
   '/events': typeof AppEventsRoute
+  '/team': typeof AppTeamRoute
   '/warehouses': typeof AppWarehousesRoute
   '/d/login': typeof DLoginRoute
   '/d/profile': typeof DProfileRoute
@@ -235,6 +243,7 @@ export interface FileRoutesById {
   '/_app/dispatch': typeof AppDispatchRoute
   '/_app/drivers': typeof AppDriversRoute
   '/_app/events': typeof AppEventsRoute
+  '/_app/team': typeof AppTeamRoute
   '/_app/warehouses': typeof AppWarehousesRoute
   '/d/login': typeof DLoginRoute
   '/d/profile': typeof DProfileRoute
@@ -265,6 +274,7 @@ export interface FileRouteTypes {
     | '/dispatch'
     | '/drivers'
     | '/events'
+    | '/team'
     | '/warehouses'
     | '/d/login'
     | '/d/profile'
@@ -289,6 +299,7 @@ export interface FileRouteTypes {
     | '/dispatch'
     | '/drivers'
     | '/events'
+    | '/team'
     | '/warehouses'
     | '/d/login'
     | '/d/profile'
@@ -317,6 +328,7 @@ export interface FileRouteTypes {
     | '/_app/dispatch'
     | '/_app/drivers'
     | '/_app/events'
+    | '/_app/team'
     | '/_app/warehouses'
     | '/d/login'
     | '/d/profile'
@@ -455,6 +467,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWarehousesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/team': {
+      id: '/_app/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof AppTeamRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/events': {
       id: '/_app/events'
       path: '/events'
@@ -541,6 +560,7 @@ interface AppRouteChildren {
   AppDispatchRoute: typeof AppDispatchRoute
   AppDriversRoute: typeof AppDriversRoute
   AppEventsRoute: typeof AppEventsRoute
+  AppTeamRoute: typeof AppTeamRoute
   AppWarehousesRoute: typeof AppWarehousesRoute
   AppIndexRoute: typeof AppIndexRoute
 }
@@ -551,6 +571,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppDispatchRoute: AppDispatchRoute,
   AppDriversRoute: AppDriversRoute,
   AppEventsRoute: AppEventsRoute,
+  AppTeamRoute: AppTeamRoute,
   AppWarehousesRoute: AppWarehousesRoute,
   AppIndexRoute: AppIndexRoute,
 }

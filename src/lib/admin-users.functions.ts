@@ -119,13 +119,7 @@ export const listCompanyMembers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => ListInput.parse(data))
   .handler(async ({ data, context }) => {
-    const { userId } = context;
-    const { data: sa } = await supabaseAdmin
-      .from("super_admins")
-      .select("user_id")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (!sa) throw new Error("Forbidden");
+    await assertCanManageCompany(context.userId, data.companyId);
 
     const { data: members, error } = await (
       supabaseAdmin as unknown as { from: (t: string) => any }
@@ -199,6 +193,26 @@ async function assertSuperAdmin(userId: string): Promise<void> {
   if (!sa) throw new Error("Forbidden: super admin only");
 }
 
+// Allows the platform super-admin OR the company's own admin (same tenant) to
+// manage that company's member profiles. Enforces tenant isolation: a company
+// admin can only ever act on their own company.
+async function assertCanManageCompany(callerId: string, companyId: string): Promise<void> {
+  const { data: sa } = await supabaseAdmin
+    .from("super_admins")
+    .select("user_id")
+    .eq("user_id", callerId)
+    .maybeSingle();
+  if (sa) return;
+  const { data: m } = await sbAny
+    .from("company_members")
+    .select("role")
+    .eq("user_id", callerId)
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (m && m.role === "admin") return;
+  throw new Error("Forbidden: company admin only");
+}
+
 const CreateProfileInput = z.object({
   companyId: z.string().uuid(),
   name: z.string().trim().min(1).max(120),
@@ -208,7 +222,7 @@ export const createCompanyProfile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => CreateProfileInput.parse(data))
   .handler(async ({ data, context }) => {
-    await assertSuperAdmin(context.userId);
+    await assertCanManageCompany(context.userId, data.companyId);
 
     const { data: company, error: cErr } = await supabaseAdmin
       .from("companies")
@@ -271,14 +285,13 @@ export const resetProfilePassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => MemberInput.parse(data))
   .handler(async ({ data, context }) => {
-    await assertSuperAdmin(context.userId);
-
     const { data: m } = await sbAny
       .from("company_members")
-      .select("user_id, email")
+      .select("user_id, email, company_id")
       .eq("id", data.memberId)
       .maybeSingle();
     if (!m) throw new Error("Profile not found");
+    await assertCanManageCompany(context.userId, m.company_id);
 
     const password = genTempPassword();
     const { error: uErr } = await supabaseAdmin.auth.admin.updateUserById(m.user_id, {
@@ -299,14 +312,13 @@ export const deleteProfile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => MemberInput.parse(data))
   .handler(async ({ data, context }) => {
-    await assertSuperAdmin(context.userId);
-
     const { data: m } = await sbAny
       .from("company_members")
       .select("user_id, role, company_id")
       .eq("id", data.memberId)
       .maybeSingle();
     if (!m) throw new Error("Profile not found");
+    await assertCanManageCompany(context.userId, m.company_id);
 
     // Never leave a company without an admin.
     if (m.role === "admin") {

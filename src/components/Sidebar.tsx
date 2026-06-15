@@ -11,6 +11,7 @@ import {
   ScrollText,
   LifeBuoy,
   CreditCard,
+  UserCog,
 } from "lucide-react";
 import { useAlertCount, useUnassignedJobCount } from "@/lib/use-alerts";
 import { useTenant, useFeatureFlags } from "@/lib/tenant-context";
@@ -33,14 +34,16 @@ const ALL_NAV: ReadonlyArray<{
   label: string;
   icon: typeof Map;
   module: TenantModule | null;
+  adminOnly?: boolean;
 }> = [
   { to: "/", label: "Live Map", icon: Map, module: "maps" },
   { to: "/dispatch", label: "Dispatch", icon: Truck, module: "dispatch" },
   { to: "/drivers", label: "Drivers", icon: Users, module: "drivers" },
   { to: "/warehouses", label: "Warehouses", icon: Warehouse, module: "warehouses" },
   { to: "/alerts", label: "Alerts", icon: AlertTriangle, module: "alerts" },
-  { to: "/events", label: "Events", icon: ScrollText, module: "events" },
-  { to: "/billing", label: "Billing", icon: CreditCard, module: null },
+  { to: "/events", label: "Events", icon: ScrollText, module: "events", adminOnly: true },
+  { to: "/team", label: "Team", icon: UserCog, module: null, adminOnly: true },
+  { to: "/billing", label: "Billing", icon: CreditCard, module: null, adminOnly: true },
 ];
 
 export function Sidebar() {
@@ -52,7 +55,10 @@ export function Sidebar() {
   const flags = useFeatureFlags();
   const { cycleAccent, accentColor } = useTheme();
 
-  const visibleNav = ALL_NAV.filter((n) => n.module === null || flags.modules.includes(n.module));
+  const isAdmin = role === "admin" || isSuperAdmin;
+  const visibleNav = ALL_NAV.filter(
+    (n) => (n.module === null || flags.modules.includes(n.module)) && (!n.adminOnly || isAdmin),
+  );
 
   const displayName = flags.customBranding && flags.brandName ? flags.brandName : company.name;
 

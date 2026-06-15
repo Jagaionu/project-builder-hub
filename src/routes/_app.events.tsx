@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "./_app.index";
+import { useRequireAdmin } from "@/lib/use-require-admin";
 
 export const Route = createFileRoute("/_app/events")({
   component: ActivityLog,
@@ -37,6 +38,7 @@ const ACTION_LABEL: Record<string, string> = {
 const labelFor = (a: string) => ACTION_LABEL[a] ?? a;
 
 function ActivityLog() {
+  const isAdmin = useRequireAdmin();
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [actionFilter, setActionFilter] = useState<string>("ALL");
   const [q, setQ] = useState("");
@@ -71,6 +73,8 @@ function ActivityLog() {
       );
     });
   }, [rows, actionFilter, q]);
+
+  if (!isAdmin) return null;
 
   return (
     <div className="h-full flex flex-col">

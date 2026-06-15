@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "./_app.index";
 import { getMyBilling, startCheckout } from "@/lib/billing/billing.functions";
+import { useRequireAdmin } from "@/lib/use-require-admin";
 import { CreditCard, Building2, Banknote } from "lucide-react";
 
 export const Route = createFileRoute("/_app/billing")({
@@ -55,6 +56,7 @@ interface Invoice {
 }
 
 function BillingPage() {
+  const isAdmin = useRequireAdmin();
   const fetchBilling = useServerFn(getMyBilling);
   const checkout = useServerFn(startCheckout);
   const [data, setData] = useState<{ company: any; invoices: Invoice[]; methods: any[] } | null>(
@@ -104,6 +106,8 @@ function BillingPage() {
   };
 
   const openInvoice = data?.invoices?.find((i) => i.status === "open");
+
+  if (!isAdmin) return null;
 
   return (
     <div className="space-y-6">
