@@ -10,6 +10,7 @@ import {
 } from "@/lib/admin-users.functions";
 import { PageHeader } from "./_app.index";
 import { toast } from "sonner";
+import { useTeamSync } from "@/lib/use-team-sync";
 import { UserPlus, Copy, Trash2, Key, Shield, User } from "lucide-react";
 
 export const Route = createFileRoute("/_app/team")({ component: TeamPage });
@@ -48,15 +49,18 @@ function TeamPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [profileName, setProfileName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [issued, setIssued] = useState<{ name: string; email: string; tempPassword: string } | null>(
-    null,
-  );
+  const [issued, setIssued] = useState<{
+    name: string;
+    email: string;
+    tempPassword: string;
+  } | null>(null);
 
   const load = useCallback(() => {
     fetchMembers({ data: { companyId: company.id } })
       .then((r) => setMembers(r as Member[]))
       .catch(() => toast.error("Failed to load profiles"));
   }, [fetchMembers, company.id]);
+  const notifyTeam = useTeamSync(company.id, role === "admin", load);
   useEffect(() => {
     if (role === "admin") load();
   }, [role, load]);
@@ -67,7 +71,10 @@ function TeamPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <PageHeader title="Team" subtitle={`${regulars.length} profile${regulars.length === 1 ? "" : "s"}`} />
+      <PageHeader
+        title="Team"
+        subtitle={`${regulars.length} profile${regulars.length === 1 ? "" : "s"}`}
+      />
 
       <div className="flex-1 overflow-y-auto p-5 max-w-2xl w-full mx-auto space-y-4">
         {/* Add profile */}
@@ -100,6 +107,7 @@ function TeamPage() {
                   setProfileName("");
                   toast.success(`Profile "${r.name}" created`);
                   load();
+                  notifyTeam();
                 } catch (err) {
                   toast.error(err instanceof Error ? err.message : "Create failed");
                 } finally {
@@ -194,6 +202,7 @@ function TeamPage() {
                           });
                           toast.success("Password reset — copy the new credentials above");
                           load();
+                          notifyTeam();
                         } catch (err) {
                           toast.error(err instanceof Error ? err.message : "Reset failed");
                         } finally {
@@ -214,6 +223,7 @@ function TeamPage() {
                           await delProfile({ data: { memberId: m.id } });
                           toast.success("Profile removed");
                           load();
+                          notifyTeam();
                         } catch (err) {
                           toast.error(err instanceof Error ? err.message : "Remove failed");
                         } finally {
@@ -236,8 +246,8 @@ function TeamPage() {
         </div>
 
         <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <Shield className="size-3.5 text-primary" /> You are the company admin — only you can manage
-          profiles, Events and Billing.
+          <Shield className="size-3.5 text-primary" /> You are the company admin — only you can
+          manage profiles, Events and Billing.
         </p>
       </div>
     </div>
