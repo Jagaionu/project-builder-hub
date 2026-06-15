@@ -459,7 +459,7 @@ export function CompanyCard({
                 </span>
                 {adminUsers.length > 0 && (
                   <span className="ml-auto text-[10px] font-mono text-muted-foreground">
-                    {shortLogin(adminUsers[0].email)}
+                    {adminUsers[0].email}
                   </span>
                 )}
               </div>
@@ -668,7 +668,7 @@ export function CompanyCard({
                 <div className="text-[10px] font-mono uppercase tracking-widest text-primary mb-1">
                   One-time credentials — copy now
                 </div>
-                <div className="font-mono break-all">{shortLogin(issued.email)}</div>
+                <div className="font-mono break-all">{issued.email}</div>
                 <div className="flex items-center justify-between gap-2 mt-1">
                   <span className="font-mono break-all">{issued.tempPassword}</span>
                   <button
