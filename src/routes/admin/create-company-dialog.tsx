@@ -38,26 +38,28 @@ export function CreateCompanyDialog({ open, onOpenChange, onCreated }: CreateCom
     e.preventDefault();
     if (!name.trim()) return;
     setLoading(true);
-    const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 14);
-    const { error } = await supabase.from("companies" as never).insert({
-      name: name.trim(),
-      slug: slug.trim() || toSlug(name),
-      plan,
-      subscription_status: "trial",
-      subscription_ends_at: trialEndsAt.toISOString(),
-    } as never);
-    if (error) {
-      toast.error(error.message);
+    try {
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+      const { error } = await supabase.from("companies" as never).insert({
+        name: name.trim(),
+        slug: slug.trim() || toSlug(name),
+        plan,
+        subscription_status: "trial",
+        subscription_ends_at: trialEndsAt.toISOString(),
+      } as never);
+      if (error) throw new Error(error.message);
+      toast.success(`Company "${name}" created (trial expires in 14 days)`);
+      setName("");
+      setSlug("");
+      setPlan("starter");
+      onOpenChange(false);
+      onCreated();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create company");
+    } finally {
       setLoading(false);
-      return;
     }
-    toast.success(`Company "${name}" created (trial expires in 14 days)`);
-    setName("");
-    setSlug("");
-    setPlan("starter");
-    onOpenChange(false);
-    onCreated();
   }
 
   return (
