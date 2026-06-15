@@ -8,7 +8,7 @@ import brandLogo from "@/assets/brand-logo.png";
 export const Route = createFileRoute("/lock")({ component: LockScreen });
 
 const DEVICE_KEY = "device.companyId";
-type Profile = { memberId: string; name: string; avatarUrl: string | null };
+type Profile = { memberId: string; name: string; avatarUrl: string | null; role: string };
 
 function LockScreen() {
   const navigate = useNavigate();
@@ -135,6 +135,11 @@ function LockScreen() {
                     )}
                   </span>
                   <span className="text-xs truncate w-full text-center">{p.name}</span>
+                  {p.role === "admin" && (
+                    <span className="text-[8px] font-mono font-bold uppercase tracking-widest text-primary -mt-1">
+                      Admin
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
