@@ -183,7 +183,7 @@ export function AIChatWidget() {
       {open && (
         <div
           className={cn(
-            "fixed bottom-5 left-5 z-50 flex h-[34rem] w-[22rem] min-h-[20rem] min-w-[18rem] max-h-[calc(100vh-2.5rem)] max-w-[calc(100vw-2.5rem)] resize overflow-hidden",
+            "fixed bottom-5 left-5 z-[2000] flex h-[34rem] w-[22rem] min-h-[20rem] min-w-[18rem] max-h-[calc(100vh-2.5rem)] max-w-[calc(100vw-2.5rem)] resize overflow-hidden",
             "flex-col rounded-2xl border border-border/60 bg-background/95 backdrop-blur-xl",
             "shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]",
             closing ? "ai-sandoff" : "animate-in fade-in slide-in-from-bottom-4 duration-200",
