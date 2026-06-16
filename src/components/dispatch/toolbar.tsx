@@ -18,6 +18,7 @@ export function ToolbarButton({
   children,
   primary,
   title,
+  dataAiTarget,
 }: {
   onClick: () => void;
   disabled?: boolean;
@@ -25,12 +26,14 @@ export function ToolbarButton({
   children: ReactNode;
   primary?: boolean;
   title?: string;
+  dataAiTarget?: string;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       title={title}
+      data-ai-target={dataAiTarget}
       className={cn(
         "inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium tracking-tight",
         "transition-all duration-150 ease-out",
@@ -120,6 +123,7 @@ export function ImportCsvButton() {
       <ToolbarButton
         onClick={() => inputRef.current?.click()}
         disabled={busy}
+        dataAiTarget="import-csv"
         icon={<Upload className="size-3.5" />}
       >
         {busy ? "Importing…" : "Import CSV"}

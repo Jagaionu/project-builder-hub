@@ -60,6 +60,58 @@ export function AIChatWidget() {
   });
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+
+  // Drag the panel by its header. Switches from the default bottom-left anchor
+  // to absolute left/top once moved. Clamped to the viewport.
+  const startDrag = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest("button, input, textarea, a")) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    const offX = e.clientX - rect.left;
+    const offY = e.clientY - rect.top;
+    setPos({ x: rect.left, y: rect.top });
+    const move = (ev: PointerEvent) => {
+      const w = panel.offsetWidth;
+      const h = panel.offsetHeight;
+      setPos({
+        x: Math.max(8, Math.min(ev.clientX - offX, window.innerWidth - w - 8)),
+        y: Math.max(8, Math.min(ev.clientY - offY, window.innerHeight - h - 8)),
+      });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  const startResize = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    const panel = panelRef.current;
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    const sx = e.clientX;
+    const sy = e.clientY;
+    const sw = rect.width;
+    const sh = rect.height;
+    const move = (ev: PointerEvent) => {
+      setSize({
+        w: Math.max(288, Math.min(sw + (ev.clientX - sx), window.innerWidth - 16)),
+        h: Math.max(320, Math.min(sh + (ev.clientY - sy), window.innerHeight - 16)),
+      });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
 
   const accent = AI_COLORS[colorIdx];
   const cycleColor = () =>
@@ -87,9 +139,11 @@ export function AIChatWidget() {
 
   // "Show me" — jump to the relevant tab and pulse the button to press.
   const handleGuide = (g: Guidance) => {
-    requestClose();
-    if (g.route) navigate({ to: g.route as "/" });
-    window.setTimeout(() => highlightTarget(g.target), g.route ? 450 : 150);
+    setClosing(false);
+    setOpen(false);
+    if (g.route) void navigate({ to: g.route as "/" });
+    // Give the route a moment to mount before pulsing the target button.
+    window.setTimeout(() => highlightTarget(g.target), g.route ? 550 : 200);
   };
 
   const submit = async (text: string) => {
@@ -178,7 +232,12 @@ export function AIChatWidget() {
   }, [open]);
 
   useEffect(() => {
-    if (open) requestAnimationFrame(() => inputRef.current?.focus());
+    if (!open) return;
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      const el = scrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    });
   }, [open]);
 
   return (
@@ -200,15 +259,23 @@ export function AIChatWidget() {
 
       {open && (
         <div
+          ref={panelRef}
+          style={{
+            ...(pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : {}),
+            ...(size ? { width: size.w, height: size.h } : {}),
+          }}
           className={cn(
-            "fixed bottom-5 left-5 z-[2000] flex h-[34rem] w-[22rem] min-h-[20rem] min-w-[18rem] max-h-[calc(100vh-2.5rem)] max-w-[calc(100vw-2.5rem)] resize overflow-hidden",
+            "fixed bottom-5 left-5 z-[2000] flex h-[34rem] w-[22rem] min-h-[20rem] min-w-[18rem] max-h-[calc(100vh-2.5rem)] max-w-[calc(100vw-2.5rem)] overflow-hidden",
             "flex-col rounded-2xl border border-border/60 bg-background/95 backdrop-blur-xl",
             "shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]",
             closing ? "ai-sandoff" : "animate-in fade-in slide-in-from-bottom-4 duration-200",
           )}
         >
           {/* Header */}
-          <div className="relative flex items-center justify-between border-b border-border/60 bg-gradient-to-br from-primary/10 via-background to-background px-4 py-3">
+          <div
+            onPointerDown={startDrag}
+            className="relative flex items-center justify-between border-b border-border/60 bg-gradient-to-br from-primary/10 via-background to-background px-4 py-3 cursor-move select-none touch-none"
+          >
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -413,6 +480,15 @@ export function AIChatWidget() {
               </kbd>{" "}
               for newline
             </p>
+          </div>
+
+          {/* Resize handle (bottom-right corner) */}
+          <div
+            onPointerDown={startResize}
+            title="Drag to resize"
+            className="absolute bottom-0 right-0 z-10 size-5 cursor-nwse-resize touch-none"
+          >
+            <span className="absolute bottom-1 right-1 block size-2.5 border-b-2 border-r-2 border-muted-foreground/60" />
           </div>
         </div>
       )}

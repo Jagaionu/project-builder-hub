@@ -706,6 +706,7 @@ function DispatchPage() {
             disabled={planning}
             title="Auto-assign drivers to all pending routes across every date"
             primary
+            dataAiTarget="run-plan"
             icon={<BrainCircuit className="size-3.5" />}
           >
             {planning ? "Planning…" : "Planning"}
@@ -713,6 +714,7 @@ function DispatchPage() {
           <ToolbarButton
             onClick={() => setCreateOpen(true)}
             primary
+            dataAiTarget="create-route"
             icon={<Truck className="size-3.5" />}
           >
             Create route

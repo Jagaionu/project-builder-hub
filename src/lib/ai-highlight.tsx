@@ -13,7 +13,19 @@ function findAndPulse(target: string, attempt = 0) {
   if (el) {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     el.classList.add("ai-highlight");
-    window.setTimeout(() => el.classList.remove("ai-highlight"), 4200);
+    // Inline fallback so the ring shows even if the CSS class didn't load.
+    const prevOutline = el.style.outline;
+    const prevOffset = el.style.outlineOffset;
+    const prevRadius = el.style.borderRadius;
+    el.style.outline = "3px solid #6366f1";
+    el.style.outlineOffset = "3px";
+    el.style.borderRadius = "10px";
+    window.setTimeout(() => {
+      el.classList.remove("ai-highlight");
+      el.style.outline = prevOutline;
+      el.style.outlineOffset = prevOffset;
+      el.style.borderRadius = prevRadius;
+    }, 4200);
     return;
   }
   if (attempt < 15) window.setTimeout(() => findAndPulse(target, attempt + 1), 200);

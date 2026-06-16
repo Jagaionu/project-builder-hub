@@ -455,6 +455,7 @@ function DriversPage() {
         <div className="flex flex-col items-end gap-2 justify-self-end">
           <button
             onClick={() => setOpen((o) => !o)}
+            data-ai-target="add-driver"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors shadow-lg hover:shadow-xl"
           >
             <Plus className="size-4" /> New Driver
