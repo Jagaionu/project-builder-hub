@@ -96,29 +96,37 @@ async function ingestMarkdownFile(
   console.log(`Ingested ${absPath} (${chunks.length} chunks)`);
 }
 
+async function collectMarkdown(dir: string): Promise<string[]> {
+  const out: string[] = [];
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  for (const e of entries) {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...(await collectMarkdown(full)));
+    else if (e.name.endsWith(".md")) out.push(full);
+  }
+  return out;
+}
+
 async function main() {
-  const sopDir = path.resolve("./docs/sop");
+  // Knowledge base lives in docs/kb (recursively). Falls back to legacy docs/sop.
+  let baseDir = path.resolve("./docs/kb");
   try {
-    await fs.access(sopDir);
+    await fs.access(baseDir);
   } catch {
-    await fs.mkdir(sopDir, { recursive: true });
-    await fs.writeFile(
-      path.join(sopDir, "overview.md"),
-      "# Logistics Platform Overview\n\nSee dispatch board for daily operations.",
-    );
-    console.log("Created placeholder docs/sop/overview.md");
+    baseDir = path.resolve("./docs/sop");
   }
 
-  const files = await fs.readdir(sopDir);
-  const mdFiles = files.filter((f) => f.endsWith(".md"));
+  const mdFiles = await collectMarkdown(baseDir).catch(() => [] as string[]);
   if (mdFiles.length === 0) {
-    console.warn("No .md files in docs/sop/");
+    console.warn(`No .md files found under ${baseDir}`);
     return;
   }
 
+  console.log(`Ingesting ${mdFiles.length} file(s) from ${baseDir}`);
   for (const file of mdFiles) {
-    await ingestMarkdownFile(path.join(sopDir, file), "sop", true);
+    await ingestMarkdownFile(file, "sop", true);
   }
+  console.log("Done.");
 }
 
 main().catch((err) => {
