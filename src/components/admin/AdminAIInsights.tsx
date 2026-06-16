@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Company } from "@/lib/types";
-import { Search, Sparkles, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Search, Sparkles, AlertCircle, CheckCircle2, Copy } from "lucide-react";
+import { toast } from "sonner";
 
 const sb = supabase as unknown as { from: (t: string) => any };
 
@@ -132,6 +133,20 @@ export function AdminAIInsights({ companies }: { companies: Company[] }) {
             className="h-8 w-64 pl-8 pr-2 rounded-md border border-border bg-surface text-xs focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
+        <button
+          onClick={() => {
+            const text = groupedGaps.map((g) => `${g.count}× ${g.question}`).join("\n");
+            if (!text) {
+              toast.message("No gaps to copy");
+              return;
+            }
+            void navigator.clipboard.writeText(text);
+            toast.success(`Copied ${groupedGaps.length} unanswered question(s)`);
+          }}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-border text-muted-foreground hover:text-foreground hover:bg-surface-2"
+        >
+          <Copy className="size-3.5" /> Copy gaps
+        </button>
       </div>
 
       {loading ? (
