@@ -115,6 +115,7 @@ function TeamPage() {
                 }
               }}
               className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+              data-ai-target="add-profile"
             >
               <UserPlus className="size-4" /> Add profile
             </button>

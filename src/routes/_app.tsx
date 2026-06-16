@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/Sidebar";
+import { AiHighlightListener } from "@/lib/ai-highlight";
 import { TenantProvider } from "@/lib/tenant-context";
 import { supabase } from "@/integrations/supabase/client";
 import { completeFirstLogin } from "@/lib/admin-users.functions";
@@ -104,6 +105,7 @@ function AppLayout() {
   }
   return (
     <TenantProvider value={authCtx}>
+      <AiHighlightListener />
       <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
         <Sidebar />
         <main className="flex-1 min-w-0 overflow-hidden">

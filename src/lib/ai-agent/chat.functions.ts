@@ -20,6 +20,7 @@ export type AiChatPendingAction = {
 export type AiChatResult = {
   answer: string;
   pendingAction: AiChatPendingAction | null;
+  guidance: import("./ui-actions").Guidance | null;
   session_id: string;
 };
 
@@ -117,9 +118,11 @@ export const aiChat = createServerFn({ method: "POST" })
     await saveToConversation(tenantId, userId, sessionId, "user", data.message);
     await saveToConversation(tenantId, userId, sessionId, "assistant", responseText);
 
+    const { matchUiAction } = await import("./ui-actions");
     return {
       answer: responseText,
       pendingAction,
+      guidance: matchUiAction(data.message),
       session_id: sessionId,
     };
   });
