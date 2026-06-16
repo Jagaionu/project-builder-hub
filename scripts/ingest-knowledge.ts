@@ -48,7 +48,9 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !OPENAI_API_KEY) {
-  console.error("Missing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, or OPENAI_API_KEY");
+  console.error(
+    "::error::Missing one of SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY (empty secret?)",
+  );
   process.exit(1);
 }
 
@@ -108,7 +110,28 @@ async function collectMarkdown(dir: string): Promise<string[]> {
   return out;
 }
 
+async function preflight() {
+  // 1) OpenAI key works?
+  try {
+    await embed("preflight check");
+    console.log("Preflight: OpenAI embeddings OK");
+  } catch (e) {
+    const m = e instanceof Error ? e.message : String(e);
+    throw new Error(`OpenAI check failed (is OPENAI_API_KEY valid?): ${m}`);
+  }
+  // 2) Supabase service role can read the table?
+  const { error } = await supabase.from("ai_knowledge_chunks").select("id").limit(1);
+  if (error) {
+    throw new Error(
+      `Supabase check failed (is SUPABASE_SERVICE_ROLE_KEY the service_role key & SUPABASE_URL correct?): ${error.message}`,
+    );
+  }
+  console.log("Preflight: Supabase connection OK");
+}
+
 async function main() {
+  await preflight();
+
   // Knowledge base lives in docs/kb (recursively). Falls back to legacy docs/sop.
   let baseDir = path.resolve("./docs/kb");
   try {
@@ -131,6 +154,10 @@ async function main() {
 }
 
 main().catch((err) => {
+  const msg = err instanceof Error ? err.message : String(err);
+  // Surface the real reason as a GitHub Actions annotation (visible without
+  // expanding the step log).
+  console.error(`::error::Ingest failed: ${msg}`);
   console.error(err);
   process.exit(1);
 });
