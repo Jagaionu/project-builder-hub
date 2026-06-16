@@ -123,7 +123,7 @@ export function ImportCsvButton() {
       <ToolbarButton
         onClick={() => inputRef.current?.click()}
         disabled={busy}
-        dataAiTarget="import-csv"
+        dataAiTarget="import-routes"
         icon={<Upload className="size-3.5" />}
       >
         {busy ? "Importing…" : "Import CSV"}
