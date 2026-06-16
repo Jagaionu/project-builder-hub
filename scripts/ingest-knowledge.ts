@@ -85,13 +85,14 @@ async function ingestMarkdownFile(
     const { error } = await supabase.from("ai_knowledge_chunks").insert({
       tenant_id: tenantId ?? null,
       chunk_text: chunk,
-      embedding,
+      // pgvector expects the vector as a "[0.1,0.2,...]" string, not a JS array.
+      embedding: JSON.stringify(embedding),
       source_type: sourceType,
       source_path: absPath,
       metadata: { chunk_index: i, total_chunks: chunks.length },
       is_global: isGlobal,
     });
-    if (error) throw error;
+    if (error) throw new Error(`Insert failed for ${absPath} chunk ${i}: ${error.message}`);
   }
   console.log(`Ingested ${absPath} (${chunks.length} chunks)`);
 }
