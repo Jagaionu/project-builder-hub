@@ -317,6 +317,7 @@ function WarehousesPage() {
             </button>
             <button
               onClick={() => setOpen((o) => !o)}
+              data-ai-target="add-warehouse"
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
             >
               <Plus className="size-3.5" /> New Warehouse

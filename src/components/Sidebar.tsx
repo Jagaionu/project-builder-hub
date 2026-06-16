@@ -242,6 +242,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => setCaseOpen(true)}
+              data-ai-target="create-case"
               title="Create a support case"
               aria-label="Create a support case"
               className="w-full inline-flex items-center justify-center gap-1.5 h-7 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-colors hover:bg-primary/10"

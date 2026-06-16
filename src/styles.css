@@ -1022,3 +1022,24 @@
 .ai-sandoff {
   animation: ai-sandoff 0.28s ease-in forwards;
 }
+
+/* AI assistant "show me" highlight — pulses the button the user should press. */
+.ai-highlight {
+  position: relative;
+  z-index: 60;
+  border-radius: 10px;
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  animation: ai-highlight-pulse 1s ease-out 0s 4;
+}
+@keyframes ai-highlight-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 10px color-mix(in oklch, var(--primary) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 0%, transparent);
+  }
+}

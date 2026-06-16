@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useNavigate } from "@tanstack/react-router";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { aiChat, type AiChatPendingAction, type AiChatResult } from "@/lib/ai-agent/chat.functions";
 import { confirmAction, type ConfirmActionResult } from "@/lib/ai-agent/confirm.functions";
+import type { Guidance } from "@/lib/ai-agent/ui-actions";
+import { highlightTarget } from "@/lib/ai-highlight";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -15,6 +18,7 @@ import {
   AlertCircle,
   User,
   ArrowDown,
+  ArrowRight,
   Loader2,
   Trash2,
 } from "lucide-react";
@@ -24,6 +28,7 @@ type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  guidance?: Guidance | null;
 };
 
 // A small palette so users can give the assistant a personal accent. Clicking
@@ -78,6 +83,14 @@ export function AIChatWidget() {
 
   const send = useServerFn(aiChat);
   const confirm = useServerFn(confirmAction);
+  const navigate = useNavigate();
+
+  // "Show me" — jump to the relevant tab and pulse the button to press.
+  const handleGuide = (g: Guidance) => {
+    requestClose();
+    if (g.route) navigate({ to: g.route as "/" });
+    window.setTimeout(() => highlightTarget(g.target), g.route ? 450 : 150);
+  };
 
   const submit = async (text: string) => {
     const trimmed = text.trim();
@@ -93,7 +106,12 @@ export function AIChatWidget() {
       })) as AiChatResult;
       setMessages((prev) => [
         ...prev,
-        { id: crypto.randomUUID(), role: "assistant", content: response.answer },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: response.answer,
+          guidance: response.guidance ?? null,
+        },
       ]);
       setPendingAction(response.pendingAction ?? null);
     } catch (err) {
@@ -278,7 +296,7 @@ export function AIChatWidget() {
             )}
 
             {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} accent={accent} />
+              <MessageBubble key={msg.id} message={msg} accent={accent} onGuide={handleGuide} />
             ))}
 
             {isLoading && (
@@ -402,7 +420,15 @@ export function AIChatWidget() {
   );
 }
 
-function MessageBubble({ message, accent }: { message: Message; accent: string }) {
+function MessageBubble({
+  message,
+  accent,
+  onGuide,
+}: {
+  message: Message;
+  accent: string;
+  onGuide: (g: Guidance) => void;
+}) {
   const isUser = message.role === "user";
   return (
     <div className={cn("flex gap-2", isUser ? "justify-end" : "justify-start")}>
@@ -425,18 +451,30 @@ function MessageBubble({ message, accent }: { message: Message; accent: string }
         {isUser ? (
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
-          <div
-            className={cn(
-              "prose prose-sm max-w-none dark:prose-invert",
-              "prose-p:my-1.5 prose-p:leading-relaxed",
-              "prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5",
-              "prose-pre:my-2 prose-pre:bg-background/80 prose-pre:border prose-pre:border-border/60 prose-pre:text-foreground",
-              "prose-code:text-foreground prose-code:bg-background/80 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none",
-              "prose-headings:text-foreground prose-strong:text-foreground prose-a:text-primary",
+          <>
+            <div
+              className={cn(
+                "prose prose-sm max-w-none dark:prose-invert",
+                "prose-p:my-1.5 prose-p:leading-relaxed",
+                "prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5",
+                "prose-pre:my-2 prose-pre:bg-background/80 prose-pre:border prose-pre:border-border/60 prose-pre:text-foreground",
+                "prose-code:text-foreground prose-code:bg-background/80 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none",
+                "prose-headings:text-foreground prose-strong:text-foreground prose-a:text-primary",
+              )}
+            >
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+            </div>
+            {message.guidance && (
+              <button
+                type="button"
+                onClick={() => onGuide(message.guidance!)}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+              >
+                Show me: {message.guidance.label}
+                <ArrowRight className="size-3.5" />
+              </button>
             )}
-          >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-          </div>
+          </>
         )}
       </div>
       {isUser && (
