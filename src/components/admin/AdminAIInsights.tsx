@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
 import type { Company } from "@/lib/types";
-import { Search, Sparkles, AlertCircle, CheckCircle2, Copy } from "lucide-react";
+import { Search, Sparkles, AlertCircle, CheckCircle2, Copy, Check, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { deleteAiQueryLogs } from "@/lib/ai-agent/insights.functions";
 
 const sb = supabase as unknown as { from: (t: string) => any };
 
@@ -34,6 +36,8 @@ export function AdminAIInsights({ companies }: { companies: Company[] }) {
   const [view, setView] = useState<"gaps" | "all">("gaps");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const delLogs = useServerFn(deleteAiQueryLogs);
 
   const nameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -55,6 +59,25 @@ export function AdminAIInsights({ companies }: { companies: Company[] }) {
     void load();
   }, [load]);
 
+  const resolve = async (ids: string[], label?: string) => {
+    if (ids.length === 0) return;
+    const what = label ? `"${label}"` : `all ${ids.length} unanswered question(s)`;
+    if (!confirm(`Resolve ${what} and permanently delete ${ids.length} log row(s) from the database?`))
+      return;
+    setBusy(true);
+    try {
+      for (let i = 0; i < ids.length; i += 1000) {
+        await delLogs({ data: { ids: ids.slice(i, i + 1000) } });
+      }
+      toast.success(`Cleared ${ids.length} logged question(s)`);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not clear questions");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const gaps = useMemo(() => rows.filter((r) => !r.answered), [rows]);
   const q = search.trim().toLowerCase();
 
@@ -62,7 +85,7 @@ export function AdminAIInsights({ companies }: { companies: Company[] }) {
   const groupedGaps = useMemo(() => {
     const m = new Map<
       string,
-      { question: string; count: number; last: string; companies: Set<string> }
+      { question: string; count: number; last: string; companies: Set<string>; ids: string[] }
     >();
     for (const r of gaps) {
       const key = r.question.trim().toLowerCase();
@@ -71,8 +94,10 @@ export function AdminAIInsights({ companies }: { companies: Company[] }) {
         count: 0,
         last: r.created_at,
         companies: new Set<string>(),
+        ids: [],
       };
       g.count += 1;
+      g.ids.push(r.id);
       if (r.created_at > g.last) g.last = r.created_at;
       g.companies.add(nameById.get(r.tenant_id) ?? "—");
       m.set(key, g);
@@ -147,6 +172,15 @@ export function AdminAIInsights({ companies }: { companies: Company[] }) {
         >
           <Copy className="size-3.5" /> Copy gaps
         </button>
+        {view === "gaps" && groupedGaps.length > 0 && (
+          <button
+            disabled={busy}
+            onClick={() => resolve(gaps.map((r) => r.id))}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-destructive/40 text-destructive hover:bg-destructive/10 disabled:opacity-50"
+          >
+            <Trash2 className="size-3.5" /> Clear all
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -160,6 +194,7 @@ export function AdminAIInsights({ companies }: { companies: Company[] }) {
                 <th className="px-3 py-2 text-left">Question the AI couldn't answer</th>
                 <th className="px-3 py-2 text-left">Asked by</th>
                 <th className="px-3 py-2 text-left">Last asked</th>
+                <th className="px-3 py-2 text-right">Resolve</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -178,11 +213,21 @@ export function AdminAIInsights({ companies }: { companies: Company[] }) {
                   <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
                     {when(g.last)}
                   </td>
+                  <td className="px-3 py-2.5 text-right">
+                    <button
+                      disabled={busy}
+                      onClick={() => resolve(g.ids, g.question)}
+                      title="Mark resolved and delete these logged questions"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border border-border text-muted-foreground hover:text-success hover:border-success/40 disabled:opacity-50"
+                    >
+                      <Check className="size-3" /> Resolve
+                    </button>
+                  </td>
                 </tr>
               ))}
               {groupedGaps.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-3 py-10 text-center text-xs text-muted-foreground">
+                  <td colSpan={5} className="px-3 py-10 text-center text-xs text-muted-foreground">
                     No unanswered questions{q ? " match your search" : " — the assistant answered everything"}.
                   </td>
                 </tr>
