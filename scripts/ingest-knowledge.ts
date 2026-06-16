@@ -7,7 +7,21 @@
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import fs from "fs/promises";
+import { appendFileSync } from "node:fs";
 import path from "path";
+
+// Write a line to the GitHub Actions run Summary page (visible without opening
+// the step log). No-op locally.
+function ghSummary(md: string) {
+  const f = process.env.GITHUB_STEP_SUMMARY;
+  if (f) {
+    try {
+      appendFileSync(f, md + "\n");
+    } catch {
+      /* noop */
+    }
+  }
+}
 
 // Local recursive character splitter (replaces @langchain/textsplitters, which
 // dragged in vulnerable langsmith/uuid transitively — see npm audit). Tries the
@@ -48,9 +62,15 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !OPENAI_API_KEY) {
-  console.error(
-    "::error::Missing one of SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY (empty secret?)",
-  );
+  const which = [
+    !SUPABASE_URL && "SUPABASE_URL",
+    !SUPABASE_SERVICE_ROLE_KEY && "SUPABASE_SERVICE_ROLE_KEY",
+    !OPENAI_API_KEY && "OPENAI_API_KEY",
+  ]
+    .filter(Boolean)
+    .join(", ");
+  ghSummary(`### ❌ Ingest failed\nEmpty/missing secret(s): **${which}**`);
+  console.error(`::error::Missing/empty secret(s): ${which}`);
   process.exit(1);
 }
 
@@ -151,12 +171,13 @@ async function main() {
     await ingestMarkdownFile(file, "sop", true);
   }
   console.log("Done.");
+  ghSummary(`### ✅ Knowledge base ingested\nLoaded **${mdFiles.length}** file(s) into \`ai_knowledge_chunks\`.`);
 }
 
 main().catch((err) => {
   const msg = err instanceof Error ? err.message : String(err);
-  // Surface the real reason as a GitHub Actions annotation (visible without
-  // expanding the step log).
+  // Surface the real reason on the run Summary page AND as an annotation.
+  ghSummary(`### ❌ Ingest failed\n\`\`\`\n${msg}\n\`\`\``);
   console.error(`::error::Ingest failed: ${msg}`);
   console.error(err);
   process.exit(1);
