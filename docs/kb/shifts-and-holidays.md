@@ -4,6 +4,14 @@
 
 Each driver has a weekly shift schedule that determines when they're on shift. Drivers outside their shift hours show as OFF_SHIFT and aren't treated as active.
 
+## How do I set or change a driver's shift pattern?
+
+Open the **Drivers** tab, find the driver, and click **Edit** to open their panel. Scroll to the **Schedule** section, where the weekly shift-pattern editor lets you:
+- Pick which **days of the week** the driver is on shift (toggle each day **On Shift** / **Off Shift**).
+- Set the **start and end times** for the shift (per day where supported).
+
+Click **Save** to store the pattern. From then on the driver is treated as active only inside those days/hours; outside them they show as OFF_SHIFT and drop off the active fleet. Re-opening the driver shows the saved pattern.
+
 ## How do holidays work?
 
 A dispatcher can mark a driver as on holiday for given days. A holiday day immediately forces the driver OFF_SHIFT for that day (live and after refresh), and the driver is dropped from the live map for that day.

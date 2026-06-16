@@ -8,7 +8,7 @@ In the **Drivers** tab, use the add-driver form (top of the page): enter the dri
 
 ## How do I edit a driver?
 
-Find the driver in the roster, open their edit form, change the details (name, phone, home warehouse, return-to-base), and save.
+Find the driver in the roster, open their edit form, change the details (name, phone, home warehouse, return-to-base), and save. The edit panel also has a **Schedule** section for setting the driver's weekly **shift pattern** (which days and hours they're on shift).
 
 ## How do I remove a driver?
 

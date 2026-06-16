@@ -6,9 +6,12 @@
 
 export type UiActionId =
   | "add-warehouse"
+  | "import-warehouses"
+  | "export-warehouses"
   | "add-driver"
+  | "edit-shift"
   | "create-route"
-  | "import-csv"
+  | "import-routes"
   | "run-plan"
   | "create-case"
   | "add-profile";
@@ -24,6 +27,39 @@ type UiAction = Guidance & { triggers: string[] };
 
 export const UI_ACTIONS: UiAction[] = [
   {
+    // More specific than add-warehouse / the generic Dispatch import — keep first.
+    id: "import-warehouses",
+    label: "Import warehouses from CSV",
+    route: "/warehouses",
+    target: "import-warehouses",
+    triggers: [
+      "import warehouses",
+      "import warehouse",
+      "bulk add warehouses",
+      "upload warehouses",
+      "add warehouses from csv",
+      "import a warehouse",
+      "import warehouse list",
+    ],
+  },
+  {
+    id: "export-warehouses",
+    label: "Export warehouses to CSV",
+    route: "/warehouses",
+    target: "export-warehouses",
+    triggers: [
+      "export warehouses",
+      "export warehouse",
+      "export my warehouse",
+      "download warehouses",
+      "download my warehouse",
+      "export warehouse list",
+      "download warehouse list",
+      "export csv",
+      "download csv",
+    ],
+  },
+  {
     id: "add-warehouse",
     label: "Add a warehouse",
     route: "/warehouses",
@@ -38,6 +74,25 @@ export const UI_ACTIONS: UiAction[] = [
     triggers: ["add a driver", "add driver", "new driver", "create a driver", "add a new driver"],
   },
   {
+    id: "edit-shift",
+    label: "Set a driver's shift pattern",
+    route: "/drivers",
+    target: null,
+    triggers: [
+      "set a shift",
+      "set shift",
+      "shift pattern",
+      "edit shift",
+      "change shift",
+      "driver shift",
+      "set working days",
+      "set a schedule",
+      "schedule a driver",
+      "shift calendar",
+      "set shift hours",
+    ],
+  },
+  {
     id: "create-route",
     label: "Create a route",
     route: "/dispatch",
@@ -45,11 +100,11 @@ export const UI_ACTIONS: UiAction[] = [
     triggers: ["create a route", "create route", "new route", "add a route", "create a vrid"],
   },
   {
-    id: "import-csv",
+    id: "import-routes",
     label: "Import routes from CSV",
     route: "/dispatch",
-    target: "import-csv",
-    triggers: ["import csv", "import routes", "upload csv", "bulk import", "import a csv"],
+    target: "import-routes",
+    triggers: ["import routes", "import route", "import vrids", "import csv", "upload csv", "bulk import", "import a csv", "upload routes"],
   },
   {
     id: "run-plan",

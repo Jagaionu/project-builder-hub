@@ -303,6 +303,7 @@ function WarehousesPage() {
             />
             <button
               onClick={exportCsv}
+              data-ai-target="export-warehouses"
               disabled={warehouses.length === 0}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface text-xs font-medium hover:bg-surface-2 disabled:opacity-50"
             >
@@ -310,6 +311,7 @@ function WarehousesPage() {
             </button>
             <button
               onClick={() => fileInputRef.current?.click()}
+              data-ai-target="import-warehouses"
               disabled={importing}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface text-xs font-medium hover:bg-surface-2 disabled:opacity-50"
             >
