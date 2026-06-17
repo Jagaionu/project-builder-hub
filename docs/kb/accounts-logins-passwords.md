@@ -29,3 +29,21 @@ Open the **Team** tab (admin only), type the person's name under "Add a profile"
 ## I forgot or lost my password
 
 Ask your company admin to **Reset** your profile in the Team tab; they'll give you a new one-time password and you'll set a new personal one on next login.
+
+
+## Who uses The Prime Route?
+
+The people who sign in here are **office staff who run the operation** — **dispatchers** (members) and **company admins**. They manage the drivers, warehouses, routes, shifts, holidays, and driver app codes themselves. Drivers do **not** use this app; they use the separate **driver app** on their phone. So if you're signed in here, you're the dispatcher/admin — you do these tasks yourself rather than asking a dispatcher. If you ever hit something you genuinely can't do, use the **Create case** support button at the bottom of the sidebar.
+
+## How do I change my profile picture?
+
+Your profile photo is at the **bottom of the left sidebar**. Click your photo (the **Change photo** button), choose an image file, and it uploads and updates straight away. This works for both dispatchers and admins — it's your own account photo, so you don't need anyone else to change it.
+
+## How do I switch between light and dark (day / night) mode?
+
+Use the **theme toggle** in the **left sidebar** (the small Sun / Moon / Monitor buttons near the bottom):
+- **Sun** = Light (day) mode
+- **Moon** = Dark (night) mode
+- **Monitor** = System (follows your device setting)
+
+Your choice is remembered for next time. The same toggle is on the driver app's Profile screen.

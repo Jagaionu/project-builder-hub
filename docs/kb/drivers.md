@@ -14,9 +14,26 @@ Find the driver in the roster, open their edit form, change the details (name, p
 
 Open the driver and use the delete/remove action. Removing a driver deletes them from the roster.
 
+## How do I get a driver's app / pairing / login code?
+
+You generate and manage it yourself — you don't need to ask anyone. Open the **Drivers** tab, **search** for the driver by name, and open their profile/detail panel. Under **Contact information** you'll see the driver's **App code**. Use the buttons **above the code box** to **Copy**, **Share**, or **Regenerate** it. Give that code to the driver so they can sign in to the **driver app** on their phone.
+
+## How do I regenerate (reset) a driver's app code?
+
+In the **Drivers** tab, open the driver, and click **Regenerate** above the App code box. Confirm when prompted. The **old code stops working immediately**, so send the driver the new code — they'll need it to log in again.
+
 ## How does a driver log in to the driver app?
 
-Drivers connect via a pairing/login code or the device profile, depending on how the company is set up. A driver's live position then appears on the Live Map once their app is online.
+Drivers sign in to the separate **driver app** using the **App code** you give them from the driver's profile (Drivers tab → open driver → Contact information → App code). Once they're signed in and their app is online, the driver's live position appears on the **Live Map**.
+
+## What do I do with a driver's calendar / shift schedule?
+
+The driver's calendar is **yours to manage** — as the dispatcher or admin you use it to view and set the driver's working pattern. From it you can:
+- See which days the driver is **on shift** vs **off**, and their hours.
+- Mark days as **holiday** (which forces the driver OFF_SHIFT for those days and drops them from the live map for that day).
+- Plan shifts so the right drivers show as active for routing.
+
+To change the weekly pattern, open the driver in the **Drivers** tab, go to the **Schedule** section, set the days/times, and save. You manage holidays here too — you don't need to ask anyone else.
 
 ## Why is a driver shown as OFF_SHIFT today?
 
