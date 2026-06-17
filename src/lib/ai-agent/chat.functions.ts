@@ -88,31 +88,45 @@ export const aiChat = createServerFn({ method: "POST" })
       availableFunctions,
     );
 
-    let responseText = answer;
+    let responseText = (answer ?? "").trim();
     let pendingAction: { id: string; type: string; params: Record<string, unknown> } | null = null;
 
     if (functionCall?.name?.startsWith("propose_")) {
-      const actionType = functionCall.name.replace("propose_", "");
-      const params = parseFunctionArgs(functionCall.arguments);
+      try {
+        const actionType = functionCall.name.replace("propose_", "");
+        const params = parseFunctionArgs(functionCall.arguments);
 
-      const { data: inserted, error: insertError } = await (supabaseAdmin as any)
-        .from("ai_pending_actions")
-        .insert({
-          tenant_id: tenantId,
-          user_id: userId,
-          action_type: actionType,
-          params,
-        })
-        .select("id")
-        .single();
+        const { data: inserted, error: insertError } = await (supabaseAdmin as any)
+          .from("ai_pending_actions")
+          .insert({
+            tenant_id: tenantId,
+            user_id: userId,
+            action_type: actionType,
+            params,
+          })
+          .select("id")
+          .single();
 
-      if (insertError || !inserted) {
-        console.error("Failed to store pending action", insertError);
-        responseText = "Sorry, I couldn't prepare that action. Please try again.";
-      } else {
-        pendingAction = { id: (inserted as { id: string }).id, type: actionType, params };
-        responseText = `I can ${actionType.replace(/_/g, " ")} for you. Please review and confirm below.`;
+        if (insertError || !inserted) {
+          console.error("Failed to store pending action", insertError);
+          responseText = "Sorry, I couldn't prepare that action. Please try again.";
+        } else {
+          pendingAction = { id: (inserted as { id: string }).id, type: actionType, params };
+          responseText = `I can ${actionType.replace(/_/g, " ")} for you. Please review and confirm below.`;
+        }
+      } catch (err) {
+        // Bad/unparseable args, etc. — degrade gracefully instead of failing the
+        // whole turn with "the assistant couldn't respond".
+        console.error("Failed to prepare proposed action", err);
+        responseText = "Sorry, I couldn't prepare that action. Please try again, or rephrase.";
       }
+    }
+
+    // Guarantee a non-empty answer (e.g. when the model returns a tool call with
+    // no text, or an empty completion) so the client never sees a blank/error.
+    if (!responseText) {
+      responseText =
+        "Sorry, I couldn't generate a response for that. Please try rephrasing your question.";
     }
 
     await saveToConversation(tenantId, userId, sessionId, "user", data.message);

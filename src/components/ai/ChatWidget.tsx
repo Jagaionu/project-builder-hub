@@ -66,6 +66,8 @@ export function AIChatWidget() {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   // Once the user resizes by hand we stop auto-growing for diagrams.
   const userSizedRef = useRef(false);
+  // Once the user drags the box we stop auto-centring it.
+  const userMovedRef = useRef(false);
 
   // Drag the panel by its header. Switches from the default bottom-left anchor
   // to absolute left/top once moved. Clamped to the viewport.
@@ -73,6 +75,7 @@ export function AIChatWidget() {
     if ((e.target as HTMLElement).closest("button, input, textarea, a")) return;
     const panel = panelRef.current;
     if (!panel) return;
+    userMovedRef.current = true;
     const rect = panel.getBoundingClientRect();
     const offX = e.clientX - rect.left;
     const offY = e.clientY - rect.top;
@@ -224,17 +227,22 @@ export function AIChatWidget() {
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages, pendingAction, isLoading]);
 
-  // When the assistant shows a flow diagram, grow the box so it's readable —
-  // unless the user has already sized it themselves.
+  // When the assistant shows a flow diagram, grow the box and bring it toward
+  // the centre so the diagram is readable — unless the user has already sized
+  // or moved it themselves.
   useEffect(() => {
-    if (userSizedRef.current || typeof window === "undefined") return;
+    if (typeof window === "undefined") return;
     const hasDiagram = messages.some(
       (m) => m.role === "assistant" && m.content.includes("```mermaid"),
     );
-    if (hasDiagram) {
-      setSize({
-        w: Math.min(540, window.innerWidth - 16),
-        h: Math.min(680, window.innerHeight - 16),
+    if (!hasDiagram) return;
+    const w = Math.min(560, window.innerWidth - 16);
+    const h = Math.min(700, window.innerHeight - 16);
+    if (!userSizedRef.current) setSize({ w, h });
+    if (!userMovedRef.current) {
+      setPos({
+        x: Math.max(8, Math.round((window.innerWidth - w) / 2)),
+        y: Math.max(8, Math.round((window.innerHeight - h) / 2)),
       });
     }
   }, [messages]);
@@ -568,7 +576,7 @@ function MessageBubble({
           <>
             {splitMermaid(message.content).map((part, i) =>
               part.type === "mermaid" ? (
-                <MermaidDiagram key={i} chart={part.value} />
+                <MermaidDiagram key={i} chart={part.value} accent={accent} />
               ) : (
                 <div
                   key={i}
