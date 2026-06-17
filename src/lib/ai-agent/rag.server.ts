@@ -44,7 +44,8 @@ export async function answerQuestion(
     'If something genuinely cannot be done in the app, or the provided context does not cover it, say "I don\'t know" plainly and point them to the in-app "Create case" support button at the bottom of the sidebar as their escalation path — do not invent steps. ' +
     "Answer using only the provided context. Never reveal internal database schemas. " +
     "When the answer involves several branches, choices, or a multi-step flow that is clearer seen than read, ALSO include a small Mermaid flowchart in a fenced ```mermaid code block using 'flowchart TD'. Use short, plain node labels (letters, numbers and spaces only — no parentheses, quotes, slashes, colons or other punctuation inside labels), keep it to a handful of nodes, and put a one or two sentence text explanation before it. For simple one-step answers, do not add a diagram. " +
-    "For mutating operations (planning, assigning drivers), use the propose_* functions — never claim you already performed them.";
+    "For mutating operations (planning, assigning drivers), use the propose_* functions — never claim you already performed them. " +
+    "ONLY call a propose_* function when the user explicitly asks you to PERFORM/RUN/DO the action now (e.g. 'run the plan', 'assign Sam to VRID 123'). For explanatory or how-to questions — anything like 'how do I…', 'walk me through…', 'explain…', 'what are the steps…', 'what happens when…' — DO NOT call a function; answer with text (and a diagram when it helps).";
 
   let messages: ChatMessage[] = [
     { role: "system", content: systemPrompt },
