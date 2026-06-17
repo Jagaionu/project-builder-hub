@@ -17,14 +17,16 @@ function findAndPulse(target: string, attempt = 0) {
     const prevOutline = el.style.outline;
     const prevOffset = el.style.outlineOffset;
     const prevRadius = el.style.borderRadius;
-    el.style.outline = "3px solid #6366f1";
+    el.style.outline = "3px solid #22c55e";
     el.style.outlineOffset = "3px";
     el.style.borderRadius = "10px";
+    el.style.boxShadow = "0 0 0 6px rgba(34,197,94,0.25)";
     window.setTimeout(() => {
       el.classList.remove("ai-highlight");
       el.style.outline = prevOutline;
       el.style.outlineOffset = prevOffset;
       el.style.borderRadius = prevRadius;
+      el.style.boxShadow = "";
     }, 4200);
     return;
   }
