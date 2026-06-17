@@ -227,25 +227,18 @@ export function AIChatWidget() {
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages, pendingAction, isLoading]);
 
-  // When the assistant shows a flow diagram, grow the box and bring it toward
-  // the centre so the diagram is readable — unless the user has already sized
-  // or moved it themselves.
-  useEffect(() => {
+  // Grow the box and bring it to the centre — called when the user presses
+  // "Show me diagram" so the diagram is readable.
+  const enlargeAndCenter = () => {
     if (typeof window === "undefined") return;
-    const hasDiagram = messages.some(
-      (m) => m.role === "assistant" && m.content.includes("```mermaid"),
-    );
-    if (!hasDiagram) return;
-    const w = Math.min(560, window.innerWidth - 16);
-    const h = Math.min(700, window.innerHeight - 16);
-    if (!userSizedRef.current) setSize({ w, h });
-    if (!userMovedRef.current) {
-      setPos({
-        x: Math.max(8, Math.round((window.innerWidth - w) / 2)),
-        y: Math.max(8, Math.round((window.innerHeight - h) / 2)),
-      });
-    }
-  }, [messages]);
+    const w = Math.min(620, window.innerWidth - 16);
+    const h = Math.min(720, window.innerHeight - 16);
+    setSize({ w, h });
+    setPos({
+      x: Math.max(8, Math.round((window.innerWidth - w) / 2)),
+      y: Math.max(8, Math.round((window.innerHeight - h) / 2)),
+    });
+  };
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -390,7 +383,13 @@ export function AIChatWidget() {
             )}
 
             {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} accent={accent} onGuide={handleGuide} />
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                accent={accent}
+                onGuide={handleGuide}
+                onShowDiagram={enlargeAndCenter}
+              />
             ))}
 
             {isLoading && (
@@ -546,12 +545,23 @@ function MessageBubble({
   message,
   accent,
   onGuide,
+  onShowDiagram,
 }: {
   message: Message;
   accent: string;
   onGuide: (g: Guidance) => void;
+  onShowDiagram: () => void;
 }) {
   const isUser = message.role === "user";
+  const [showDiagram, setShowDiagram] = useState(false);
+  const parts = isUser ? [] : splitMermaid(message.content);
+  const hasDiagram = parts.some((p) => p.type === "mermaid");
+
+  const revealDiagram = () => {
+    setShowDiagram(true);
+    onShowDiagram();
+  };
+
   return (
     <div className={cn("flex gap-2", isUser ? "justify-end" : "justify-start")}>
       {!isUser && (
@@ -574,9 +584,11 @@ function MessageBubble({
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
           <>
-            {splitMermaid(message.content).map((part, i) =>
+            {parts.map((part, i) =>
               part.type === "mermaid" ? (
-                <MermaidDiagram key={i} chart={part.value} accent={accent} />
+                showDiagram ? (
+                  <MermaidDiagram key={i} chart={part.value} accent={accent} />
+                ) : null
               ) : (
                 <div
                   key={i}
@@ -593,11 +605,21 @@ function MessageBubble({
                 </div>
               ),
             )}
+            {hasDiagram && !showDiagram && (
+              <button
+                type="button"
+                onClick={revealDiagram}
+                className="ai-showme-btn mt-2 inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400"
+              >
+                <Sparkles className="size-3.5" />
+                Show me diagram
+              </button>
+            )}
             {message.guidance && (
               <button
                 type="button"
                 onClick={() => onGuide(message.guidance!)}
-                className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+                className="ai-showme-btn mt-2 inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400"
               >
                 Show me: {message.guidance.label}
                 <ArrowRight className="size-3.5" />

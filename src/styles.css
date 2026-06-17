@@ -1028,18 +1028,41 @@
   position: relative;
   z-index: 60;
   border-radius: 10px;
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-  animation: ai-highlight-pulse 1s ease-out 0s 4;
+  outline: 3px solid #22c55e;
+  outline-offset: 3px;
+  animation: ai-highlight-pop 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) 0s 5;
 }
-@keyframes ai-highlight-pulse {
+@keyframes ai-highlight-pop {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 55%, transparent);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.65);
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.07);
   }
   70% {
-    box-shadow: 0 0 0 10px color-mix(in oklch, var(--primary) 0%, transparent);
+    box-shadow: 0 0 0 16px rgba(34, 197, 94, 0);
+    transform: scale(1);
   }
   100% {
-    box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 0%, transparent);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+    transform: scale(1);
+  }
+}
+
+/* Subtle attention pulse on the green "Show me" / "Show me diagram" buttons. */
+.ai-showme-btn {
+  animation: ai-showme-glow 2.4s ease-in-out infinite;
+}
+.ai-showme-btn:hover {
+  animation: none;
+}
+@keyframes ai-showme-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
   }
 }
