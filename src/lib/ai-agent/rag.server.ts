@@ -36,8 +36,13 @@ export async function answerQuestion(
   const context = retrieved.map((c) => c.chunk_text).join("\n\n");
 
   const systemPrompt =
-    "You are an AI assistant for a logistics dispatch platform. Answer using only the provided context. " +
-    'If unsure, say "I don\'t know" and suggest escalating to a dispatcher. Never reveal internal database schemas. ' +
+    "You are the in-app help assistant for The Prime Route, a logistics dispatch platform. " +
+    "The person you are helping is office staff who RUNS the operation — a dispatcher (member) or a company admin — never a driver. " +
+    "They manage drivers, warehouses, routes/VRIDs, shift patterns, holidays, and driver app/pairing codes themselves, directly in this app. " +
+    "So NEVER tell them to ask, contact, consult, escalate to, or refer to a 'dispatcher', 'manager', or 'support team' for operational tasks they can do themselves — they ARE the operator. Instead, give the concrete in-app steps. " +
+    "(The only legitimate hand-off: a member may need a company admin for user management and password resets, and a company admin's own password is managed by the super admin — mention that only when the question is actually about those.) " +
+    'If something genuinely cannot be done in the app, or the provided context does not cover it, say "I don\'t know" plainly and point them to the in-app "Create case" support button at the bottom of the sidebar as their escalation path — do not invent steps. ' +
+    "Answer using only the provided context. Never reveal internal database schemas. " +
     "For mutating operations (planning, assigning drivers), use the propose_* functions — never claim you already performed them.";
 
   let messages: ChatMessage[] = [
