@@ -197,14 +197,35 @@ export function Sidebar() {
         )}
       </nav>
 
-      {/* ── Footer ── unified identity + controls card */}
+      {/* ── Footer ── controls on top, identity on the bottom ── */}
       <div className="p-2" style={{ borderTop: "1px solid var(--sidebar-divider)" }}>
         <div
-          className="rounded-xl border border-border/60 overflow-hidden"
+          className="rounded-2xl border border-border/60 overflow-hidden shadow-sm"
           style={{ background: accentColor || "var(--surface)" }}
         >
+          {/* Controls strip — refresh · AI · create case · theme, all one line */}
+          <div
+            className="flex items-center gap-1.5 px-2 py-2"
+            style={{ background: accentColor ? "rgba(0,0,0,0.06)" : "var(--background)" }}
+          >
+            <AutoRefreshButton />
+            {flags.modules.includes("ai_agent") && <AIChatWidget />}
+            <button
+              type="button"
+              onClick={() => setCaseOpen(true)}
+              data-ai-target="create-case"
+              title="Create a support case"
+              aria-label="Create a support case"
+              className="grid size-7 shrink-0 place-items-center rounded-full text-white shadow-sm transition-transform hover:scale-110 hover:brightness-105 active:scale-95"
+              style={{ background: "#f97316" }}
+            >
+              <LifeBuoy className="size-4" />
+            </button>
+            <div className="flex-1" />
+            <ThemeToggle compact />
+          </div>
           {/* Identity */}
-          <div className="flex items-center gap-2.5 px-2.5 py-2">
+          <div className="flex items-center gap-2.5 px-2.5 py-2 border-t border-border/50">
             <FooterAvatar
               userId={userId}
               avatarUrl={avatarUrl ?? null}
@@ -227,35 +248,7 @@ export function Sidebar() {
               <LogOut className="size-3.5" />
             </button>
           </div>
-          {/* Controls strip */}
-          <div
-            className="px-2 py-1.5 border-t border-border/50 space-y-1.5"
-            style={{ background: accentColor ? "rgba(0,0,0,0.06)" : "var(--background)" }}
-          >
-            <div className="flex items-center justify-between gap-1">
-              <div className="flex items-center gap-1">
-                <AutoRefreshButton />
-                {flags.modules.includes("ai_agent") && <AIChatWidget />}
-              </div>
-              <ThemeToggle compact />
-            </div>
-            <button
-              type="button"
-              onClick={() => setCaseOpen(true)}
-              data-ai-target="create-case"
-              title="Create a support case"
-              aria-label="Create a support case"
-              className="w-full inline-flex items-center justify-center gap-1.5 h-7 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-colors hover:bg-primary/10"
-              style={{
-                background: "var(--surface-2)",
-                border: "1px solid var(--border)",
-                color: "var(--foreground)",
-              }}
-            >
-              <LifeBuoy className="size-3.5 text-primary" /> Create case
-            </button>
-            {caseOpen && <SupportCaseModal onClose={() => setCaseOpen(false)} />}
-          </div>
+          {caseOpen && <SupportCaseModal onClose={() => setCaseOpen(false)} />}
         </div>
       </div>
     </aside>
