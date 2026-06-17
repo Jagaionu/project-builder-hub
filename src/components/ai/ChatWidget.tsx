@@ -7,6 +7,7 @@ import { aiChat, type AiChatPendingAction, type AiChatResult } from "@/lib/ai-ag
 import { confirmAction, type ConfirmActionResult } from "@/lib/ai-agent/confirm.functions";
 import type { Guidance } from "@/lib/ai-agent/ui-actions";
 import { highlightTarget } from "@/lib/ai-highlight";
+import { MermaidDiagram } from "@/components/ai/MermaidDiagram";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -63,6 +64,8 @@ export function AIChatWidget() {
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  // Once the user resizes by hand we stop auto-growing for diagrams.
+  const userSizedRef = useRef(false);
 
   // Drag the panel by its header. Switches from the default bottom-left anchor
   // to absolute left/top once moved. Clamped to the viewport.
@@ -92,6 +95,7 @@ export function AIChatWidget() {
 
   const startResize = (e: React.PointerEvent) => {
     e.stopPropagation();
+    userSizedRef.current = true;
     const panel = panelRef.current;
     if (!panel) return;
     const rect = panel.getBoundingClientRect();
@@ -219,6 +223,21 @@ export function AIChatWidget() {
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages, pendingAction, isLoading]);
+
+  // When the assistant shows a flow diagram, grow the box so it's readable —
+  // unless the user has already sized it themselves.
+  useEffect(() => {
+    if (userSizedRef.current || typeof window === "undefined") return;
+    const hasDiagram = messages.some(
+      (m) => m.role === "assistant" && m.content.includes("```mermaid"),
+    );
+    if (hasDiagram) {
+      setSize({
+        w: Math.min(540, window.innerWidth - 16),
+        h: Math.min(680, window.innerHeight - 16),
+      });
+    }
+  }, [messages]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -496,6 +515,25 @@ export function AIChatWidget() {
   );
 }
 
+// Detects a ```mermaid fenced block in assistant text.
+const MERMAID_RE = /```mermaid\s*\n([\s\S]*?)```/g;
+
+// Splits assistant content into ordered markdown / mermaid segments so each
+// mermaid block renders as a diagram while the rest stays normal markdown.
+function splitMermaid(content: string): Array<{ type: "md" | "mermaid"; value: string }> {
+  const parts: Array<{ type: "md" | "mermaid"; value: string }> = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  const re = new RegExp(MERMAID_RE.source, "g");
+  while ((m = re.exec(content)) !== null) {
+    if (m.index > last) parts.push({ type: "md", value: content.slice(last, m.index) });
+    parts.push({ type: "mermaid", value: m[1] });
+    last = m.index + m[0].length;
+  }
+  if (last < content.length) parts.push({ type: "md", value: content.slice(last) });
+  return parts.length ? parts : [{ type: "md", value: content }];
+}
+
 function MessageBubble({
   message,
   accent,
@@ -528,18 +566,25 @@ function MessageBubble({
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
           <>
-            <div
-              className={cn(
-                "prose prose-sm max-w-none dark:prose-invert",
-                "prose-p:my-1.5 prose-p:leading-relaxed",
-                "prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5",
-                "prose-pre:my-2 prose-pre:bg-background/80 prose-pre:border prose-pre:border-border/60 prose-pre:text-foreground",
-                "prose-code:text-foreground prose-code:bg-background/80 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none",
-                "prose-headings:text-foreground prose-strong:text-foreground prose-a:text-primary",
-              )}
-            >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-            </div>
+            {splitMermaid(message.content).map((part, i) =>
+              part.type === "mermaid" ? (
+                <MermaidDiagram key={i} chart={part.value} />
+              ) : (
+                <div
+                  key={i}
+                  className={cn(
+                    "prose prose-sm max-w-none dark:prose-invert",
+                    "prose-p:my-1.5 prose-p:leading-relaxed",
+                    "prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5",
+                    "prose-pre:my-2 prose-pre:bg-background/80 prose-pre:border prose-pre:border-border/60 prose-pre:text-foreground",
+                    "prose-code:text-foreground prose-code:bg-background/80 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none",
+                    "prose-headings:text-foreground prose-strong:text-foreground prose-a:text-primary",
+                  )}
+                >
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{part.value}</ReactMarkdown>
+                </div>
+              ),
+            )}
             {message.guidance && (
               <button
                 type="button"
