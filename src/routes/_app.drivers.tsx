@@ -460,12 +460,6 @@ function DriversPage() {
           >
             <Plus className="size-4" /> New Driver
           </button>
-          <button
-            onClick={() => setTachoOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-surface text-sm font-medium hover:bg-surface-2 transition-colors"
-          >
-            <Clock className="size-4" /> Tachograph Hours
-          </button>
         </div>
       </header>
 
@@ -735,7 +729,7 @@ function DriversPage() {
       )}
 
       {/* Search bar */}
-      <div className="pl-3 pr-5 py-2.5 border-b border-[color:var(--sidebar-divider)]">
+      <div className="pl-3 pr-5 py-2.5 border-b border-[color:var(--sidebar-divider)] flex items-center justify-between gap-3">
         <div className="relative w-[340px]">
           <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
@@ -753,6 +747,12 @@ function DriversPage() {
             </button>
           )}
         </div>
+        <button
+          onClick={() => setTachoOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-surface text-sm font-medium hover:bg-surface-2 transition-colors shrink-0"
+        >
+          <Clock className="size-4" /> Tachograph Hours
+        </button>
       </div>
 
       {/* Two-column body */}
