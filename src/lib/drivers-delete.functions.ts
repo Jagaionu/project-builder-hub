@@ -29,6 +29,32 @@ export const deleteDriver = createServerFn({ method: "POST" })
       }
     }
 
+    // Free up this driver's open jobs so customer work is not orphaned: send
+    // anything not finished back to PENDING / unassigned (re-plannable).
+    const { error: jobErr } = await supabaseAdmin
+      .from("jobs")
+      .update({
+        status: "PENDING",
+        assigned_driver_id: null,
+        planned_driver_id: null,
+        planned_sequence: null,
+        planned_start_at: null,
+      } as never)
+      .or(`assigned_driver_id.eq.${data.driverId},planned_driver_id.eq.${data.driverId}`)
+      .not("status", "in", "(COMPLETED,CANCELLED)");
+    if (jobErr) console.error("[deleteDriver] job reset failed", jobErr);
+
+    // Best-effort sweep of driver-owned rows that may not cascade. The FK
+    // ON DELETE CASCADE handles shifts/equipment/tacho/events/day_hours, but we
+    // clear high-volume telemetry explicitly so nothing lingers.
+    for (const table of ["driver_positions", "driver_push_subscriptions"]) {
+      const { error } = await (supabaseAdmin as unknown as { from: (t: string) => any })
+        .from(table)
+        .delete()
+        .eq("driver_id", data.driverId);
+      if (error) console.warn(`[deleteDriver] sweep ${table} failed`, error.message);
+    }
+
     const { error: delErr } = await supabaseAdmin.from("drivers").delete().eq("id", data.driverId);
     if (delErr) throw new Error(delErr.message);
 

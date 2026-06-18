@@ -132,6 +132,16 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
   const driverList = (drivers ?? []) as Driver[];
   const whList = (warehouses ?? []) as Warehouse[];
 
+  // Exclude suspended drivers (suspended with no end date, or whose suspension
+  // has not yet expired) — they must not receive planned work.
+  const activeDriverList = driverList.filter((d) => {
+    const s = d as unknown as { suspended?: boolean | null; suspended_until?: string | null };
+    return !(
+      s.suspended &&
+      (!s.suspended_until || new Date(s.suspended_until).getTime() > nowMs)
+    );
+  });
+
   const stopsMap: StopsMap = {};
   for (const s of stops ?? []) {
     (stopsMap[s.job_id as string] ||= []).push({
@@ -154,7 +164,7 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
   // Build real travel function from lane_travel_times.
   const travelHoursFn = makeTravelHours((lanes ?? []) as any[]);
 
-  const driverIds = driverList.map((d) => d.id);
+  const driverIds = activeDriverList.map((d) => d.id);
   let driverShifts: Record<string, DriverShift> = {};
   let allOverrides: DriverAvailabilityOverride[] = [];
 
@@ -226,7 +236,7 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
       targetDate: dateStr,
       jobs: dateJobs,
       stopsMap,
-      drivers: driverList,
+      drivers: activeDriverList,
       warehouses: whList,
       ledger,
       shifts: driverShifts,

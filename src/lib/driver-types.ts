@@ -31,6 +31,11 @@ export interface DriverProfile {
   home_warehouse_id: string | null;
   /** When true the planner must route this driver back to home_warehouse_id at end of day. */
   return_to_base_required: boolean;
+  /** When true the driver app is blocked. */
+  suspended?: boolean | null;
+  /** ISO timestamp the suspension lasts until; null = indefinite. */
+  suspended_until?: string | null;
+  suspended_reason?: string | null;
 }
 
 export interface DriverStop {

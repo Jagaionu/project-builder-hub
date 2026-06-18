@@ -1,4 +1,5 @@
 import { memo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Copy,
   Share2,
@@ -9,8 +10,11 @@ import {
   Trash2,
   RefreshCw,
   CalendarDays,
+  Ban,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
+import { setDriverSuspension } from "@/lib/driver-suspension.functions";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { Driver } from "@/lib/types";
 import { effectiveDriverStatus, type ScheduleStatus } from "@/lib/effective-status";
@@ -28,6 +32,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
   onEdit,
   onDelete,
   onRegenerate,
+  onChanged,
 }: {
   driver: Driver;
   activeJobs: ActiveJob[];
@@ -36,11 +41,79 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
   onEdit: (driver: Driver) => void;
   onDelete: (driverId: string, driverName: string) => void;
   onRegenerate?: (driverId: string, driverName: string) => void;
+  onChanged?: () => void;
 }) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const nowMs = Date.now();
   const effectiveStatus = effectiveDriverStatus(driver.status, activeJobs, nowMs, schedule);
   const code = (driver as { login_code?: string | null }).login_code ?? null;
+
+  // ── Suspension ────────────────────────────────────────────────────────────
+  const susp = driver as {
+    suspended?: boolean | null;
+    suspended_until?: string | null;
+    suspended_reason?: string | null;
+  };
+  const isSuspended =
+    !!susp.suspended &&
+    (!susp.suspended_until || new Date(susp.suspended_until).getTime() > nowMs);
+  const setSuspension = useServerFn(setDriverSuspension);
+  const [suspendOpen, setSuspendOpen] = useState(false);
+  const [period, setPeriod] = useState<"1d" | "1w" | "1m" | "custom" | "indefinite">("1w");
+  const [customDate, setCustomDate] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const computeUntil = (): string | null => {
+    const d = new Date();
+    if (period === "1d") d.setDate(d.getDate() + 1);
+    else if (period === "1w") d.setDate(d.getDate() + 7);
+    else if (period === "1m") d.setMonth(d.getMonth() + 1);
+    else if (period === "custom") {
+      if (!customDate) return null;
+      return new Date(customDate + "T23:59:59").toISOString();
+    } else return null; // indefinite
+    return d.toISOString();
+  };
+
+  const applySuspend = async () => {
+    if (period === "custom" && !customDate) {
+      toast.error("Pick a date for the suspension period");
+      return;
+    }
+    setBusy(true);
+    try {
+      await setSuspension({
+        data: {
+          driverId: driver.id,
+          suspended: true,
+          until: computeUntil(),
+          reason: reason.trim() || null,
+        },
+      });
+      toast.success(`${driver.name} suspended`);
+      setSuspendOpen(false);
+      setReason("");
+      onChanged?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to suspend");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const liftSuspend = async () => {
+    setBusy(true);
+    try {
+      await setSuspension({ data: { driverId: driver.id, suspended: false } });
+      toast.success(`${driver.name} reinstated`);
+      onChanged?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to reinstate");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
@@ -76,6 +149,18 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
           <h2 className="text-2xl font-semibold tracking-tight">{driver.name}</h2>
           <div className="mt-2 flex items-center gap-3">
             <StatusBadge status={effectiveStatus} kind="driver" />
+            {isSuspended && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-600">
+                <Ban className="size-3" />
+                Suspended
+                {susp.suspended_until
+                  ? ` until ${new Date(susp.suspended_until).toLocaleDateString([], {
+                      month: "short",
+                      day: "numeric",
+                    })}`
+                  : ""}
+              </span>
+            )}
             {driver.last_update_time && (
               <span className="text-xs text-muted-foreground font-mono">
                 Last update:{" "}
@@ -95,6 +180,23 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
           >
             <Pencil className="size-3.5" /> Edit
           </button>
+          {isSuspended ? (
+            <button
+              onClick={liftSuspend}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 text-xs font-medium text-emerald-600 disabled:opacity-50"
+            >
+              <ShieldCheck className="size-3.5" /> Reinstate
+            </button>
+          ) : (
+            <button
+              onClick={() => setSuspendOpen((o) => !o)}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 text-xs font-medium text-amber-600 disabled:opacity-50"
+            >
+              <Ban className="size-3.5" /> Suspend
+            </button>
+          )}
           <button
             onClick={() => onDelete(driver.id, driver.name)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-xs font-medium text-red-600"
@@ -103,6 +205,68 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
           </button>
         </div>
       </div>
+
+      {suspendOpen && !isSuspended && (
+        <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-amber-600 mb-3">
+            Suspend {driver.name}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            {(
+              [
+                ["1d", "1 day"],
+                ["1w", "1 week"],
+                ["1m", "1 month"],
+                ["custom", "Until date"],
+                ["indefinite", "Indefinite"],
+              ] as const
+            ).map(([val, label]) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setPeriod(val)}
+                className={
+                  "px-3 py-1.5 rounded-md border text-xs font-medium transition-colors " +
+                  (period === val
+                    ? "border-amber-500 bg-amber-500/15 text-amber-700"
+                    : "border-border bg-surface hover:bg-surface-2 text-foreground")
+                }
+              >
+                {label}
+              </button>
+            ))}
+            {period === "custom" && (
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
+                className="h-8 rounded-md border border-border bg-surface px-2 text-xs"
+              />
+            )}
+          </div>
+          <input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason (optional) — shown to the driver"
+            className="w-full h-9 rounded-md border border-border bg-surface px-3 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={applySuspend}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 disabled:opacity-50"
+            >
+              <Ban className="size-3.5" /> {busy ? "Suspending…" : "Confirm suspension"}
+            </button>
+            <button
+              onClick={() => setSuspendOpen(false)}
+              className="px-3 py-1.5 rounded-md border border-border bg-surface hover:bg-surface-2 text-xs font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-12 gap-6 items-start">
         {/* Left Side: Info */}

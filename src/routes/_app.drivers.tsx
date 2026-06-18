@@ -782,6 +782,10 @@ function DriversPage() {
               onEdit={(d) => startEdit(d)}
               onDelete={remove}
               onRegenerate={regenerate}
+              onChanged={async () => {
+                await reloadDrivers();
+                router.invalidate();
+              }}
             />
           )}
         </div>

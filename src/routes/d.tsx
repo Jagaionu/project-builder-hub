@@ -4,7 +4,9 @@ import { DriverBottomNav } from "@/components/driver/DriverBottomNav";
 import { PwaInstallPrompt } from "@/components/driver/PwaInstallPrompt";
 import { useDriverBootstrap } from "@/hooks/useDriverBootstrap";
 import { useDriverStore } from "@/lib/driver-store";
+import { driverLogout } from "@/lib/driver-auth";
 import { DriverTachographModal } from "@/components/driver/DriverTachographModal";
+import { Ban, UserX } from "lucide-react";
 
 export const Route = createFileRoute("/d")({
   head: () => ({ meta: [{ title: "Driver Hub" }] }),
@@ -19,6 +21,9 @@ function DriverLayout() {
   const router = useRouter();
   const location = useLocation();
   const session = useDriverStore((s) => s.session);
+  const accountStatus = useDriverStore((s) => s.accountStatus);
+  const suspendedUntil = useDriverStore((s) => s.suspendedUntil);
+  const suspendedReason = useDriverStore((s) => s.suspendedReason);
   const isLogin = location.pathname === "/d/login";
 
   useEffect(() => {
@@ -73,6 +78,23 @@ function DriverLayout() {
     router.navigate({ to: SWIPE_TABS[nextIndex] as SwipeTab });
   };
 
+  // Block access for suspended / deleted accounts (only once signed in).
+  // Placed after all hooks to respect the rules of hooks.
+  if (!isLogin && session && accountStatus !== "active") {
+    if (accountStatus === "suspended") {
+      return <SuspendedScreen until={suspendedUntil} reason={suspendedReason} />;
+    }
+    return (
+      <DeletedScreen
+        onUseNewCode={async () => {
+          await driverLogout();
+          useDriverStore.getState().reset();
+          router.navigate({ to: "/d/login" });
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background driver-app">
       <main
@@ -96,6 +118,53 @@ function DriverLayout() {
       {!isLogin && session && <DriverBottomNav />}
       {!isLogin && <PwaInstallPrompt />}
       {!isLogin && session && <DriverTachographModal />}
+    </div>
+  );
+}
+
+function SuspendedScreen({ until, reason }: { until: string | null; reason: string | null }) {
+  const untilLabel = until
+    ? new Date(until).toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })
+    : null;
+  return (
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 text-center">
+      <div className="w-20 h-20 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mb-5">
+        <Ban className="size-9 text-amber-500" />
+      </div>
+      <h1 className="text-2xl font-bold text-foreground">Account suspended</h1>
+      <p className="text-sm text-muted-foreground mt-2 max-w-sm">
+        Your driver account is currently suspended{untilLabel ? ` until ${untilLabel}` : ""}, so the
+        app is unavailable. Please contact your dispatcher for details.
+      </p>
+      {reason && (
+        <div className="mt-4 w-full max-w-sm rounded-xl border border-border bg-card px-4 py-3 text-left">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
+            Reason
+          </div>
+          <p className="text-sm text-foreground">{reason}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DeletedScreen({ onUseNewCode }: { onUseNewCode: () => void }) {
+  return (
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 text-center">
+      <div className="w-20 h-20 rounded-2xl bg-destructive/10 border border-destructive/30 flex items-center justify-center mb-5">
+        <UserX className="size-9 text-destructive" />
+      </div>
+      <h1 className="text-2xl font-bold text-foreground">Account removed</h1>
+      <p className="text-sm text-muted-foreground mt-2 max-w-sm">
+        This driver account has been removed from the system, so the app is no longer available. If
+        you've been given a new code, you can sign in with it below.
+      </p>
+      <button
+        onClick={onUseNewCode}
+        className="mt-6 w-full max-w-sm bg-primary text-primary-foreground font-semibold rounded-xl py-4 active:scale-[0.99] transition"
+      >
+        Use a different code
+      </button>
     </div>
   );
 }
