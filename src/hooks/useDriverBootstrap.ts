@@ -6,16 +6,39 @@ import { gpsSeam } from "@/lib/driver/gps-seam";
 import { checkGeofences } from "@/lib/leg-tracker";
 import type { JobWithStops, DriverProfile } from "@/lib/driver-types";
 
+function evaluateAccount(d: {
+  suspended?: boolean | null;
+  suspended_until?: string | null;
+  suspended_reason?: string | null;
+}) {
+  const stillSuspended =
+    !!d.suspended && (!d.suspended_until || new Date(d.suspended_until).getTime() > Date.now());
+  useDriverStore
+    .getState()
+    .setAccountStatus(stillSuspended ? "suspended" : "active", {
+      until: d.suspended_until ?? null,
+      reason: d.suspended_reason ?? null,
+    });
+}
+
 async function loadDriver(userId: string) {
-  const { data: driver } = await supabase
+  // select("*") is intentional: it tolerates the suspension columns not yet
+  // existing (pre-migration) instead of erroring on unknown columns.
+  const { data: driver, error } = await supabase
     .from("drivers")
-    .select(
-      "id,user_id,name,status,last_update_time,current_lat,current_lon,home_warehouse_id,return_to_base_required",
-    )
+    .select("*")
     .eq("user_id", userId)
     .maybeSingle();
-  useDriverStore.getState().setDriver((driver as DriverProfile | null) ?? null);
+  const store = useDriverStore.getState();
+  if (!driver && !error) {
+    // Session is valid but there is no driver record → the account was deleted.
+    store.setDriver(null);
+    store.setAccountStatus("deleted");
+    return;
+  }
+  store.setDriver((driver as DriverProfile | null) ?? null);
   if (driver) {
+    evaluateAccount(driver as Record<string, unknown>);
     await refreshJobs(driver.id);
     registerPush(driver.id).catch((e) => console.warn("[push] register failed", e));
   }
@@ -287,6 +310,20 @@ export function useDriverBootstrap() {
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "job_stops" }, () =>
         refreshJobs(driverId),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "drivers", filter: `id=eq.${driverId}` },
+        (payload) => {
+          const store = useDriverStore.getState();
+          if (payload.eventType === "DELETE") {
+            store.setAccountStatus("deleted");
+            return;
+          }
+          const n = payload.new as Record<string, unknown>;
+          evaluateAccount(n);
+          store.setDriver(n as unknown as DriverProfile);
+        },
       )
       .subscribe();
     return () => {
