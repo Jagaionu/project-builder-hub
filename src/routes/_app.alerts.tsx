@@ -1,7 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { PageHeader } from "./_app.index";
 import { Clock, Check, AlertTriangle, Info, Zap } from "lucide-react";
 import { useAlerts } from "@/lib/use-alerts";
+import { DispatchStat } from "@/components/dispatch/toolbar";
+
+type AlertLevelFilter = "ALL" | "critical" | "warning" | "info";
 
 export const Route = createFileRoute("/_app/alerts")({
   component: AlertsPage,
@@ -42,6 +46,15 @@ const getAlphaColor = (oklchString: string, alpha: number) => {
 
 function AlertsPage() {
   const { alerts, ack } = useAlerts();
+  const [levelFilter, setLevelFilter] = useState<AlertLevelFilter>("ALL");
+
+  const counts = useMemo(() => {
+    const c = { critical: 0, warning: 0, info: 0 };
+    for (const a of alerts) c[a.level] += 1;
+    return c;
+  }, [alerts]);
+
+  const shown = levelFilter === "ALL" ? alerts : alerts.filter((a) => a.level === levelFilter);
 
   return (
     <div className="h-full flex flex-col">
@@ -53,6 +66,39 @@ function AlertsPage() {
             : `${alerts.length} active alert${alerts.length !== 1 ? "s" : ""}`
         }
       />
+
+      {alerts.length > 0 && (
+        <div className="px-5 pt-4 pb-1 flex items-center gap-2 flex-wrap border-b border-border">
+          <DispatchStat
+            label="All"
+            value={alerts.length}
+            color="var(--muted-foreground)"
+            active={levelFilter === "ALL"}
+            onClick={() => setLevelFilter("ALL")}
+          />
+          <DispatchStat
+            label="Critical"
+            value={counts.critical}
+            color="var(--destructive)"
+            active={levelFilter === "critical"}
+            onClick={() => setLevelFilter("critical")}
+          />
+          <DispatchStat
+            label="Warning"
+            value={counts.warning}
+            color="var(--warning)"
+            active={levelFilter === "warning"}
+            onClick={() => setLevelFilter("warning")}
+          />
+          <DispatchStat
+            label="Info"
+            value={counts.info}
+            color="var(--info)"
+            active={levelFilter === "info"}
+            onClick={() => setLevelFilter("info")}
+          />
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-5">
         {alerts.length === 0 ? (
@@ -79,9 +125,13 @@ function AlertsPage() {
               No operational alerts at this time.
             </p>
           </div>
+        ) : shown.length === 0 ? (
+          <div className="text-center text-sm text-muted-foreground py-10 capitalize">
+            No {levelFilter} alerts.
+          </div>
         ) : (
           <ul className="space-y-2.5 page-enter">
-            {alerts.map((a, i) => {
+            {shown.map((a, i) => {
               const cfg = LEVEL_CONFIG[a.level];
               const { Icon } = cfg;
               return (

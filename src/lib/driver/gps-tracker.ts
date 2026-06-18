@@ -31,7 +31,14 @@ export async function sendPositions(samples: GpsSample[]): Promise<number> {
     speed: s.speed ?? null,
     bearing: s.bearing ?? null,
   }));
-  const { data, error } = await supabase.rpc("log_gps", { points });
+  // NOTE: `log_gps` is a DB RPC that isn't in the generated Supabase types yet,
+  // so the rpc name is cast. Regenerate src/integrations/supabase/types.ts to
+  // type this properly.
+  const { data, error } = await (
+    supabase as unknown as {
+      rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
+    }
+  ).rpc("log_gps", { points });
   if (error) throw error;
   return (data as { inserted?: number } | null)?.inserted ?? 0;
 }
