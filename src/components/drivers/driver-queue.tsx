@@ -102,38 +102,72 @@ const DriverQueueRow = memo(function DriverQueueRow({
   onSelect: (id: string) => void;
 }) {
   const phone = driver.phone ?? "—";
-  const code = (driver as { login_code?: string | null }).login_code ?? "—";
+  const initials =
+    driver.name
+      .trim()
+      .split(/\s+/)
+      .map((p) => p[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "?";
+  const paired = !!(driver as { user_id?: string | null }).user_id;
+  const susp = driver as { suspended?: boolean | null; suspended_until?: string | null };
+  const suspended =
+    !!susp.suspended &&
+    (!susp.suspended_until || new Date(susp.suspended_until).getTime() > Date.now());
 
   return (
     <button
       onClick={() => onSelect(driver.id)}
       className={cn(
-        "w-full h-full text-left px-4 py-3 transition-colors",
+        "group flex h-full w-full items-center gap-3 px-4 text-left transition-colors",
         active
           ? "bg-primary/10 border-l-2 border-l-primary pl-[calc(1rem-2px)]"
           : "border-l-2 border-l-transparent hover:bg-surface",
       )}
     >
-      <div className="flex items-center justify-between gap-2 mb-1">
-        <span
-          className={cn(
-            "font-semibold truncate text-sm",
-            active ? "text-primary" : "text-foreground",
+      {/* Avatar */}
+      <div
+        className={cn(
+          "grid size-9 shrink-0 place-items-center rounded-full text-xs font-semibold",
+          active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground",
+        )}
+      >
+        {initials}
+      </div>
+
+      {/* Name + phone */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span
+            className={cn("truncate text-sm font-semibold", active ? "text-primary" : "text-foreground")}
+          >
+            {driver.name}
+          </span>
+          {suspended && (
+            <span className="shrink-0 rounded-full bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">
+              Suspended
+            </span>
           )}
-        >
-          {driver.name}
-        </span>
-      </div>
-      <div className="mt-1.5 space-y-1">
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground gap-2">
-          <span className="font-mono">Phone:</span>
-          <span className="font-mono text-xs text-foreground">{phone}</span>
         </div>
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground gap-2">
-          <span className="font-mono">App Code:</span>
-          <span className="font-mono text-xs text-foreground">{code}</span>
-        </div>
+        <div className="mt-0.5 truncate text-[11px] text-muted-foreground font-mono">{phone}</div>
       </div>
+
+      {/* Pairing status */}
+      <span
+        className={cn(
+          "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold border",
+          paired
+            ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/30"
+            : "text-amber-600 bg-amber-500/10 border-amber-500/30",
+        )}
+        title={paired ? "Driver has signed in" : "Code issued — not signed in yet"}
+      >
+        <span
+          className={cn("size-1.5 rounded-full", paired ? "bg-emerald-500" : "bg-amber-500")}
+        />
+        {paired ? "Paired" : "Pending"}
+      </span>
     </button>
   );
 });
