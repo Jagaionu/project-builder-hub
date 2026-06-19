@@ -12,6 +12,7 @@ import {
   CalendarDays,
   Ban,
   ShieldCheck,
+  Hourglass,
 } from "lucide-react";
 import { toast } from "sonner";
 import { setDriverSuspension } from "@/lib/driver-suspension.functions";
@@ -374,14 +375,14 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                       className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-sans font-semibold text-emerald-600 bg-emerald-500/10 border border-emerald-500/30"
                       title="Driver has signed in with this code"
                     >
-                      ✅ Paired
+                      <CheckCircle2 className="size-3" /> Paired
                     </span>
                   ) : (
                     <span
                       className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-sans font-semibold text-amber-600 bg-amber-500/10 border border-amber-500/30"
                       title="Code issued — waiting for the driver to sign in"
                     >
-                      ⏳ Pending
+                      <Hourglass className="size-3" /> Pending
                     </span>
                   ))}
               </div>
