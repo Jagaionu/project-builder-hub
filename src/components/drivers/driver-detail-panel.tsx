@@ -178,7 +178,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
         <div className="flex items-center gap-2">
           <button
             onClick={() => onEdit(driver)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-surface hover:bg-surface-2 text-xs font-medium"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-2 text-xs font-medium"
           >
             <Pencil className="size-3.5" /> Edit
           </button>
@@ -186,7 +186,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
             <button
               onClick={liftSuspend}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 text-xs font-medium text-emerald-600 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 text-xs font-medium text-emerald-600 disabled:opacity-50"
             >
               <ShieldCheck className="size-3.5" /> Reinstate
             </button>
@@ -194,14 +194,14 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
             <button
               onClick={() => setSuspendOpen((o) => !o)}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 text-xs font-medium text-amber-600 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 text-xs font-medium text-amber-600 disabled:opacity-50"
             >
               <Ban className="size-3.5" /> Suspend
             </button>
           )}
           <button
             onClick={() => onDelete(driver.id, driver.name)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-xs font-medium text-red-600"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-xs font-medium text-red-600"
           >
             <Trash2 className="size-3.5" /> Delete
           </button>
@@ -228,7 +228,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                 type="button"
                 onClick={() => setPeriod(val)}
                 className={
-                  "px-3 py-1.5 rounded-md border text-xs font-medium transition-colors " +
+                  "px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors " +
                   (period === val
                     ? "border-amber-500 bg-amber-500/15 text-amber-700"
                     : "border-border bg-surface hover:bg-surface-2 text-foreground")
@@ -262,7 +262,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
             </button>
             <button
               onClick={() => setSuspendOpen(false)}
-              className="px-3 py-1.5 rounded-md border border-border bg-surface hover:bg-surface-2 text-xs font-medium"
+              className="px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-2 text-xs font-medium"
             >
               Cancel
             </button>
@@ -274,7 +274,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
         {/* Left Side: Info */}
         <div className="col-span-7 space-y-6">
           {/* Contact Information */}
-          <div className="rounded-lg border border-border bg-surface p-4">
+          <div className="rounded-2xl border border-border/60 bg-surface/60 p-4">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-4">
               Contact Information
             </div>
@@ -310,7 +310,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                   </button>
                 )}
               </div>
-              <div className="px-3 py-2 rounded bg-surface border border-border font-mono text-sm text-foreground">
+              <div className="px-3 py-2 rounded-lg bg-background border border-border font-mono text-sm text-foreground">
                 {driver.phone ?? "—"}
               </div>
             </div>
@@ -366,7 +366,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                   )}
                 </div>
               </div>
-              <div className="px-3 py-2 rounded bg-surface border border-border font-mono text-sm text-foreground flex items-center justify-between gap-2">
+              <div className="px-3 py-2 rounded-lg bg-background border border-border font-mono text-sm text-foreground flex items-center justify-between gap-2">
                 <span>{code ?? "—"}</span>
                 {code &&
                   (paired ? (
@@ -390,7 +390,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
 
           {/* Location Information */}
           {driver.current_lat != null && driver.current_lon != null && (
-            <div className="rounded-lg border border-border bg-surface p-4">
+            <div className="rounded-2xl border border-border/60 bg-surface/60 p-4">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
                 Current Location
               </div>
@@ -420,7 +420,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
           <DriverHoursStatus driver={driver} compliance={compliance ?? null} />
 
           {/* Driver Schedule (calendar only — base warehouse + weekly pattern live in Edit dialog) */}
-          <div className="rounded border border-border bg-surface p-3">
+          <div className="rounded-2xl border border-border/60 bg-surface/60 p-3">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-2">
               <CalendarDays className="size-3.5" />
               Schedule
