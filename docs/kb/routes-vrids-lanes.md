@@ -17,10 +17,29 @@ Open the route in the detail panel and use **Clone**. It creates a copy as a
 new VRID (with a new reference) that you can then adjust — handy for repeating a
 similar run without re-entering everything.
 
-## How do I delete a VRID / route / lane?
+## How do I delete a single VRID / route / lane?
 
 Open the route's **Edit** dialog and use **Delete** (it confirms first —
 "Delete this lane? This cannot be undone."). Deleting removes it from the board.
+This is for removing **one** route. To remove a whole imported file at once, use
+History (below).
+
+## I uploaded the wrong CSV — how do I delete all the routes I added?
+
+You don't have to delete them one by one. On the **Dispatch** page click
+**History** (the Import History). Find the file you imported, then click its
+**Delete (trash) button** — it removes **the entire import in one go**: every
+VRID/route created from that file. It asks you to confirm ("Delete import
+'<file>'? This permanently removes all N job(s) created from this file. This
+cannot be undone."). That's the fastest way to undo a wrong upload.
+
+## What does History do?
+
+**History** opens the **Import History** — the log of past CSV import batches.
+For each file it shows what was imported and the counts (created / parked /
+duplicate / error), and gives you a **Delete button per file** that removes that
+whole import (all of its routes) at once. Use it to review or to clean up a
+previous bulk upload. (Import batches expire automatically after 14 days.)
 
 ## Is there a way to filter the VRIDs?
 
@@ -28,12 +47,6 @@ Yes — use the **"Filter by reference, driver, status…"** search box at the t
 the Dispatch page. Type a route reference, a driver name, or a status to narrow
 the queue. The status counters (Pending / Scheduled / In progress / Completed /
 Cancelled) at the top also act as a quick overview.
-
-## What does History do?
-
-**History** opens the **Import History** — the log of past CSV import batches,
-so you can see what was imported, when, and re-check or clean up a previous
-bulk upload.
 
 ## How do I find the closest driver for an ad-hoc job?
 
