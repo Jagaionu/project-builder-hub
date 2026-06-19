@@ -179,32 +179,32 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
         <div className="flex items-center gap-2">
           <button
             onClick={() => onEdit(driver)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-2 text-xs font-medium"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-border bg-surface text-foreground shadow-sm hover:bg-surface-2 active:scale-[0.97] transition-all"
           >
-            <Pencil className="size-3.5" /> Edit
+            <Pencil className="size-4" /> Edit
           </button>
           {isSuspended ? (
             <button
               onClick={liftSuspend}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 text-xs font-medium text-emerald-600 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 shadow-sm hover:bg-emerald-500/20 active:scale-[0.97] transition-all disabled:opacity-50"
             >
-              <ShieldCheck className="size-3.5" /> Reinstate
+              <ShieldCheck className="size-4" /> Reinstate
             </button>
           ) : (
             <button
               onClick={() => setSuspendOpen((o) => !o)}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 text-xs font-medium text-amber-600 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-amber-500/20 bg-amber-500/10 text-amber-600 shadow-sm hover:bg-amber-500/20 active:scale-[0.97] transition-all disabled:opacity-50"
             >
-              <Ban className="size-3.5" /> Suspend
+              <Ban className="size-4" /> Suspend
             </button>
           )}
           <button
             onClick={() => onDelete(driver.id, driver.name)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-xs font-medium text-red-600"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-red-500/20 bg-red-500/10 text-red-600 shadow-sm hover:bg-red-500/20 active:scale-[0.97] transition-all"
           >
-            <Trash2 className="size-3.5" /> Delete
+            <Trash2 className="size-4" /> Delete
           </button>
         </div>
       </div>
@@ -289,15 +289,12 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                 {driver.phone && (
                   <button
                     onClick={() => copyToClipboard(driver.phone!, "Phone")}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors"
-                    style={{
-                      background:
-                        copiedField === "Phone"
-                          ? "oklch(0.73 0.17 150 / 0.15)"
-                          : "oklch(0.62 0.22 245 / 0.08)",
-                      color:
-                        copiedField === "Phone" ? "var(--success-fg)" : "var(--primary-bright)",
-                    }}
+                    className={
+                      "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold border transition-colors " +
+                      (copiedField === "Phone"
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                        : "border-border bg-surface text-muted-foreground hover:text-foreground hover:bg-surface-2")
+                    }
                   >
                     {copiedField === "Phone" ? (
                       <>
@@ -311,8 +308,12 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                   </button>
                 )}
               </div>
-              <div className="px-3 py-2 rounded-lg bg-background border border-border font-mono text-sm text-foreground">
-                {driver.phone ?? "—"}
+              <div className="px-3 py-2 rounded-lg bg-background border border-border text-sm">
+                {driver.phone ? (
+                  <span className="font-mono text-foreground">{driver.phone}</span>
+                ) : (
+                  <span className="text-muted-foreground italic">Not provided</span>
+                )}
               </div>
             </div>
 
@@ -327,17 +328,12 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                     <>
                       <button
                         onClick={() => copyToClipboard(code, "App Code")}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors"
-                        style={{
-                          background:
-                            copiedField === "App Code"
-                              ? "oklch(0.73 0.17 150 / 0.15)"
-                              : "oklch(0.62 0.22 245 / 0.08)",
-                          color:
-                            copiedField === "App Code"
-                              ? "var(--success-fg)"
-                              : "var(--primary-bright)",
-                        }}
+                        className={
+                          "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold border transition-colors " +
+                          (copiedField === "App Code"
+                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                            : "border-border bg-surface text-muted-foreground hover:text-foreground hover:bg-surface-2")
+                        }
                       >
                         {copiedField === "App Code" ? (
                           <>
@@ -351,7 +347,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                       </button>
                       <button
                         onClick={shareAppCode}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors bg-blue-500/10 text-blue-500 hover:bg-blue-500/20"
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold border border-border bg-surface text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
                       >
                         <Share2 className="size-3" /> Share
                       </button>
@@ -360,7 +356,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                   {onRegenerate && (
                     <button
                       onClick={() => onRegenerate(driver.id, driver.name)}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold border border-amber-500/20 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 transition-colors"
                     >
                       <RefreshCw className="size-3" /> Regen
                     </button>
