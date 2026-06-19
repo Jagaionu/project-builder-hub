@@ -5,14 +5,7 @@ const sb = supabase as unknown as { from: (t: string) => any };
 
 // Standard vehicle/equipment catalogue offered in the picker dropdown. Existing
 // values found in the data are merged in after these so nothing is lost.
-export const STANDARD_VEHICLE_TYPES = [
-  "7.5",
-  "Van",
-  "Detached Trailer 18t",
-  "Detached Trailer",
-  "Double Deck Trailer",
-  "Drop Trailer",
-];
+export const STANDARD_VEHICLE_TYPES = ["7.5", "Van", "Attached_Truck", "Detached Trailer"];
 
 // Canonical equipment types = the standard catalogue above, plus any distinct
 // values already used in the data (jobs.equipment_type + driver_equipment), so
