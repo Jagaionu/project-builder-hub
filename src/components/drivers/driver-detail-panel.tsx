@@ -47,6 +47,8 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
   const nowMs = Date.now();
   const effectiveStatus = effectiveDriverStatus(driver.status, activeJobs, nowMs, schedule);
   const code = (driver as { login_code?: string | null }).login_code ?? null;
+  // A driver gets a user_id the first time they sign in with their code.
+  const paired = !!(driver as { user_id?: string | null }).user_id;
 
   // ── Suspension ────────────────────────────────────────────────────────────
   const susp = driver as {
@@ -364,8 +366,24 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
                   )}
                 </div>
               </div>
-              <div className="px-3 py-2 rounded bg-surface border border-border font-mono text-sm text-foreground">
-                {code ?? "—"}
+              <div className="px-3 py-2 rounded bg-surface border border-border font-mono text-sm text-foreground flex items-center justify-between gap-2">
+                <span>{code ?? "—"}</span>
+                {code &&
+                  (paired ? (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-sans font-semibold text-emerald-600 bg-emerald-500/10 border border-emerald-500/30"
+                      title="Driver has signed in with this code"
+                    >
+                      ✅ Paired
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-sans font-semibold text-amber-600 bg-amber-500/10 border border-amber-500/30"
+                      title="Code issued — waiting for the driver to sign in"
+                    >
+                      ⏳ Pending
+                    </span>
+                  ))}
               </div>
             </div>
           </div>

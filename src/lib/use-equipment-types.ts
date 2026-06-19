@@ -3,11 +3,22 @@ import { supabase } from "@/integrations/supabase/client";
 
 const sb = supabase as unknown as { from: (t: string) => any };
 
-// Canonical equipment types = the distinct values already used in the data
-// (jobs.equipment_type + driver_equipment). Keeps the picker in sync with what
-// the planner actually matches against — no invented list, no typos.
+// Standard vehicle/equipment catalogue offered in the picker dropdown. Existing
+// values found in the data are merged in after these so nothing is lost.
+export const STANDARD_VEHICLE_TYPES = [
+  "7.5",
+  "Van",
+  "Detached Trailer 18t",
+  "Detached Trailer",
+  "Double Deck Trailer",
+  "Drop Trailer",
+];
+
+// Canonical equipment types = the standard catalogue above, plus any distinct
+// values already used in the data (jobs.equipment_type + driver_equipment), so
+// the picker stays in sync with what the planner matches against.
 export function useEquipmentTypes(): string[] {
-  const [types, setTypes] = useState<string[]>([]);
+  const [types, setTypes] = useState<string[]>(STANDARD_VEHICLE_TYPES);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -21,7 +32,9 @@ export function useEquipmentTypes(): string[] {
         if (r.equipment_type) set.add(r.equipment_type);
       for (const r of (de ?? []) as Array<{ equipment_type: string | null }>)
         if (r.equipment_type) set.add(r.equipment_type);
-      setTypes([...set].sort());
+      // Standard list first (in catalogue order), then any extra data values.
+      const extra = [...set].filter((t) => !STANDARD_VEHICLE_TYPES.includes(t)).sort();
+      setTypes([...STANDARD_VEHICLE_TYPES, ...extra]);
     })();
     return () => {
       cancelled = true;
