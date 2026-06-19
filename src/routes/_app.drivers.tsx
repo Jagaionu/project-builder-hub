@@ -77,38 +77,60 @@ function EquipmentPicker({
   options: string[];
 }) {
   const [custom, setCustom] = useState("");
-  const all = [...new Set([...options, ...value])].sort();
-  const toggle = (t: string) =>
-    onChange(value.includes(t) ? value.filter((x) => x !== t) : [...value, t]);
+  const available = options.filter((o) => !value.includes(o));
+  const add = (t: string) => {
+    const v = t.trim();
+    if (v && !value.includes(v)) onChange([...value, v]);
+  };
+  const remove = (t: string) => onChange(value.filter((x) => x !== t));
   const addCustom = () => {
-    const t = custom.trim();
-    if (t && !value.includes(t)) onChange([...value, t]);
+    add(custom);
     setCustom("");
   };
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {all.length === 0 && (
-        <span className="text-xs text-muted-foreground w-full">None yet — add one below.</span>
-      )}
-      {all.map((t) => {
-        const on = value.includes(t);
-        return (
-          <button
+    <div className="space-y-2">
+      {/* Selected types */}
+      <div className="flex flex-wrap gap-1.5">
+        {value.length === 0 && (
+          <span className="text-xs text-muted-foreground">None yet — choose one below.</span>
+        )}
+        {value.map((t) => (
+          <span
             key={t}
-            type="button"
-            onClick={() => toggle(t)}
-            className={
-              "px-2 py-1 rounded-md text-[11px] font-mono border transition " +
-              (on
-                ? "bg-primary/15 border-primary text-primary"
-                : "bg-surface border-border text-muted-foreground")
-            }
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-mono border bg-primary/15 border-primary text-primary"
           >
             {t}
-          </button>
-        );
-      })}
-      <div className="flex items-center gap-1 w-full mt-1">
+            <button
+              type="button"
+              onClick={() => remove(t)}
+              className="leading-none hover:text-destructive"
+              aria-label={`Remove ${t}`}
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+      </div>
+
+      {/* Dropdown to choose from the catalogue */}
+      <select
+        value=""
+        onChange={(e) => {
+          if (e.target.value) add(e.target.value);
+          e.currentTarget.value = "";
+        }}
+        className="w-full h-8 px-2 rounded-md border border-border bg-surface text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+      >
+        <option value="">Choose a vehicle/equipment type…</option>
+        {available.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+
+      {/* Custom (not in the list) */}
+      <div className="flex items-center gap-1">
         <input
           value={custom}
           onChange={(e) => setCustom(e.target.value)}
@@ -118,7 +140,7 @@ function EquipmentPicker({
               addCustom();
             }
           }}
-          placeholder="Add a vehicle/equipment type…"
+          placeholder="Or add a custom type…"
           className="flex-1 h-8 px-2 rounded-md border border-border bg-surface text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
         <button
