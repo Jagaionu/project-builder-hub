@@ -491,8 +491,8 @@ function DriversPage() {
 
       {/* Create form modal */}
       {open && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-xl border border-border shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-2xl border border-border/70 shadow-2xl ring-1 ring-black/5 max-w-md w-full p-6 animate-in fade-in zoom-in-95">
             <h3 className="text-lg font-semibold mb-1">Add New Driver</h3>
             <p className="text-xs text-muted-foreground mb-5">
               Create a new driver profile and generate their login code.
@@ -507,7 +507,7 @@ function DriversPage() {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="e.g., John Smith"
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
                 />
               </div>
               <div>
@@ -518,7 +518,7 @@ function DriversPage() {
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="e.g., +44 7700 900000"
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
                 />
               </div>
               <div>
@@ -528,7 +528,7 @@ function DriversPage() {
                 <select
                   value={form.home_warehouse_id}
                   onChange={(e) => setForm({ ...form, home_warehouse_id: e.target.value })}
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
                 >
                   <option value="">— None (free agent) —</option>
                   {warehouses.map((w) => (
@@ -592,13 +592,13 @@ function DriversPage() {
                   setOpen(false);
                   setCreateEquip([]);
                 }}
-                className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-surface hover:bg-surface-2 text-sm font-medium transition-colors"
+                className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-surface hover:bg-surface-2 text-sm font-medium active:scale-[0.99] transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={add}
-                className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+                className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold shadow-sm hover:bg-primary/90 hover:shadow-md active:scale-[0.99] transition-all"
               >
                 Create Driver
               </button>
@@ -609,8 +609,8 @@ function DriversPage() {
 
       {/* Edit driver modal */}
       {editingId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-xl border border-border shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-2xl border border-border/70 shadow-2xl ring-1 ring-black/5 max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95">
             <h3 className="text-lg font-semibold mb-1">Edit Driver</h3>
             <p className="text-xs text-muted-foreground mb-5">
               Update driver name or phone number.
@@ -624,7 +624,7 @@ function DriversPage() {
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                   placeholder="e.g., John Smith"
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
                 />
               </div>
               <div>
@@ -635,7 +635,7 @@ function DriversPage() {
                   value={editForm.phone}
                   onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                   placeholder="e.g., +44 7700 900000"
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
                 />
               </div>
               <div>
@@ -645,7 +645,7 @@ function DriversPage() {
                 <select
                   value={editForm.home_warehouse_id}
                   onChange={(e) => setEditForm({ ...editForm, home_warehouse_id: e.target.value })}
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
                 >
                   <option value="">— None (free agent) —</option>
                   {warehouses.map((w) => (
@@ -735,13 +735,13 @@ function DriversPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setEditingId(null)}
-                className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-surface hover:bg-surface-2 text-sm font-medium transition-colors"
+                className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-surface hover:bg-surface-2 text-sm font-medium active:scale-[0.99] transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={saveEdit}
-                className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+                className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold shadow-sm hover:bg-primary/90 hover:shadow-md active:scale-[0.99] transition-all"
               >
                 Save Changes
               </button>
