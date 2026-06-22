@@ -9,6 +9,8 @@ import type { Driver, Warehouse, Job } from "@/lib/types";
 import type { JobStopsMap } from "@/lib/dispatch/use-job-stops";
 import type { DriverPosition } from "@/lib/use-driver-positions";
 import { haversineKm } from "@/lib/geo";
+import { useDriverSchedule } from "@/lib/use-driver-schedule";
+import { effectiveDriverStatus } from "@/lib/effective-status";
 
 // GPS considered inactive after 15 min with no fresh ping → route greys out.
 const GPS_STALE_MS = 15 * 60 * 1000;
@@ -188,6 +190,28 @@ export function LiveMap({
   // Manual route: driver selected → user clicks any WH to get ad-hoc ETA
   const [manualTargetWh, setManualTargetWh] = useState<Warehouse | null>(null);
 
+  // Calendar-aware status: the badge/label/popup must respect today's shift
+  // calendar (overrides + shift template) — same source as the planner and the
+  // fleet panel — not the raw stored driver.status which can be stale.
+  const scheduleMap = useDriverSchedule(useMemo(() => drivers.map((d) => d.id), [drivers]));
+  const effStatus = useMemo(() => {
+    const now = Date.now();
+    const m: Record<string, string> = {};
+    for (const d of drivers) {
+      const dj = jobs.filter(
+        (j) => j.assigned_driver_id === d.id || j.planned_driver_id === d.id,
+      );
+      m[d.id] = effectiveDriverStatus(
+        d.status,
+        dj as never,
+        now,
+        scheduleMap[d.id] ?? "unknown",
+      );
+    }
+    return m;
+  }, [drivers, jobs, scheduleMap]);
+  const statusOf = (d: Driver) => effStatus[d.id] ?? d.status;
+
   // ── CSS ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (document.getElementById("lm-css")) return;
@@ -348,7 +372,7 @@ export function LiveMap({
       const sz = sel ? 26 : 20;
       const icon = L.divIcon({
         className: "",
-        html: driverHtml(d.name, d.status, sel),
+        html: driverHtml(d.name, statusOf(d), sel),
         iconSize: [sz, sz],
         iconAnchor: [sz / 2, sz / 2],
       });
@@ -364,7 +388,7 @@ export function LiveMap({
         })
         .addTo(cluster);
     });
-  }, [drivers, selectedDriverId, jobs, onSelectDriver]);
+  }, [drivers, selectedDriverId, jobs, onSelectDriver, effStatus]);
 
   // ── Active job / destination warehouse ───────────────────────────────────
   // Clear manual WH target whenever the selected driver changes
@@ -538,7 +562,7 @@ export function LiveMap({
       ? new Date(selectedDriver.last_update_time).getTime()
       : 0;
     const gpsStale = !lastUpdate || Date.now() - lastUpdate > GPS_STALE_MS;
-    const s = STATUS_MAP[selectedDriver?.status ?? ""] ?? DEF_STATUS;
+    const s = STATUS_MAP[selectedDriver ? statusOf(selectedDriver) : ""] ?? DEF_STATUS;
     const isDelayed = selectedDriver?.status === "DELAYED";
     const lineColor = gpsStale ? GPS_STALE_COLOR : isDelayed ? "#dc2626" : s.bg;
 
@@ -645,12 +669,12 @@ export function LiveMap({
       total: drivers.length,
       onMap: drivers.filter((d) => d.current_lat != null).length,
       active: drivers.filter(
-        (d) => ["AVAILABLE", "ON_SHIFT", "ON_ROUTE"].includes(d.status) && d.current_lat != null,
+        (d) => ["ON_SHIFT", "ON_ROUTE"].includes(statusOf(d)) && d.current_lat != null,
       ).length,
-      onRoute: drivers.filter((d) => d.status === "ON_ROUTE").length,
-      delayed: drivers.filter((d) => d.status === "DELAYED").length,
+      onRoute: drivers.filter((d) => statusOf(d) === "ON_ROUTE").length,
+      delayed: drivers.filter((d) => statusOf(d) === "DELAYED").length,
     }),
-    [drivers],
+    [drivers, effStatus],
   );
 
   const fmtTime = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`);
@@ -666,7 +690,7 @@ export function LiveMap({
   }
 
   function PanelDriver({ driver, job }: { driver: Driver; job?: Job }) {
-    const s = STATUS_MAP[driver.status] ?? DEF_STATUS;
+    const s = STATUS_MAP[statusOf(driver)] ?? DEF_STATUS;
     return (
       <div className="space-y-3">
         {/* Header */}
@@ -854,7 +878,7 @@ export function LiveMap({
           ) : (
             <div className="space-y-1.5 max-h-52 overflow-y-auto pr-0.5">
               {nearbyDrivers.map((d) => {
-                const s = STATUS_MAP[d.status] ?? DEF_STATUS;
+                const s = STATUS_MAP[statusOf(d)] ?? DEF_STATUS;
                 return (
                   <button
                     key={d.id}
@@ -936,12 +960,12 @@ export function LiveMap({
           <div className="flex items-center gap-2.5 bg-white/95 backdrop-blur border border-slate-200/80 px-4 py-2 rounded-2xl shadow-xl">
             <span
               className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-              style={{ background: STATUS_MAP[selectedDriver.status]?.bg ?? "#7c3aed" }}
+              style={{ background: STATUS_MAP[statusOf(selectedDriver)]?.bg ?? "#7c3aed" }}
             />
             <span className="text-xs font-bold text-slate-900">{selectedDriver.name}</span>
             <span className="w-px h-3 bg-slate-200 inline-block" />
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              {selectedDriver.status.replaceAll("_", " ")}
+              {statusOf(selectedDriver).replaceAll("_", " ")}
             </span>
             {isRouting && (
               <>

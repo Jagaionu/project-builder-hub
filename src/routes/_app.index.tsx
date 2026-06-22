@@ -275,6 +275,7 @@ function LiveDashboard() {
                     selectedDriver.status,
                     selectedDriverActiveJobs,
                     nowMs,
+                    schedule[selectedDriver.id] ?? "unknown",
                   )}
                   kind="driver"
                 />
