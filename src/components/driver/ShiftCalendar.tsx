@@ -130,7 +130,8 @@ export function ShiftCalendar({
   const toggleDateOverride = async (dateStr: string, dayOfWeek: number) => {
     const existing = overrides.find((o) => o.date === dateStr);
     if (existing) {
-      if (isPlanner && existing.set_by === "driver") return;
+      // The planner/dispatcher can change ANY day, including ones the driver
+      // set. (Drivers still can't edit today / past — handled at the cell.)
       const prev = overrides;
       setOverrides((p) => p.filter((o) => o.id !== existing.id));
       const { error } = await supabase
@@ -183,7 +184,9 @@ export function ShiftCalendar({
         dateStr,
         dayOfWeek,
         type: (override.available ? "extra" : "holiday") as DayType,
-        locked: isPlanner && override.set_by === "driver",
+        // Driver-set days are no longer locked for the planner — the dispatcher
+        // can change them. (Drivers are still limited to future days at the cell.)
+        locked: false,
       };
     }
 
