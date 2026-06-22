@@ -7,7 +7,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider, useTheme, themeBootstrapScript } from "@/lib/theme-context";
@@ -39,23 +39,77 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
-  const retriedRef = useRef(false);
+  const msg = error?.message ?? "";
+  // A chunk / dynamic-import failure almost always means a new version was
+  // deployed and the asset hashes changed under a stale service worker.
+  const isChunkError =
+    /dynamically imported module|module script failed|ChunkLoadError|Loading chunk|Failed to fetch|MIME type|Unexpected token/i.test(
+      msg,
+    );
 
   useEffect(() => {
-    if (retriedRef.current) return;
-    retriedRef.current = true;
-    const t = setTimeout(() => {
-      router.invalidate();
-      reset();
-    }, 50);
-    return () => clearTimeout(t);
-  }, [router, reset]);
+    if (!isChunkError || typeof window === "undefined") return;
+    const KEY = "tpr:self-healed";
+    if (sessionStorage.getItem(KEY)) return; // already tried once this session
+    sessionStorage.setItem(KEY, "1");
+    // Self-heal: remove the stale service worker + caches, then reload once so
+    // the freshly deployed assets are fetched from the network.
+    void (async () => {
+      try {
+        if ("serviceWorker" in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister()));
+        }
+        if ("caches" in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        window.location.reload();
+      }
+    })();
+  }, [isChunkError]);
 
+  if (isChunkError) {
+    return (
+      <div className="flex h-full min-h-[200px] w-full items-center justify-center p-6">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <div className="size-4 rounded-full border-2 border-border border-t-primary animate-spin" />
+          <span>Updating to the latest version…</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Any other error: surface it with manual recovery — never an infinite spinner.
   return (
-    <div className="flex h-full min-h-[200px] w-full items-center justify-center p-6 animate-fade-in">
-      <div className="flex items-center gap-3 text-sm text-muted-foreground">
-        <div className="size-4 rounded-full border-2 border-border border-t-primary animate-spin" />
-        <span>Loading…</span>
+    <div className="flex min-h-screen w-full items-center justify-center p-6">
+      <div className="max-w-md text-center">
+        <h2 className="text-lg font-semibold text-foreground">Something went wrong</h2>
+        <p className="mt-2 break-words text-sm text-muted-foreground">
+          {msg || "An unexpected error occurred."}
+        </p>
+        <div className="mt-5 flex justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              reset();
+              router.invalidate();
+            }}
+            className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium hover:bg-surface-2"
+          >
+            Try again
+          </button>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Reload
+          </button>
+        </div>
       </div>
     </div>
   );
