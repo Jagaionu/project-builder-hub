@@ -28,6 +28,10 @@ export function useDriverSchedule(driverIds: string[]): Record<string, ScheduleS
   // Keep latest in refs so realtime handlers can recompute without re-subbing.
   const templateDaysRef = useRef<Set<string>>(new Set()); // scheduled driver_ids
   const overrideRef = useRef<Map<string, boolean>>(new Map());
+  // Unique per hook instance so multiple components using this hook (index,
+  // drivers, alerts) never collide on the same Supabase channel topic, which
+  // throws "cannot add postgres_changes callbacks after subscribe()".
+  const channelId = useRef(Math.random().toString(36).slice(2));
 
   useEffect(() => {
     if (driverIds.length === 0) {
@@ -115,7 +119,7 @@ export function useDriverSchedule(driverIds: string[]): Record<string, ScheduleS
       });
 
     const tplChannel = supabase
-      .channel(`drv-sched-tpl-${idsKey.slice(0, 32)}`)
+      .channel(`drv-sched-tpl-${channelId.current}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "driver_shift_templates" },
@@ -124,7 +128,7 @@ export function useDriverSchedule(driverIds: string[]): Record<string, ScheduleS
       .subscribe();
 
     const ovChannel = supabase
-      .channel(`drv-sched-ov-${idsKey.slice(0, 32)}`)
+      .channel(`drv-sched-ov-${channelId.current}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "driver_availability_overrides" },
