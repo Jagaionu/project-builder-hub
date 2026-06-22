@@ -9,6 +9,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useCompliance, useDrivers, useJobs, useRecentDelays } from "@/lib/hooks";
+import { useDriverSchedule } from "@/lib/use-driver-schedule";
+import { effectiveDriverStatus } from "@/lib/effective-status";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { ackAlert } from "./alerts.functions";
@@ -249,6 +251,9 @@ export function useAlerts() {
   const parkedImports = useParkedImports();
   const reimportAlerts = useReimportAlerts();
 
+  const driverIds = useMemo(() => drivers.map((d) => d.id), [drivers]);
+  const schedule = useDriverSchedule(driverIds);
+
   const all = useMemo<AppAlert[]>(() => {
     const out: AppAlert[] = [];
     const now = Date.now();
@@ -298,20 +303,27 @@ export function useAlerts() {
           message: `${d.name} flagged DELAYED`,
         });
       }
-      if (d.status === "OFF_SHIFT") {
-        const activeJobs = jobs.filter(
-          (j) =>
-            j.assigned_driver_id === d.id &&
+      // Calendar-accurate off-shift alert: only fire when TODAY's schedule
+      // confirms the driver is off (not scheduled, or on holiday) — never from a
+      // stale stored status alone. A driver scheduled on the calendar today
+      // (like one whose raw status is still OFF_SHIFT) will NOT trigger this.
+      const sched = schedule[d.id] ?? "unknown";
+      if (sched === "not_scheduled" || sched === "holiday") {
+        const driverJobs = jobs.filter((j) => j.assigned_driver_id === d.id);
+        const eff = effectiveDriverStatus(d.status, driverJobs, now, sched);
+        if (eff === "OFF_SHIFT") {
+          const activeJobs = driverJobs.filter((j) =>
             ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(j.status),
-        );
-        if (activeJobs.length > 0) {
-          out.push({
-            id: `off-${d.id}`,
-            level: "critical",
-            type: "Driver off-shift",
-            icon: AlertTriangle,
-            message: `${d.name} went OFF with ${activeJobs.length} active job(s) — re-plan needed`,
-          });
+          );
+          if (activeJobs.length > 0) {
+            out.push({
+              id: `off-${d.id}`,
+              level: "critical",
+              type: "Driver off-shift",
+              icon: AlertTriangle,
+              message: `${d.name} is off today (${sched === "holiday" ? "holiday" : "not scheduled"}) with ${activeJobs.length} active job(s) — re-plan needed`,
+            });
+          }
         }
       }
       const c = compliance[d.id];
@@ -413,7 +425,7 @@ export function useAlerts() {
     });
 
     return out;
-  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents, parkedImports, reimportAlerts]);
+  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents, parkedImports, reimportAlerts, schedule]);
 
   const { acked, ack } = useAcked(all);
   const visible = useMemo(() => all.filter((a) => !acked.has(a.id)), [all, acked]);
