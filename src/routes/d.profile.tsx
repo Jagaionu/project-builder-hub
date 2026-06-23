@@ -3,6 +3,7 @@ import { useDriverStore } from "@/lib/driver-store";
 import { driverLogout } from "@/lib/driver-auth";
 import { ShiftCalendar } from "@/components/driver/ShiftCalendar";
 import { BaseWarehouseSelector } from "@/components/driver/BaseWarehouseSelector";
+import { DriverAvatarUpload } from "@/components/driver/DriverAvatarUpload";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CalendarDays } from "lucide-react";
 
@@ -37,9 +38,7 @@ function ProfilePage() {
 
       {/* Driver info card */}
       <div className="bg-card border border-border rounded-2xl p-5 mb-4 text-center">
-        <div className="w-20 h-20 mx-auto rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center mb-3">
-          <span className="text-3xl">👤</span>
-        </div>
+        <DriverAvatarUpload />
         <p className="text-lg font-bold text-foreground">{driver?.name ?? "—"}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{session?.user?.email}</p>
       </div>

@@ -14,9 +14,12 @@ import {
   ShieldCheck,
   Hourglass,
   MapPin,
+  Check,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { setDriverSuspension } from "@/lib/driver-suspension.functions";
+import { reviewDriverAvatar } from "@/lib/driver-avatar.functions";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { Driver } from "@/lib/types";
 import { effectiveDriverStatus, type ScheduleStatus } from "@/lib/effective-status";
@@ -119,6 +122,29 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
     }
   };
 
+  // ── Profile photo ───────────────────────────────────────────────────────
+  const av = driver as {
+    avatar_url?: string | null;
+    pending_avatar_url?: string | null;
+    avatar_status?: string | null;
+  };
+  const approvedAvatar = av.avatar_status === "approved" ? (av.avatar_url ?? null) : null;
+  const pendingAvatar = av.avatar_status === "pending" ? (av.pending_avatar_url ?? null) : null;
+  const reviewAvatar = useServerFn(reviewDriverAvatar);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const reviewPhoto = async (approve: boolean) => {
+    setAvatarBusy(true);
+    try {
+      await reviewAvatar({ data: { driverId: driver.id, approve } });
+      toast.success(approve ? "Photo approved" : "Photo rejected");
+      onChanged?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Review failed");
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
   const copyToClipboard = async (text: string, field: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -157,8 +183,16 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
     <div className="p-6 h-full overflow-y-auto">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">{driver.name}</h2>
+        <div className="flex items-start gap-3">
+          {approvedAvatar && (
+            <img
+              src={approvedAvatar}
+              alt=""
+              className="size-12 rounded-full object-cover border border-border shrink-0"
+            />
+          )}
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight">{driver.name}</h2>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <StatusBadge status={effectiveStatus} kind="driver" />
             {isSuspended && (
@@ -184,6 +218,7 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
               })}
             </div>
           )}
+          </div>
         </div>
 
         <div className="flex items-start gap-2">
@@ -293,6 +328,41 @@ export const DriverDetailPanel = memo(function DriverDetailPanel({
           </button>
         </div>
       </div>
+
+      {pendingAvatar && (
+        <div className="mb-6 flex items-center gap-4 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-4">
+          <img
+            src={pendingAvatar}
+            alt=""
+            className="size-16 rounded-full object-cover border border-border shrink-0"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-amber-600 mb-1">
+              Profile photo — pending review
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {driver.name} submitted a profile photo. Approve it to show across the app, or reject
+              it if it doesn't follow the rules.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 shrink-0">
+            <button
+              onClick={() => reviewPhoto(true)}
+              disabled={avatarBusy}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+            >
+              <Check className="size-3.5" /> Approve
+            </button>
+            <button
+              onClick={() => reviewPhoto(false)}
+              disabled={avatarBusy}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-500/20 bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+            >
+              <X className="size-3.5" /> Reject
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-12 gap-6 items-start">
         {/* Left Side: Info */}

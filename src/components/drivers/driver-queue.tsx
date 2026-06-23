@@ -111,6 +111,10 @@ const DriverQueueRow = memo(function DriverQueueRow({
       .join("")
       .toUpperCase() || "?";
   const paired = !!(driver as { user_id?: string | null }).user_id;
+  const avatarUrl =
+    (driver as { avatar_status?: string | null }).avatar_status === "approved"
+      ? ((driver as { avatar_url?: string | null }).avatar_url ?? null)
+      : null;
   const susp = driver as { suspended?: boolean | null; suspended_until?: string | null };
   const suspended =
     !!susp.suspended &&
@@ -127,14 +131,25 @@ const DriverQueueRow = memo(function DriverQueueRow({
       )}
     >
       {/* Avatar */}
-      <div
-        className={cn(
-          "grid size-9 shrink-0 place-items-center rounded-full text-xs font-semibold",
-          active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground",
-        )}
-      >
-        {initials}
-      </div>
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt=""
+          className={cn(
+            "size-9 shrink-0 rounded-full object-cover",
+            active ? "ring-2 ring-primary" : "",
+          )}
+        />
+      ) : (
+        <div
+          className={cn(
+            "grid size-9 shrink-0 place-items-center rounded-full text-xs font-semibold",
+            active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground",
+          )}
+        >
+          {initials}
+        </div>
+      )}
 
       {/* Name + phone */}
       <div className="min-w-0 flex-1">
