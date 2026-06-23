@@ -24,16 +24,17 @@ function DriverLayout() {
   const accountStatus = useDriverStore((s) => s.accountStatus);
   const suspendedUntil = useDriverStore((s) => s.suspendedUntil);
   const suspendedReason = useDriverStore((s) => s.suspendedReason);
+  const authResolved = useDriverStore((s) => s.authResolved);
   const isLogin = location.pathname === "/d/login";
 
   useEffect(() => {
-    const id = setTimeout(() => {
-      const s = useDriverStore.getState().session;
-      if (!s && !isLogin) router.navigate({ to: "/d/login" });
-      if (s && isLogin) router.navigate({ to: "/d" });
-    }, 300);
-    return () => clearTimeout(id);
-  }, [session, isLogin, router]);
+    // Wait until the initial Supabase session check has finished before
+    // redirecting — otherwise the login screen flashes for signed-in drivers.
+    if (!authResolved) return;
+    const s = useDriverStore.getState().session;
+    if (!s && !isLogin) router.navigate({ to: "/d/login" });
+    else if (s && isLogin) router.navigate({ to: "/d" });
+  }, [authResolved, session, isLogin, router]);
 
   // ── Swipe navigation between top-level driver tabs ────────────────────
   const touchStart = useRef<{ x: number; y: number; t: number } | null>(null);
@@ -77,6 +78,16 @@ function DriverLayout() {
     setTimeout(() => setSwipeHint(null), 220);
     router.navigate({ to: SWIPE_TABS[nextIndex] as SwipeTab });
   };
+
+  // Until the session check resolves, show a neutral splash rather than the
+  // login screen — this removes the "enter code" flash for signed-in drivers.
+  if (!authResolved) {
+    return (
+      <div className="min-h-screen bg-background driver-app flex items-center justify-center">
+        <div className="size-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+      </div>
+    );
+  }
 
   // Block access for suspended / deleted accounts (only once signed in).
   // Placed after all hooks to respect the rules of hooks.

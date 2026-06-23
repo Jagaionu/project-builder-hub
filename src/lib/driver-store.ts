@@ -28,6 +28,9 @@ interface DriverAppState {
   accountStatus: "active" | "suspended" | "deleted";
   suspendedUntil: string | null;
   suspendedReason: string | null;
+  /** True once the initial Supabase session check has completed (avoids the
+   *  login-screen flash for already-signed-in drivers). Stays true after. */
+  authResolved: boolean;
   setSession: (s: Session | null) => void;
   setDriver: (d: DriverProfile | null) => void;
   setJobs: (j: JobWithStops[]) => void;
@@ -38,6 +41,7 @@ interface DriverAppState {
     status: "active" | "suspended" | "deleted",
     info?: { until?: string | null; reason?: string | null },
   ) => void;
+  setAuthResolved: (v: boolean) => void;
   reset: () => void;
 }
 
@@ -51,6 +55,7 @@ export const useDriverStore = create<DriverAppState>((set) => ({
   accountStatus: "active",
   suspendedUntil: null,
   suspendedReason: null,
+  authResolved: false,
   setSession: (session) => set({ session }),
   setDriver: (driver) => set({ driver }),
   setJobs: (jobs) => set({ jobs }),
@@ -63,6 +68,7 @@ export const useDriverStore = create<DriverAppState>((set) => ({
       suspendedUntil: info?.until ?? null,
       suspendedReason: info?.reason ?? null,
     }),
+  setAuthResolved: (authResolved) => set({ authResolved }),
   reset: () =>
     set({
       session: null,

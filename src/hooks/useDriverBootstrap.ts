@@ -171,16 +171,20 @@ export function useDriverBootstrap() {
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
       setSession(session);
+      useDriverStore.getState().setAuthResolved(true);
       if (session?.user) {
         loadDriver(session.user.id);
       } else {
         useDriverStore.getState().reset();
       }
     });
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session?.user) loadDriver(data.session.user.id);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+        if (data.session?.user) loadDriver(data.session.user.id);
+      })
+      .finally(() => useDriverStore.getState().setAuthResolved(true));
 
     const onOnline = () => setOnline(true);
     const onOffline = () => setOnline(false);
