@@ -745,17 +745,15 @@ function DispatchPage() {
         <ImportBatchesButton />
         <ImportCsvButton />
 
-        <div className="relative inline-flex items-center h-8 rounded-full overflow-hidden shadow-[0_2px_6px_rgba(0,0,0,0.30)] bg-gradient-to-b from-[#f0d469] to-[#deb523]">
+        <div className="relative inline-flex items-center h-8 rounded-full overflow-hidden border border-black/10 dark:border-white/10 shadow-[0_2px_6px_rgba(0,0,0,0.20)] bg-gradient-to-b from-[#f7f7f7] to-[#e6e6e6] dark:from-[#3d3d3d] dark:to-[#1e1e1e]">
           <span className="pointer-events-none absolute inset-x-1 top-px h-1/2 rounded-full bg-white/25" />
           <Popover>
             <PopoverTrigger asChild>
-              <button className="relative inline-flex items-center gap-1.5 h-8 pl-1 pr-2.5 text-[11px] font-semibold text-[#2e2305] whitespace-nowrap hover:bg-black/5 transition-colors">
-                <span className="grid size-6 place-items-center rounded-full ring-1 ring-black/15 bg-gradient-to-b from-[#f6df88] to-[#c99e14] shadow-[inset_0_1px_2px_rgba(255,255,255,0.55),0_1px_2px_rgba(0,0,0,0.35)] [&_svg]:size-3">
+              <button className="relative inline-flex items-center gap-1.5 h-8 pl-1 pr-2.5 text-[11px] font-semibold text-neutral-800 dark:text-neutral-100 whitespace-nowrap hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                <span className="grid size-6 place-items-center rounded-full ring-1 ring-black/10 dark:ring-white/15 bg-gradient-to-b from-white to-[#d9d9d9] dark:from-[#2f2f2f] dark:to-black shadow-[inset_0_1px_2px_rgba(255,255,255,0.55),0_1px_2px_rgba(0,0,0,0.25)] [&_svg]:size-3">
                   <CalendarIcon className="size-3" />
                 </span>
-                <span className="leading-none drop-shadow-[0_1px_0_rgba(255,255,255,0.35)]">
-                  {dateLabel}
-                </span>
+                <span className="leading-none">{dateLabel}</span>
                 <ChevronDown className="size-3 opacity-70" />
               </button>
             </PopoverTrigger>
@@ -829,7 +827,7 @@ function DispatchPage() {
                 setTourDriverId(null);
               }}
               title="Reset filters"
-              className="relative h-8 px-2.5 border-l border-black/15 text-black/55 transition-colors hover:text-black hover:bg-black/10"
+              className="relative h-8 px-2.5 border-l border-black/15 dark:border-white/15 text-black/55 dark:text-white/70 transition-colors hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
             >
               <RotateCcw className="size-3.5" />
             </button>
