@@ -13,7 +13,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search, CalendarDays, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, CalendarDays, Clock, Camera } from "lucide-react";
 import { rotateDriverLoginCode } from "@/lib/pairing.functions";
 import { deleteDriver } from "@/lib/drivers-delete.functions";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
@@ -281,6 +281,9 @@ function DriversPage() {
   });
 
   const filteredDrivers = filteredDriverRows.map((r) => r.d);
+  const pendingPhotos = drivers.filter(
+    (d) => (d as { avatar_status?: string | null }).avatar_status === "pending",
+  ).length;
   const selectedDriver = selectedDriverId ? drivers.find((d) => d.id === selectedDriverId) : null;
 
   const rotateCode = useServerFn(rotateDriverLoginCode);
@@ -443,6 +446,12 @@ function DriversPage() {
           <p className="text-xs text-muted-foreground mt-0.5">
             {filteredDrivers.length} shown of {drivers.length} drivers in roster
           </p>
+          {pendingPhotos > 0 && (
+            <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-blue-500/40 bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+              <Camera className="size-3" /> {pendingPhotos} photo{pendingPhotos > 1 ? "s" : ""} to
+              review
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 justify-self-center">
           <DispatchStat
