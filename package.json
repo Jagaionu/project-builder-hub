@@ -69,6 +69,7 @@
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
     "gocardless-nodejs": "^8.3.0",
+    "heic2any": "0.0.4",
     "input-otp": "^1.4.2",
     "js-tiktoken": "^1.0.20",
     "leaflet": "^1.9.4",

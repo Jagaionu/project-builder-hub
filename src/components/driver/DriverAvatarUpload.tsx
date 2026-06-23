@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Camera, Hourglass } from "lucide-react";
+import { Camera, Hourglass, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDriverStore } from "@/lib/driver-store";
 import { submitDriverAvatar } from "@/lib/driver-avatar.functions";
@@ -13,15 +13,22 @@ function initials(name?: string | null): string {
   return ((p[0]?.[0] ?? "") + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase();
 }
 
+// iPhones default to HEIC, which most browsers can't render. Detect + convert.
+function isHeic(f: File): boolean {
+  return /image\/hei[cf]/i.test(f.type) || /\.(heic|heif)$/i.test(f.name);
+}
+
 export function DriverAvatarUpload() {
   const driver = useDriverStore((s) => s.driver);
   const setDriver = useDriverStore((s) => s.setDriver);
   const session = useDriverStore((s) => s.session);
   const submit = useServerFn(submitDriverAvatar);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [uploadBlob, setUploadBlob] = useState<Blob | null>(null);
+  const [uploadExt, setUploadExt] = useState("jpg");
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [prepping, setPrepping] = useState(false);
 
   if (!driver) return null;
 
@@ -34,38 +41,57 @@ export function DriverAvatarUpload() {
         : null;
   const isPending = status === "pending";
 
-  function onPick(e: ChangeEvent<HTMLInputElement>) {
+  async function onPick(e: ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f) return;
-    if (!f.type.startsWith("image/")) {
+    const heic = isHeic(f);
+    if (!f.type.startsWith("image/") && !heic) {
       toast.error("Please choose an image file");
       return;
     }
-    if (f.size > 5 * 1024 * 1024) {
-      toast.error("Image must be under 5 MB");
+    if (f.size > 8 * 1024 * 1024) {
+      toast.error("Image must be under 8 MB");
       return;
     }
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
+    setPrepping(true);
+    try {
+      let blob: Blob = f;
+      let ext = (f.name.split(".").pop() || "jpg").toLowerCase();
+      if (heic) {
+        // Convert HEIC/HEIF → JPEG so it displays everywhere (libheif WASM,
+        // lazy-loaded so it stays out of the main bundle).
+        const heic2any = (await import("heic2any")).default;
+        const out = await heic2any({ blob: f, toType: "image/jpeg", quality: 0.85 });
+        blob = Array.isArray(out) ? out[0] : (out as Blob);
+        ext = "jpg";
+      }
+      setUploadBlob(blob);
+      setUploadExt(ext);
+      setPreview(URL.createObjectURL(blob));
+    } catch {
+      toast.error("Couldn't read that image — please try a JPG or PNG");
+    } finally {
+      setPrepping(false);
+    }
   }
 
   function close() {
-    setFile(null);
+    setUploadBlob(null);
     if (preview) URL.revokeObjectURL(preview);
     setPreview(null);
   }
 
   async function confirmUpload() {
-    if (!file || !driver) return;
+    if (!uploadBlob || !driver) return;
     setBusy(true);
     try {
       const uid = session?.user?.id ?? driver.user_id ?? "unknown";
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const path = `driver/${uid}/${Date.now()}.${ext}`;
+      const path = `driver/${uid}/${Date.now()}.${uploadExt}`;
+      const contentType = uploadExt === "jpg" ? "image/jpeg" : uploadBlob.type || "image/jpeg";
       const { error: upErr } = await supabase.storage
         .from("avatars")
-        .upload(path, file, { upsert: true });
+        .upload(path, uploadBlob, { upsert: true, contentType });
       if (upErr) throw upErr;
       const url = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
       await submit({ data: { url } });
@@ -84,6 +110,7 @@ export function DriverAvatarUpload() {
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
+        disabled={prepping}
         title="Change your profile photo"
         className="relative w-20 h-20 mx-auto rounded-full overflow-hidden border border-primary/40 bg-primary/20 flex items-center justify-center mb-3"
       >
@@ -96,11 +123,23 @@ export function DriverAvatarUpload() {
         ) : (
           <span className="text-3xl">{initials(driver.name)}</span>
         )}
-        <span className="absolute bottom-0 right-0 grid size-6 place-items-center rounded-full bg-primary text-primary-foreground border-2 border-card">
-          <Camera className="size-3" />
-        </span>
+        {prepping ? (
+          <span className="absolute inset-0 grid place-items-center bg-black/40">
+            <Loader2 className="size-5 text-white animate-spin" />
+          </span>
+        ) : (
+          <span className="absolute bottom-0 right-0 grid size-6 place-items-center rounded-full bg-primary text-primary-foreground border-2 border-card">
+            <Camera className="size-3" />
+          </span>
+        )}
       </button>
-      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={onPick} />
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,.heic,.heif"
+        className="hidden"
+        onChange={onPick}
+      />
 
       {status === "pending" && (
         <p className="flex items-center justify-center gap-1 text-[11px] font-medium text-amber-600">
@@ -113,17 +152,17 @@ export function DriverAvatarUpload() {
         </p>
       )}
 
-      {file && (
+      {uploadBlob && preview && (
         <div className="fixed inset-0 z-[3000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-5">
           <div className="bg-card border border-border rounded-2xl p-5 max-w-sm w-full text-center shadow-2xl">
             <div className="w-24 h-24 mx-auto rounded-full overflow-hidden border border-border mb-4">
-              {preview && <img src={preview} alt="" className="w-full h-full object-cover" />}
+              <img src={preview} alt="" className="w-full h-full object-cover" />
             </div>
             <h3 className="text-base font-bold text-foreground">Use this photo?</h3>
             <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-              Make sure your photo is a clear, appropriate headshot — <strong>no nudity, offensive
-              or inappropriate content</strong>. It must be <strong>approved by your dispatcher</strong>{" "}
-              before it appears in the system.
+              Make sure your photo is a clear, appropriate headshot —{" "}
+              <strong>no nudity, offensive or inappropriate content</strong>. It must be{" "}
+              <strong>approved by your dispatcher</strong> before it appears in the system.
             </p>
             <div className="mt-4 flex gap-2">
               <button
