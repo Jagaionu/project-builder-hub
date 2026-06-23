@@ -35,15 +35,15 @@ export function ToolbarButton({
       title={title}
       data-ai-target={dataAiTarget}
       className={cn(
-        "group relative inline-flex items-center rounded-full font-semibold text-white whitespace-nowrap overflow-hidden",
+        "group relative inline-flex items-center rounded-full font-semibold whitespace-nowrap overflow-hidden",
         "shadow-[0_2px_6px_rgba(0,0,0,0.30)] transition-all duration-150 ease-out active:scale-[0.97]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
         "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
         primary ? "h-9 text-xs gap-2" : "h-8 text-[11px] gap-1.5",
         icon ? (primary ? "pl-1 pr-4" : "pl-1 pr-3") : primary ? "px-4" : "px-3",
         primary
-          ? "bg-gradient-to-b from-[#2f8bff] to-[#1559d6] hover:from-[#3f97ff] hover:to-[#1e63e6]"
-          : "bg-gradient-to-b from-[#3a3a3a] to-[#0c0c0c] hover:from-[#474747] hover:to-[#171717]",
+          ? "text-white bg-gradient-to-b from-[#2f8bff] to-[#1559d6] hover:from-[#3f97ff] hover:to-[#1e63e6]"
+          : "text-[#2e2305] bg-gradient-to-b from-[#f0d469] to-[#deb523] hover:from-[#f4dc85] hover:to-[#e6c12f]",
       )}
     >
       {/* glossy sheen across the top half */}
@@ -56,13 +56,22 @@ export function ToolbarButton({
             primary ? "size-7 [&_svg]:size-3.5" : "size-6 [&_svg]:size-3",
             primary
               ? "bg-gradient-to-b from-[#4aa0ff] to-[#0f49b8] ring-white/30"
-              : "bg-gradient-to-b from-[#2b2b2b] to-black ring-white/15",
+              : "bg-gradient-to-b from-[#f6df88] to-[#c99e14] ring-black/15",
           )}
         >
           {icon}
         </span>
       )}
-      <span className="relative leading-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">{children}</span>
+      <span
+        className={cn(
+          "relative leading-none",
+          primary
+            ? "drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]"
+            : "drop-shadow-[0_1px_0_rgba(255,255,255,0.35)]",
+        )}
+      >
+        {children}
+      </span>
     </button>
   );
 }
