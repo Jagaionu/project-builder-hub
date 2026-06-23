@@ -747,24 +747,18 @@ function DispatchPage() {
         <ImportBatchesButton />
         <ImportCsvButton />
 
-        <div className="inline-flex items-center">
+        <div className="relative inline-flex items-center h-8 rounded-full overflow-hidden shadow-[0_2px_6px_rgba(0,0,0,0.30)] bg-gradient-to-b from-[#3a3a3a] to-[#0c0c0c]">
+          <span className="pointer-events-none absolute inset-x-1 top-px h-1/2 rounded-full bg-white/20" />
           <Popover>
             <PopoverTrigger asChild>
-              <button
-                className={cn(
-                  "group relative inline-flex items-center gap-2 h-9 pl-1 pr-3 rounded-full text-xs font-semibold text-white whitespace-nowrap overflow-hidden",
-                  "shadow-[0_2px_6px_rgba(0,0,0,0.30)] transition-all active:scale-[0.97]",
-                  "bg-gradient-to-b from-[#3a3a3a] to-[#0c0c0c] hover:from-[#474747] hover:to-[#171717]",
-                )}
-              >
-                <span className="pointer-events-none absolute inset-x-1 top-px h-1/2 rounded-full bg-white/20" />
-                <span className="relative grid size-7 place-items-center rounded-full ring-1 ring-white/15 bg-gradient-to-b from-[#2b2b2b] to-black shadow-[inset_0_1px_2px_rgba(255,255,255,0.45),0_1px_2px_rgba(0,0,0,0.45)] [&_svg]:size-3.5">
-                  <CalendarIcon className="size-3.5" />
+              <button className="relative inline-flex items-center gap-1.5 h-8 pl-1 pr-2.5 text-[11px] font-semibold text-white whitespace-nowrap hover:bg-white/5 transition-colors">
+                <span className="grid size-6 place-items-center rounded-full ring-1 ring-white/15 bg-gradient-to-b from-[#2b2b2b] to-black shadow-[inset_0_1px_2px_rgba(255,255,255,0.45),0_1px_2px_rgba(0,0,0,0.45)] [&_svg]:size-3">
+                  <CalendarIcon className="size-3" />
                 </span>
-                <span className="relative leading-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
+                <span className="leading-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
                   {dateLabel}
                 </span>
-                <ChevronDown className="relative size-3 opacity-80" />
+                <ChevronDown className="size-3 opacity-80" />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
@@ -837,7 +831,7 @@ function DispatchPage() {
                 setTourDriverId(null);
               }}
               title="Reset filters"
-              className="px-2 py-1.5 border-l border-border text-muted-foreground transition-all hover:text-foreground hover:bg-input"
+              className="relative h-8 px-2.5 border-l border-white/15 text-white/80 transition-colors hover:text-white hover:bg-white/10"
             >
               <RotateCcw className="size-3.5" />
             </button>

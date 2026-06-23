@@ -35,11 +35,12 @@ export function ToolbarButton({
       title={title}
       data-ai-target={dataAiTarget}
       className={cn(
-        "group relative inline-flex items-center gap-2 h-9 rounded-full text-xs font-semibold text-white whitespace-nowrap overflow-hidden",
+        "group relative inline-flex items-center rounded-full font-semibold text-white whitespace-nowrap overflow-hidden",
         "shadow-[0_2px_6px_rgba(0,0,0,0.30)] transition-all duration-150 ease-out active:scale-[0.97]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
         "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
-        icon ? "pl-1 pr-4" : "px-4",
+        primary ? "h-9 text-xs gap-2" : "h-8 text-[11px] gap-1.5",
+        icon ? (primary ? "pl-1 pr-4" : "pl-1 pr-3") : primary ? "px-4" : "px-3",
         primary
           ? "bg-gradient-to-b from-[#2f8bff] to-[#1559d6] hover:from-[#3f97ff] hover:to-[#1e63e6]"
           : "bg-gradient-to-b from-[#3a3a3a] to-[#0c0c0c] hover:from-[#474747] hover:to-[#171717]",
@@ -50,8 +51,9 @@ export function ToolbarButton({
       {icon && (
         <span
           className={cn(
-            "relative grid size-7 place-items-center rounded-full ring-1 [&_svg]:size-3.5",
+            "relative grid place-items-center rounded-full ring-1",
             "shadow-[inset_0_1px_2px_rgba(255,255,255,0.45),0_1px_2px_rgba(0,0,0,0.45)]",
+            primary ? "size-7 [&_svg]:size-3.5" : "size-6 [&_svg]:size-3",
             primary
               ? "bg-gradient-to-b from-[#4aa0ff] to-[#0f49b8] ring-white/30"
               : "bg-gradient-to-b from-[#2b2b2b] to-black ring-white/15",
