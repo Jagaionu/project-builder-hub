@@ -36,6 +36,11 @@ export interface DriverProfile {
   /** ISO timestamp the suspension lasts until; null = indefinite. */
   suspended_until?: string | null;
   suspended_reason?: string | null;
+  /** Approved profile photo URL (shown everywhere). */
+  avatar_url?: string | null;
+  /** Uploaded photo awaiting dispatcher approval. */
+  pending_avatar_url?: string | null;
+  avatar_status?: "none" | "pending" | "approved" | "rejected" | null;
 }
 
 export interface DriverStop {
