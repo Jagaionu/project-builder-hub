@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useWarehouses, reloadWarehouses } from "@/lib/hooks";
 import { PageHeader } from "./_app.index";
+import { ToolbarButton } from "@/components/dispatch/toolbar";
 import { FormField as Field } from "@/components/shared/form-field";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
@@ -301,29 +302,30 @@ function WarehousesPage() {
                 if (f) importCsv(f);
               }}
             />
-            <button
+            <ToolbarButton
               onClick={exportCsv}
-              data-ai-target="export-warehouses"
+              dataAiTarget="export-warehouses"
               disabled={warehouses.length === 0}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface text-xs font-medium hover:bg-surface-2 disabled:opacity-50"
+              icon={<Download className="size-3.5" />}
             >
-              <Download className="size-3.5" /> Export CSV
-            </button>
-            <button
+              Export CSV
+            </ToolbarButton>
+            <ToolbarButton
               onClick={() => fileInputRef.current?.click()}
-              data-ai-target="import-warehouses"
+              dataAiTarget="import-warehouses"
               disabled={importing}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border bg-surface text-xs font-medium hover:bg-surface-2 disabled:opacity-50"
+              icon={<Upload className="size-3.5" />}
             >
-              <Upload className="size-3.5" /> {importing ? "Importing…" : "Import CSV"}
-            </button>
-            <button
+              {importing ? "Importing…" : "Import CSV"}
+            </ToolbarButton>
+            <ToolbarButton
               onClick={() => setOpen((o) => !o)}
-              data-ai-target="add-warehouse"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium"
+              primary
+              dataAiTarget="add-warehouse"
+              icon={<Plus className="size-3.5" />}
             >
-              <Plus className="size-3.5" /> New Warehouse
-            </button>
+              New Warehouse
+            </ToolbarButton>
           </div>
         }
       />
