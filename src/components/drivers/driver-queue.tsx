@@ -1,6 +1,6 @@
 import { memo, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Users } from "lucide-react";
+import { Users, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Driver } from "@/lib/types";
 
@@ -115,6 +115,7 @@ const DriverQueueRow = memo(function DriverQueueRow({
     (driver as { avatar_status?: string | null }).avatar_status === "approved"
       ? ((driver as { avatar_url?: string | null }).avatar_url ?? null)
       : null;
+  const photoPending = (driver as { avatar_status?: string | null }).avatar_status === "pending";
   const susp = driver as { suspended?: boolean | null; suspended_until?: string | null };
   const suspended =
     !!susp.suspended &&
@@ -162,6 +163,14 @@ const DriverQueueRow = memo(function DriverQueueRow({
           {suspended && (
             <span className="shrink-0 rounded-full bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">
               Suspended
+            </span>
+          )}
+          {photoPending && (
+            <span
+              title="Submitted a profile photo — pending review"
+              className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 px-1.5 py-0.5 text-[9px] font-semibold text-blue-600"
+            >
+              <Camera className="size-2.5" /> Photo
             </span>
           )}
         </div>

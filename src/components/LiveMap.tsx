@@ -50,7 +50,7 @@ const STATUS_MAP: Record<string, { bg: string; glow: string; label: string }> = 
 const DEF_STATUS = STATUS_MAP.ON_SHIFT;
 
 // ─── Marker HTML ───────────────────────────────────────────────────────────
-function driverHtml(name: string, status: string, selected: boolean): string {
+function driverHtml(name: string, status: string, selected: boolean, avatarUrl?: string | null): string {
   const s = STATUS_MAP[status] ?? DEF_STATUS;
   const sz = selected ? 26 : 20;
   const ring = selected
@@ -60,9 +60,12 @@ function driverHtml(name: string, status: string, selected: boolean): string {
     status !== "OFF_SHIFT" && !selected
       ? `<span class="drv-pulse" style="border-color:${s.bg}"></span>`
       : "";
+  const inner = avatarUrl
+    ? `<img class="drv-img" src="${avatarUrl}" alt="" />`
+    : `<span class="drv-init" style="font-size:${sz * 0.38}px">${(name[0] ?? "?").toUpperCase()}</span>`;
   return `
 <div class="drv-mk" style="width:${sz}px;height:${sz}px;background:${s.bg};${ring}">
-  <span class="drv-init" style="font-size:${sz * 0.38}px">${(name[0] ?? "?").toUpperCase()}</span>
+  ${inner}
   ${pulse}
 </div>`;
 }
@@ -93,6 +96,7 @@ function etaHtml(distKm: number, minutes: number): string {
 const MAP_CSS = `
 .drv-mk{border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;transition:transform .15s,box-shadow .15s}
 .drv-mk:hover{transform:scale(1.12)}
+.drv-img{width:100%;height:100%;border-radius:50%;object-fit:cover}
 .drv-init{color:#fff;font-weight:800;font-family:system-ui,sans-serif;line-height:1;pointer-events:none}
 .drv-pulse{position:absolute;inset:-6px;border-radius:50%;border:2px solid;opacity:0;animation:drv-ring 2.4s ease-out infinite}
 @keyframes drv-ring{0%{opacity:.7;transform:scale(.9)}100%{opacity:0;transform:scale(2)}}
@@ -211,6 +215,10 @@ export function LiveMap({
     return m;
   }, [drivers, jobs, scheduleMap]);
   const statusOf = (d: Driver) => effStatus[d.id] ?? d.status;
+  const avatarOf = (d: Driver) =>
+    (d as { avatar_status?: string | null }).avatar_status === "approved"
+      ? ((d as { avatar_url?: string | null }).avatar_url ?? null)
+      : null;
 
   // ── CSS ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -372,7 +380,7 @@ export function LiveMap({
       const sz = sel ? 26 : 20;
       const icon = L.divIcon({
         className: "",
-        html: driverHtml(d.name, statusOf(d), sel),
+        html: driverHtml(d.name, statusOf(d), sel, avatarOf(d)),
         iconSize: [sz, sz],
         iconAnchor: [sz / 2, sz / 2],
       });
@@ -695,12 +703,20 @@ export function LiveMap({
       <div className="space-y-3">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-sm shadow-md flex-shrink-0"
-            style={{ background: s.bg }}
-          >
-            {(driver.name[0] ?? "?").toUpperCase()}
-          </div>
+          {avatarOf(driver) ? (
+            <img
+              src={avatarOf(driver) as string}
+              alt=""
+              className="w-10 h-10 rounded-xl object-cover shadow-md flex-shrink-0"
+            />
+          ) : (
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-sm shadow-md flex-shrink-0"
+              style={{ background: s.bg }}
+            >
+              {(driver.name[0] ?? "?").toUpperCase()}
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-slate-900 truncate leading-tight">{driver.name}</p>
             <div className="flex items-center gap-1.5 mt-0.5">
@@ -898,12 +914,20 @@ export function LiveMap({
                     }}
                     className="w-full flex items-center gap-2.5 p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all text-left group"
                   >
-                    <div
-                      className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-white text-xs flex-shrink-0"
-                      style={{ background: s.bg }}
-                    >
-                      {(d.name[0] ?? "?").toUpperCase()}
-                    </div>
+                    {avatarOf(d) ? (
+                      <img
+                        src={avatarOf(d) as string}
+                        alt=""
+                        className="w-7 h-7 rounded-lg object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div
+                        className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-white text-xs flex-shrink-0"
+                        style={{ background: s.bg }}
+                      >
+                        {(d.name[0] ?? "?").toUpperCase()}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-slate-900 truncate leading-tight">
                         {d.name}
