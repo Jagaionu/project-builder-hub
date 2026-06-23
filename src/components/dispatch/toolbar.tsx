@@ -43,7 +43,7 @@ export function ToolbarButton({
         icon ? (primary ? "pl-1 pr-4" : "pl-1 pr-3") : primary ? "px-4" : "px-3",
         primary
           ? "text-white bg-gradient-to-b from-[#2f8bff] to-[#1559d6] hover:from-[#3f97ff] hover:to-[#1e63e6]"
-          : "text-[#2e2305] bg-gradient-to-b from-[#f0d469] to-[#deb523] hover:from-[#f4dc85] hover:to-[#e6c12f]",
+          : "text-neutral-800 border border-black/10 bg-gradient-to-b from-[#f7f7f7] to-[#e6e6e6] hover:from-white hover:to-[#eaeaea] dark:text-neutral-100 dark:border-white/10 dark:from-[#3d3d3d] dark:to-[#1e1e1e] dark:hover:from-[#474747] dark:hover:to-[#262626]",
       )}
     >
       {/* glossy sheen across the top half */}
@@ -56,7 +56,7 @@ export function ToolbarButton({
             primary ? "size-7 [&_svg]:size-3.5" : "size-6 [&_svg]:size-3",
             primary
               ? "bg-gradient-to-b from-[#4aa0ff] to-[#0f49b8] ring-white/30"
-              : "bg-gradient-to-b from-[#f6df88] to-[#c99e14] ring-black/15",
+              : "bg-gradient-to-b from-white to-[#d9d9d9] ring-black/10 dark:from-[#2f2f2f] dark:to-black dark:ring-white/15",
           )}
         >
           {icon}
@@ -67,7 +67,7 @@ export function ToolbarButton({
           "relative leading-none",
           primary
             ? "drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]"
-            : "drop-shadow-[0_1px_0_rgba(255,255,255,0.35)]",
+            : "",
         )}
       >
         {children}
