@@ -20,6 +20,7 @@
  */
 
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getUserTenantId, isSuperAdmin } from "@/lib/auth-helpers.server";
@@ -112,6 +113,9 @@ export type AuditReport = {
   audit_run_at: string;
   now_ms: number;
   tenant_id: string | null;
+  /** Plain-language explanation of the plan's decisions, written for the AI
+   *  assistant to turn into a diagram of why each route was/was not assigned. */
+  ai_explanation: string;
   // Constants used by the planner
   constants: {
     auto_assign_radius_km: number;
@@ -203,10 +207,15 @@ function effectiveDailyCap(compliance: ReturnType<typeof computeCompliance>): nu
 
 export const auditPlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<AuditReport> => {
+  .inputValidator((input: unknown) =>
+    z.object({ tenantId: z.string().uuid().nullable().optional() }).parse(input ?? {}),
+  )
+  .handler(async ({ context, data }): Promise<AuditReport> => {
     const { userId } = context;
     const superAdmin = await isSuperAdmin(userId);
-    const tenantId = superAdmin ? null : await getUserTenantId(userId);
+    // Super admin may target a specific company (or null = all companies, for a
+    // platform-wide audit). Everyone else is locked to their own tenant.
+    const tenantId = superAdmin ? (data?.tenantId ?? null) : await getUserTenantId(userId);
     if (!superAdmin && !tenantId) throw new Error("Forbidden");
 
     // ── Snapshot nowMs once — same as planJobs does ──────────────────────────
@@ -613,10 +622,46 @@ export const auditPlan = createServerFn({ method: "POST" })
     }
 
     // ── 8. Assemble report ────────────────────────────────────────────────────
+
+    // Plain-language decision narrative for the AI assistant to graph.
+    const eligibleNames = driverEligibility.filter((d) => d.eligible).map((d) => d.name);
+    const exp: string[] = [];
+    exp.push(
+      `Planner audit (${auditRunAt}). ${jobList.length} pending route(s): ${totalAssigned} assigned, ${totalUnassignable} unassignable across ${byDate.size} service date(s).`,
+    );
+    exp.push(
+      `Eligible drivers today: ${eligibleNames.length ? eligibleNames.join(", ") : "none"}.`,
+    );
+    exp.push(
+      "Decision rule: each route is given to the NEAREST eligible driver who fits — within ~30 km of the pickup (or ~80 km when chaining onto an earlier run), inside HGV limits (9h/day, 56h/week, 90h/fortnight) with a 45-minute break per 4.5h driving, inside the driver's shift window, with a reserved return-to-base leg where required, and matching the route's equipment type.",
+    );
+    for (const g of dateGroupTraces) {
+      exp.push(
+        `\nDate ${g.date} — ${g.job_count} route(s), ${g.eligible_driver_count} eligible driver(s):`,
+      );
+      for (const j of g.jobs) {
+        if (j.outcome === "ASSIGNED") {
+          const win = j.candidates.find((c) => c.selected);
+          exp.push(
+            `  - ${j.reference} (from ${j.first_pickup_warehouse ?? "?"}) assigned to ${j.assigned_driver_name ?? j.assigned_driver_id ?? "?"} — closest eligible${win ? ` at ${win.dist_km.toFixed(1)} km` : ""}, sequence ${j.planned_sequence ?? "?"}.`,
+          );
+        } else {
+          exp.push(
+            `  - ${j.reference} (from ${j.first_pickup_warehouse ?? "?"}) UNASSIGNABLE — ${j.unassignable_reason ?? "no eligible driver"}.`,
+          );
+        }
+      }
+    }
+    exp.push(
+      "\nTo visualise this: for each service date draw a flowchart where every route node points either to its assigned driver (label the arrow with the distance / reason it won) or to an 'Unassignable' node labelled with the blocking reason (hours, distance, shift end, equipment mismatch, or impossible schedule).",
+    );
+    const aiExplanation = exp.join("\n");
+
     return {
       audit_run_at: auditRunAt,
       now_ms: nowMs,
       tenant_id: tenantId,
+      ai_explanation: aiExplanation,
       constants: {
         auto_assign_radius_km: AUTO_ASSIGN_RADIUS_KM,
         chain_radius_km: CHAIN_RADIUS_KM,

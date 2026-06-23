@@ -1,6 +1,7 @@
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { auditPlan } from "@/lib/audit-plan.functions";
 import type {
   Company,
   SubscriptionStatus,
@@ -33,6 +34,7 @@ import {
   User,
   Building2,
   Key,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTeamSync } from "@/lib/use-team-sync";
@@ -133,6 +135,8 @@ export function CompanyCard({
   const resetPwd = useServerFn(resetProfilePassword);
   const delProfile = useServerFn(deleteProfile);
   const delCompanyFn = useServerFn(deleteCompany);
+  const runAudit = useServerFn(auditPlan);
+  const [auditing, setAuditing] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [issued, setIssued] = useState<{
     name: string;
@@ -178,6 +182,30 @@ export function CompanyCard({
       toast.error(err instanceof Error ? err.message : "Failed to create user");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleAuditPlan() {
+    if (auditing) return;
+    setAuditing(true);
+    try {
+      const report = await runAudit({ data: { tenantId: company.id } });
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `plan-audit-${company.slug}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(
+        `Audit for ${company.name}: ${report.summary.total_assigned}/${report.summary.total_pending_jobs} assigned`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Audit failed");
+    } finally {
+      setAuditing(false);
     }
   }
 
@@ -552,6 +580,28 @@ export function CompanyCard({
                     </button>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Support tools */}
+            <div className="rounded-lg border border-border bg-surface-2/30 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-xs font-semibold text-foreground">Plan audit</div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Dry-run the planner for this company and download the decision trace (with an AI
+                    explanation) — for investigating support tickets.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAuditPlan}
+                  disabled={auditing}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[11px] font-medium text-foreground hover:bg-surface-2 transition-colors disabled:opacity-50"
+                >
+                  <ClipboardList className="size-3.5" />
+                  {auditing ? "Auditing…" : "Audit plan"}
+                </button>
               </div>
             </div>
 
