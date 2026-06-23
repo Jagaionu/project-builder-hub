@@ -53,11 +53,20 @@ export const profileSignIn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ access_token: string; refresh_token: string }> => {
     const { data: m } = await sb
       .from("company_members")
-      .select("email, role")
+      .select("email, role, user_id")
       .eq("id", data.memberId)
       .maybeSingle();
-    if (!m || (m.role !== "member" && m.role !== "admin") || !m.email)
-      throw new Error("Profile not found");
+    if (!m || (m.role !== "member" && m.role !== "admin")) throw new Error("Profile not found");
+
+    // The member row's email may be empty (e.g. the company admin, whose login
+    // lives only on the auth user). Fall back to the linked auth user's email so
+    // the admin signs in with the same admin password they were given.
+    let email: string | null = (m.email as string | null) ?? null;
+    if (!email && m.user_id) {
+      const { data: u } = await supabaseAdmin.auth.admin.getUserById(m.user_id as string);
+      email = u.user?.email ?? null;
+    }
+    if (!email) throw new Error("Profile not found");
 
     const url = process.env.SUPABASE_URL;
     const anonKey = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -67,7 +76,7 @@ export const profileSignIn = createServerFn({ method: "POST" })
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: signed, error } = await anon.auth.signInWithPassword({
-      email: m.email,
+      email,
       password: data.password,
     });
     if (error || !signed.session) throw new Error("Incorrect password");
