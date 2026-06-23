@@ -35,35 +35,32 @@ export function ToolbarButton({
       title={title}
       data-ai-target={dataAiTarget}
       className={cn(
-        "inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium tracking-tight",
-        "transition-all duration-150 ease-out",
+        "group relative inline-flex items-center gap-2 h-9 rounded-full text-xs font-semibold text-white whitespace-nowrap overflow-hidden",
+        "shadow-[0_2px_6px_rgba(0,0,0,0.30)] transition-all duration-150 ease-out active:scale-[0.97]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
         "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
-        "active:scale-[0.98]",
+        icon ? "pl-1 pr-4" : "px-4",
         primary
-          ? [
-              "bg-primary text-primary-foreground",
-              "shadow-[0_1px_0_0_color-mix(in_oklab,white_15%,transparent)_inset,0_1px_2px_0_color-mix(in_oklab,black_30%,transparent)]",
-              "hover:bg-[color:color-mix(in_oklab,var(--color-primary)_92%,white)]",
-            ].join(" ")
-          : [
-              "bg-surface text-foreground border border-border",
-              "shadow-[0_1px_0_0_color-mix(in_oklab,white_4%,transparent)_inset,0_1px_2px_0_color-mix(in_oklab,black_20%,transparent)]",
-              "hover:bg-surface-2 hover:border-[color:var(--border-strong)] hover:text-foreground",
-            ].join(" "),
+          ? "bg-gradient-to-b from-[#2f8bff] to-[#1559d6] hover:from-[#3f97ff] hover:to-[#1e63e6]"
+          : "bg-gradient-to-b from-[#3a3a3a] to-[#0c0c0c] hover:from-[#474747] hover:to-[#171717]",
       )}
     >
+      {/* glossy sheen across the top half */}
+      <span className="pointer-events-none absolute inset-x-1 top-px h-1/2 rounded-full bg-white/20" />
       {icon && (
         <span
           className={cn(
-            "inline-flex items-center justify-center [&_svg]:size-3.5",
-            primary ? "opacity-90" : "text-muted-foreground",
+            "relative grid size-7 place-items-center rounded-full ring-1 [&_svg]:size-3.5",
+            "shadow-[inset_0_1px_2px_rgba(255,255,255,0.45),0_1px_2px_rgba(0,0,0,0.45)]",
+            primary
+              ? "bg-gradient-to-b from-[#4aa0ff] to-[#0f49b8] ring-white/30"
+              : "bg-gradient-to-b from-[#2b2b2b] to-black ring-white/15",
           )}
         >
           {icon}
         </span>
       )}
-      <span className="leading-none">{children}</span>
+      <span className="relative leading-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">{children}</span>
     </button>
   );
 }

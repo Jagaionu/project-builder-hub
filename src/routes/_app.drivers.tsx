@@ -19,7 +19,7 @@ import { deleteDriver } from "@/lib/drivers-delete.functions";
 import { useActiveJobsByDriver } from "@/lib/use-driver-routes";
 import { effectiveDriverStatus } from "@/lib/effective-status";
 import { useDriverSchedule } from "@/lib/use-driver-schedule";
-import { DispatchStat } from "@/components/dispatch/toolbar";
+import { DispatchStat, ToolbarButton } from "@/components/dispatch/toolbar";
 import { useEquipmentTypes } from "@/lib/use-equipment-types";
 import { logActivity } from "@/lib/activity-log";
 import { DriverQueue } from "@/components/drivers/driver-queue";
@@ -475,13 +475,14 @@ function DriversPage() {
           />
         </div>
         <div className="flex flex-col items-end gap-2 justify-self-end">
-          <button
+          <ToolbarButton
             onClick={() => setOpen((o) => !o)}
-            data-ai-target="add-driver"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors shadow-lg hover:shadow-xl"
+            primary
+            dataAiTarget="add-driver"
+            icon={<Plus className="size-3.5" />}
           >
-            <Plus className="size-4" /> New Driver
-          </button>
+            New Driver
+          </ToolbarButton>
         </div>
       </header>
 
@@ -769,12 +770,9 @@ function DriversPage() {
             </button>
           )}
         </div>
-        <button
-          onClick={() => setTachoOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-surface text-sm font-medium hover:bg-surface-2 transition-colors shrink-0"
-        >
-          <Clock className="size-4" /> Tachograph Hours
-        </button>
+        <ToolbarButton onClick={() => setTachoOpen(true)} icon={<Clock className="size-3.5" />}>
+          Tachograph Hours
+        </ToolbarButton>
       </div>
 
       {/* Two-column body */}
