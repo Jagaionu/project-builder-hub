@@ -12,6 +12,8 @@ import {
   LifeBuoy,
   CreditCard,
   UserCog,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useAlertCount, useUnassignedJobCount } from "@/lib/use-alerts";
 import { useTenant, useFeatureFlags } from "@/lib/tenant-context";
@@ -29,6 +31,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { setMemberAvatar } from "@/lib/admin-users.functions";
 import brandLogo from "@/assets/brand-logo.png";
+
+void ClipboardList;
 
 const ALL_NAV: ReadonlyArray<{
   to: string;
@@ -55,6 +59,17 @@ export function Sidebar() {
   const { company, email, role, isSuperAdmin, name, userId, avatarUrl } = useTenant();
   const flags = useFeatureFlags();
   const { cycleAccent, accentColor } = useTheme();
+  const [collapsed, setCollapsed] = useState(
+    () =>
+      typeof window !== "undefined" && window.localStorage.getItem("sidebar.collapsed") === "1",
+  );
+  const toggleCollapsed = () =>
+    setCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined")
+        window.localStorage.setItem("sidebar.collapsed", next ? "1" : "0");
+      return next;
+    });
 
   const isAdmin = role === "admin" || isSuperAdmin;
   const visibleNav = ALL_NAV.filter(
@@ -65,37 +80,55 @@ export function Sidebar() {
 
   return (
     <aside
-      className="w-56 shrink-0 flex flex-col"
+      className={
+        (collapsed ? "w-16" : "w-56") + " shrink-0 flex flex-col transition-[width] duration-200"
+      }
       style={{
         background: accentColor || "var(--sidebar-bg-1)",
         borderRight: "1px solid var(--secondary)",
       }}
     >
-      {/* ── Brand header ── */}
-      <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--sidebar-divider)" }}>
-        <div className="flex items-center gap-2.5">
+      <div
+        className={(collapsed ? "px-2" : "px-4") + " py-3"}
+        style={{ borderBottom: "1px solid var(--sidebar-divider)" }}
+      >
+        <div className={"flex items-center " + (collapsed ? "flex-col gap-2" : "gap-2.5")}>
           <div
-            className="size-10 shrink-0 cursor-pointer"
+            className={(collapsed ? "size-8" : "size-10") + " shrink-0 cursor-pointer"}
             onClick={cycleAccent}
             title="Click to cycle background accent"
           >
             <img
               src={brandLogo}
-              alt={`${displayName} logo`}
+              alt={displayName + " logo"}
               className="w-full h-full object-contain"
             />
           </div>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold tracking-tight truncate leading-tight">
-              {displayName}
+          {!collapsed && (
+            <div className="min-w-0">
+              <div className="text-sm font-semibold tracking-tight truncate leading-tight">
+                {displayName}
+              </div>
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mt-0.5">
+                UK · Dispatch
+              </div>
             </div>
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mt-0.5">
-              UK · Dispatch
-            </div>
-          </div>
+          )}
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            title={collapsed ? "Expand menu" : "Collapse menu"}
+            aria-label={collapsed ? "Expand menu" : "Collapse menu"}
+            className={
+              (collapsed ? "" : "ml-auto ") +
+              "size-6 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            }
+          >
+            {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+          </button>
         </div>
 
-        {company.subscription_status === "trial" && (
+        {!collapsed && company.subscription_status === "trial" && (
           <div
             className="mt-3 rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-wide text-center"
             style={{
@@ -109,25 +142,19 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* ── Navigation ── */}
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
         {visibleNav.map((n) => {
           const Icon = n.icon;
           const active = path === n.to;
           const badgeCount =
-            n.to === "/alerts"
-              ? alertCount
-              : n.to === "/dispatch"
-                ? unassignedCount
-                : n.to === "/drivers"
-                  ? 0
-                  : 0;
+            n.to === "/alerts" ? alertCount : n.to === "/dispatch" ? unassignedCount : 0;
 
           return (
             <Link
               key={n.to}
               to={n.to}
-              className="nav-item"
+              title={collapsed ? n.label : undefined}
+              className={"nav-item " + (collapsed ? "justify-center relative" : "")}
               style={
                 active
                   ? {
@@ -143,29 +170,35 @@ export function Sidebar() {
                 className="size-4 shrink-0"
                 style={{ color: active ? "var(--primary)" : undefined }}
               />
-              <span className="flex-1 truncate">{n.label}</span>
-              {badgeCount > 0 && (
+              {!collapsed && <span className="flex-1 truncate">{n.label}</span>}
+              {!collapsed && badgeCount > 0 && (
                 <span
                   className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full font-mono font-bold text-[10px] tabular-nums"
                   style={{
                     background:
                       n.to === "/alerts"
                         ? "oklch(0.63 0.22 20 / 0.9)"
-                        : n.to === "/drivers"
-                          ? "oklch(0.80 0.18 72 / 0.95)"
-                          : "oklch(0.62 0.22 245 / 0.9)",
-                    color: n.to === "/drivers" ? "#1a1200" : "var(--primary-foreground)",
+                        : "oklch(0.62 0.22 245 / 0.9)",
+                    color: "var(--primary-foreground)",
                     boxShadow:
                       n.to === "/alerts"
                         ? "0 0 6px oklch(0.63 0.22 20 / 0.4)"
-                        : n.to === "/drivers"
-                          ? "0 0 6px oklch(0.80 0.18 72 / 0.5)"
-                          : "0 0 6px oklch(0.62 0.22 245 / 0.4)",
+                        : "0 0 6px oklch(0.62 0.22 245 / 0.4)",
                   }}
                 >
-                  {n.to === "/drivers" ? "! " : ""}
                   {badgeCount > 99 ? "99+" : badgeCount}
                 </span>
+              )}
+              {collapsed && badgeCount > 0 && (
+                <span
+                  className="absolute top-1 right-1.5 size-2 rounded-full"
+                  style={{
+                    background:
+                      n.to === "/alerts"
+                        ? "oklch(0.63 0.22 20 / 0.95)"
+                        : "oklch(0.62 0.22 245 / 0.95)",
+                  }}
+                />
               )}
             </Link>
           );
@@ -179,7 +212,8 @@ export function Sidebar() {
             />
             <Link
               to="/admin"
-              className="nav-item"
+              title={collapsed ? "Admin Panel" : undefined}
+              className={"nav-item " + (collapsed ? "justify-center" : "")}
               style={
                 path.startsWith("/admin")
                   ? {
@@ -192,71 +226,88 @@ export function Sidebar() {
               }
             >
               <Shield className="size-4 shrink-0" style={{ color: "var(--primary)" }} />
-              <span className="flex-1">Admin Panel</span>
+              {!collapsed && <span className="flex-1">Admin Panel</span>}
             </Link>
           </>
         )}
       </nav>
 
-      {/* ── Footer ── controls on top, identity on the bottom ── */}
-      <div className="p-2" style={{ borderTop: "1px solid var(--sidebar-divider)" }}>
+      {collapsed ? (
         <div
-          className="rounded-2xl border border-border/60 overflow-hidden shadow-sm"
-          style={{ background: accentColor || "var(--surface)" }}
+          className="p-2 flex flex-col items-center gap-2"
+          style={{ borderTop: "1px solid var(--sidebar-divider)" }}
         >
-          {/* Controls strip — refresh · AI · create case · theme, all one line */}
-          <div
-            className="flex items-center gap-1.5 px-2 py-2"
-            style={{ background: accentColor ? "rgba(0,0,0,0.06)" : "var(--background)" }}
+          <FooterAvatar
+            userId={userId}
+            avatarUrl={avatarUrl ?? null}
+            fallback={(name ?? email).charAt(0).toUpperCase()}
+          />
+          <button
+            onClick={signOut}
+            title="Sign out"
+            className="size-7 shrink-0 grid place-items-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
           >
-            <AutoRefreshButton />
-            {flags.modules.includes("ai_agent") && <AIChatWidget />}
-            <button
-              type="button"
-              onClick={() => setCaseOpen(true)}
-              data-ai-target="create-case"
-              title="Create a support case"
-              aria-label="Create a support case"
-              className="grid size-7 shrink-0 place-items-center rounded-full text-white shadow-sm transition-transform hover:scale-110 hover:brightness-105 active:scale-95"
-              style={{ background: "#f97316" }}
-            >
-              <LogoIcon
-                src="/support-logo.png"
-                alt="Create a support case"
-                className="size-5"
-                fallback={<LifeBuoy className="size-4" />}
-              />
-            </button>
-            <div className="flex-1" />
-            <ThemeToggle compact />
-          </div>
-          {/* Identity */}
-          <div className="flex items-center gap-2.5 px-2.5 py-2 border-t border-border/50">
-            <FooterAvatar
-              userId={userId}
-              avatarUrl={avatarUrl ?? null}
-              fallback={(name ?? email).charAt(0).toUpperCase()}
-            />
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-semibold text-foreground truncate leading-tight">
-                {name ?? email}
-              </div>
-              <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/70 mt-0.5">
-                {role}
-              </div>
-            </div>
-            <ProfileSwitcher currentUserId={userId} />
-            <button
-              onClick={signOut}
-              title="Sign out"
-              className="size-7 shrink-0 grid place-items-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-            >
-              <LogOut className="size-3.5" />
-            </button>
-          </div>
-          {caseOpen && <SupportCaseModal onClose={() => setCaseOpen(false)} />}
+            <LogOut className="size-3.5" />
+          </button>
         </div>
-      </div>
+      ) : (
+        <div className="p-2" style={{ borderTop: "1px solid var(--sidebar-divider)" }}>
+          <div
+            className="rounded-2xl border border-border/60 overflow-hidden shadow-sm"
+            style={{ background: accentColor || "var(--surface)" }}
+          >
+            <div
+              className="flex items-center gap-1.5 px-2 py-2"
+              style={{ background: accentColor ? "rgba(0,0,0,0.06)" : "var(--background)" }}
+            >
+              <AutoRefreshButton />
+              {flags.modules.includes("ai_agent") && <AIChatWidget />}
+              <button
+                type="button"
+                onClick={() => setCaseOpen(true)}
+                data-ai-target="create-case"
+                title="Create a support case"
+                aria-label="Create a support case"
+                className="grid size-7 shrink-0 place-items-center rounded-full text-white shadow-sm transition-transform hover:scale-110 hover:brightness-105 active:scale-95"
+                style={{ background: "#f97316" }}
+              >
+                <LogoIcon
+                  src="/support-logo.png"
+                  alt="Create a support case"
+                  className="size-5"
+                  fallback={<LifeBuoy className="size-4" />}
+                />
+              </button>
+              <div className="flex-1" />
+              <ThemeToggle compact />
+            </div>
+            <div className="flex items-center gap-2.5 px-2.5 py-2 border-t border-border/50">
+              <FooterAvatar
+                userId={userId}
+                avatarUrl={avatarUrl ?? null}
+                fallback={(name ?? email).charAt(0).toUpperCase()}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-semibold text-foreground truncate leading-tight">
+                  {name ?? email}
+                </div>
+                <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/70 mt-0.5">
+                  {role}
+                </div>
+              </div>
+              <ProfileSwitcher currentUserId={userId} />
+              <button
+                onClick={signOut}
+                title="Sign out"
+                className="size-7 shrink-0 grid place-items-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                <LogOut className="size-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {caseOpen && <SupportCaseModal onClose={() => setCaseOpen(false)} />}
     </aside>
   );
 }
@@ -280,7 +331,7 @@ function FooterAvatar({
     setBusy(true);
     try {
       const ext = file.name.split(".").pop() || "jpg";
-      const path = `${userId}/${Date.now()}.${ext}`;
+      const path = userId + "/" + Date.now() + "." + ext;
       const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
       if (error) throw error;
       const url = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
