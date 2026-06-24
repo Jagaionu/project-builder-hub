@@ -158,7 +158,7 @@ const ETA_LEAD_MS = ETA_LEAD_MIN * 60_000;
 const ESTIMATED_HELP =
   "Live arrival estimate from the driver location via GPS. It only appears within " +
   ETA_LEAD_MIN +
-  " min of the planned yard time, or once the driver is en route; before that it shows "from HH:MM". It refreshes on each GPS update, so it sharpens as the run nears. Once the driver arrives or departs, it shows the real GPS time (amber if late).";
+  " min of the planned yard time, or once the driver is en route; before that it shows the from HH:MM placeholder. It refreshes on each GPS update, so it sharpens as the run nears. Once the driver arrives or departs, it shows the real GPS time (amber if late).";
 
 export const JobDetailPanel = memo(function JobDetailPanel({
   job,
@@ -499,11 +499,13 @@ export const JobDetailPanel = memo(function JobDetailPanel({
               <div className="col-span-3">Planned dock</div>
               <div className="col-span-2 flex items-center gap-1">
                 Estimated
-                <HelpCircle
-                  className="size-3 text-muted-foreground/60 cursor-help"
-                  aria-label="How the estimate works"
+                <span
                   title={ESTIMATED_HELP}
-                />
+                  aria-label="How the estimate works"
+                  className="inline-flex cursor-help"
+                >
+                  <HelpCircle className="size-3 text-muted-foreground/60" />
+                </span>
               </div>
             </div>
             {stops.map((s, idx) => {
