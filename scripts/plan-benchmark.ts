@@ -111,7 +111,7 @@ async function loadDay(dateStr: string): Promise<{
     admin
       .from("lane_travel_times")
       .select(
-        "from_warehouse_id,to_warehouse_id,day_of_week,hour_of_day,p50_duration_minutes,avg_duration_minutes",
+        "from_warehouse_id,to_warehouse_id,day_of_week,hour_of_day,p50_duration_minutes,avg_duration_minutes,p90_duration_minutes,recent_p50_duration_minutes,recent_sample_count",
       )
       .limit(50000),
   ]);
