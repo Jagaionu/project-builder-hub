@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { ChevronDown, ChevronUp, Trash2, Copy, RefreshCw, Clock, Package } from "lucide-react";
+import { ChevronDown, ChevronUp, Trash2, Copy, RefreshCw, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivity } from "@/lib/activity-log";
@@ -77,8 +77,16 @@ export default function RouteDialog({
     });
   }
 
-  function addStop(kind: "PICKUP" | "DROP") {
-    setStops((prev) => [...prev, { kind, warehouse_id: "", scheduled_at: null }]);
+  function setKind(i: number, kind: "PICKUP" | "DROP") {
+    setStops((prev) => {
+      const next = prev.map((s, idx) => (idx === i ? { ...s, kind } : s));
+      // Turning the LAST stop into a pickup means more legs follow — auto-append
+      // a drop-off so the route always ends with one (replaces the add buttons).
+      if (kind === "PICKUP" && i === prev.length - 1) {
+        next.push({ kind: "DROP", warehouse_id: "", scheduled_at: null });
+      }
+      return next;
+    });
   }
 
   function removeStop(i: number) {
@@ -229,6 +237,7 @@ export default function RouteDialog({
   }
 
   const warehouseMap = new Map(warehouses.map((w) => [w.id, w]));
+  const flow = stops.map((s) => warehouseMap.get(s.warehouse_id)?.code ?? "—").join("  →  ");
 
   return (
     <Dialog
@@ -339,29 +348,12 @@ export default function RouteDialog({
 
           {/* Stops Section */}
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col px-6">
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3">
               <Label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Stops · {stops.length}
+                Route flow · {stops.length} stops
               </Label>
-              <div className="flex gap-1.5">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addStop("PICKUP")}
-                  className="text-xs"
-                >
-                  <Package className="size-3.5" /> Pickup
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addStop("DROP")}
-                  className="text-xs"
-                >
-                  <Package className="size-3.5" /> Drop
-                </Button>
+              <div className="mt-1.5 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm font-mono font-semibold text-foreground overflow-x-auto whitespace-nowrap">
+                {flow}
               </div>
             </div>
 
@@ -386,7 +378,7 @@ export default function RouteDialog({
                       <div className="flex-1">
                         <select
                           value={s.kind}
-                          onChange={(e) => update(i, { kind: e.target.value as "PICKUP" | "DROP" })}
+                          onChange={(e) => setKind(i, e.target.value as "PICKUP" | "DROP")}
                           className="text-sm font-medium px-2 py-1 rounded border border-border/50 bg-background hover:border-border transition-colors"
                         >
                           <option value="PICKUP">📦 Pickup</option>
@@ -437,45 +429,44 @@ export default function RouteDialog({
                       </div>
                     </div>
 
-                    {/* Warehouse Selection */}
-                    <div>
-                      <Label
-                        htmlFor={`warehouse-${i}`}
-                        className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5 block"
-                      >
-                        Warehouse
-                      </Label>
-                      <select
-                        id={`warehouse-${i}`}
-                        required
-                        value={s.warehouse_id}
-                        onChange={(e) => update(i, { warehouse_id: e.target.value })}
-                        className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
-                      >
-                        <option value="">Select a warehouse…</option>
-                        {warehouses.map((w) => (
-                          <option key={w.id} value={w.id}>
-                            {w.code} — {w.name}
-                          </option>
-                        ))}
-                      </select>
-                      {wh && (
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          📍 {wh.address || "No address"}
-                        </p>
-                      )}
-                    </div>
+                    {/* Warehouse + time, side by side */}
+                    <div className="grid grid-cols-2 gap-3 items-start">
+                      <div>
+                        <Label
+                          htmlFor={`warehouse-${i}`}
+                          className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5 block"
+                        >
+                          Warehouse
+                        </Label>
+                        <select
+                          id={`warehouse-${i}`}
+                          required
+                          value={s.warehouse_id}
+                          onChange={(e) => update(i, { warehouse_id: e.target.value })}
+                          className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
+                        >
+                          <option value="">Select a warehouse…</option>
+                          {warehouses.map((w) => (
+                            <option key={w.id} value={w.id}>
+                              {w.code} — {w.name}
+                            </option>
+                          ))}
+                        </select>
+                        {wh && (
+                          <p className="text-[10px] text-muted-foreground mt-1 truncate">
+                            📍 {wh.address || "No address"}
+                          </p>
+                        )}
+                      </div>
 
-                    {/* Time Selection */}
-                    <div>
-                      <Label
-                        htmlFor={`time-${i}`}
-                        className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5 block"
-                      >
-                        {isFirst ? "Pickup Time" : "Estimated Arrival"}
-                      </Label>
-                      {isFirst ? (
-                        <div className="flex gap-2">
+                      <div>
+                        <Label
+                          htmlFor={`time-${i}`}
+                          className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5 block"
+                        >
+                          {isFirst ? "Pickup Time" : "Estimated Arrival"}
+                        </Label>
+                        {isFirst ? (
                           <input
                             id={`time-${i}`}
                             type="datetime-local"
@@ -488,30 +479,27 @@ export default function RouteDialog({
                                   : null,
                               })
                             }
-                            className="flex-1 px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
+                            className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
                             title="Pickup time — subsequent stops are auto-calculated from this"
                           />
-                        </div>
-                      ) : (
-                        <div className="px-3 py-2 rounded-md border border-border/50 bg-muted/30 text-sm font-mono text-foreground flex items-center gap-2">
-                          <Clock className="size-4 text-muted-foreground" />
-                          {auto
-                            ? new Date(auto).toLocaleString("en-GB", {
-                                day: "2-digit",
-                                month: "short",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                hour12: false,
-                              })
-                            : "—"}
-                          <span className="ml-auto text-[10px] text-muted-foreground">auto</span>
-                        </div>
-                      )}
-                      {!isFirst && auto && (
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          Automatically calculated based on distance, traffic, and dwell time.
-                        </p>
-                      )}
+                        ) : (
+                          <div className="px-3 py-2 rounded-md border border-border/50 bg-muted/30 text-sm font-mono text-foreground flex items-center gap-2">
+                            <Clock className="size-4 text-muted-foreground shrink-0" />
+                            <span className="truncate">
+                              {auto
+                                ? new Date(auto).toLocaleString("en-GB", {
+                                    day: "2-digit",
+                                    month: "short",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    hour12: false,
+                                  })
+                                : "—"}
+                            </span>
+                            <span className="ml-auto text-[10px] text-muted-foreground">auto</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
