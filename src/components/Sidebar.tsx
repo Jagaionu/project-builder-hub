@@ -18,6 +18,7 @@ import { useTenant, useFeatureFlags } from "@/lib/tenant-context";
 import { signOut } from "@/lib/auth-context";
 import type { TenantModule } from "@/lib/types";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LogoIcon } from "@/components/LogoIcon";
 import { AutoRefreshButton } from "@/components/dispatch/toolbar";
 import { SupportCaseModal } from "@/components/support/SupportCaseModal";
 import { AIChatWidget } from "@/components/ai/ChatWidget";
@@ -219,7 +220,12 @@ export function Sidebar() {
               className="grid size-7 shrink-0 place-items-center rounded-full text-white shadow-sm transition-transform hover:scale-110 hover:brightness-105 active:scale-95"
               style={{ background: "#f97316" }}
             >
-              <LifeBuoy className="size-4" />
+              <LogoIcon
+                src="/icons/support-logo.png"
+                alt="Create a support case"
+                className="size-5"
+                fallback={<LifeBuoy className="size-4" />}
+              />
             </button>
             <div className="flex-1" />
             <ThemeToggle compact />

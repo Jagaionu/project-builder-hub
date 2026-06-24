@@ -24,6 +24,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LogoIcon } from "@/components/LogoIcon";
 
 type Message = {
   id: string;
@@ -271,9 +272,16 @@ export function AIChatWidget() {
         className="relative grid place-items-center size-7 rounded-full text-white shrink-0 transition-transform hover:scale-105 active:scale-95"
         style={{ background: accent }}
       >
-        <Sparkles
-          className="size-3.5 relative"
-          style={{ animation: "ai-door 6s ease-in-out infinite" }}
+        <LogoIcon
+          src="/icons/ai-logo.png"
+          alt="AI Assistant"
+          className="size-5 relative"
+          fallback={
+            <Sparkles
+              className="size-3.5 relative"
+              style={{ animation: "ai-door 6s ease-in-out infinite" }}
+            />
+          }
         />
       </button>
 
