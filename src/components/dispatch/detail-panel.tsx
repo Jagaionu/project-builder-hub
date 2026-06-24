@@ -149,6 +149,12 @@ function VridAuditButton({ jobId, reference }: { jobId: string; reference: strin
   );
 }
 
+// A live GPS ETA only shows within this many minutes of the planned yard time
+// (or once the driver is actually en route). Before that, an "if he left now"
+// estimate is misleading because the driver may take another job first.
+const ETA_LEAD_MIN = 60;
+const ETA_LEAD_MS = ETA_LEAD_MIN * 60_000;
+
 export const JobDetailPanel = memo(function JobDetailPanel({
   job,
   stops,
@@ -510,6 +516,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
               // assigned driver's current GPS — only once they've left the
               // previous stop. Dispatcher-only (drivers see real times only).
               let estArrIso: string | null = null;
+              let etaFromIso: string | null = null;
               const dLat = driver?.current_lat ?? null;
               const dLon = driver?.current_lon ?? null;
               if (
@@ -527,9 +534,22 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                   (prevWh
                     ? haversineKm(dLat, dLon, prevWh.latitude, prevWh.longitude) * 1000 > 300
                     : true);
-                if (prevDeparted) {
+                // A live GPS ETA from the driver current position only matters once
+                // the run is imminent or the driver is en route; otherwise it is
+                // misleading because the driver may take another job first. Show it
+                // within ETA_LEAD_MIN of the planned yard arrival, or once under way.
+                const plannedArrMs = arr ? new Date(arr).getTime() : null;
+                const jobUnderway =
+                  job.status === "IN_PROGRESS" ||
+                  job.status === "ARRIVED_PICKUP" ||
+                  job.status === "EN_ROUTE_DELIVERY";
+                const withinLead =
+                  plannedArrMs != null && Date.now() >= plannedArrMs - ETA_LEAD_MS;
+                if (prevDeparted && (withinLead || jobUnderway)) {
                   const km = haversineKm(dLat, dLon, wh.latitude, wh.longitude);
                   estArrIso = new Date(Date.now() + etaMinutes(km) * 60_000).toISOString();
+                } else if (prevDeparted && plannedArrMs != null) {
+                  etaFromIso = new Date(plannedArrMs - ETA_LEAD_MS).toISOString();
                 }
               }
               const fmt = (iso: string | null | undefined) =>
@@ -629,6 +649,18 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                     ) : estArrIso ? (
                       <span className="text-primary">
                         {new Date(estArrIso).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: false,
+                        })}
+                      </span>
+                    ) : etaFromIso ? (
+                      <span
+                        className="text-muted-foreground/70 text-[10px]"
+                        title="A live GPS ETA appears closer to the run, once it is accurate"
+                      >
+                        from{" "}
+                        {new Date(etaFromIso).toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
                           hour12: false,
