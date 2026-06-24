@@ -6,9 +6,10 @@ import {
   MapPin,
   RefreshCcw,
   Clock,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
-import { useCompliance, useDrivers, useJobs, useRecentDelays } from "@/lib/hooks";
+import { useCompliance, useDrivers, useJobs, useRecentDelays, useWarehouses } from "@/lib/hooks";
 import { useDriverSchedule } from "@/lib/use-driver-schedule";
 import { effectiveDriverStatus } from "@/lib/effective-status";
 import { supabase } from "@/integrations/supabase/client";
@@ -137,6 +138,55 @@ function useReimportAlerts(): ReimportAlert[] {
   return rows;
 }
 
+// ── Lane transit-time trend alerts ───────────────────────────────────────────
+// Surfaces lanes whose recent (21-day) median has risen materially vs the 90-day
+// baseline — the early-warning for road works / a newly busier lane. Computed by
+// the hourly aggregation cron (trend_state/trend_pct on lane_travel_times); we
+// just read the "rising" rows here. Auto-clears when a lane normalises.
+type LaneTrendRow = {
+  from_warehouse_id: string | null;
+  to_warehouse_id: string | null;
+  p50_duration_minutes: number | null;
+  recent_p50_duration_minutes: number | null;
+  trend_pct: number | null;
+  trend_state: string | null;
+};
+
+function useLaneTrends(): LaneTrendRow[] {
+  const [rows, setRows] = useState<LaneTrendRow[]>([]);
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      const { data } = await supabase
+        .from("lane_travel_times" as never)
+        .select(
+          "from_warehouse_id,to_warehouse_id,p50_duration_minutes,recent_p50_duration_minutes,trend_pct,trend_state",
+        )
+        .eq("trend_state", "rising" as never)
+        .order("trend_pct", { ascending: false });
+      if (!mounted || !data) return;
+      setRows(data as unknown as LaneTrendRow[]);
+    };
+    void load();
+    // The aggregation cron only updates hourly, so a light refresh is plenty.
+    const t = setInterval(() => void load(), 15 * 60 * 1000);
+    return () => {
+      mounted = false;
+      clearInterval(t);
+    };
+  }, []);
+  return rows;
+}
+
+// Format a minutes value as "2h00" / "1h35" / "45m".
+function fmtMin(m: number | null): string {
+  if (m == null) return "—";
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return `${h}h${mm.toString().padStart(2, "0")}`;
+}
+
 export interface AppAlert {
   id: string;
   dbId?: string;
@@ -250,6 +300,8 @@ export function useAlerts() {
   const cantCompleteEvents = useRecentCantComplete();
   const parkedImports = useParkedImports();
   const reimportAlerts = useReimportAlerts();
+  const warehouses = useWarehouses();
+  const laneTrends = useLaneTrends();
 
   const driverIds = useMemo(() => drivers.map((d) => d.id), [drivers]);
   const schedule = useDriverSchedule(driverIds);
@@ -424,8 +476,33 @@ export function useAlerts() {
       });
     });
 
+    // Lane transit-time rising alerts — one per lane (worst-trending bucket).
+    const whById = new Map(warehouses.map((w) => [w.id, w]));
+    const bestByLane = new Map<string, LaneTrendRow>();
+    for (const r of laneTrends) {
+      if (!r.from_warehouse_id || !r.to_warehouse_id) continue;
+      const k = `${r.from_warehouse_id}|${r.to_warehouse_id}`;
+      const prev = bestByLane.get(k);
+      if (!prev || (r.trend_pct ?? 0) > (prev.trend_pct ?? 0)) bestByLane.set(k, r);
+    }
+    for (const [k, r] of bestByLane) {
+      const fromW = whById.get(r.from_warehouse_id as string);
+      const toW = whById.get(r.to_warehouse_id as string);
+      if (!fromW && !toW) continue; // skip lanes we can't label at all
+      const fromLabel = fromW?.code ?? "?";
+      const toLabel = toW?.code ?? "?";
+      const pctStr = r.trend_pct != null ? `+${r.trend_pct}%, ` : "";
+      out.push({
+        id: `lanetrend-${k}`,
+        level: "warning",
+        type: "Transit time rising",
+        icon: TrendingUp,
+        message: `${fromLabel}→${toLabel}: typical ${fmtMin(r.p50_duration_minutes)} → ${fmtMin(r.recent_p50_duration_minutes)} (${pctStr}last 21 days). Possible road works — review planning.`,
+      });
+    }
+
     return out;
-  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents, parkedImports, reimportAlerts, schedule]);
+  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents, parkedImports, reimportAlerts, warehouses, laneTrends, schedule]);
 
   const { acked, ack } = useAcked(all);
   const visible = useMemo(() => all.filter((a) => !acked.has(a.id)), [all, acked]);
