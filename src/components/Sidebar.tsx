@@ -221,7 +221,7 @@ export function Sidebar() {
               style={{ background: "#f97316" }}
             >
               <LogoIcon
-                src="/icons/support-logo.png"
+                src="/support-logo.png"
                 alt="Create a support case"
                 className="size-5"
                 fallback={<LifeBuoy className="size-4" />}

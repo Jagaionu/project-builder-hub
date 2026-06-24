@@ -273,7 +273,7 @@ export function AIChatWidget() {
         style={{ background: accent }}
       >
         <LogoIcon
-          src="/icons/ai-logo.png"
+          src="/ai-logo.png"
           alt="AI Assistant"
           className="size-5 relative"
           fallback={
