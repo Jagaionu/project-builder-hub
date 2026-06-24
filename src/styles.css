@@ -1125,12 +1125,64 @@
   top: 3px;
   left: 3px;
   z-index: 2;
-  transform: translateX(0);
-  transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateX(0) translateY(0) scale(1);
   will-change: transform;
 }
-.tt-toggle.tt-active .tt-ball {
-  transform: translateX(42px);
+/* Resting position when light (sun): ball parked at the right end. */
+.tt-ball.at-right {
+  transform: translateX(42px) translateY(0) scale(1);
+}
+/* Squash-and-stretch roll between the two ends (from glass_toggle_compact). */
+.tt-ball.anim-right {
+  animation: tt-roll-right 0.42s ease-in-out forwards;
+}
+.tt-ball.anim-left {
+  animation: tt-roll-left 0.42s ease-in-out forwards;
+}
+@keyframes tt-roll-right {
+  0% {
+    transform: translateX(0) translateY(0) scale(1);
+  }
+  15% {
+    transform: translateX(7px) translateY(2px) scale(0.84);
+  }
+  50% {
+    transform: translateX(20px) translateY(3px) scale(0.66);
+  }
+  85% {
+    transform: translateX(34px) translateY(2px) scale(0.84);
+  }
+  100% {
+    transform: translateX(42px) translateY(0) scale(1);
+  }
+}
+@keyframes tt-roll-left {
+  0% {
+    transform: translateX(42px) translateY(0) scale(1);
+  }
+  15% {
+    transform: translateX(34px) translateY(2px) scale(0.84);
+  }
+  50% {
+    transform: translateX(20px) translateY(3px) scale(0.66);
+  }
+  85% {
+    transform: translateX(7px) translateY(2px) scale(0.84);
+  }
+  100% {
+    transform: translateX(0) translateY(0) scale(1);
+  }
+}
+/* Respect reduced-motion: snap to the correct end instead of rolling. */
+@media (prefers-reduced-motion: reduce) {
+  .tt-ball.anim-right {
+    animation: none;
+    transform: translateX(42px) translateY(0) scale(1);
+  }
+  .tt-ball.anim-left {
+    animation: none;
+    transform: translateX(0) translateY(0) scale(1);
+  }
 }
 .tt-glass {
   position: absolute;
