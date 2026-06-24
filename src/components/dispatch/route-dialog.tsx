@@ -240,7 +240,7 @@ export default function RouteDialog({
         }
       }}
     >
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? "Create Route" : "Edit Route"}</DialogTitle>
           <DialogDescription>
@@ -251,97 +251,90 @@ export default function RouteDialog({
         </DialogHeader>
 
         <form onSubmit={submit} className="flex flex-col flex-1 min-h-0 gap-4">
-          {/* VRID / Reference Field */}
-          {mode === "create" && (
-            <div className="space-y-2 px-6">
+          {/* Route meta — one compact row so the stops below get the focus */}
+          <div className="px-6 flex flex-wrap items-start gap-3">
+            {mode === "create" && (
+              <div className="flex-1 min-w-[200px] space-y-1.5">
+                <Label
+                  htmlFor="vrid"
+                  className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+                >
+                  Job ID / VRID
+                </Label>
+                <div className="flex gap-1.5">
+                  <Input
+                    id="vrid"
+                    placeholder="Auto-generate if blank"
+                    value={vrid}
+                    onChange={(e) => setVrid(e.target.value)}
+                    className="flex-1 h-9"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setVrid("")}
+                    title="Clear to auto-generate"
+                    className="h-9 shrink-0"
+                  >
+                    <RefreshCw className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="w-[160px] space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Handling / stop
+              </Label>
+              <div className="flex gap-1.5 items-center">
+                <select
+                  value={customHandling ? "custom" : String(handling)}
+                  onChange={(e) => {
+                    if (e.target.value === "custom") setCustomHandling(true);
+                    else {
+                      setCustomHandling(false);
+                      setHandling(Number(e.target.value));
+                    }
+                  }}
+                  className="h-9 px-2 rounded-md border border-border bg-surface text-sm flex-1 min-w-0"
+                >
+                  {HANDLING_PRESETS.map((p) => (
+                    <option key={p} value={p}>
+                      {p} min
+                    </option>
+                  ))}
+                  <option value="custom">Custom…</option>
+                </select>
+                {customHandling && (
+                  <input
+                    type="number"
+                    min={1}
+                    max={240}
+                    value={handling}
+                    onChange={(e) => setHandling(Math.max(0, Number(e.target.value) || 0))}
+                    className="w-16 h-9 px-2 rounded-md border border-border bg-surface text-sm"
+                    placeholder="min"
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="w-[170px] space-y-1.5">
               <Label
-                htmlFor="vrid"
+                htmlFor="cost"
                 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
               >
-                Job ID / VRID
+                Estimated cost
               </Label>
-              <div className="flex gap-2">
-                <Input
-                  id="vrid"
-                  placeholder="Leave blank to auto-generate"
-                  value={vrid}
-                  onChange={(e) => setVrid(e.target.value)}
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setVrid("")}
-                  title="Clear to auto-generate"
-                >
-                  <RefreshCw className="size-3.5" />
-                </Button>
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                If left blank, a unique ID will be generated automatically.
-              </p>
+              <Input
+                id="cost"
+                placeholder="e.g. 310.68 GBP"
+                value={cost}
+                onChange={(e) => setCost(e.target.value)}
+                className="h-9"
+              />
             </div>
-          )}
-
-          {/* Handling time per stop */}
-          <div className="space-y-2 px-6">
-            <Label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Handling time per stop
-            </Label>
-            <div className="flex gap-2 items-center">
-              <select
-                value={customHandling ? "custom" : String(handling)}
-                onChange={(e) => {
-                  if (e.target.value === "custom") setCustomHandling(true);
-                  else {
-                    setCustomHandling(false);
-                    setHandling(Number(e.target.value));
-                  }
-                }}
-                className="h-9 px-2 rounded-md border border-border bg-surface text-sm"
-              >
-                {HANDLING_PRESETS.map((p) => (
-                  <option key={p} value={p}>
-                    {p} min
-                  </option>
-                ))}
-                <option value="custom">Custom…</option>
-              </select>
-              {customHandling && (
-                <input
-                  type="number"
-                  min={1}
-                  max={240}
-                  value={handling}
-                  onChange={(e) => setHandling(Math.max(0, Number(e.target.value) || 0))}
-                  className="w-20 h-9 px-2 rounded-md border border-border bg-surface text-sm"
-                  placeholder="min"
-                />
-              )}
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              Loading at pickup / unloading at drop — applies to every stop on this route.
-            </p>
-          </div>
-
-          {/* Estimated cost (bulk-upload value; edit-only) */}
-          <div className="space-y-2 px-6">
-            <Label
-              htmlFor="cost"
-              className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
-            >
-              Estimated cost
-            </Label>
-            <Input
-              id="cost"
-              placeholder="e.g. 310.68 GBP"
-              value={cost}
-              onChange={(e) => setCost(e.target.value)}
-            />
-            <p className="text-[10px] text-muted-foreground">
-              From the bulk upload (Estimated Cost). Internal reference only.
-            </p>
           </div>
 
           {/* Stops Section */}
