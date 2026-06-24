@@ -303,6 +303,37 @@ function WarehousesPage() {
               }}
             />
             <ToolbarButton
+              onClick={() => setOpen((o) => !o)}
+              primary
+              dataAiTarget="add-warehouse"
+              icon={<Plus className="size-3.5" />}
+            >
+              New Warehouse
+            </ToolbarButton>
+          </div>
+        }
+      />
+      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="relative max-w-md flex-1">
+            <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Filter by location, code, or address…"
+              className="w-full h-9 pl-9 pr-8 rounded-md border border-border bg-surface text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <ToolbarButton
               onClick={exportCsv}
               dataAiTarget="export-warehouses"
               disabled={warehouses.length === 0}
@@ -318,34 +349,7 @@ function WarehousesPage() {
             >
               {importing ? "Importing…" : "Import CSV"}
             </ToolbarButton>
-            <ToolbarButton
-              onClick={() => setOpen((o) => !o)}
-              primary
-              dataAiTarget="add-warehouse"
-              icon={<Plus className="size-3.5" />}
-            >
-              New Warehouse
-            </ToolbarButton>
           </div>
-        }
-      />
-      <div className="flex-1 overflow-y-auto p-5 space-y-4">
-        <div className="relative max-w-md">
-          <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter by location, code, or address…"
-            className="w-full h-9 pl-9 pr-8 rounded-md border border-border bg-surface text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
-            >
-              ✕
-            </button>
-          )}
         </div>
         {open && (
           <div className="rounded-md border border-border bg-surface p-4 grid grid-cols-6 gap-3 items-end">

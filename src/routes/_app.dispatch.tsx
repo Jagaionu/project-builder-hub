@@ -742,9 +742,6 @@ function DispatchPage() {
           )}
         </div>
 
-        <ImportBatchesButton />
-        <ImportCsvButton />
-
         <div className="relative inline-flex items-center h-8 rounded-full overflow-hidden border border-black/10 dark:border-white/10 shadow-[0_2px_6px_rgba(0,0,0,0.20)] bg-gradient-to-b from-[#f7f7f7] to-[#e6e6e6] dark:from-[#3d3d3d] dark:to-[#1e1e1e]">
           <span className="pointer-events-none absolute inset-x-1 top-px h-1/2 rounded-full bg-white/25" />
           <Popover>
@@ -833,6 +830,10 @@ function DispatchPage() {
             </button>
           )}
         </div>
+
+        <div className="flex-1" />
+        <ImportBatchesButton />
+        <ImportCsvButton />
       </div>
 
       {/* Two-column body */}
