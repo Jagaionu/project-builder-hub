@@ -187,6 +187,14 @@ export function StatusPill({
 
 // ── DriverPicker ────────────────────────────────────────────────────────────
 
+// Approved profile photo for a driver (falls back to initials when none).
+function approvedAvatar(d: {
+  avatar_url?: string | null;
+  avatar_status?: string | null;
+}): string | null {
+  return d.avatar_status === "approved" ? (d.avatar_url ?? null) : null;
+}
+
 export function DriverPicker({
   driverId,
   allowUnassign = true,
@@ -197,7 +205,13 @@ export function DriverPicker({
 }: {
   driverId: string | null | undefined;
   allowUnassign?: boolean;
-  drivers: { id: string; name: string; status?: string }[];
+  drivers: {
+    id: string;
+    name: string;
+    status?: string;
+    avatar_url?: string | null;
+    avatar_status?: string | null;
+  }[];
   compliance?: Record<string, Compliance>;
   onChange: (id: string) => void;
   disabled?: boolean;
@@ -220,9 +234,17 @@ export function DriverPicker({
       >
         {driver ? (
           <>
-            <span className="size-7 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">
-              {driver.name[0]?.toUpperCase()}
-            </span>
+            {approvedAvatar(driver) ? (
+              <img
+                src={approvedAvatar(driver) as string}
+                alt=""
+                className="size-7 rounded-full object-cover shrink-0"
+              />
+            ) : (
+              <span className="size-7 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+                {driver.name[0]?.toUpperCase()}
+              </span>
+            )}
             <span className="text-sm text-foreground font-medium truncate">{driver.name}</span>
             {activeC && <ComplianceDot c={activeC} driverStatus={driver.status} />}
           </>
@@ -286,9 +308,17 @@ export function DriverPicker({
                   title={blocked ? dc?.issues.find((i) => i.level === "breach")?.msg : undefined}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${blocked ? "opacity-40 cursor-not-allowed" : "hover:bg-surface-2"}`}
                 >
-                  <span className="size-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
-                    {d.name[0]?.toUpperCase()}
-                  </span>
+                  {approvedAvatar(d) ? (
+                    <img
+                      src={approvedAvatar(d) as string}
+                      alt=""
+                      className="size-6 rounded-full object-cover shrink-0"
+                    />
+                  ) : (
+                    <span className="size-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
+                      {d.name[0]?.toUpperCase()}
+                    </span>
+                  )}
                   <span
                     className={`flex-1 text-left ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}
                   >
