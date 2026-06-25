@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { DriverBottomNav } from "@/components/driver/DriverBottomNav";
 import { PwaInstallPrompt } from "@/components/driver/PwaInstallPrompt";
 import { useDriverBootstrap } from "@/hooks/useDriverBootstrap";
+import { useDriverNotifications } from "@/hooks/useDriverNotifications";
 import { useDriverStore } from "@/lib/driver-store";
 import { driverLogout } from "@/lib/driver-auth";
 import { DriverTachographModal } from "@/components/driver/DriverTachographModal";
@@ -18,6 +19,7 @@ type SwipeTab = (typeof SWIPE_TABS)[number];
 
 function DriverLayout() {
   useDriverBootstrap();
+  useDriverNotifications();
   const router = useRouter();
   const location = useLocation();
   const session = useDriverStore((s) => s.session);
