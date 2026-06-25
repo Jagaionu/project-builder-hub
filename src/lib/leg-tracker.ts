@@ -199,8 +199,19 @@ export async function checkGeofences(
       return;
     }
 
-    // ── No active state: open initial (deadhead) leg if driver started moving
-    if (["IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"].includes(job.status)) {
+    // No active state: auto-start an ASSIGNED run from GPS the moment the driver
+    //    is at the first stop or begins moving, then open the first leg / record
+    //    the initial arrival. No manual start needed.
+    if (["IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY", "ASSIGNED"].includes(job.status)) {
+      if (
+        job.status === "ASSIGNED" &&
+        (distToNextM > DEPARTURE_RADIUS_M || distToNextM < ARRIVAL_RADIUS_M)
+      ) {
+        await supabase
+          .from("jobs")
+          .update({ status: "IN_PROGRESS" } as never)
+          .eq("id", job.id);
+      }
       if (distToNextM > DEPARTURE_RADIUS_M) {
         const plannedMin = Math.round(
           transitTimeHours(haversineKm(pos.lat, pos.lon, nextWh.latitude, nextWh.longitude)) * 60,
