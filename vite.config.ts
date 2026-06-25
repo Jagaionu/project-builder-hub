@@ -21,6 +21,7 @@ export default defineConfig({
       manifest: false,
       manifestFilename: "manifest.webmanifest",
       workbox: {
+        importScripts: ["/push-sw.js"],
         globPatterns: ["**/*.{js,css,html}"],
         navigateFallback: "/d",
         navigateFallbackAllowlist: [/^\/d(\/|$)/],
