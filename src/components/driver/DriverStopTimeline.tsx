@@ -107,6 +107,15 @@ export function DriverStopTimeline({
                   ) : null}
                 </div>
               </div>
+              {isNext && onArrive && (
+                <button
+                  type="button"
+                  onClick={() => onArrive(stop.id)}
+                  className="mt-2 inline-flex items-center gap-1 rounded-lg bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5 active:scale-95 transition"
+                >
+                  I have arrived
+                </button>
+              )}
             </div>
           </li>
         );
