@@ -13,6 +13,10 @@ import {
   listWebhookEvents,
   replayWebhookEvent,
 } from "@/lib/billing/billing.functions";
+import {
+  getPaymentsConfigStatus,
+  type PaymentsConfigStatus,
+} from "@/lib/billing/config-status.functions";
 
 const fmt = (minor: number | null | undefined, ccy = "GBP") =>
   `${ccy === "GBP" ? "£" : ""}${((minor ?? 0) / 100).toFixed(2)}`;
@@ -41,11 +45,11 @@ interface Invoice {
 }
 
 export function AdminBilling({ companies }: { companies: Company[] }) {
-  const [view, setView] = useState<"companies" | "email" | "webhooks">("companies");
+  const [view, setView] = useState<"companies" | "email" | "webhooks" | "setup">("companies");
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        {(["companies", "email", "webhooks"] as const).map((v) => (
+        {(["companies", "email", "webhooks", "setup"] as const).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
@@ -60,13 +64,16 @@ export function AdminBilling({ companies }: { companies: Company[] }) {
               ? "Company billing"
               : v === "email"
                 ? "Email provider"
-                : "Webhook log"}
+                : v === "webhooks"
+                  ? "Webhook log"
+                  : "Setup"}
           </button>
         ))}
       </div>
       {view === "companies" && <CompanyBilling companies={companies} />}
       {view === "email" && <EmailProviderConfig />}
       {view === "webhooks" && <WebhookLog />}
+      {view === "setup" && <PaymentsSetupStatus />}
     </div>
   );
 }
@@ -502,5 +509,73 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       {children}
     </label>
+  );
+}
+
+function PaymentsSetupStatus() {
+  const fetchStatus = useServerFn(getPaymentsConfigStatus);
+  const [s, setS] = useState<PaymentsConfigStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    fetchStatus()
+      .then((r) => setS(r as PaymentsConfigStatus))
+      .catch(() => setS(null))
+      .finally(() => setLoading(false));
+  }, [fetchStatus]);
+
+  if (loading) return <div className="text-xs text-muted-foreground">Checking configuration…</div>;
+  if (!s) return <div className="text-xs text-destructive">Could not load configuration.</div>;
+
+  const Row = ({ label, ok, note }: { label: string; ok: boolean; note?: string }) => (
+    <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 last:border-0">
+      <div>
+        <div className="text-sm text-foreground">{label}</div>
+        {note && <div className="text-[11px] text-muted-foreground">{note}</div>}
+      </div>
+      <span
+        className={
+          "text-xs font-semibold " +
+          (ok ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")
+        }
+      >
+        {ok ? "Configured" : "Not set"}
+      </span>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4 max-w-lg">
+      <p className="text-xs text-muted-foreground">
+        Read-only check of the platform payment and push settings (values are never shown). Set
+        these as environment variables in your host.
+      </p>
+      <div className="rounded-lg border border-border overflow-hidden">
+        <div className="px-3 py-2 bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+          Stripe
+        </div>
+        <Row label="Secret key (STRIPE_SECRET_KEY)" ok={s.stripe.secretKey} />
+        <Row label="Webhook secret (STRIPE_WEBHOOK_SECRET)" ok={s.stripe.webhookSecret} />
+      </div>
+      <div className="rounded-lg border border-border overflow-hidden">
+        <div className="px-3 py-2 bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+          GoCardless
+        </div>
+        <Row label="Access token (GOCARDLESS_ACCESS_TOKEN)" ok={s.gocardless.accessToken} />
+        <Row label="Webhook secret (GOCARDLESS_WEBHOOK_SECRET)" ok={s.gocardless.webhookSecret} />
+        <Row
+          label="Environment (GOCARDLESS_ENVIRONMENT)"
+          ok={!!s.gocardless.environment}
+          note={s.gocardless.environment ?? "not set"}
+        />
+      </div>
+      <div className="rounded-lg border border-border overflow-hidden">
+        <div className="px-3 py-2 bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+          General and push
+        </div>
+        <Row label="App base URL (APP_BASE_URL)" ok={s.appBaseUrl} />
+        <Row label="Push public key (VAPID_PUBLIC_KEY)" ok={s.push.publicKey} />
+        <Row label="Push private key (VAPID_PRIVATE_KEY)" ok={s.push.privateKey} />
+      </div>
+    </div>
   );
 }
