@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useCompliance, useDrivers, useJobs, useRecentDelays, useWarehouses } from "@/lib/hooks";
 import { useDriverSchedule } from "@/lib/use-driver-schedule";
+import { useJobStops } from "@/lib/dispatch/use-job-stops";
 import { effectiveDriverStatus } from "@/lib/effective-status";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -302,6 +303,7 @@ export function useAlerts() {
   const reimportAlerts = useReimportAlerts();
   const warehouses = useWarehouses();
   const laneTrends = useLaneTrends();
+  const jobStops = useJobStops();
 
   const driverIds = useMemo(() => drivers.map((d) => d.id), [drivers]);
   const schedule = useDriverSchedule(driverIds);
@@ -501,8 +503,44 @@ export function useAlerts() {
       });
     }
 
+    // Held-at-collection: driver kept at a pickup longer than the handling
+    // window on an active run (explains a late drop).
+    jobs.forEach((j) => {
+      if (j.status === "COMPLETED" || j.status === "CANCELLED") return;
+      const sts = jobStops[j.id];
+      if (!sts) return;
+      const handling = (j as { handling_minutes?: number | null }).handling_minutes ?? 20;
+      for (const st of sts) {
+        if (st.kind !== "PICKUP" || !st.arrived_at || !st.departed_at) continue;
+        const over =
+          Math.round(
+            (new Date(st.departed_at).getTime() - new Date(st.arrived_at).getTime()) / 60_000,
+          ) - handling;
+        if (over > 10) {
+          const wh = whById.get(st.warehouse_id);
+          const d = j.assigned_driver_id ? driversById.get(j.assigned_driver_id) : null;
+          out.push({
+            id: "held-" + st.id,
+            level: "warning",
+            type: "Held at collection",
+            icon: Clock,
+            message:
+              (d?.name ?? "Driver") +
+              " held " +
+              over +
+              " min over at " +
+              (wh?.code ?? "collection") +
+              " on " +
+              j.reference +
+              " — drop ETA pushed",
+            jobRef: j.reference,
+          });
+        }
+      }
+    });
+
     return out;
-  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents, parkedImports, reimportAlerts, warehouses, laneTrends, schedule]);
+  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents, parkedImports, reimportAlerts, warehouses, laneTrends, jobStops, schedule]);
 
   const { acked, ack } = useAcked(all);
   const visible = useMemo(() => all.filter((a) => !acked.has(a.id)), [all, acked]);
