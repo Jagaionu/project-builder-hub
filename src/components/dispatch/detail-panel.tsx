@@ -232,6 +232,25 @@ export const JobDetailPanel = memo(function JobDetailPanel({
   // First stop not yet arrived — the one we project a live GPS ETA for (dispatcher only).
   const nextUnarrivedIdx = stops.findIndex((s) => !s.arrived_at);
 
+  // Collections where the driver was held longer than the handling window —
+  // surfaced so dispatchers can answer "why is the drop late?" at a glance.
+  const heldAtCollection = useMemo(() => {
+    const handling = (job as { handling_minutes?: number | null }).handling_minutes ?? 20;
+    const out: { code: string; overMin: number }[] = [];
+    for (const s of stops) {
+      if (s.kind !== "PICKUP" || !s.arrived_at || !s.departed_at) continue;
+      const dwell = Math.round(
+        (new Date(s.departed_at).getTime() - new Date(s.arrived_at).getTime()) / 60_000,
+      );
+      const over = dwell - handling;
+      if (over > 5) {
+        const wh = lookups.warehousesById.get(s.warehouse_id);
+        out.push({ code: wh?.code ?? "?", overMin: over });
+      }
+    }
+    return out;
+  }, [stops, job, lookups]);
+
   const isLaneAssigned = !!job.assigned_driver_id || job.status === "ASSIGNED";
 
   const driverEquip = useDriverEquipment();
@@ -491,7 +510,20 @@ export const JobDetailPanel = memo(function JobDetailPanel({
             No stops on this route yet.
           </div>
         ) : (
-          <div className="rounded-lg border border-border overflow-hidden">
+          <>
+            {heldAtCollection.length > 0 && (
+              <div className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                <Clock className="size-3.5 shrink-0 mt-0.5" />
+                <span>
+                  Delayed at collection:{" "}
+                  <span className="font-semibold">
+                    {heldAtCollection.map((h) => h.code + " +" + h.overMin + "m").join(", ")}
+                  </span>{" "}
+                  — held past the handling window, which pushes the drop ETA.
+                </span>
+              </div>
+            )}
+            <div className="rounded-lg border border-border overflow-hidden">
             <div className="grid grid-cols-12 gap-2 px-3 py-1.5 bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
               <div className="col-span-1">#</div>
               <div className="col-span-3">Stop</div>
@@ -598,6 +630,13 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                   ? (s.departed_at ?? s.arrived_at ?? null)
                   : (s.arrived_at ?? null);
               const isGpsConfirmed = !!(s.arrived_at && plannedRaw && s.arrived_at !== plannedRaw);
+              const dwellMin =
+                s.arrived_at && s.departed_at
+                  ? Math.round(
+                      (new Date(s.departed_at).getTime() - new Date(s.arrived_at).getTime()) /
+                        60_000,
+                    )
+                  : null;
 
               return (
                 <div
@@ -616,6 +655,9 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                       </span>
                     </div>
                     <div className="text-[10px] text-muted-foreground truncate">{wh?.name}</div>
+                    {dwellMin != null && (
+                      <div className="text-[9px] text-muted-foreground/80">on site {dwellMin}m</div>
+                    )}
                   </div>
                   <div className="col-span-3 font-mono text-foreground text-sm">{fmt(arr)}</div>
                   <div className="col-span-3 font-mono text-foreground text-sm">
@@ -688,6 +730,7 @@ export const JobDetailPanel = memo(function JobDetailPanel({
               );
             })}
           </div>
+          </>
         )}
       </div>
 
