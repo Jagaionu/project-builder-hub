@@ -77,7 +77,8 @@ function EquipmentPicker({
   options: string[];
 }) {
   const [custom, setCustom] = useState("");
-  const available = options.filter((o) => !value.includes(o));
+  const [showCustom, setShowCustom] = useState(false);
+  const extras = value.filter((v) => !options.includes(v));
   const add = (t: string) => {
     const v = t.trim();
     if (v && !value.includes(v)) onChange([...value, v]);
@@ -86,70 +87,82 @@ function EquipmentPicker({
   const addCustom = () => {
     add(custom);
     setCustom("");
+    setShowCustom(false);
   };
   return (
     <div className="space-y-2">
-      {/* Selected types */}
-      <div className="flex flex-wrap gap-1.5">
-        {value.length === 0 && (
-          <span className="text-xs text-muted-foreground">None yet — choose one below.</span>
-        )}
-        {value.map((t) => (
-          <span
-            key={t}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-mono border bg-primary/15 border-primary text-primary"
-          >
-            {t}
-            <button
-              type="button"
-              onClick={() => remove(t)}
-              className="leading-none hover:text-destructive"
-              aria-label={`Remove ${t}`}
-            >
-              ✕
-            </button>
-          </span>
-        ))}
-      </div>
-
-      {/* Dropdown to choose from the catalogue */}
-      <select
-        value=""
-        onChange={(e) => {
-          if (e.target.value) add(e.target.value);
-          e.currentTarget.value = "";
-        }}
-        className="w-full h-8 px-2 rounded-md border border-border bg-surface text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
-      >
-        <option value="">Choose a vehicle/equipment type…</option>
-        {available.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-
-      {/* Custom (not in the list) */}
-      <div className="flex items-center gap-1">
-        <input
-          value={custom}
-          onChange={(e) => setCustom(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              addCustom();
-            }
-          }}
-          placeholder="Or add a custom type…"
-          className="flex-1 h-8 px-2 rounded-md border border-border bg-surface text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
-        />
+      {/* Label row with inline Add (custom field only appears when needed) */}
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-xs font-medium text-muted-foreground">Vehicle / equipment</label>
         <button
           type="button"
-          onClick={addCustom}
-          className="px-2 h-8 rounded-md border border-border text-xs hover:bg-surface-2"
+          onClick={() => setShowCustom((v) => !v)}
+          className="inline-flex items-center gap-1 px-2 h-7 rounded-md border border-border text-[11px] font-medium hover:bg-surface-2 active:scale-95 transition"
         >
-          Add
+          <Plus className="size-3" /> Add
         </button>
+      </div>
+
+      {showCustom && (
+        <div className="flex items-center gap-1">
+          <input
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addCustom();
+              }
+            }}
+            placeholder="Custom type…"
+            autoFocus
+            className="flex-1 h-8 px-2 rounded-md border border-border bg-surface text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
+          <button
+            type="button"
+            onClick={addCustom}
+            className="px-2 h-8 rounded-md border border-border text-xs hover:bg-surface-2"
+          >
+            Add
+          </button>
+        </div>
+      )}
+
+      {/* All catalogue types as toggle chips + any custom selections */}
+      <div className="flex flex-wrap gap-1.5">
+        {options.length === 0 && extras.length === 0 && (
+          <span className="text-xs text-muted-foreground">No types yet — use Add.</span>
+        )}
+        {options.map((o) => {
+          const sel = value.includes(o);
+          return (
+            <button
+              key={o}
+              type="button"
+              onClick={() => (sel ? remove(o) : add(o))}
+              className={
+                "inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-mono border transition active:scale-95 " +
+                (sel
+                  ? "bg-primary/15 border-primary text-primary"
+                  : "border-border text-muted-foreground hover:bg-surface-2")
+              }
+            >
+              {o}
+              {sel ? " ✓" : ""}
+            </button>
+          );
+        })}
+        {extras.map((o) => (
+          <button
+            key={o}
+            type="button"
+            onClick={() => remove(o)}
+            title="Custom type — click to remove"
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-mono border bg-primary/15 border-primary text-primary"
+          >
+            {o} ✕
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -509,35 +522,50 @@ function DriversPage() {
             </p>
 
             <div className="space-y-4 mb-6">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">
-                  Driver Name *
-                </label>
-                <input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="e.g., John Smith"
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground block mb-2">
+                    Driver Name *
+                  </label>
+                  <input
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="e.g., John Smith"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground block mb-2">
+                    Phone (Optional)
+                  </label>
+                  <input
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    placeholder="+44 7700 900000"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
+                  />
+                </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">
-                  Phone Number (Optional)
-                </label>
-                <input
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="e.g., +44 7700 900000"
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">
+                <label className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
                   Home Warehouse (Optional)
+                  <span
+                    title="Set a home warehouse to have the planner route this driver back there at the end of their shift. Leave as None for a free agent who finishes wherever their last drop is."
+                    aria-label="What does home warehouse do?"
+                    className="inline-flex items-center justify-center size-4 rounded-full border border-muted-foreground/40 text-[9px] font-bold text-muted-foreground cursor-help"
+                  >
+                    ?
+                  </span>
                 </label>
                 <select
                   value={form.home_warehouse_id}
-                  onChange={(e) => setForm({ ...form, home_warehouse_id: e.target.value })}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      home_warehouse_id: e.target.value,
+                      return_to_base_required: !!e.target.value,
+                    })
+                  }
                   className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
                 >
                   <option value="">— None (free agent) —</option>
@@ -548,52 +576,10 @@ function DriversPage() {
                   ))}
                 </select>
               </div>
-              <div className="flex items-center justify-between rounded-lg border border-border bg-surface/50 px-3 py-2.5">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Return to base</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Planner will route driver back to home warehouse at end of day
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={form.return_to_base_required}
-                  disabled={!form.home_warehouse_id}
-                  onClick={() =>
-                    setForm((f) => ({ ...f, return_to_base_required: !f.return_to_base_required }))
-                  }
-                  className={
-                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors " +
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
-                    "disabled:cursor-not-allowed disabled:opacity-40 " +
-                    (form.return_to_base_required && form.home_warehouse_id
-                      ? "bg-primary"
-                      : "bg-muted")
-                  }
-                >
-                  <span
-                    className={
-                      "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform " +
-                      (form.return_to_base_required && form.home_warehouse_id
-                        ? "translate-x-5"
-                        : "translate-x-0")
-                    }
-                  />
-                </button>
-              </div>
+
 
               {/* Vehicle / equipment capabilities */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">
-                  Vehicle / equipment
-                </label>
-                <EquipmentPicker
-                  value={createEquip}
-                  onChange={setCreateEquip}
-                  options={equipmentTypes}
-                />
-              </div>
+              <EquipmentPicker value={createEquip} onChange={setCreateEquip} options={equipmentTypes} />
             </div>
 
             <div className="flex gap-3">
@@ -626,35 +612,50 @@ function DriversPage() {
               Update driver name or phone number.
             </p>
             <div className="space-y-4 mb-6">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">
-                  Driver Name *
-                </label>
-                <input
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  placeholder="e.g., John Smith"
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground block mb-2">
+                    Driver Name *
+                  </label>
+                  <input
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    placeholder="e.g., John Smith"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground block mb-2">
+                    Phone (Optional)
+                  </label>
+                  <input
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    placeholder="+44 7700 900000"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
+                  />
+                </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">
-                  Phone Number (Optional)
-                </label>
-                <input
-                  value={editForm.phone}
-                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                  placeholder="e.g., +44 7700 900000"
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">
+                <label className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
                   Home Warehouse (Optional)
+                  <span
+                    title="Set a home warehouse to have the planner route this driver back there at the end of their shift. Leave as None for a free agent who finishes wherever their last drop is."
+                    aria-label="What does home warehouse do?"
+                    className="inline-flex items-center justify-center size-4 rounded-full border border-muted-foreground/40 text-[9px] font-bold text-muted-foreground cursor-help"
+                  >
+                    ?
+                  </span>
                 </label>
                 <select
                   value={editForm.home_warehouse_id}
-                  onChange={(e) => setEditForm({ ...editForm, home_warehouse_id: e.target.value })}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      home_warehouse_id: e.target.value,
+                      return_to_base_required: !!e.target.value,
+                    })
+                  }
                   className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
                 >
                   <option value="">— None (free agent) —</option>
@@ -665,55 +666,10 @@ function DriversPage() {
                   ))}
                 </select>
               </div>
-              <div className="flex items-center justify-between rounded-lg border border-border bg-surface/50 px-3 py-2.5">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Return to base</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Planner will route driver back to home warehouse at end of day
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={editForm.return_to_base_required}
-                  disabled={!editForm.home_warehouse_id}
-                  onClick={() =>
-                    setEditForm((f) => ({
-                      ...f,
-                      return_to_base_required: !f.return_to_base_required,
-                    }))
-                  }
-                  className={
-                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors " +
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
-                    "disabled:cursor-not-allowed disabled:opacity-40 " +
-                    (editForm.return_to_base_required && editForm.home_warehouse_id
-                      ? "bg-primary"
-                      : "bg-muted")
-                  }
-                >
-                  <span
-                    className={
-                      "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform " +
-                      (editForm.return_to_base_required && editForm.home_warehouse_id
-                        ? "translate-x-5"
-                        : "translate-x-0")
-                    }
-                  />
-                </button>
-              </div>
+
 
               {/* Equipment capabilities */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">
-                  Vehicle / equipment
-                </label>
-                <EquipmentPicker
-                  value={editEquip}
-                  onChange={setEditEquip}
-                  options={equipmentTypes}
-                />
-              </div>
+              <EquipmentPicker value={editEquip} onChange={setEditEquip} options={equipmentTypes} />
 
               {/* Weekly schedule pattern */}
               <div>
