@@ -81,13 +81,24 @@ export function Sidebar() {
   return (
     <aside
       className={
-        (collapsed ? "w-16" : "w-56") + " shrink-0 flex flex-col transition-[width] duration-200"
+        (collapsed ? "w-16" : "w-56") +
+        " relative shrink-0 flex flex-col transition-[width] duration-200"
       }
       style={{
         background: accentColor || "var(--sidebar-bg-1)",
         borderRight: "1px solid var(--secondary)",
       }}
     >
+      {/* Collapse / expand handle — overhangs the right edge, vertically centred */}
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        title={collapsed ? "Expand menu" : "Collapse menu"}
+        aria-label={collapsed ? "Expand menu" : "Collapse menu"}
+        className="absolute top-1/2 -translate-y-1/2 -right-3 z-[1000] size-7 grid place-items-center rounded-full border border-border bg-[var(--surface)] text-muted-foreground shadow-md hover:text-foreground hover:scale-110 active:scale-95 transition-all"
+      >
+        {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+      </button>
       <div
         className={(collapsed ? "px-2" : "px-4") + " py-3"}
         style={{ borderBottom: "1px solid var(--sidebar-divider)" }}
@@ -114,18 +125,6 @@ export function Sidebar() {
               </div>
             </div>
           )}
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            title={collapsed ? "Expand menu" : "Collapse menu"}
-            aria-label={collapsed ? "Expand menu" : "Collapse menu"}
-            className={
-              (collapsed ? "" : "ml-auto ") +
-              "size-6 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-            }
-          >
-            {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
-          </button>
         </div>
 
         {!collapsed && company.subscription_status === "trial" && (
