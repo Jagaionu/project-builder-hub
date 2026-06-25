@@ -254,7 +254,7 @@ function JobDetail() {
       />
 
       <p className="mt-2 text-xs text-muted-foreground text-center">
-        Arrivals are confirmed automatically when you reach each stop.
+        Arrivals confirm automatically when you reach a stop — or tap I have arrived if it does not.
       </p>
 
       {dropArrived && job.status !== "COMPLETED" && (
