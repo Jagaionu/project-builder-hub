@@ -80,7 +80,9 @@ export function ShiftPatternEditor({
   const [selectedDays, setSelectedDays] = useState<number[]>(initialDays);
   const [times, setTimes] = useState<Record<number, TimeState>>(() => buildTimes(initialTimes));
   const [saving, setSaving] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [bulkStart, setBulkStart] = useState(DEFAULT_START);
+  const [bulkEnd, setBulkEnd] = useState(DEFAULT_END);
+  const [expanded, setExpanded] = useState(true);
 
   // Resync local state when parent re-fetches the pattern (e.g. after save).
   useEffect(() => {
@@ -120,10 +122,19 @@ export function ShiftPatternEditor({
     });
   };
 
+  // Smart entry: apply one window (or clear to any-time) to all selected days.
+  const applyToAll = (start: string | null, end: string | null) => {
+    setTimes((prev) => {
+      const next = { ...prev };
+      for (const iso of selectedDays)
+        next[iso] = start && end ? { start_time: start, end_time: end } : null;
+      return next;
+    });
+  };
+
   const discard = () => {
     setSelectedDays(initialDays);
     setTimes(buildTimes(initialTimes));
-    setExpanded(false);
   };
 
   const save = async () => {
@@ -141,7 +152,6 @@ export function ShiftPatternEditor({
       await saveShiftPattern(supabase, driverId, pattern);
       onSave();
       toast.success("Weekly shift pattern saved");
-      setExpanded(false);
     } catch (err) {
       toast.error("Couldn't save pattern", {
         description: err instanceof Error ? err.message : "Please try again",
@@ -205,6 +215,46 @@ export function ShiftPatternEditor({
               );
             })}
           </div>
+
+          {/* Smart bulk entry: one window applied to every selected day */}
+          {selectedDays.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 rounded-md bg-muted/20 px-2 py-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Set all
+              </span>
+              <input
+                type="time"
+                step="900"
+                value={bulkStart}
+                onChange={(e) => setBulkStart(e.target.value)}
+                className="h-7 px-2 rounded border border-border bg-surface text-xs w-24"
+                aria-label="Bulk start time"
+              />
+              <span className="text-[10px] text-muted-foreground">to</span>
+              <input
+                type="time"
+                step="900"
+                value={bulkEnd}
+                onChange={(e) => setBulkEnd(e.target.value)}
+                className="h-7 px-2 rounded border border-border bg-surface text-xs w-24"
+                aria-label="Bulk end time"
+              />
+              <button
+                type="button"
+                onClick={() => applyToAll(bulkStart, bulkEnd)}
+                className="px-2 h-7 rounded border border-border text-[10px] font-semibold hover:bg-surface-2 active:scale-95 transition"
+              >
+                Apply to all
+              </button>
+              <button
+                type="button"
+                onClick={() => applyToAll(null, null)}
+                className="px-2 h-7 rounded border border-border text-[10px] font-semibold text-muted-foreground hover:bg-surface-2 active:scale-95 transition"
+              >
+                Any time
+              </button>
+            </div>
+          )}
 
           {/* Per-day time rows — hours are OPTIONAL */}
           {selectedInOrder.length > 0 && (
