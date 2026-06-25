@@ -244,6 +244,7 @@ export function LiveMap({
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const flownForRef = useRef<string | null>(null);
   const clusterLayerRef = useRef<any | null>(null);
   const whClusterLayerRef = useRef<any | null>(null);
   const routeLayerRef = useRef<L.LayerGroup | null>(null);
@@ -301,8 +302,8 @@ export function LiveMap({
       attributionControl: false,
     });
 
-    // Voyager — closest to Google Maps: coloured roads, POI labels, full detail
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+    // Positron — clean, muted grey basemap (logistics / dashboard style).
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
       maxZoom: 20,
       attribution: "",
     }).addTo(map);
@@ -701,12 +702,15 @@ export function LiveMap({
     });
 
     // Direction arrows along the route — shows travel direction even with no GPS.
-    if (coords.length > 1) {
+    const mapForArrows = mapRef.current;
+    if (mapForArrows && coords.length > 1) {
       const step = Math.max(1, Math.floor(coords.length / 14));
       for (let i = step; i < coords.length; i += step) {
         const a = coords[i - 1];
         const c = coords[i];
-        const deg = (Math.atan2(-(c[0] - a[0]), c[1] - a[1]) * 180) / Math.PI;
+        const pa = mapForArrows.latLngToLayerPoint(a);
+        const pc = mapForArrows.latLngToLayerPoint(c);
+        const deg = (Math.atan2(pc.y - pa.y, pc.x - pa.x) * 180) / Math.PI;
         L.marker(c, {
           icon: L.divIcon({
             className: "route-arrow",
@@ -723,6 +727,23 @@ export function LiveMap({
       }
     }
   }, [routeGeom, routeEta, gpsTick, selectedDriver?.last_update_time, selectedDriver?.status]);
+
+  // Auto-zoom to the selected run (route + driver) when the selection changes.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!selectedDriverId) {
+      flownForRef.current = null;
+      return;
+    }
+    if (!map || !routeGeom || flownForRef.current === selectedDriverId) return;
+    flownForRef.current = selectedDriverId;
+    const pts: [number, number][] = [...routeGeom.coords];
+    const d = drivers.find((x) => x.id === selectedDriverId);
+    if (d?.current_lat != null && d.current_lon != null) pts.push([d.current_lat, d.current_lon]);
+    if (pts.length > 0) {
+      map.flyToBounds(L.latLngBounds(pts), { padding: [70, 70], maxZoom: 15, duration: 0.8 });
+    }
+  }, [selectedDriverId, routeGeom, drivers]);
 
   // ── GPS breadcrumb trail (orange circles) ────────────────────────────────
   // One small orange dot per received coordinate so you can see where the
