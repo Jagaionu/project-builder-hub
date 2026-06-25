@@ -50,6 +50,67 @@ const STATUS_MAP: Record<string, { bg: string; glow: string; label: string }> = 
 const DEF_STATUS = STATUS_MAP.ON_SHIFT;
 
 // ─── Marker HTML ───────────────────────────────────────────────────────────
+function gpsPopup(b: DriverPosition, motion: string): HTMLElement {
+  const el = document.createElement("div");
+  el.style.cssText = "min-width:180px;font-size:12px;line-height:1.5";
+  const coordStr = b.lat.toFixed(6) + ", " + b.lon.toFixed(6);
+  const localStr = new Date(b.created_at).toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const utcStr = new Date(b.created_at).toISOString().slice(0, 16).replace("T", " ") + " UTC";
+
+  const title = document.createElement("div");
+  title.style.cssText = "font-weight:700;margin-bottom:2px";
+  title.textContent = "GPS ping";
+  el.appendChild(title);
+
+  const addRow = (label: string, value: string) => {
+    const r = document.createElement("div");
+    r.textContent = label + ": " + value;
+    el.appendChild(r);
+  };
+  addRow("Motion", motion);
+  addRow("Latitude", b.lat.toFixed(6));
+  addRow("Longitude", b.lon.toFixed(6));
+
+  const t = document.createElement("div");
+  t.style.cssText = "color:#888;margin-top:2px";
+  t.textContent = localStr + "  /  " + utcStr;
+  el.appendChild(t);
+
+  const actions = document.createElement("div");
+  actions.style.cssText = "display:flex;gap:8px;margin-top:8px;align-items:center";
+
+  const copyBtn = document.createElement("button");
+  copyBtn.type = "button";
+  copyBtn.textContent = "Copy coords";
+  copyBtn.style.cssText =
+    "border:1px solid #d1d5db;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;background:#fff";
+  copyBtn.addEventListener("click", () => {
+    void navigator.clipboard.writeText(coordStr);
+    copyBtn.textContent = "Copied";
+    window.setTimeout(() => {
+      copyBtn.textContent = "Copy coords";
+    }, 1200);
+  });
+  actions.appendChild(copyBtn);
+
+  const mapLink = document.createElement("a");
+  mapLink.href = "https://maps.google.com/?q=" + b.lat + "," + b.lon;
+  mapLink.target = "_blank";
+  mapLink.rel = "noopener";
+  mapLink.textContent = "Google Maps";
+  mapLink.style.cssText = "font-size:11px;color:#2563eb;text-decoration:underline";
+  actions.appendChild(mapLink);
+
+  el.appendChild(actions);
+  return el;
+}
+
 function driverHtml(name: string, status: string, selected: boolean, avatarUrl?: string | null): string {
   const s = STATUS_MAP[status] ?? DEF_STATUS;
   const sz = selected ? 26 : 20;
@@ -638,6 +699,29 @@ export function LiveMap({
         fillOpacity: isFirst || isLast ? 1 : 0.9,
       }).addTo(layer);
     });
+
+    // Direction arrows along the route — shows travel direction even with no GPS.
+    if (coords.length > 1) {
+      const step = Math.max(1, Math.floor(coords.length / 14));
+      for (let i = step; i < coords.length; i += step) {
+        const a = coords[i - 1];
+        const c = coords[i];
+        const deg = (Math.atan2(-(c[0] - a[0]), c[1] - a[1]) * 180) / Math.PI;
+        L.marker(c, {
+          icon: L.divIcon({
+            className: "route-arrow",
+            html:
+              "<span style=\"display:inline-block;color:rgba(15,23,42,0.7);font-weight:900;font-size:12px;line-height:1;transform:rotate(" +
+              deg.toFixed(1) +
+              "deg)\">\u279C</span>",
+            iconSize: [14, 14],
+            iconAnchor: [7, 7],
+          }),
+          interactive: false,
+          zIndexOffset: 1500,
+        }).addTo(layer);
+      }
+    }
   }, [routeGeom, routeEta, gpsTick, selectedDriver?.last_update_time, selectedDriver?.status]);
 
   // ── GPS breadcrumb trail (orange circles) ────────────────────────────────
@@ -652,6 +736,12 @@ export function LiveMap({
     const last = breadcrumbs.length - 1;
     breadcrumbs.forEach((b, i) => {
       const isLatest = i === last;
+      const prev = i > 0 ? breadcrumbs[i - 1] : null;
+      const motion = prev
+        ? haversineKm(prev.lat, prev.lon, b.lat, b.lon) * 1000 < 30
+          ? "Stationary"
+          : "Moving"
+        : "—";
       L.circleMarker([b.lat, b.lon], {
         radius: isLatest ? 6 : 4,
         color: "#fff",
@@ -659,14 +749,7 @@ export function LiveMap({
         fillColor: "#f97316",
         fillOpacity: isLatest ? 1 : 0.85,
       })
-        .bindTooltip(
-          new Date(b.created_at).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          }),
-          { direction: "top" },
-        )
+        .bindPopup(() => gpsPopup(b, motion), { closeButton: true, minWidth: 190 })
         .addTo(layer);
     });
   }, [breadcrumbs, selectedDriverId]);
