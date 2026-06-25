@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Warehouse as WarehouseIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { InfoHint } from "./InfoHint";
 
 interface WarehouseOption {
   id: string;
@@ -81,6 +82,7 @@ export function BaseWarehouseSelector({
         <div className="flex items-center gap-2">
           <WarehouseIcon size={compact ? 12 : 14} className="text-muted-foreground" />
           <span className={labelCls}>Base Warehouse</span>
+          <InfoHint text="Your home depot. When set, the planner routes you back here at the end of your shift. Leave empty if you finish wherever your last drop is." />
         </div>
         {!editing && (
           <button

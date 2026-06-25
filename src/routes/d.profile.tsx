@@ -6,6 +6,7 @@ import { BaseWarehouseSelector } from "@/components/driver/BaseWarehouseSelector
 import { DriverAvatarUpload } from "@/components/driver/DriverAvatarUpload";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CalendarDays } from "lucide-react";
+import { InfoHint } from "@/components/driver/InfoHint";
 
 export const Route = createFileRoute("/d/profile")({
   head: () => ({ meta: [{ title: "Profile — Driver" }] }),
@@ -67,6 +68,7 @@ function ProfilePage() {
           <div className="flex items-center gap-2 mb-3">
             <CalendarDays size={18} style={{ color: "var(--primary)" }} />
             <h2 className="text-base font-bold text-foreground">My Schedule</h2>
+            <InfoHint text="Your weekly working pattern plus day overrides. Tap a future day to mark it as a holiday (off) or an extra working day. Times show your shift hours; today and past days are locked." />
           </div>
           <ShiftCalendar driverId={driver.id} isPlanner={false} />
         </div>
