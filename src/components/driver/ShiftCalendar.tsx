@@ -62,6 +62,7 @@ export function ShiftCalendar({
     Record<number, { start_time: string | null; end_time: string | null }>
   >({});
   const [overrides, setOverrides] = useState<DriverAvailabilityOverride[]>([]);
+  const [tenantId, setTenantId] = useState<string | null>(null);
   const [overridesLoading, setOverridesLoading] = useState(true);
   const [patternVersion, setPatternVersion] = useState(0);
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -146,10 +147,21 @@ export function ShiftCalendar({
     }
 
     const isWorkDay = selectedDays.includes(dayOfWeek);
+    let tid = tenantId;
+    if (!tid) {
+      const { data: drv } = await supabase
+        .from("drivers")
+        .select("tenant_id")
+        .eq("id", driverId)
+        .maybeSingle();
+      tid = (drv as { tenant_id?: string | null } | null)?.tenant_id ?? null;
+      if (tid) setTenantId(tid);
+    }
     const { data, error } = await supabase
       .from("driver_availability_overrides")
       .insert({
         driver_id: driverId,
+        tenant_id: tid,
         date: dateStr,
         available: !isWorkDay,
         set_by: isPlanner ? "planner" : "driver",

@@ -79,7 +79,7 @@ function DriverHome() {
     >
       {/* ── Header ── */}
       <div className="px-5 pt-6 pb-5 sticky top-0 z-20" style={{ background: "var(--background)" }}>
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between pr-12">
           <div>
             <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
               Welcome back
