@@ -24,7 +24,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LogoIcon } from "@/components/LogoIcon";
+import { AILauncher, AIDoorMark } from "@/components/ai/AILauncher";
 
 type Message = {
   id: string;
@@ -265,25 +265,11 @@ export function AIChatWidget() {
     <>
       {/* Launcher — round, icon-only, lives inline (sidebar). The accent colour
           and the flicker stay even when the chat is open. */}
-      <button
-        type="button"
-        onClick={() => (open ? requestClose() : setOpen(true))}
-        title="AI Assistant"
-        className="relative grid place-items-center size-7 rounded-full text-white shrink-0 transition-transform hover:scale-105 active:scale-95"
-        style={{ background: accent }}
-      >
-        <LogoIcon
-          src="/ai-logo.png"
-          alt="AI Assistant"
-          className="size-5 relative"
-          fallback={
-            <Sparkles
-              className="size-3.5 relative"
-              style={{ animation: "ai-door 6s ease-in-out infinite" }}
-            />
-          }
-        />
-      </button>
+      <AILauncher
+        open={open}
+        onToggle={() => (open ? requestClose() : setOpen(true))}
+        accent={accent}
+      />
 
       {open && (
         <div
@@ -309,10 +295,9 @@ export function AIChatWidget() {
                 type="button"
                 onClick={cycleColor}
                 title="Click to change accent colour"
-                className="relative flex size-9 items-center justify-center rounded-full text-white shadow-md transition-transform active:scale-90"
-                style={{ background: accent }}
+                className="relative flex size-9 items-center justify-center rounded-full shadow-md transition-transform active:scale-90"
               >
-                <Sparkles className="size-4" />
+                <AIDoorMark accent={accent} sizeClass="size-9" iconClass="size-4" />
                 <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
               </button>
               <div className="leading-tight">
@@ -357,12 +342,13 @@ export function AIChatWidget() {
               <div className="flex h-full flex-col items-center justify-center gap-5 text-center">
                 <div className="relative">
                   <div className="absolute inset-0 rounded-full bg-primary/20 blur-2xl" />
-                  <div
-                    className="relative flex size-14 items-center justify-center rounded-2xl text-white shadow-lg"
-                    style={{ background: accent }}
-                  >
-                    <Sparkles className="size-6" />
-                  </div>
+                  <AIDoorMark
+                    accent={accent}
+                    sizeClass="size-14"
+                    iconClass="size-6"
+                    roundedClass="rounded-2xl"
+                    className="relative shadow-lg"
+                  />
                 </div>
                 <div className="space-y-1">
                   <h3 className="text-base font-semibold text-foreground">How can I help today?</h3>

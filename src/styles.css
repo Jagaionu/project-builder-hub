@@ -1223,3 +1223,21 @@
 .tt-pring.glow {
   border-color: rgba(249, 115, 22, 0.7);
 }
+
+/* AI brand mark: one-shot revolving-door spin + shimmer (driven by JS toggle). */
+@keyframes ai-door-spin {
+  0% {
+    transform: rotateY(0deg);
+  }
+  100% {
+    transform: rotateY(360deg);
+  }
+}
+@keyframes ai-shimmer-once {
+  0% {
+    background-position: 160% 160%;
+  }
+  100% {
+    background-position: -60% -60%;
+  }
+}
