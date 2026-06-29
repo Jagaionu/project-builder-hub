@@ -7,6 +7,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { getRequest } from "@tanstack/react-start/server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabaseAdmin as unknown as { from: (t: string) => any };
@@ -14,6 +15,76 @@ const sb = supabaseAdmin as unknown as { from: (t: string) => any };
 // Devices auto-approved per login before a new one must be approved. A real
 // person uses ~1-2 devices (laptop + phone); beyond that looks like sharing.
 const DEVICE_CAP = 2;
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// Best-effort coarse geo at login (from Vercel edge headers) + impossible-travel
+// flag. Never throws into the login path.
+async function recordLoginGeo(userId: string, companyId: string | null, deviceId: string) {
+  try {
+    const req = getRequest();
+    const h = req?.headers;
+    if (!h) return;
+    const ip =
+      (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || h.get("x-real-ip") || null;
+    const country = h.get("x-vercel-ip-country");
+    const cityRaw = h.get("x-vercel-ip-city");
+    const latS = h.get("x-vercel-ip-latitude");
+    const lonS = h.get("x-vercel-ip-longitude");
+    const lat = latS ? Number(latS) : null;
+    const lon = lonS ? Number(lonS) : null;
+    let city: string | null = null;
+    try {
+      city = cityRaw ? decodeURIComponent(cityRaw) : null;
+    } catch {
+      city = cityRaw ?? null;
+    }
+
+    let suspicious = false;
+    let reason: string | null = null;
+    if (lat != null && lon != null && Number.isFinite(lat) && Number.isFinite(lon)) {
+      const { data: prev } = await sb
+        .from("user_login_events")
+        .select("lat, lon, created_at")
+        .eq("user_id", userId)
+        .not("lat", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (prev?.lat != null && prev?.lon != null) {
+        const km = haversineKm(prev.lat, prev.lon, lat, lon);
+        const hrs = Math.max((Date.now() - new Date(prev.created_at).getTime()) / 3600000, 1 / 60);
+        const speed = km / hrs;
+        if (km > 100 && speed > 900) {
+          suspicious = true;
+          reason = "Impossible travel: " + Math.round(km) + " km in " + hrs.toFixed(1) + " h";
+        }
+      }
+    }
+    await sb.from("user_login_events").insert({
+      user_id: userId,
+      company_id: companyId,
+      device_id: deviceId,
+      ip,
+      country: country ?? null,
+      city,
+      lat,
+      lon,
+      suspicious,
+      reason,
+    });
+  } catch {
+    /* best-effort: geo/anomaly capture must never block a login */
+  }
+}
 
 async function isSuper(userId: string): Promise<boolean> {
   const { data } = await supabaseAdmin
@@ -39,6 +110,7 @@ export const registerDevice = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .maybeSingle();
     const companyId = member?.company_id ?? null;
+    await recordLoginGeo(context.userId, companyId, data.deviceId);
 
     const { data: existing } = await sb
       .from("user_devices")
@@ -129,4 +201,44 @@ export const setDeviceStatus = createServerFn({ method: "POST" })
       })
       .eq("id", data.id);
     return { ok: true };
+  });
+
+export const listSuspiciousLogins = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({}).parse(d ?? {}))
+  .handler(async ({ context }) => {
+    if (!(await isSuper(context.userId))) throw new Error("Forbidden: super admin only");
+    const { data: events } = await sb
+      .from("user_login_events")
+      .select("id, user_id, company_id, ip, country, city, reason, created_at")
+      .eq("suspicious", true)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (events ?? []) as Array<any>;
+    const companyIds = [...new Set(rows.map((r) => r.company_id).filter(Boolean))];
+    const userIds = [...new Set(rows.map((r) => r.user_id))];
+    const { data: comps } = companyIds.length
+      ? await sb.from("companies").select("id, name").in("id", companyIds)
+      : { data: [] };
+    const { data: mems } = userIds.length
+      ? await sb.from("company_members").select("user_id, name, email").in("user_id", userIds)
+      : { data: [] };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const compName = new Map((comps ?? []).map((c: any) => [c.id, c.name]));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const memMap = new Map((mems ?? []).map((m: any) => [m.user_id, m]));
+    return rows.map((r) => ({
+      id: r.id as string,
+      when: r.created_at as string,
+      reason: (r.reason ?? null) as string | null,
+      ip: (r.ip ?? null) as string | null,
+      place: [r.city, r.country].filter(Boolean).join(", ") || "Unknown",
+      companyName: r.company_id ? ((compName.get(r.company_id) as string) ?? "—") : "—",
+      who:
+        ((memMap.get(r.user_id) as { name?: string | null; email?: string | null } | undefined)
+          ?.name ??
+          (memMap.get(r.user_id) as { email?: string | null } | undefined)?.email ??
+          "—") as string,
+    }));
   });
