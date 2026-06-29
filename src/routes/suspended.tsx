@@ -25,7 +25,7 @@ function SuspendedPage() {
         </p>
         <div className="space-y-3">
           <a
-            href="mailto:support@yourcompany.com"
+            href="mailto:support@theprimeroute.co.uk"
             className="block w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             Contact Support

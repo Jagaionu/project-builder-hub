@@ -64,18 +64,21 @@ export const Route = createFileRoute("/_app")({
       throw redirect({ to: "/login", search: { error: "company_not_found" } });
     }
 
-    if (
-      company.subscription_status === "suspended" ||
-      company.subscription_status === "cancelled"
-    ) {
-      throw redirect({ to: "/suspended" });
-    }
-    if (
+    // ── BILLING GATE ──────────────────────────────────────────────────────
+    // A company not in good standing (trial expired, suspended for non-payment,
+    // or cancelled) is locked down to the Billing tab ONLY. They can pay to
+    // restore access but cannot reach any other tab until the subscription is
+    // active again.
+    const trialExpired =
       company.subscription_status === "trial" &&
-      company.subscription_ends_at &&
-      new Date(company.subscription_ends_at) < new Date()
-    ) {
-      throw redirect({ to: "/suspended" });
+      !!company.subscription_ends_at &&
+      new Date(company.subscription_ends_at) < new Date();
+    const billingBlocked =
+      company.subscription_status === "suspended" ||
+      company.subscription_status === "cancelled" ||
+      trialExpired;
+    if (billingBlocked && location.pathname !== "/billing") {
+      throw redirect({ to: "/billing" });
     }
 
     const { data: superAdminRow } = await supabase
