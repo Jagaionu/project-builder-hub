@@ -51,8 +51,8 @@ import {
 import type { JobStatus, Job } from "@/lib/types";
 import { useLookups } from "@/lib/dispatch/lookups";
 import { useJobStops, reloadJobStops } from "@/lib/dispatch/use-job-stops";
-import { DispatchStat, ImportCsvButton, ToolbarButton } from "@/components/dispatch/toolbar";
-import { ImportBatchesButton } from "@/components/dispatch/import-batches";
+import { DispatchStat, ToolbarButton } from "@/components/dispatch/toolbar";
+import { ImportToolsButton } from "@/components/dispatch/import-batches";
 import { JobQueue } from "@/components/dispatch/queue";
 import { JobDetailPanel } from "@/components/dispatch/detail-panel";
 
@@ -832,8 +832,7 @@ function DispatchPage() {
         </div>
 
         <div className="flex-1" />
-        <ImportBatchesButton />
-        <ImportCsvButton />
+        <ImportToolsButton />
       </div>
 
       {/* Two-column body */}
