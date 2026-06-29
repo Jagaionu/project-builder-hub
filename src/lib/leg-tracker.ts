@@ -12,6 +12,11 @@ const DEPARTURE_RADIUS_M = 300;
 // one ping interval (clamped to not precede arrival) so transit/dwell learning
 // reflects reality rather than the scheduled or last-detected time.
 const DEPARTURE_BACKDATE_MS = 5 * 60_000;
+// Symmetric reasoning for arrivals: the first ping that lands inside the arrival
+// radius means the driver actually crossed the geofence during the prior ping
+// interval. Backdate the recorded arrival by a conservative amount so dwell and
+// lateness reflect reality rather than detection lag.
+const ARRIVAL_BACKDATE_MS = 2 * 60_000;
 
 function pickActiveJob(jobs: JobWithStops[]): JobWithStops | null {
   return (
@@ -43,6 +48,54 @@ export async function checkGeofences(
     const legState = useDriverStore.getState().legState;
     const setLegState = useDriverStore.getState().setLegState;
     const nowIso = new Date(pos.ts).toISOString();
+    const arrivedIso = new Date(pos.ts - ARRIVAL_BACKDATE_MS).toISOString();
+
+    // Mark the run finished: close any open dwell, stamp the final departure,
+    // set the job COMPLETED and the driver AVAILABLE. Runs from the device so a
+    // run completes without a dispatcher watching the panel.
+    const completeRun = async (opts: {
+      departedIso: string;
+      closeDwellId?: string | null;
+      dwellStopId?: string | null;
+    }) => {
+      if (opts.closeDwellId) {
+        await closeDwell({
+          data: { dwellId: opts.closeDwellId, departedAt: opts.departedIso },
+        }).catch((e) => console.error("[legs] closeDwell complete", e));
+      }
+      if (opts.dwellStopId) {
+        await supabase
+          .from("job_stops")
+          .update({ departed_at: opts.departedIso } as never)
+          .eq("id", opts.dwellStopId);
+      }
+      await supabase
+        .from("jobs")
+        .update({ status: "COMPLETED" } as never)
+        .eq("id", job.id);
+      await supabase
+        .from("drivers")
+        .update({ status: "AVAILABLE" } as never)
+        .eq("id", driverId);
+      await supabase.from("driver_events").insert({
+        driver_id: driverId,
+        type: "UNLOADED",
+        payload: { job_id: job.id, auto: true },
+      } as never);
+      setLegState({
+        activeLegId: null,
+        activeDwellId: null,
+        currentJobId: job.id,
+        lastKnownWarehouseId: legState.lastKnownWarehouseId,
+      });
+      useDriverStore
+        .getState()
+        .setJobs(
+          useDriverStore
+            .getState()
+            .jobs.map((j) => (j.id !== job.id ? j : { ...j, status: "COMPLETED" })),
+        );
+    };
 
     // Switching jobs — reset state
     if (legState.currentJobId && legState.currentJobId !== job.id) {
@@ -57,6 +110,31 @@ export async function checkGeofences(
 
     // ── Active dwell: detect departure (>300m) → close dwell + open next leg
     if (legState.activeDwellId && legState.lastKnownWarehouseId) {
+      // Final-drop completion: if the driver has reached the LAST stop and
+      // dwelled past the handling window, the run is done — even if they never
+      // drive away (e.g. a home drop where they simply stay put).
+      const dwellStop = sorted.find(
+        (s) => s.warehouse_id === legState.lastKnownWarehouseId && s.arrived_at,
+      );
+      const finalStop = sorted[sorted.length - 1];
+      if (
+        dwellStop?.arrived_at &&
+        finalStop &&
+        dwellStop.id === finalStop.id &&
+        (job.status as string) !== "COMPLETED"
+      ) {
+        const handlingMin =
+          (job as { handling_minutes?: number | null }).handling_minutes ?? 15;
+        const dwelledMs = pos.ts - new Date(dwellStop.arrived_at).getTime();
+        if (dwelledMs >= handlingMin * 60_000) {
+          await completeRun({
+            departedIso: nowIso,
+            closeDwellId: legState.activeDwellId,
+            dwellStopId: dwellStop.id,
+          });
+          return;
+        }
+      }
       const lastWh = findWh(sorted, legState.lastKnownWarehouseId);
       if (lastWh) {
         const distM = haversineKm(pos.lat, pos.lon, lastWh.latitude, lastWh.longitude) * 1000;
@@ -82,12 +160,8 @@ export async function checkGeofences(
           }
           const nextStop = sorted.find((s) => !s.arrived_at);
           if (!nextStop?.warehouse) {
-            setLegState({
-              activeLegId: null,
-              activeDwellId: null,
-              currentJobId: job.id,
-              lastKnownWarehouseId: lastWh.id,
-            });
+            // Driver left the final stop with nothing left to do → complete.
+            await completeRun({ departedIso, dwellStopId: null });
             return;
           }
           const nextWh = nextStop.warehouse;
@@ -138,14 +212,14 @@ export async function checkGeofences(
         await closeLeg({
           data: {
             legId: legState.activeLegId,
-            arrivedAt: nowIso,
+            arrivedAt: arrivedIso,
             actualLat: pos.lat,
             actualLon: pos.lon,
           },
         }).catch((e) => console.error("[legs] closeLeg", e));
         await supabase
           .from("job_stops")
-          .update({ arrived_at: nowIso } as never)
+          .update({ arrived_at: arrivedIso } as never)
           .eq("id", nextStop.id)
           .is("arrived_at", null);
 
@@ -170,7 +244,7 @@ export async function checkGeofences(
               jobStopId: nextStop.id,
               warehouseId: nextWh.id,
               kind: nextStop.kind,
-              arrivedAt: nowIso,
+              arrivedAt: arrivedIso,
             },
           });
           setLegState({
@@ -187,7 +261,7 @@ export async function checkGeofences(
                 : {
                     ...j,
                     stops: j.stops.map((s) =>
-                      s.id === nextStop.id ? { ...s, arrived_at: nowIso } : s,
+                      s.id === nextStop.id ? { ...s, arrived_at: arrivedIso } : s,
                     ),
                   },
             ),
@@ -245,7 +319,7 @@ export async function checkGeofences(
       } else if (distToNextM < ARRIVAL_RADIUS_M) {
         await supabase
           .from("job_stops")
-          .update({ arrived_at: nowIso } as never)
+          .update({ arrived_at: arrivedIso } as never)
           .eq("id", nextStop.id)
           .is("arrived_at", null);
         try {
@@ -256,7 +330,7 @@ export async function checkGeofences(
               jobStopId: nextStop.id,
               warehouseId: nextWh.id,
               kind: nextStop.kind,
-              arrivedAt: nowIso,
+              arrivedAt: arrivedIso,
             },
           });
           setLegState({

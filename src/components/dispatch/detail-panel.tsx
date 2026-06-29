@@ -862,13 +862,6 @@ function useAutoComplete(
       : 0;
     if (dropDepartMs && Date.now() < dropDepartMs) return;
 
-    const anyDelayed = stops.some((s) => {
-      const planned = s.scheduled_at;
-      if (!planned || !s.arrived_at) return false;
-      return (new Date(s.arrived_at).getTime() - new Date(planned).getTime()) / 60_000 > 5;
-    });
-    if (anyDelayed) return;
-
     autoCompletedJobs.add(job.id);
     onSetStatusRef.current("COMPLETED", { silent: true });
   }, [job.id, job.status, stops]);
