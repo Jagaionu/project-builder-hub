@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- server-function response shapes are dynamic until db:types is regenerated */
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -359,6 +359,15 @@ function BillingPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="flex gap-4 border-t border-border pt-4 text-xs text-muted-foreground">
+        <Link to="/refund-policy" className="hover:text-foreground hover:underline">
+          Refund &amp; Cancellation Policy
+        </Link>
+        <Link to="/terms" className="hover:text-foreground hover:underline">
+          Terms of Service
+        </Link>
       </div>
     </div>
   );
