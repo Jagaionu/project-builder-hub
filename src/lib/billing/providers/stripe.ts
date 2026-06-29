@@ -9,6 +9,7 @@ import type {
   NormalisedEvent,
   PaymentProvider,
   ProviderStatus,
+  RefundResult,
 } from "../provider";
 import type { ProrationBehavior } from "../types";
 
@@ -190,6 +191,29 @@ export const stripeProvider: PaymentProvider = {
       active: true,
       currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
       raw: sub,
+    };
+  },
+
+  async refund({ chargeRef, amountMinor, reason }): Promise<RefundResult> {
+    if (!chargeRef) throw new Error("Stripe refund requires a charge/payment_intent reference");
+    let paymentIntent = chargeRef.startsWith("pi_") ? chargeRef : undefined;
+    const charge = chargeRef.startsWith("ch_") ? chargeRef : undefined;
+    if (!paymentIntent && !charge && chargeRef.startsWith("in_")) {
+      const inv = (await stripe().invoices.retrieve(chargeRef)) as unknown as {
+        payment_intent?: string;
+      };
+      paymentIntent = inv.payment_intent;
+    }
+    const r = await stripe().refunds.create({
+      payment_intent: paymentIntent,
+      charge,
+      amount: amountMinor,
+      metadata: { reason: reason ?? "cancellation" },
+    });
+    return {
+      refundProviderRef: r.id,
+      status:
+        r.status === "succeeded" ? "succeeded" : r.status === "failed" ? "failed" : "pending",
     };
   },
 };

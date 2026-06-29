@@ -9,6 +9,7 @@ import type {
   NormalisedEvent,
   PaymentProvider,
   ProviderStatus,
+  RefundResult,
 } from "../provider";
 
 // gocardless-nodejs ships CommonJS; load lazily so missing creds don't break import.
@@ -19,6 +20,7 @@ type GcClient = {
     create: (p: unknown) => Promise<{ authorisation_url: string; id: string }>;
   };
   payments: { create: (p: unknown) => Promise<{ id: string; status: string }> };
+  refunds: { create: (p: unknown) => Promise<{ id: string; status: string }> };
   mandates: { list: (p: unknown) => Promise<{ mandates: Array<{ id: string; status: string }> }> };
 };
 
@@ -171,5 +173,20 @@ export const gocardlessProvider: PaymentProvider = {
     const res = await (await client()).mandates.list({ customer: customerRef });
     const active = res.mandates?.some((m) => m.status === "active") ?? false;
     return { active, currentPeriodEnd: null, raw: res };
+  },
+
+  async refund({ chargeRef, amountMinor }): Promise<RefundResult> {
+    if (!chargeRef) throw new Error("GoCardless refund requires a payment reference");
+    const r = await (
+      await client()
+    ).refunds.create({
+      amount: amountMinor,
+      total_amount_confirmation: amountMinor,
+      links: { payment: chargeRef },
+    });
+    return {
+      refundProviderRef: r.id,
+      status: r.status === "paid" ? "succeeded" : r.status === "failed" ? "failed" : "pending",
+    };
   },
 };

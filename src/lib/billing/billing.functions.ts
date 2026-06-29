@@ -14,7 +14,7 @@ import {
   recordPaymentEvent,
   handleNormalisedEvent,
 } from "./orchestrator.server";
-import { computeProration } from "./proration";
+import { computeProration, computeCancellationRefund } from "./proration";
 import type { BillingInterval, PlanTier, Provider } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -257,10 +257,23 @@ export const changeCompanyPlan = createServerFn({ method: "POST" })
         // Compute proration on NET prices for the remaining period.
         const oldNet = await netFor(fromPlan, data.interval);
         const newNet = await netFor(data.toPlan, data.interval);
-        const periodStart = new Date();
         const periodEnd = company?.current_period_end
           ? new Date(company.current_period_end)
           : new Date(Date.now() + 30 * 86400000);
+        // Real current-period start: latest paid invoice, else one month before
+        // the period end. Makes proration day-accurate (handles 28-31 day months).
+        const { data: lastPaid } = await sb
+          .from("invoices")
+          .select("paid_at")
+          .eq("tenant_id", data.companyId)
+          .eq("status", "paid")
+          .order("paid_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const periodStart = lastPaid?.paid_at
+          ? new Date(lastPaid.paid_at)
+          : new Date(periodEnd.getTime() - 30 * 86400000);
+        const changeAt = new Date();
         const proration =
           data.behavior === "at_period_end"
             ? {
@@ -272,9 +285,9 @@ export const changeCompanyPlan = createServerFn({ method: "POST" })
             : computeProration({
                 oldNetMinor: oldNet,
                 newNetMinor: newNet,
-                periodStart: new Date(periodStart.getTime() - 15 * 86400000),
+                periodStart,
                 periodEnd,
-                changeAt: periodStart,
+                changeAt,
                 behavior: data.behavior,
               });
 
@@ -547,6 +560,201 @@ export const getMyBilling = createServerFn({ method: "POST" })
         .eq("tenant_id", companyId),
     ]);
     return { company, invoices: invoices ?? [], methods: methods ?? [] };
+  });
+
+// ── Cancellation + refund ────────────────────────────────────
+async function resolveCompanyForCaller(userId: string, companyId?: string): Promise<string> {
+  const { data: sa } = await supabaseAdmin
+    .from("super_admins")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (sa && companyId) return companyId;
+  return tenantForUser(userId);
+}
+
+// Resolve the prorated cancellation refund from the latest paid invoice and the
+// current period. Net + tax are refundable; the processing fee is not.
+async function resolveCancellationRefund(companyId: string) {
+  const { data: company } = await sb
+    .from("companies")
+    .select("plan, billing_provider, billing_customer_ref, current_period_end")
+    .eq("id", companyId)
+    .maybeSingle();
+  const provider = (company?.billing_provider ?? "bank_transfer") as Provider;
+  const { data: inv } = await sb
+    .from("invoices")
+    .select(
+      "id, net_amount_minor, tax_amount_minor, gross_amount_minor, currency, plan, interval, paid_at, payment_reference",
+    )
+    .eq("tenant_id", companyId)
+    .eq("status", "paid")
+    .order("paid_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const base = {
+    eligible: false,
+    provider,
+    customerRef: (company?.billing_customer_ref ?? null) as string | null,
+    chargeRef: null as string | null,
+    plan: (company?.plan ?? null) as string | null,
+    interval: null as string | null,
+    currency: "GBP",
+    refundMinor: 0,
+    netRefundMinor: 0,
+    taxRefundMinor: 0,
+    remainingDays: 0,
+    totalDays: 0,
+  };
+  if (!inv?.paid_at) return base;
+
+  const periodEnd = company?.current_period_end
+    ? new Date(company.current_period_end)
+    : new Date(new Date(inv.paid_at).getTime() + 30 * 86400000);
+  const periodStart = new Date(inv.paid_at);
+  const refundableMinor = (inv.net_amount_minor ?? 0) + (inv.tax_amount_minor ?? 0);
+  const res = computeCancellationRefund({
+    refundableMinor,
+    periodStart,
+    periodEnd,
+    cancelAt: new Date(),
+  });
+  const netRefundMinor = Math.round((inv.net_amount_minor ?? 0) * res.remainingFraction);
+  const taxRefundMinor = res.refundMinor - netRefundMinor;
+  return {
+    ...base,
+    eligible: res.refundMinor > 0,
+    chargeRef: (inv.payment_reference ?? null) as string | null,
+    plan: (inv.plan ?? company?.plan ?? null) as string | null,
+    interval: (inv.interval ?? null) as string | null,
+    currency: (inv.currency ?? "GBP") as string,
+    refundMinor: res.refundMinor,
+    netRefundMinor,
+    taxRefundMinor,
+    remainingDays: res.remainingDays,
+    totalDays: res.totalDays,
+  };
+}
+
+// ── Tenant/super-admin: preview the refund due on cancellation ──
+export const previewCancellation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ companyId: z.string().uuid().optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const companyId = await resolveCompanyForCaller(context.userId, data.companyId);
+    const r = await resolveCancellationRefund(companyId);
+    return {
+      eligible: r.eligible,
+      refundMinor: r.refundMinor,
+      currency: r.currency,
+      remainingDays: r.remainingDays,
+      totalDays: r.totalDays,
+      provider: r.provider,
+    };
+  });
+
+// ── Tenant/super-admin: cancel subscription + pro-rata refund ──
+export const cancelSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        companyId: z.string().uuid().optional(),
+        reason: z.string().trim().max(500).optional(),
+        idempotencyKey: z.string().min(8),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const companyId = await resolveCompanyForCaller(context.userId, data.companyId);
+    return withIdempotency(
+      supabaseIdempotencyStore,
+      { key: data.idempotencyKey, operation: "cancel_subscription", companyId },
+      async () => {
+        const r = await resolveCancellationRefund(companyId);
+        let refundStatus: "pending" | "succeeded" | "failed" | "none" = "none";
+        let refundRef: string | null = null;
+
+        if (r.eligible && r.refundMinor > 0) {
+          if (r.provider !== "bank_transfer" && r.customerRef && r.chargeRef) {
+            try {
+              const rr = await getProvider(r.provider).refund({
+                customerRef: r.customerRef,
+                chargeRef: r.chargeRef,
+                amountMinor: r.refundMinor,
+                reason: data.reason ?? "cancellation",
+              });
+              refundStatus = rr.status;
+              refundRef = rr.refundProviderRef || null;
+            } catch (e) {
+              await recordPaymentEvent({
+                tenantId: companyId,
+                provider: r.provider,
+                eventType: "cancel.refund.provider_error",
+                actor: context.userId,
+                data: { error: String(e), refundMinor: r.refundMinor },
+              });
+              throw new Error("Refund failed at the payment provider; cancellation aborted");
+            }
+          } else {
+            // Bank transfer (or no charge ref): a super admin pays the refund out.
+            refundStatus = "pending";
+          }
+
+          const { data: credit } = await sb
+            .from("invoices")
+            .insert({
+              tenant_id: companyId,
+              provider: r.provider,
+              status: "refunded",
+              currency: r.currency,
+              net_amount_minor: -r.netRefundMinor,
+              tax_amount_minor: -r.taxRefundMinor,
+              fee_amount_minor: 0,
+              gross_amount_minor: -r.refundMinor,
+              plan: r.plan,
+              interval: r.interval,
+              payment_reference: refundRef,
+            })
+            .select("id")
+            .maybeSingle();
+          if (credit?.id) {
+            await sb.from("invoice_line_items").insert({
+              invoice_id: credit.id,
+              tenant_id: companyId,
+              kind: "refund",
+              description: "Pro-rata refund for unused period (" + r.remainingDays + " days)",
+              quantity: 1,
+              amount_minor: -r.refundMinor,
+            });
+          }
+        }
+
+        await processBillingEvent(companyId, { kind: "subscription_cancelled" }, {});
+        await sb
+          .from("companies")
+          .update({
+            subscription_status: "cancelled",
+            subscription_ends_at: new Date().toISOString(),
+          })
+          .eq("id", companyId);
+        await recordPaymentEvent({
+          tenantId: companyId,
+          provider: r.provider,
+          eventType: "subscription.cancelled",
+          actor: context.userId,
+          data: {
+            refundMinor: r.refundMinor,
+            remainingDays: r.remainingDays,
+            refundStatus,
+            reason: data.reason ?? null,
+          },
+        });
+        return { ok: true, refundMinor: r.refundMinor, remainingDays: r.remainingDays, refundStatus };
+      },
+    );
   });
 
 // ── helpers ──────────────────────────────────────────────────
