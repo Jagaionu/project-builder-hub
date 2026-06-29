@@ -127,7 +127,7 @@ function DriverLayout() {
       >
         <Outlet />
       </main>
-      {!isLogin && session && <DriverNotificationBell />}
+      {!isLogin && session && location.pathname === "/d" && <DriverNotificationBell />}
       {!isLogin && session && <DriverBottomNav />}
       {!isLogin && <PwaInstallPrompt />}
       {!isLogin && session && <DriverTachographModal />}
