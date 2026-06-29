@@ -382,12 +382,21 @@ function BillingPage() {
         </div>
       )}
 
-      <div className="flex gap-4 border-t border-border pt-4 text-xs text-muted-foreground">
+      <div className="flex flex-wrap gap-4 border-t border-border pt-4 text-xs text-muted-foreground">
+        <Link to="/terms" className="hover:text-foreground hover:underline">
+          Terms of Service
+        </Link>
         <Link to="/refund-policy" className="hover:text-foreground hover:underline">
           Refund &amp; Cancellation Policy
         </Link>
-        <Link to="/terms" className="hover:text-foreground hover:underline">
-          Terms of Service
+        <Link to="/privacy-policy" className="hover:text-foreground hover:underline">
+          Privacy Policy
+        </Link>
+        <Link to="/cookie-policy" className="hover:text-foreground hover:underline">
+          Cookie Policy
+        </Link>
+        <Link to="/dpa" className="hover:text-foreground hover:underline">
+          DPA
         </Link>
       </div>
     </div>

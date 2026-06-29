@@ -1,6 +1,5 @@
-// NOTE: This policy reflects what the billing system actually does (pro-rata
-// refund of the unused period on cancellation). It is a plain-language template
-// and should be reviewed by a qualified adviser before go-live.
+// NOTE: Plain-language policy reflecting the implemented pro-rata refund.
+// Template — have a qualified adviser review before go-live.
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalShell } from "@/components/legal/LegalShell";
 
@@ -27,8 +26,13 @@ function RefundPolicyPage() {
       <h2>Cancelling your subscription</h2>
       <p>
         A company administrator can cancel at any time from the <strong>Billing</strong> tab.
-        Cancellation takes effect immediately: access to the application ends as soon as the
-        cancellation is confirmed.
+        Cancellation takes effect immediately after confirmation by the company administrator.
+        Access to the Service ends at that time and the remaining unused subscription period
+        becomes eligible for a pro-rata refund in accordance with this policy.
+      </p>
+      <p>
+        Cancellation does not affect any outstanding invoices or amounts already due before the
+        cancellation date, which remain payable.
       </p>
 
       <h2>Pro-rata refund of the unused period</h2>
@@ -73,6 +77,19 @@ function RefundPolicyPage() {
       <p>
         If a renewal payment fails, we attempt to contact you and retry before access is paused. A
         paused account can be restored at any time by completing payment from the Billing tab.
+      </p>
+
+      <h2>Your data after cancellation</h2>
+      <p>
+        After cancellation, your company data will be retained for 30 days to allow export or
+        account reactivation, after which it may be permanently deleted unless we are legally
+        required to retain it.
+      </p>
+
+      <h2>Abuse and fraud</h2>
+      <p>
+        We reserve the right to refuse refunds where we reasonably believe this policy is being
+        abused or used fraudulently (for example, repeated subscribe-and-cancel cycles).
       </p>
 
       <h2>Contact</h2>
