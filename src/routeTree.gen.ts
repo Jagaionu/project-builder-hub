@@ -13,9 +13,12 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SuspendedRouteImport } from './routes/suspended'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LockRouteImport } from './routes/lock'
+import { Route as DpaRouteImport } from './routes/dpa'
 import { Route as DRouteImport } from './routes/d'
+import { Route as CookiePolicyRouteImport } from './routes/cookie-policy'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as DIndexRouteImport } from './routes/d.index'
@@ -60,6 +63,11 @@ const RefundPolicyRoute = RefundPolicyRouteImport.update({
   path: '/refund-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -70,9 +78,19 @@ const LockRoute = LockRouteImport.update({
   path: '/lock',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DpaRoute = DpaRouteImport.update({
+  id: '/dpa',
+  path: '/dpa',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DRoute = DRouteImport.update({
   id: '/d',
   path: '/d',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CookiePolicyRoute = CookiePolicyRouteImport.update({
+  id: '/cookie-policy',
+  path: '/cookie-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -197,9 +215,12 @@ const ApiPublicCronBillingSweepRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/cookie-policy': typeof CookiePolicyRoute
   '/d': typeof DRouteWithChildren
+  '/dpa': typeof DpaRoute
   '/lock': typeof LockRoute
   '/login': typeof LoginRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
@@ -226,8 +247,11 @@ export interface FileRoutesByFullPath {
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
 }
 export interface FileRoutesByTo {
+  '/cookie-policy': typeof CookiePolicyRoute
+  '/dpa': typeof DpaRoute
   '/lock': typeof LockRoute
   '/login': typeof LoginRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
@@ -258,9 +282,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/admin': typeof AdminRouteWithChildren
+  '/cookie-policy': typeof CookiePolicyRoute
   '/d': typeof DRouteWithChildren
+  '/dpa': typeof DpaRoute
   '/lock': typeof LockRoute
   '/login': typeof LoginRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
@@ -292,9 +319,12 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/cookie-policy'
     | '/d'
+    | '/dpa'
     | '/lock'
     | '/login'
+    | '/privacy-policy'
     | '/refund-policy'
     | '/sitemap.xml'
     | '/suspended'
@@ -321,8 +351,11 @@ export interface FileRouteTypes {
     | '/api/public/webhooks/stripe'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/cookie-policy'
+    | '/dpa'
     | '/lock'
     | '/login'
+    | '/privacy-policy'
     | '/refund-policy'
     | '/sitemap.xml'
     | '/suspended'
@@ -352,9 +385,12 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/admin'
+    | '/cookie-policy'
     | '/d'
+    | '/dpa'
     | '/lock'
     | '/login'
+    | '/privacy-policy'
     | '/refund-policy'
     | '/sitemap.xml'
     | '/suspended'
@@ -385,9 +421,12 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
+  CookiePolicyRoute: typeof CookiePolicyRoute
   DRoute: typeof DRouteWithChildren
+  DpaRoute: typeof DpaRoute
   LockRoute: typeof LockRoute
   LoginRoute: typeof LoginRoute
+  PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   RefundPolicyRoute: typeof RefundPolicyRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SuspendedRoute: typeof SuspendedRoute
@@ -430,6 +469,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RefundPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -444,11 +490,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LockRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dpa': {
+      id: '/dpa'
+      path: '/dpa'
+      fullPath: '/dpa'
+      preLoaderRoute: typeof DpaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/d': {
       id: '/d'
       path: '/d'
       fullPath: '/d'
       preLoaderRoute: typeof DRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cookie-policy': {
+      id: '/cookie-policy'
+      path: '/cookie-policy'
+      fullPath: '/cookie-policy'
+      preLoaderRoute: typeof CookiePolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -672,9 +732,12 @@ const DRouteWithChildren = DRoute._addFileChildren(DRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
+  CookiePolicyRoute: CookiePolicyRoute,
   DRoute: DRouteWithChildren,
+  DpaRoute: DpaRoute,
   LockRoute: LockRoute,
   LoginRoute: LoginRoute,
+  PrivacyPolicyRoute: PrivacyPolicyRoute,
   RefundPolicyRoute: RefundPolicyRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SuspendedRoute: SuspendedRoute,

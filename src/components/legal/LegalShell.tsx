@@ -26,12 +26,21 @@ export function LegalShell({
         <div className="prose prose-sm dark:prose-invert mt-8 max-w-none prose-headings:text-foreground prose-a:text-primary prose-strong:text-foreground">
           {children}
         </div>
-        <div className="mt-12 flex gap-4 border-t border-border pt-6 text-sm">
+        <div className="mt-12 flex flex-wrap gap-4 border-t border-border pt-6 text-sm">
+          <Link to="/terms" className="text-primary hover:underline">
+            Terms of Service
+          </Link>
           <Link to="/refund-policy" className="text-primary hover:underline">
             Refund &amp; Cancellation Policy
           </Link>
-          <Link to="/terms" className="text-primary hover:underline">
-            Terms of Service
+          <Link to="/privacy-policy" className="text-primary hover:underline">
+            Privacy Policy
+          </Link>
+          <Link to="/cookie-policy" className="text-primary hover:underline">
+            Cookie Policy
+          </Link>
+          <Link to="/dpa" className="text-primary hover:underline">
+            Data Processing Agreement
           </Link>
         </div>
       </div>
