@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
+import { LEGAL_ENTITY } from "@/lib/legal-entity";
 
 /** Shared layout for the public legal pages (refund policy, terms). */
 export function LegalShell({
@@ -42,6 +43,30 @@ export function LegalShell({
           <Link to="/dpa" className="text-primary hover:underline">
             Data Processing Agreement
           </Link>
+          <Link to="/security" className="text-primary hover:underline">
+            Security &amp; Trust
+          </Link>
+        </div>
+
+        <div className="mt-6 text-xs text-muted-foreground">
+          <p className="font-medium text-foreground">{LEGAL_ENTITY.name}</p>
+          {LEGAL_ENTITY.companyNumber && (
+            <p>
+              Registered in {LEGAL_ENTITY.jurisdiction}. Company number {LEGAL_ENTITY.companyNumber}
+              {LEGAL_ENTITY.registeredOffice
+                ? ". Registered office: " + LEGAL_ENTITY.registeredOffice + "."
+                : "."}
+            </p>
+          )}
+          <p>
+            Contact:{" "}
+            <a
+              href={"mailto:" + LEGAL_ENTITY.supportEmail}
+              className="text-primary hover:underline"
+            >
+              {LEGAL_ENTITY.supportEmail}
+            </a>
+          </p>
         </div>
       </div>
     </div>

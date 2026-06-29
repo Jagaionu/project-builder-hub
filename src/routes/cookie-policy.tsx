@@ -50,8 +50,10 @@ function CookiePolicyPage() {
       <h2>Managing cookies</h2>
       <p>
         You can clear or block storage in your browser settings, but the strictly necessary items
-        are required to sign in and use the Service. Because we use only essential and preference
-        storage, no consent banner is required for advertising or analytics tracking.
+        are required to sign in and use the Service. Because we currently use only strictly
+        necessary and preference cookies, we do not request consent for advertising or analytics
+        cookies. Should this change, we will update this policy and implement an appropriate
+        consent mechanism where required.
       </p>
 
       <h2>Contact</h2>

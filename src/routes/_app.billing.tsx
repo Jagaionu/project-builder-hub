@@ -398,6 +398,9 @@ function BillingPage() {
         <Link to="/dpa" className="hover:text-foreground hover:underline">
           DPA
         </Link>
+        <Link to="/security" className="hover:text-foreground hover:underline">
+          Security
+        </Link>
       </div>
     </div>
   );
