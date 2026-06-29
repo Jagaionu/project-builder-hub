@@ -1,6 +1,9 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { registerDevice } from "@/lib/device.functions";
+import { getDeviceId, deviceLabel } from "@/lib/device-id";
+import { DevicePendingGate } from "@/components/DevicePendingGate";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/Sidebar";
 import { AiHighlightListener } from "@/lib/ai-highlight";
@@ -103,8 +106,34 @@ export const Route = createFileRoute("/_app")({
 
 function AppLayout() {
   const authCtx = Route.useRouteContext() as unknown as AuthContext;
+  const register = useServerFn(registerDevice);
+  const [deviceBlocked, setDeviceBlocked] = useState(false);
+  // Bind this login to a limited set of approved devices. Fail-open: a check
+  // error never locks a user out.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = (await register({
+          data: { deviceId: getDeviceId(), label: deviceLabel() },
+        })) as { status?: string };
+        if (!cancelled && (res?.status === "pending" || res?.status === "revoked")) {
+          setDeviceBlocked(true);
+        }
+      } catch {
+        /* fail-open */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [register]);
+
   if (authCtx.mustSetPassword) {
     return <SetPasswordGate />;
+  }
+  if (deviceBlocked) {
+    return <DevicePendingGate />;
   }
   return (
     <TenantProvider value={authCtx}>

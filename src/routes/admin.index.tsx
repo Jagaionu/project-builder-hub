@@ -11,6 +11,7 @@ const AdminAnalytics = lazy(() =>
 );
 import { AdminBilling } from "@/components/admin/AdminBilling";
 import { AdminAIInsights } from "@/components/admin/AdminAIInsights";
+import { AdminDeviceApprovals } from "@/components/admin/AdminDeviceApprovals";
 import { StatsBar, StatsBarSkeleton } from "@/routes/admin/stats-bar";
 import { SearchFilterBar } from "@/routes/admin/search-filter-bar";
 import { CompanyCard, CompanyCardSkeleton } from "@/routes/admin/company-card";
@@ -106,9 +107,9 @@ function useCompanyUsage(): Record<string, CompanyUsage> {
 }
 
 function AdminDashboard() {
-  const [tab, setTab] = useState<"companies" | "warehouses" | "support" | "billing" | "ai">(
-    "companies",
-  );
+  const [tab, setTab] = useState<
+    "companies" | "warehouses" | "support" | "billing" | "ai" | "devices"
+  >("companies");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -288,6 +289,17 @@ function AdminDashboard() {
         >
           AI Insights
         </button>
+        <button
+          onClick={() => setTab("devices")}
+          className={
+            "px-4 py-2 text-sm font-medium border-b-2 transition-colors " +
+            (tab === "devices"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground")
+          }
+        >
+          Devices
+        </button>
       </div>
 
       {tab === "support" && <AdminSupportPanel companies={companies} />}
@@ -295,6 +307,8 @@ function AdminDashboard() {
       {tab === "billing" && <AdminBilling companies={companies} />}
 
       {tab === "ai" && <AdminAIInsights companies={companies} />}
+
+      {tab === "devices" && <AdminDeviceApprovals />}
 
       {tab === "companies" && (
         <>
