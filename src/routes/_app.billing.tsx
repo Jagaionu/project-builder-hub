@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- server-function response shapes are dynamic until db:types is regenerated */
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "./_app.index";
 import { getMyBilling, startCheckout } from "@/lib/billing/billing.functions";
-import { useRequireAdmin } from "@/lib/use-require-admin";
+import { useTenant } from "@/lib/tenant-context";
 import { CreditCard, Building2, Banknote } from "lucide-react";
 
 export const Route = createFileRoute("/_app/billing")({
@@ -55,8 +55,42 @@ interface Invoice {
   created_at: string;
 }
 
+function isBlocked(c?: {
+  subscription_status?: string | null;
+  subscription_ends_at?: string | null;
+} | null): boolean {
+  if (!c) return false;
+  const s = c.subscription_status;
+  if (s === "suspended" || s === "cancelled") return true;
+  if (s === "trial" && c.subscription_ends_at && new Date(c.subscription_ends_at) < new Date())
+    return true;
+  return false;
+}
+
+function GatedBanner({ status, isAdmin }: { status?: string | null; isAdmin: boolean }) {
+  return (
+    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+      <div className="font-semibold text-amber-700 dark:text-amber-400">Access paused</div>
+      <p className="mt-1 text-muted-foreground">
+        {status === "trial" ? "Your free trial has ended." : "Your subscription is not active."}{" "}
+        {isAdmin
+          ? "Complete payment below to restore full access to the app."
+          : "Please ask your company admin to complete payment to restore access."}
+      </p>
+    </div>
+  );
+}
+
 function BillingPage() {
-  const isAdmin = useRequireAdmin();
+  const { role, isSuperAdmin, company: ctxCompany } = useTenant();
+  const isAdmin = role === "admin" || isSuperAdmin;
+  const navigate = useNavigate();
+  const gated = isBlocked(ctxCompany);
+  // Billing is admin-only when healthy; when the account is gated, everyone
+  // sent here sees why (avoids a redirect loop with the _app billing gate).
+  useEffect(() => {
+    if (!isAdmin && !gated) navigate({ to: "/", replace: true });
+  }, [isAdmin, gated, navigate]);
   const fetchBilling = useServerFn(getMyBilling);
   const checkout = useServerFn(startCheckout);
   const [data, setData] = useState<{ company: any; invoices: Invoice[]; methods: any[] } | null>(
@@ -107,11 +141,22 @@ function BillingPage() {
 
   const openInvoice = data?.invoices?.find((i) => i.status === "open");
 
-  if (!isAdmin) return null;
+  if (!isAdmin && !gated) return null;
+
+  if (gated && !isAdmin) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Billing" subtitle="Subscription status" />
+        <GatedBanner status={ctxCompany?.subscription_status} isAdmin={false} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader title="Billing" subtitle="Manage your subscription and payment method" />
+
+      {gated && <GatedBanner status={ctxCompany?.subscription_status} isAdmin />}
 
       {/* Current plan / status */}
       <div className="rounded-lg border border-border bg-surface p-4">
