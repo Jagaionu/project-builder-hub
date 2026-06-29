@@ -179,30 +179,61 @@ export const startCheckout = createServerFn({ method: "POST" })
           .maybeSingle();
         const provider = getProvider(data.provider as Provider);
 
-        // Draft invoice capturing the full breakdown + line items.
-        const { data: inv } = await sb
+        // Reuse an existing OPEN invoice for the same plan/interval instead of
+        // stacking a new draft every time the customer tries a different
+        // provider. Keeps a single live invoice per plan period.
+        const payRef =
+          data.provider === "bank_transfer"
+            ? "PAY-" + Date.now().toString(36).toUpperCase()
+            : null;
+        const invFields = {
+          provider: data.provider,
+          status: "open",
+          currency: breakdown.currency,
+          net_amount_minor: breakdown.netMinor,
+          tax_amount_minor: breakdown.taxMinor,
+          fee_amount_minor: breakdown.feeMinor,
+          gross_amount_minor: breakdown.grossMinor,
+          tax_rate_bp: breakdown.taxRateBp,
+          tax_calculation_method: breakdown.taxMethod,
+          plan: data.plan,
+          interval: data.interval,
+          payment_reference: payRef,
+        };
+        const { data: existingOpen } = await sb
           .from("invoices")
-          .insert({
-            tenant_id: companyId,
-            provider: data.provider,
-            status: "open",
-            currency: breakdown.currency,
-            net_amount_minor: breakdown.netMinor,
-            tax_amount_minor: breakdown.taxMinor,
-            fee_amount_minor: breakdown.feeMinor,
-            gross_amount_minor: breakdown.grossMinor,
-            tax_rate_bp: breakdown.taxRateBp,
-            tax_calculation_method: breakdown.taxMethod,
-            plan: data.plan,
-            interval: data.interval,
-            payment_reference:
-              data.provider === "bank_transfer"
-                ? `PAY-${Date.now().toString(36).toUpperCase()}`
-                : null,
-          })
           .select("id")
+          .eq("tenant_id", companyId)
+          .eq("status", "open")
+          .eq("plan", data.plan)
+          .eq("interval", data.interval)
+          .order("created_at", { ascending: false })
+          .limit(1)
           .maybeSingle();
-        if (inv?.id) await insertBreakdownLineItems(inv.id, companyId!, data.plan, breakdown);
+        let invId: string | null = existingOpen?.id ?? null;
+        if (invId) {
+          await sb.from("invoices").update(invFields).eq("id", invId);
+          await sb.from("invoice_line_items").delete().eq("invoice_id", invId);
+        } else {
+          const { data: inv } = await sb
+            .from("invoices")
+            .insert({ tenant_id: companyId, ...invFields })
+            .select("id")
+            .maybeSingle();
+          invId = inv?.id ?? null;
+        }
+        // Collapse any other stale open invoices for this plan period to void.
+        if (invId) {
+          await sb
+            .from("invoices")
+            .update({ status: "void" })
+            .eq("tenant_id", companyId)
+            .eq("status", "open")
+            .eq("plan", data.plan)
+            .eq("interval", data.interval)
+            .neq("id", invId);
+        }
+        if (invId) await insertBreakdownLineItems(invId, companyId!, data.plan, breakdown);
 
         const checkout = await provider.createCheckout({
           customer: {
@@ -219,7 +250,7 @@ export const startCheckout = createServerFn({ method: "POST" })
           successUrl: data.successUrl,
           cancelUrl: data.cancelUrl,
         });
-        return { redirectUrl: checkout.redirectUrl, invoiceId: inv?.id ?? null, breakdown };
+        return { redirectUrl: checkout.redirectUrl, invoiceId: invId, breakdown };
       },
     );
   });

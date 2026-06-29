@@ -100,7 +100,9 @@ function BillingPage() {
   const checkout = useServerFn(startCheckout);
   const previewCancel = useServerFn(previewCancellation);
   const cancelSub = useServerFn(cancelSubscription);
-  const [cancelStep, setCancelStep] = useState<"idle" | "confirm" | "busy">("idle");
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
   const [preview, setPreview] = useState<{
     eligible: boolean;
     refundMinor: number;
@@ -109,7 +111,9 @@ function BillingPage() {
   } | null>(null);
 
   const openCancel = async () => {
-    setCancelStep("confirm");
+    setConfirmText("");
+    setPreview(null);
+    setCancelOpen(true);
     try {
       const p: any = await previewCancel({ data: {} });
       setPreview(p);
@@ -118,14 +122,14 @@ function BillingPage() {
     }
   };
   const doCancel = async () => {
-    setCancelStep("busy");
+    setCancelling(true);
     try {
       await cancelSub({ data: { idempotencyKey: newKey() } });
       toast.success("Subscription cancelled");
       window.location.reload();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Cancel failed");
-      setCancelStep("confirm");
+      setCancelling(false);
     }
   };
   const [data, setData] = useState<{ company: any; invoices: Invoice[]; methods: any[] } | null>(
@@ -175,6 +179,10 @@ function BillingPage() {
   };
 
   const openInvoice = data?.invoices?.find((i) => i.status === "open");
+  const confirmMatches =
+    !!ctxCompany &&
+    (confirmText.trim().toLowerCase() === (ctxCompany.name ?? "").trim().toLowerCase() ||
+      confirmText.trim() === ctxCompany.id);
 
   if (!isAdmin && !gated) return null;
 
@@ -260,55 +268,6 @@ function BillingPage() {
         </div>
       )}
 
-      {/* Cancel subscription */}
-      {isAdmin && !gated && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-          <h2 className="text-sm font-semibold mb-1">Cancel subscription</h2>
-          <p className="text-xs text-muted-foreground mb-3">
-            Cancelling ends access immediately and refunds the unused portion of your current
-            month. Processing fees are non-refundable.
-          </p>
-          {cancelStep === "idle" ? (
-            <button
-              onClick={openCancel}
-              className="rounded-md border border-destructive/50 px-3 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors"
-            >
-              Cancel subscription
-            </button>
-          ) : (
-            <div className="space-y-3">
-              <div className="text-sm">
-                {preview?.eligible ? (
-                  <>
-                    Estimated refund:{" "}
-                    <b>{fmt(preview.refundMinor, preview.currency)}</b> for {preview.remainingDays}{" "}
-                    unused day(s).
-                  </>
-                ) : (
-                  <>No refund is due (no paid period remaining).</>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  disabled={cancelStep === "busy"}
-                  onClick={doCancel}
-                  className="rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-                >
-                  {cancelStep === "busy" ? "Cancelling…" : "Confirm cancellation"}
-                </button>
-                <button
-                  disabled={cancelStep === "busy"}
-                  onClick={() => setCancelStep("idle")}
-                  className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold hover:bg-surface transition-colors"
-                >
-                  Keep subscription
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Invoices */}
       <div>
         <h2 className="text-sm font-semibold mb-2">Invoices</h2>
@@ -360,6 +319,68 @@ function BillingPage() {
           </table>
         </div>
       </div>
+
+      {/* Cancel subscription (bottom) */}
+      {isAdmin && !gated && (
+        <div className="border-t border-border pt-6">
+          <button
+            onClick={openCancel}
+            className="rounded-md border border-destructive/50 px-3 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            Cancel subscription
+          </button>
+        </div>
+      )}
+
+      {cancelOpen && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-background p-5 shadow-xl">
+            <h2 className="text-base font-semibold text-foreground">Cancel subscription</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This ends access to The Prime Route immediately for your whole company. We refund the
+              unused portion of your current period; processing fees are non-refundable.
+            </p>
+            <div className="mt-3 rounded-lg border border-border bg-surface p-3 text-sm">
+              {preview === null ? (
+                <span className="text-muted-foreground">Calculating refund…</span>
+              ) : preview.eligible ? (
+                <span>
+                  Estimated refund: <b>{fmt(preview.refundMinor, preview.currency)}</b> for{" "}
+                  {preview.remainingDays} unused day(s).
+                </span>
+              ) : (
+                <span>No refund is due (no paid period remaining).</span>
+              )}
+            </div>
+            <label className="mt-4 block text-xs font-medium text-muted-foreground">
+              Type your company name to confirm:{" "}
+              <span className="font-semibold text-foreground">{ctxCompany?.name}</span>
+            </label>
+            <input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={ctxCompany?.name ?? "Company name"}
+              className="mt-1 w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                disabled={cancelling}
+                onClick={() => setCancelOpen(false)}
+                className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold hover:bg-surface transition-colors"
+              >
+                Keep subscription
+              </button>
+              <button
+                disabled={cancelling || !confirmMatches}
+                onClick={doCancel}
+                className="rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                {cancelling ? "Cancelling…" : "Confirm cancellation"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-4 border-t border-border pt-4 text-xs text-muted-foreground">
         <Link to="/refund-policy" className="hover:text-foreground hover:underline">
