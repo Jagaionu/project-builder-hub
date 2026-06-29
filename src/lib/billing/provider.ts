@@ -32,6 +32,11 @@ export interface ChargeResult {
   status: "pending" | "paid" | "failed";
 }
 
+export interface RefundResult {
+  refundProviderRef: string;
+  status: "pending" | "succeeded" | "failed";
+}
+
 export interface ProviderStatus {
   active: boolean;
   currentPeriodEnd: string | null;
@@ -98,4 +103,15 @@ export interface PaymentProvider {
 
   /** Current subscription status for a customer. */
   getStatus(customerRef: string): Promise<ProviderStatus>;
+
+  /**
+   * Refund (part of) a charge. amountMinor is the gross amount to return. Used
+   * by subscription cancellation to return the prorated unused portion.
+   */
+  refund(args: {
+    customerRef: string;
+    chargeRef?: string | null;
+    amountMinor: number;
+    reason?: string;
+  }): Promise<RefundResult>;
 }

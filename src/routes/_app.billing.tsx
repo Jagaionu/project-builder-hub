@@ -4,7 +4,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "./_app.index";
-import { getMyBilling, startCheckout } from "@/lib/billing/billing.functions";
+import {
+  getMyBilling,
+  startCheckout,
+  previewCancellation,
+  cancelSubscription,
+} from "@/lib/billing/billing.functions";
 import { useTenant } from "@/lib/tenant-context";
 import { CreditCard, Building2, Banknote } from "lucide-react";
 
@@ -93,6 +98,36 @@ function BillingPage() {
   }, [isAdmin, gated, navigate]);
   const fetchBilling = useServerFn(getMyBilling);
   const checkout = useServerFn(startCheckout);
+  const previewCancel = useServerFn(previewCancellation);
+  const cancelSub = useServerFn(cancelSubscription);
+  const [cancelStep, setCancelStep] = useState<"idle" | "confirm" | "busy">("idle");
+  const [preview, setPreview] = useState<{
+    eligible: boolean;
+    refundMinor: number;
+    remainingDays: number;
+    currency: string;
+  } | null>(null);
+
+  const openCancel = async () => {
+    setCancelStep("confirm");
+    try {
+      const p: any = await previewCancel({ data: {} });
+      setPreview(p);
+    } catch {
+      setPreview(null);
+    }
+  };
+  const doCancel = async () => {
+    setCancelStep("busy");
+    try {
+      await cancelSub({ data: { idempotencyKey: newKey() } });
+      toast.success("Subscription cancelled");
+      window.location.reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Cancel failed");
+      setCancelStep("confirm");
+    }
+  };
   const [data, setData] = useState<{ company: any; invoices: Invoice[]; methods: any[] } | null>(
     null,
   );
@@ -222,6 +257,55 @@ function BillingPage() {
             Please transfer <b>{fmt(openInvoice.gross_amount_minor, openInvoice.currency)}</b> and
             quote invoice reference <b>{openInvoice.ref}</b> so we can match your payment.
           </p>
+        </div>
+      )}
+
+      {/* Cancel subscription */}
+      {isAdmin && !gated && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+          <h2 className="text-sm font-semibold mb-1">Cancel subscription</h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            Cancelling ends access immediately and refunds the unused portion of your current
+            month. Processing fees are non-refundable.
+          </p>
+          {cancelStep === "idle" ? (
+            <button
+              onClick={openCancel}
+              className="rounded-md border border-destructive/50 px-3 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              Cancel subscription
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="text-sm">
+                {preview?.eligible ? (
+                  <>
+                    Estimated refund:{" "}
+                    <b>{fmt(preview.refundMinor, preview.currency)}</b> for {preview.remainingDays}{" "}
+                    unused day(s).
+                  </>
+                ) : (
+                  <>No refund is due (no paid period remaining).</>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  disabled={cancelStep === "busy"}
+                  onClick={doCancel}
+                  className="rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+                >
+                  {cancelStep === "busy" ? "Cancelling…" : "Confirm cancellation"}
+                </button>
+                <button
+                  disabled={cancelStep === "busy"}
+                  onClick={() => setCancelStep("idle")}
+                  className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold hover:bg-surface transition-colors"
+                >
+                  Keep subscription
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

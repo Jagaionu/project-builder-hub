@@ -54,3 +54,45 @@ export function computeProration(args: ProrationArgs): ProrationResult {
     effective: "now",
   };
 }
+
+export interface CancellationRefundArgs {
+  /** Amount eligible for refund (minor units). Typically net + tax; the
+   *  processing fee is non-refundable. */
+  refundableMinor: number;
+  periodStart: Date;
+  periodEnd: Date;
+  cancelAt: Date;
+}
+
+export interface CancellationRefundResult {
+  refundMinor: number;
+  remainingFraction: number;
+  remainingDays: number;
+  totalDays: number;
+}
+
+/**
+ * Pro-rata refund for the UNUSED portion of the current period when a
+ * subscription is cancelled. Day-accurate: it works on the real period
+ * timestamps, so 28/29/30/31-day months are handled correctly without an
+ * explicit daily rate (the implied daily rate is refundableMinor / totalDays).
+ */
+export function computeCancellationRefund(
+  args: CancellationRefundArgs,
+): CancellationRefundResult {
+  const { refundableMinor, periodStart, periodEnd, cancelAt } = args;
+  const DAY = 86400000;
+  const totalMs = periodEnd.getTime() - periodStart.getTime();
+  if (totalMs <= 0) {
+    return { refundMinor: 0, remainingFraction: 0, remainingDays: 0, totalDays: 0 };
+  }
+  const remainingMs = Math.min(Math.max(periodEnd.getTime() - cancelAt.getTime(), 0), totalMs);
+  const remainingFraction = remainingMs / totalMs;
+  const refundMinor = Math.max(0, Math.round(refundableMinor * remainingFraction));
+  return {
+    refundMinor,
+    remainingFraction,
+    remainingDays: Math.ceil(remainingMs / DAY),
+    totalDays: Math.round(totalMs / DAY),
+  };
+}

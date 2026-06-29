@@ -8,6 +8,7 @@ import type {
   NormalisedEvent,
   PaymentProvider,
   ProviderStatus,
+  RefundResult,
 } from "../provider";
 
 export const bankTransferProvider: PaymentProvider = {
@@ -40,5 +41,11 @@ export const bankTransferProvider: PaymentProvider = {
   async getStatus(): Promise<ProviderStatus> {
     // Status is derived from invoice/reconciliation state, not an external API.
     return { active: false, currentPeriodEnd: null };
+  },
+
+  async refund(): Promise<RefundResult> {
+    // Offline: a super admin issues the bank refund manually out-of-band. We
+    // record it as pending so it shows on the ledger until paid out.
+    return { refundProviderRef: "", status: "pending" };
   },
 };

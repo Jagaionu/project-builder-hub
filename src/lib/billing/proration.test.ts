@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeProration } from "./proration";
+import { computeProration, computeCancellationRefund } from "./proration";
 
 const periodStart = new Date("2026-06-01T00:00:00Z");
 const periodEnd = new Date("2026-07-01T00:00:00Z"); // 30 days
@@ -83,5 +83,55 @@ describe("computeProration", () => {
         behavior: "immediate_charge",
       }),
     ).toThrow();
+  });
+});
+
+describe("computeCancellationRefund", () => {
+  const ps = new Date("2026-06-01T00:00:00Z");
+  const pe = new Date("2026-07-01T00:00:00Z"); // 30 days
+
+  it("refunds the unused fraction after 15 days (half)", () => {
+    const r = computeCancellationRefund({
+      refundableMinor: 12000, // net+tax for the month
+      periodStart: ps,
+      periodEnd: pe,
+      cancelAt: new Date("2026-06-16T00:00:00Z"), // 15 days used -> 50% left
+    });
+    expect(r.remainingFraction).toBeCloseTo(0.5, 5);
+    expect(r.refundMinor).toBe(6000);
+    expect(r.totalDays).toBe(30);
+  });
+
+  it("refunds nothing once the period has fully elapsed", () => {
+    const r = computeCancellationRefund({
+      refundableMinor: 12000,
+      periodStart: ps,
+      periodEnd: pe,
+      cancelAt: new Date("2026-07-02T00:00:00Z"),
+    });
+    expect(r.refundMinor).toBe(0);
+    expect(r.remainingDays).toBe(0);
+  });
+
+  it("is day-accurate for a 28-day month (Feb)", () => {
+    const r = computeCancellationRefund({
+      refundableMinor: 2800,
+      periodStart: new Date("2027-02-01T00:00:00Z"),
+      periodEnd: new Date("2027-03-01T00:00:00Z"), // 28 days
+      cancelAt: new Date("2027-02-15T00:00:00Z"), // 14 used -> 14 left
+    });
+    expect(r.totalDays).toBe(28);
+    expect(r.remainingDays).toBe(14);
+    expect(r.refundMinor).toBe(1400);
+  });
+
+  it("clamps a cancellation before the period start to a full refund", () => {
+    const r = computeCancellationRefund({
+      refundableMinor: 9999,
+      periodStart: ps,
+      periodEnd: pe,
+      cancelAt: new Date("2026-05-20T00:00:00Z"),
+    });
+    expect(r.refundMinor).toBe(9999);
   });
 });
