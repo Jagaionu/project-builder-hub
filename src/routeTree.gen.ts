@@ -9,8 +9,10 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SuspendedRouteImport } from './routes/suspended'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LockRouteImport } from './routes/lock'
 import { Route as DRouteImport } from './routes/d'
@@ -38,6 +40,11 @@ import { Route as ApiPublicCronShiftRolloverRouteImport } from './routes/api/pub
 import { Route as ApiPublicCronPushDispatchRouteImport } from './routes/api/public/cron/push-dispatch'
 import { Route as ApiPublicCronBillingSweepRouteImport } from './routes/api/public/cron/billing-sweep'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SuspendedRoute = SuspendedRouteImport.update({
   id: '/suspended',
   path: '/suspended',
@@ -46,6 +53,11 @@ const SuspendedRoute = SuspendedRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RefundPolicyRoute = RefundPolicyRouteImport.update({
+  id: '/refund-policy',
+  path: '/refund-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -188,8 +200,10 @@ export interface FileRoutesByFullPath {
   '/d': typeof DRouteWithChildren
   '/lock': typeof LockRoute
   '/login': typeof LoginRoute
+  '/refund-policy': typeof RefundPolicyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
+  '/terms': typeof TermsRoute
   '/alerts': typeof AppAlertsRoute
   '/billing': typeof AppBillingRoute
   '/dispatch': typeof AppDispatchRoute
@@ -214,8 +228,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/lock': typeof LockRoute
   '/login': typeof LoginRoute
+  '/refund-policy': typeof RefundPolicyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
+  '/terms': typeof TermsRoute
   '/alerts': typeof AppAlertsRoute
   '/billing': typeof AppBillingRoute
   '/dispatch': typeof AppDispatchRoute
@@ -245,8 +261,10 @@ export interface FileRoutesById {
   '/d': typeof DRouteWithChildren
   '/lock': typeof LockRoute
   '/login': typeof LoginRoute
+  '/refund-policy': typeof RefundPolicyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
+  '/terms': typeof TermsRoute
   '/_app/alerts': typeof AppAlertsRoute
   '/_app/billing': typeof AppBillingRoute
   '/_app/dispatch': typeof AppDispatchRoute
@@ -277,8 +295,10 @@ export interface FileRouteTypes {
     | '/d'
     | '/lock'
     | '/login'
+    | '/refund-policy'
     | '/sitemap.xml'
     | '/suspended'
+    | '/terms'
     | '/alerts'
     | '/billing'
     | '/dispatch'
@@ -303,8 +323,10 @@ export interface FileRouteTypes {
   to:
     | '/lock'
     | '/login'
+    | '/refund-policy'
     | '/sitemap.xml'
     | '/suspended'
+    | '/terms'
     | '/alerts'
     | '/billing'
     | '/dispatch'
@@ -333,8 +355,10 @@ export interface FileRouteTypes {
     | '/d'
     | '/lock'
     | '/login'
+    | '/refund-policy'
     | '/sitemap.xml'
     | '/suspended'
+    | '/terms'
     | '/_app/alerts'
     | '/_app/billing'
     | '/_app/dispatch'
@@ -364,8 +388,10 @@ export interface RootRouteChildren {
   DRoute: typeof DRouteWithChildren
   LockRoute: typeof LockRoute
   LoginRoute: typeof LoginRoute
+  RefundPolicyRoute: typeof RefundPolicyRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SuspendedRoute: typeof SuspendedRoute
+  TermsRoute: typeof TermsRoute
   ApiPublicPairingLoginRoute: typeof ApiPublicPairingLoginRoute
   ApiPublicCronBillingSweepRoute: typeof ApiPublicCronBillingSweepRoute
   ApiPublicCronPushDispatchRoute: typeof ApiPublicCronPushDispatchRoute
@@ -376,6 +402,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/suspended': {
       id: '/suspended'
       path: '/suspended'
@@ -388,6 +421,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/refund-policy': {
+      id: '/refund-policy'
+      path: '/refund-policy'
+      fullPath: '/refund-policy'
+      preLoaderRoute: typeof RefundPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -635,8 +675,10 @@ const rootRouteChildren: RootRouteChildren = {
   DRoute: DRouteWithChildren,
   LockRoute: LockRoute,
   LoginRoute: LoginRoute,
+  RefundPolicyRoute: RefundPolicyRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SuspendedRoute: SuspendedRoute,
+  TermsRoute: TermsRoute,
   ApiPublicPairingLoginRoute: ApiPublicPairingLoginRoute,
   ApiPublicCronBillingSweepRoute: ApiPublicCronBillingSweepRoute,
   ApiPublicCronPushDispatchRoute: ApiPublicCronPushDispatchRoute,
