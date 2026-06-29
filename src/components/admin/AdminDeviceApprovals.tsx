@@ -1,8 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { listDevicesForReview, setDeviceStatus } from "@/lib/device.functions";
+import {
+  listDevicesForReview,
+  setDeviceStatus,
+  listSuspiciousLogins,
+} from "@/lib/device.functions";
 import { toast } from "sonner";
-import { Check, X, Smartphone, ShieldCheck } from "lucide-react";
+import { Check, X, Smartphone, ShieldCheck, AlertTriangle } from "lucide-react";
+
+type Suspicious = {
+  id: string;
+  when: string;
+  reason: string | null;
+  ip: string | null;
+  place: string;
+  companyName: string;
+  who: string;
+};
 
 type Row = {
   id: string;
@@ -19,7 +33,9 @@ type Row = {
 export function AdminDeviceApprovals() {
   const list = useServerFn(listDevicesForReview);
   const setStatus = useServerFn(setDeviceStatus);
+  const listSus = useServerFn(listSuspiciousLogins);
   const [rows, setRows] = useState<Row[]>([]);
+  const [suspicious, setSuspicious] = useState<Suspicious[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -29,7 +45,10 @@ export function AdminDeviceApprovals() {
       .then((r) => setRows(r as Row[]))
       .catch(() => toast.error("Failed to load devices"))
       .finally(() => setLoading(false));
-  }, [list]);
+    listSus({ data: {} })
+      .then((r) => setSuspicious(r as Suspicious[]))
+      .catch(() => {});
+  }, [list, listSus]);
   useEffect(() => load(), [load]);
 
   const act = async (id: string, status: "approved" | "revoked") => {
@@ -133,6 +152,34 @@ export function AdminDeviceApprovals() {
               <RowItem key={r.id} r={r} />
             ))}
           </div>
+
+          {suspicious.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="size-3.5" />
+                Suspicious logins ({suspicious.length})
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Impossible-travel signals (same login seen in distant places too quickly). Often a
+                shared account or a VPN — review alongside the device list.
+              </p>
+              {suspicious.map((s) => (
+                <div
+                  key={s.id}
+                  className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{s.who}</span>
+                    <span className="text-[11px] text-muted-foreground">· {s.companyName}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    {s.reason ?? "Anomaly"} · {s.place}
+                    {s.ip ? " · " + s.ip : ""} · {new Date(s.when).toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>
