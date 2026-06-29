@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { randomBytes } from "node:crypto";
 import { entitlementsForPlan } from "@/lib/billing/plan-entitlements";
+import { encryptSecret, decryptSecret } from "@/lib/credential-cipher.server";
 
 const Input = z.object({
   companyId: z.string().uuid(),
@@ -107,7 +108,7 @@ export const createCompanyAdmin = createServerFn({ method: "POST" })
     await supabaseAdmin
       .from("admin_credentials" as never)
       .upsert(
-        { user_id: userIdToLink, email: data.email, password: data.password } as never,
+        { user_id: userIdToLink, email: data.email, password: encryptSecret(data.password) } as never,
         { onConflict: "user_id" } as never,
       );
 
@@ -155,7 +156,7 @@ export const listCompanyMembers = createServerFn({ method: "POST" })
         name: m.name ?? null,
         must_set_password: !!m.must_set_password,
         email: m.email ?? u.user?.email ?? null,
-        password: (cred as { password?: string } | null)?.password ?? null,
+        password: decryptSecret((cred as { password?: string } | null)?.password),
         created_at: m.created_at,
       });
     }
@@ -306,7 +307,7 @@ export const createCompanyProfile = createServerFn({ method: "POST" })
 
     await sbAny
       .from("admin_credentials")
-      .upsert({ user_id: userId, email, password }, { onConflict: "user_id" });
+      .upsert({ user_id: userId, email, password: encryptSecret(password) }, { onConflict: "user_id" });
 
     // tempPassword is returned for one-time display only; never logged.
     return { name: data.name, email, tempPassword: password };
@@ -336,7 +337,10 @@ export const resetProfilePassword = createServerFn({ method: "POST" })
     await sbAny.from("company_members").update({ must_set_password: true }).eq("id", data.memberId);
     await sbAny
       .from("admin_credentials")
-      .upsert({ user_id: m.user_id, email: m.email, password }, { onConflict: "user_id" });
+      .upsert(
+        { user_id: m.user_id, email: m.email, password: encryptSecret(password) },
+        { onConflict: "user_id" },
+      );
 
     return { tempPassword: password };
   });
