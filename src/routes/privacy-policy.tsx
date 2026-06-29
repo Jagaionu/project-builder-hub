@@ -65,9 +65,10 @@ function PrivacyPolicyPage() {
       </p>
       <p>
         Location data is securely stored and retained only for as long as necessary to provide the
-        Service and meet legal or contractual obligations (operational location history is
-        typically retained for up to 12 months, after which it is deleted unless a shorter period
-        is configured by your company).
+        Service and meet legal or contractual obligations. Raw location pings are retained for
+        approximately 90 days; aggregated operational records (such as trip and dwell summaries)
+        are kept in line with our retention schedule and then deleted, unless a longer period is
+        required to meet a legal or contractual obligation.
       </p>
 
       <h2>Why we process data and the legal basis</h2>
