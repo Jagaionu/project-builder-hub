@@ -17,6 +17,8 @@ export type TenantModule =
 
 export interface PlanEntitlements {
   modules: TenantModule[];
+  /** Office logins (admin + member seats). Drivers are capped by maxDrivers. */
+  maxSeats: number;
   maxDrivers: number;
   maxWarehouses: number;
   customBranding: boolean;
@@ -34,18 +36,21 @@ const CORE_MODULES: TenantModule[] = [
 export const PLAN_ENTITLEMENTS: Record<PlanTier, PlanEntitlements> = {
   starter: {
     modules: [...CORE_MODULES],
+    maxSeats: 3,
     maxDrivers: 20,
     maxWarehouses: 5,
     customBranding: false,
   },
   pro: {
     modules: [...CORE_MODULES, "maps"],
+    maxSeats: 10,
     maxDrivers: 50,
     maxWarehouses: 20,
     customBranding: false,
   },
   enterprise: {
     modules: [...CORE_MODULES, "maps", "ai_agent"],
+    maxSeats: 50,
     maxDrivers: 500,
     maxWarehouses: 100,
     customBranding: true,

@@ -7,6 +7,7 @@ describe("entitlementsForPlan", () => {
     expect(e.modules).not.toContain("maps");
     expect(e.modules).not.toContain("ai_agent");
     expect(e.maxDrivers).toBe(20);
+    expect(e.maxSeats).toBe(3);
     expect(e.customBranding).toBe(false);
   });
 
@@ -15,6 +16,7 @@ describe("entitlementsForPlan", () => {
     expect(e.modules).toContain("maps");
     expect(e.modules).not.toContain("ai_agent");
     expect(e.maxDrivers).toBe(50);
+    expect(e.maxSeats).toBe(10);
   });
 
   it("enterprise unlocks everything and custom branding", () => {
@@ -23,6 +25,7 @@ describe("entitlementsForPlan", () => {
     expect(e.modules).toContain("ai_agent");
     expect(e.customBranding).toBe(true);
     expect(e.maxDrivers).toBe(500);
+    expect(e.maxSeats).toBe(50);
   });
 
   it("returns a fresh copy that callers cannot mutate", () => {
