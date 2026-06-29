@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { randomBytes } from "node:crypto";
+import { entitlementsForPlan } from "@/lib/billing/plan-entitlements";
 
 const Input = z.object({
   companyId: z.string().uuid(),
@@ -223,6 +224,38 @@ export const createCompanyProfile = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => CreateProfileInput.parse(data))
   .handler(async ({ data, context }) => {
     await assertCanManageCompany(context.userId, data.companyId);
+
+    // Seat limit (office logins). Super admins may exceed when provisioning;
+    // company admins are capped at their plan seat allowance to stop one
+    // account being shared across an unlimited number of people.
+    const { data: saSeat } = await supabaseAdmin
+      .from("super_admins")
+      .select("user_id")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (!saSeat) {
+      const { data: planRow } = await sbAny
+        .from("companies")
+        .select("plan")
+        .eq("id", data.companyId)
+        .maybeSingle();
+      const rawPlan = (planRow?.plan ?? "starter") as string;
+      const planTier = rawPlan === "pro" || rawPlan === "enterprise" ? rawPlan : "starter";
+      const maxSeats = entitlementsForPlan(planTier).maxSeats;
+      const { count } = await sbAny
+        .from("company_members")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", data.companyId);
+      if ((count ?? 0) >= maxSeats) {
+        throw new Error(
+          "Seat limit reached: your " +
+            planTier +
+            " plan allows " +
+            maxSeats +
+            " team logins. Remove a member or upgrade your plan to add more.",
+        );
+      }
+    }
 
     const { data: company, error: cErr } = await supabaseAdmin
       .from("companies")

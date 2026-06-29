@@ -11,6 +11,7 @@ import {
 import { PageHeader } from "./_app.index";
 import { toast } from "sonner";
 import { useTeamSync } from "@/lib/use-team-sync";
+import { entitlementsForPlan } from "@/lib/billing/plan-entitlements";
 import { UserPlus, Copy, Trash2, Key, Shield, User } from "lucide-react";
 
 export const Route = createFileRoute("/_app/team")({ component: TeamPage });
@@ -68,6 +69,11 @@ function TeamPage() {
   if (role !== "admin") return null;
 
   const regulars = members.filter((m) => m.role !== "admin");
+  const rawPlan = (company as { plan?: string }).plan ?? "starter";
+  const planTier = rawPlan === "pro" || rawPlan === "enterprise" ? rawPlan : "starter";
+  const maxSeats = entitlementsForPlan(planTier).maxSeats;
+  const seatsUsed = members.length;
+  const seatsFull = seatsUsed >= maxSeats;
 
   return (
     <div className="h-full flex flex-col">
@@ -86,6 +92,20 @@ function TeamPage() {
             Create a login for a team member. They sign in by picking their name on this device and
             entering the one-time password you hand them (they set their own on first login).
           </p>
+          <div className="mb-3 text-xs">
+            <span
+              className={seatsFull ? "font-semibold text-destructive" : "text-muted-foreground"}
+            >
+              {seatsUsed} of {maxSeats} seats used
+            </span>
+            {seatsFull && (
+              <span className="text-muted-foreground">
+                {" "}
+                — seat limit reached for your {planTier} plan. Remove a member or upgrade your plan
+                to add more.
+              </span>
+            )}
+          </div>
           <div className="flex flex-wrap gap-2 items-center">
             <input
               type="text"
@@ -96,7 +116,7 @@ function TeamPage() {
             />
             <button
               type="button"
-              disabled={busy || !profileName.trim()}
+              disabled={busy || !profileName.trim() || seatsFull}
               onClick={async () => {
                 setBusy(true);
                 try {
