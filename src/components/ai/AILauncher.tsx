@@ -46,7 +46,7 @@ export function AIDoorMark({
     const id = setInterval(() => {
       setActive(true);
       setTimeout(() => setActive(false), 1100);
-    }, 7000);
+    }, 4000);
     return () => clearInterval(id);
   }, [idleSpin, open]);
 

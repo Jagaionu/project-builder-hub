@@ -265,11 +265,7 @@ export function AIChatWidget() {
     <>
       {/* Launcher — round, icon-only, lives inline (sidebar). The accent colour
           and the flicker stay even when the chat is open. */}
-      <AILauncher
-        open={open}
-        onToggle={() => (open ? requestClose() : setOpen(true))}
-        accent={accent}
-      />
+      <AILauncher open={open} onToggle={() => (open ? requestClose() : setOpen(true))} />
 
       {open && (
         <div
@@ -297,7 +293,7 @@ export function AIChatWidget() {
                 title="Click to change accent colour"
                 className="relative flex size-9 items-center justify-center rounded-full shadow-md transition-transform active:scale-90"
               >
-                <AIDoorMark accent={accent} sizeClass="size-9" iconClass="size-4" />
+                <AIDoorMark sizeClass="size-9" iconClass="size-4" />
                 <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
               </button>
               <div className="leading-tight">
@@ -343,7 +339,6 @@ export function AIChatWidget() {
                 <div className="relative">
                   <div className="absolute inset-0 rounded-full bg-primary/20 blur-2xl" />
                   <AIDoorMark
-                    accent={accent}
                     sizeClass="size-14"
                     iconClass="size-6"
                     roundedClass="rounded-2xl"
