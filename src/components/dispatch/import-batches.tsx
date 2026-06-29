@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
 import { Clock, FileText, History, Trash2, Upload, X } from "lucide-react";
+import { useRef, type ChangeEvent } from "react";
+import { importJobsCsv } from "@/lib/jobs-import.functions";
+import { csvToImportRows } from "@/lib/csv-import";
+import { reloadJobs } from "@/lib/hooks";
+import { reloadJobStops } from "@/lib/dispatch/use-job-stops";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { deleteImportBatch } from "@/lib/delete-import-batch.functions";
 import type { ImportBatchSummary } from "@/lib/jobs-import.functions";
-import { ToolbarButton } from "./toolbar";
 
 function useImportBatches() {
   const [batches, setBatches] = useState<ImportBatchSummary[]>([]);
@@ -39,10 +43,47 @@ function useImportBatches() {
   return batches;
 }
 
-export function ImportBatchesButton() {
+export function ImportToolsButton() {
   const [open, setOpen] = useState(false);
   const batches = useImportBatches();
   const runDelete = useServerFn(deleteImportBatch);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const runImport = useServerFn(importJobsCsv);
+
+  async function onFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      const text = await file.text();
+      const rows = csvToImportRows(text);
+      if (rows.length === 0) {
+        toast.error("No rows found in CSV");
+        return;
+      }
+      const res = await runImport({ data: { rows, fileName: file.name } });
+      await Promise.all([reloadJobs(), reloadJobStops()]);
+      const parts: string[] = [res.created + " created"];
+      if (res.parked.length) parts.push(res.parked.length + " parked (see Alerts)");
+      if (res.skippedDuplicate.length) parts.push(res.skippedDuplicate.length + " duplicate");
+      if (res.errors.length) parts.push(res.errors.length + " errors");
+      toast.success(parts.join(" · "));
+      if (res.skippedUnknownWh.length) {
+        const codes = Array.from(new Set(res.skippedUnknownWh.flatMap((r) => r.missing)));
+        toast.message("Parked — missing warehouse codes", {
+          description: codes.join(", ") + ". Add them and these jobs will auto-release.",
+        });
+      }
+      if (res.errors.length) console.error("[csv-import] errors", res.errors);
+    } catch (err) {
+      console.error("[csv-import]", err);
+      toast.error(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
 
   async function confirmDelete(b: ImportBatchSummary) {
     if (
@@ -63,9 +104,35 @@ export function ImportBatchesButton() {
 
   return (
     <>
-      <ToolbarButton onClick={() => setOpen(true)} icon={<History className="size-3.5" />}>
-        History
-      </ToolbarButton>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv,text/csv"
+        className="hidden"
+        onChange={onFile}
+      />
+      <div className="relative inline-flex items-center h-8 rounded-full overflow-hidden border border-black/10 dark:border-white/10 shadow-[0_2px_6px_rgba(0,0,0,0.20)] bg-gradient-to-b from-[#f7f7f7] to-[#e6e6e6] dark:from-[#3d3d3d] dark:to-[#1e1e1e]">
+        <span className="pointer-events-none absolute inset-x-1 top-px h-1/2 rounded-full bg-white/25" />
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={busy}
+          data-ai-target="import-routes"
+          className="relative inline-flex items-center gap-1.5 h-8 pl-1 pr-2.5 text-[11px] font-semibold text-neutral-800 dark:text-neutral-100 whitespace-nowrap hover:bg-black/5 dark:hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <span className="grid size-6 place-items-center rounded-full ring-1 ring-black/10 dark:ring-white/15 bg-gradient-to-b from-white to-[#d9d9d9] dark:from-[#2f2f2f] dark:to-black shadow-[inset_0_1px_2px_rgba(255,255,255,0.55),0_1px_2px_rgba(0,0,0,0.25)] [&_svg]:size-3">
+            <Upload className="size-3" />
+          </span>
+          <span className="leading-none">{busy ? "Importing…" : "Import CSV"}</span>
+        </button>
+        <button
+          onClick={() => setOpen(true)}
+          title="History"
+          aria-label="Import history"
+          className="relative h-8 px-2.5 border-l border-black/15 dark:border-white/15 text-black/55 dark:text-white/70 transition-colors hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+        >
+          <History className="size-3.5" />
+        </button>
+      </div>
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
