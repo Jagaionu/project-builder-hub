@@ -82,7 +82,23 @@ export function ShiftPatternEditor({
   const [saving, setSaving] = useState(false);
   const [bulkStart, setBulkStart] = useState(DEFAULT_START);
   const [bulkEnd, setBulkEnd] = useState(DEFAULT_END);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem("shiftPattern.expanded") === "1";
+    } catch {
+      return false;
+    }
+  });
+  // Persist so it stays where the driver left it across re-renders / realtime
+  // refreshes (defaults to compact instead of re-opening on its own).
+  useEffect(() => {
+    try {
+      localStorage.setItem("shiftPattern.expanded", expanded ? "1" : "0");
+    } catch {
+      /* noop */
+    }
+  }, [expanded]);
 
   // Resync local state when parent re-fetches the pattern (e.g. after save).
   useEffect(() => {
