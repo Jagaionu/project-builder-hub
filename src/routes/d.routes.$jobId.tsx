@@ -6,6 +6,7 @@ import { getTenantId } from "@/lib/tenant-insert";
 import { useDriverStore } from "@/lib/driver-store";
 import { atLocation } from "@/lib/driver-gps";
 import { DriverStopTimeline } from "@/components/driver/DriverStopTimeline";
+import { DriverNotes } from "@/components/driver/DriverNotes";
 import { STATUS_CONFIG } from "@/components/driver/DriverJobCard";
 import {
   haversineKm,
@@ -30,7 +31,6 @@ function JobDetail() {
   const gps = useDriverStore((s) => s.gpsPosition);
   const job = jobs.find((j) => j.id === jobId);
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState("");
 
   if (!job) {
     return (
@@ -157,26 +157,6 @@ function JobDetail() {
     }
   };
 
-  const saveNote = async () => {
-    if (!driver || !note.trim()) return;
-    setBusy(true);
-    try {
-      const { error } = await supabase.from("driver_events").insert({
-        driver_id: driver.id,
-        type: "DRIVER_NOTE",
-        payload: { job_id: job.id, note: note.trim() },
-        tenant_id: await getTenantId(),
-      } as never);
-      if (error) throw error;
-      setNote("");
-      toast.success("Note saved");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to save note");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const showCantComplete =
     job.status === "IN_PROGRESS" ||
     job.status === "ARRIVED_PICKUP" ||
@@ -293,25 +273,7 @@ function JobDetail() {
         </div>
       )}
 
-      <div className="mt-6 bg-card border border-border rounded-2xl p-4">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          Notes
-        </label>
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Add a note for the dispatcher…"
-          rows={3}
-          className="w-full bg-background border border-border rounded-lg p-2 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/40"
-        />
-        <button
-          onClick={saveNote}
-          disabled={busy || !note.trim()}
-          className="mt-2 w-full bg-primary text-primary-foreground font-semibold text-sm py-2.5 rounded-lg active:scale-[0.99] transition disabled:opacity-40"
-        >
-          Save note
-        </button>
-      </div>
+      <DriverNotes jobId={job.id} />
     </div>
   );
 }
