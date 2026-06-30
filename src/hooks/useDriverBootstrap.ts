@@ -128,12 +128,21 @@ async function autoArriveNearby(driverId: string, p: GPSPosition) {
   for (const job of jobs) {
     if (["COMPLETED", "CANCELLED", "PENDING"].includes(job.status)) continue;
     const sorted = [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq);
-    const nextStop = sorted.find((s) => !s.arrived_at);
-    if (!nextStop?.warehouse) continue;
-    const wh = nextStop.warehouse;
-    const dist = haversineKm(p.lat, p.lon, wh.latitude, wh.longitude);
-    if (dist <= ARRIVAL_RADIUS_KM && !arrivingStops.has(nextStop.id)) {
-      candidates.push({ jobId: job.id, stopId: nextStop.id });
+    // Check EVERY un-arrived stop, not just the next one. A driver can reach a
+    // later stop while an earlier one was missed (genuinely skipped, or GPS
+    // never landed inside its geofence) — that later arrival must still be
+    // captured instead of being blocked forever behind the missed stop.
+    for (const stop of sorted) {
+      if (stop.arrived_at || !stop.warehouse) continue;
+      const dist = haversineKm(
+        p.lat,
+        p.lon,
+        stop.warehouse.latitude,
+        stop.warehouse.longitude,
+      );
+      if (dist <= ARRIVAL_RADIUS_KM && !arrivingStops.has(stop.id)) {
+        candidates.push({ jobId: job.id, stopId: stop.id });
+      }
     }
   }
   for (const c of candidates) {
