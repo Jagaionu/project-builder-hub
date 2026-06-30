@@ -193,6 +193,7 @@ export function useDriverBootstrap() {
 
     const onPosition = (p: GPSPosition) => {
       setGpsPosition(p);
+      useDriverStore.getState().setGpsError(null);
       gpsSeam.push({ latitude: p.lat, longitude: p.lon, time: p.ts, accuracy: p.accuracy });
       const driver = useDriverStore.getState().driver;
       if (!driver) return;
@@ -211,17 +212,25 @@ export function useDriverBootstrap() {
       supabase
         .from("driver_positions")
         .insert({ driver_id: driver.id, lat: p.lat, lon: p.lon } as never)
-        .then(() => {});
+        .then(({ error }) => {
+          if (error) console.warn("[gps] driver_positions insert failed:", error.message);
+        });
       supabase
         .from("drivers")
         .update({ current_lat: p.lat, current_lon: p.lon, last_update_time: now })
         .eq("id", driver.id)
-        .then(() => {});
+        .then(({ error }) => {
+          if (error) console.warn("[gps] drivers update failed:", error.message);
+        });
     };
 
+    const onGpsError = (err: GeolocationPositionError) => {
+      console.warn("[gps] position error:", err.code, err.message);
+      useDriverStore.getState().setGpsError({ code: err.code, message: err.message });
+    };
     const startWatch = () => {
       if (stopWatchRef.current) return;
-      stopWatchRef.current = watchPosition(onPosition);
+      stopWatchRef.current = watchPosition(onPosition, onGpsError);
     };
     const restartWatch = () => {
       stopWatchRef.current?.();
@@ -268,7 +277,7 @@ export function useDriverBootstrap() {
               accuracy: pos.coords.accuracy,
               ts: pos.timestamp,
             }),
-          () => {},
+          onGpsError,
           { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
         );
       }

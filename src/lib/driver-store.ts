@@ -22,6 +22,7 @@ interface DriverAppState {
   driver: DriverProfile | null;
   jobs: JobWithStops[];
   gpsPosition: GPSPosition | null;
+  gpsError: { code: number; message: string } | null;
   isOnline: boolean;
   legState: LegState;
   /** Gates access to the driver app: active | suspended (blocked) | deleted (removed). */
@@ -35,6 +36,7 @@ interface DriverAppState {
   setDriver: (d: DriverProfile | null) => void;
   setJobs: (j: JobWithStops[]) => void;
   setGpsPosition: (p: GPSPosition | null) => void;
+  setGpsError: (e: { code: number; message: string } | null) => void;
   setOnline: (o: boolean) => void;
   setLegState: (s: LegState) => void;
   setAccountStatus: (
@@ -50,6 +52,7 @@ export const useDriverStore = create<DriverAppState>((set) => ({
   driver: null,
   jobs: [],
   gpsPosition: null,
+  gpsError: null,
   isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
   legState: INITIAL_LEG_STATE,
   accountStatus: "active",
@@ -60,6 +63,7 @@ export const useDriverStore = create<DriverAppState>((set) => ({
   setDriver: (driver) => set({ driver }),
   setJobs: (jobs) => set({ jobs }),
   setGpsPosition: (gpsPosition) => set({ gpsPosition }),
+  setGpsError: (gpsError) => set({ gpsError }),
   setOnline: (isOnline) => set({ isOnline }),
   setLegState: (legState) => set({ legState }),
   setAccountStatus: (accountStatus, info) =>
@@ -75,6 +79,7 @@ export const useDriverStore = create<DriverAppState>((set) => ({
       driver: null,
       jobs: [],
       gpsPosition: null,
+      gpsError: null,
       legState: INITIAL_LEG_STATE,
       accountStatus: "active",
       suspendedUntil: null,
