@@ -2,6 +2,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { auditPlan } from "@/lib/audit-plan.functions";
+import { getCompanyPaymentHistory } from "@/lib/billing/billing.functions";
+import type { PaymentHistory } from "@/lib/billing/payment-history";
 import type {
   Company,
   SubscriptionStatus,
@@ -136,7 +138,9 @@ export function CompanyCard({
   const delProfile = useServerFn(deleteProfile);
   const delCompanyFn = useServerFn(deleteCompany);
   const runAudit = useServerFn(auditPlan);
+  const fetchPayHistory = useServerFn(getCompanyPaymentHistory);
   const [auditing, setAuditing] = useState(false);
+  const [paySummary, setPaySummary] = useState<PaymentHistory["summary"] | null>(null);
   const [profileName, setProfileName] = useState("");
   const [issued, setIssued] = useState<{
     name: string;
@@ -158,6 +162,15 @@ export function CompanyCard({
       .then((r) => setMembers(r as Member[]))
       .catch(() => toast.error("Failed to load members"));
   }, [expanded, company.id, fetchMembers, refreshKey]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    fetchPayHistory({ data: { companyId: company.id } })
+      .then((h) => setPaySummary((h as PaymentHistory).summary))
+      .catch(() => {
+        /* non-critical: leave summary hidden */
+      });
+  }, [expanded, company.id, fetchPayHistory]);
 
   function toggleModule(mod: TenantModule) {
     setConfig((prev) => ({
@@ -254,6 +267,39 @@ export function CompanyCard({
 
       {expanded && (
         <div className="border-t border-border px-4 py-4 space-y-5">
+          {/* Payment summary (super-admin) */}
+          {paySummary && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-surface-2/40 px-3 py-2 text-[11px] text-muted-foreground">
+              <span>
+                Lifetime paid:{" "}
+                <b className="text-foreground tabular-nums">
+                  {paySummary.currency === "GBP" ? "£" : ""}
+                  {(paySummary.lifetimeNetMinor / 100).toFixed(2)}
+                </b>
+              </span>
+              <span>
+                Payments: <b className="text-foreground">{paySummary.paymentsCount}</b>
+              </span>
+              {paySummary.refundedMinor > 0 && (
+                <span>
+                  Refunded:{" "}
+                  <b className="text-foreground tabular-nums">
+                    {paySummary.currency === "GBP" ? "£" : ""}
+                    {(paySummary.refundedMinor / 100).toFixed(2)}
+                  </b>
+                </span>
+              )}
+              <span>
+                Last paid:{" "}
+                <b className="text-foreground">
+                  {paySummary.lastPaymentAt
+                    ? new Date(paySummary.lastPaymentAt).toLocaleDateString()
+                    : "—"}
+                </b>
+              </span>
+            </div>
+          )}
+
           {/* Subscription Status */}
           <div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">

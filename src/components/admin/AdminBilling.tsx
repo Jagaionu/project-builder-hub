@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import type { Company } from "@/lib/types";
 import {
   getCompanyBilling,
+  getCompanyPaymentHistory,
   setCompanyProvider,
   changeCompanyPlan,
   reconcileBankTransfer,
@@ -13,6 +14,7 @@ import {
   listWebhookEvents,
   replayWebhookEvent,
 } from "@/lib/billing/billing.functions";
+import type { PaymentHistory } from "@/lib/billing/payment-history";
 import {
   getPaymentsConfigStatus,
   type PaymentsConfigStatus,
@@ -81,6 +83,7 @@ export function AdminBilling({ companies }: { companies: Company[] }) {
 function CompanyBilling({ companies }: { companies: Company[] }) {
   const [selectedId, setSelectedId] = useState<string>(companies[0]?.id ?? "");
   const fetchBilling = useServerFn(getCompanyBilling);
+  const fetchHistory = useServerFn(getCompanyPaymentHistory);
   const setProvider = useServerFn(setCompanyProvider);
   const changePlan = useServerFn(changeCompanyPlan);
   const reconcile = useServerFn(reconcileBankTransfer);
@@ -88,20 +91,25 @@ function CompanyBilling({ companies }: { companies: Company[] }) {
   const [data, setData] = useState<{ company: any; invoices: Invoice[]; methods: any[] } | null>(
     null,
   );
+  const [history, setHistory] = useState<PaymentHistory | null>(null);
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!selectedId) return;
     setLoading(true);
     try {
-      const res = await fetchBilling({ data: { companyId: selectedId } });
+      const [res, hist] = await Promise.all([
+        fetchBilling({ data: { companyId: selectedId } }),
+        fetchHistory({ data: { companyId: selectedId } }),
+      ]);
       setData(res as any);
+      setHistory(hist as PaymentHistory);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load billing");
     } finally {
       setLoading(false);
     }
-  }, [selectedId, fetchBilling]);
+  }, [selectedId, fetchBilling, fetchHistory]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -295,6 +303,96 @@ function CompanyBilling({ companies }: { companies: Company[] }) {
           </tbody>
         </table>
       </div>
+
+      {history && (
+        <div className="rounded-lg border border-border bg-surface p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Payment history</h3>
+            {history.summary.multiCurrency && (
+              <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                Mixed currencies — totals may not sum
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-4 gap-3">
+            <Kpi
+              label="Lifetime paid (net)"
+              value={fmt(history.summary.lifetimeNetMinor, history.summary.currency)}
+            />
+            <Kpi label="Payments" value={String(history.summary.paymentsCount)} />
+            <Kpi
+              label="Refunded"
+              value={fmt(history.summary.refundedMinor, history.summary.currency)}
+            />
+            <Kpi
+              label="Last payment"
+              value={
+                history.summary.lastPaymentAt
+                  ? new Date(history.summary.lastPaymentAt).toLocaleDateString()
+                  : "—"
+              }
+            />
+          </div>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left">Date / time</th>
+                  <th className="px-3 py-2 text-left">Type</th>
+                  <th className="px-3 py-2 text-right">Amount</th>
+                  <th className="px-3 py-2 text-left">Method</th>
+                  <th className="px-3 py-2 text-left">Plan</th>
+                  <th className="px-3 py-2 text-left">Reference</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {history.entries.map((e) => (
+                  <tr key={e.id} className="hover:bg-surface-2/40">
+                    <td className="px-3 py-2 text-xs whitespace-nowrap">
+                      {new Date(e.occurredAt).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={
+                          "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium " +
+                          (e.kind === "refund"
+                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                            : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400")
+                        }
+                      >
+                        {e.kind === "refund" ? "Refund" : "Payment"}
+                      </span>
+                    </td>
+                    <td
+                      className={
+                        "px-3 py-2 text-right tabular-nums font-semibold " +
+                        (e.amountMinor < 0 ? "text-amber-600 dark:text-amber-400" : "")
+                      }
+                    >
+                      {fmt(e.amountMinor, e.currency)}
+                    </td>
+                    <td className="px-3 py-2 text-xs">{e.provider ?? "—"}</td>
+                    <td className="px-3 py-2 text-xs capitalize">
+                      {e.plan ?? "—"}
+                      {e.interval ? ` / ${e.interval}` : ""}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground max-w-[160px] truncate">
+                      {e.reference ?? e.invoiceRef ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+                {history.entries.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-8 text-center text-xs text-muted-foreground">
+                      No payments yet
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
