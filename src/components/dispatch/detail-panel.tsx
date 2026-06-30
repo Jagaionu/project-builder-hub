@@ -629,7 +629,13 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                 s.kind === "PICKUP"
                   ? (s.departed_at ?? s.arrived_at ?? null)
                   : (s.arrived_at ?? null);
-              const isGpsConfirmed = !!(s.arrived_at && plannedRaw && s.arrived_at !== plannedRaw);
+              const isGpsConfirmed = !!(
+                (s.arrived_at && plannedRaw && s.arrived_at !== plannedRaw) ||
+                (s.departed_at && dockTime && s.departed_at !== dockTime)
+              );
+              // A recorded time that exactly equals the planned time was auto-filled
+              // by the system fallback (no GPS capture), not a real GPS reading.
+              const isSystemFilled = !!(gpsTime && !isGpsConfirmed);
               const dwellMin =
                 s.arrived_at && s.departed_at
                   ? Math.round(
@@ -691,8 +697,19 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                             })}
                           </span>
                           {isGpsConfirmed && (
-                            <span className="inline-flex items-center px-1 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-[8px] font-bold text-orange-600 dark:text-orange-400">
+                            <span
+                              title="Captured from the driver GPS"
+                              className="inline-flex items-center px-1 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-[8px] font-bold text-orange-600 dark:text-orange-400"
+                            >
                               GPS
+                            </span>
+                          )}
+                          {isSystemFilled && (
+                            <span
+                              title="Auto-filled at the planned time — no GPS arrival was captured"
+                              className="inline-flex items-center px-1 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-[8px] font-bold text-amber-600 dark:text-amber-400"
+                            >
+                              SYSTEM
                             </span>
                           )}
                         </div>
