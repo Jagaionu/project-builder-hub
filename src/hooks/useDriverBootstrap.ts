@@ -124,51 +124,67 @@ const arrivingStops = new Set<string>();
 
 async function autoArriveNearby(driverId: string, p: GPSPosition) {
   const jobs = useDriverStore.getState().jobs;
-  const candidates: { jobId: string; stopId: string }[] = [];
+  const updates: { jobId: string; stopId: string; arrivedIso: string; inferred: boolean }[] = [];
   for (const job of jobs) {
     if (["COMPLETED", "CANCELLED", "PENDING"].includes(job.status)) continue;
     const sorted = [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq);
-    // Check EVERY un-arrived stop, not just the next one. A driver can reach a
-    // later stop while an earlier one was missed (genuinely skipped, or GPS
-    // never landed inside its geofence) — that later arrival must still be
-    // captured instead of being blocked forever behind the missed stop.
+    // Furthest stop (by seq) the driver is physically within range of right now.
+    let reachedSeq = -1;
     for (const stop of sorted) {
-      if (stop.arrived_at || !stop.warehouse) continue;
-      const dist = haversineKm(
-        p.lat,
-        p.lon,
-        stop.warehouse.latitude,
-        stop.warehouse.longitude,
-      );
-      if (dist <= ARRIVAL_RADIUS_KM && !arrivingStops.has(stop.id)) {
-        candidates.push({ jobId: job.id, stopId: stop.id });
+      if (!stop.warehouse) continue;
+      const d = haversineKm(p.lat, p.lon, stop.warehouse.latitude, stop.warehouse.longitude);
+      if (d <= ARRIVAL_RADIUS_KM) reachedSeq = Math.max(reachedSeq, stop.seq);
+    }
+    const nowMs = Date.now();
+    const nowIso = new Date(nowMs).toISOString();
+    for (const stop of sorted) {
+      if (stop.arrived_at || !stop.warehouse || arrivingStops.has(stop.id)) continue;
+      const d = haversineKm(p.lat, p.lon, stop.warehouse.latitude, stop.warehouse.longitude);
+      if (d <= ARRIVAL_RADIUS_KM) {
+        // GPS-confirmed arrival (driver is physically here).
+        updates.push({ jobId: job.id, stopId: stop.id, arrivedIso: nowIso, inferred: false });
+      } else if (reachedSeq >= 0 && stop.seq < reachedSeq && stop.scheduled_at) {
+        // Inferred passage: an EARLIER stop on a sequential route the driver has
+        // provably passed (they are now in range of a LATER stop) and whose
+        // planned time has already arrived. Stamped at the planned time, so it
+        // shows as SYSTEM (inferred), not a real GPS capture.
+        const planned = new Date(stop.scheduled_at).getTime();
+        if (planned && planned <= nowMs) {
+          updates.push({
+            jobId: job.id,
+            stopId: stop.id,
+            arrivedIso: stop.scheduled_at,
+            inferred: true,
+          });
+        }
       }
     }
   }
-  for (const c of candidates) {
-    arrivingStops.add(c.stopId);
-    const now = new Date().toISOString();
+  for (const u of updates) {
+    arrivingStops.add(u.stopId);
     const { error } = await supabase
       .from("job_stops")
-      .update({ arrived_at: now } as never)
-      .eq("id", c.stopId)
+      .update({ arrived_at: u.arrivedIso } as never)
+      .eq("id", u.stopId)
       .is("arrived_at", null);
     if (error) {
-      arrivingStops.delete(c.stopId);
+      arrivingStops.delete(u.stopId);
       continue;
     }
     await supabase.from("driver_events").insert({
       driver_id: driverId,
       type: "ARRIVED",
-      payload: { stop_id: c.stopId, auto: true },
+      payload: { stop_id: u.stopId, auto: true, inferred: u.inferred },
     } as never);
     useDriverStore.getState().setJobs(
       useDriverStore.getState().jobs.map((j) =>
-        j.id !== c.jobId
+        j.id !== u.jobId
           ? j
           : {
               ...j,
-              stops: j.stops.map((s) => (s.id === c.stopId ? { ...s, arrived_at: now } : s)),
+              stops: j.stops.map((s) =>
+                s.id === u.stopId ? { ...s, arrived_at: u.arrivedIso } : s,
+              ),
             },
       ),
     );
