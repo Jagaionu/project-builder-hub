@@ -24,6 +24,9 @@ export function etaMinutes(km: number, avgKph = 55): number {
 // and burning battery + DB writes; setInterval(5 min) is the dispatcher
 // resolution we actually need.
 export const GPS_PING_INTERVAL_MS = 5 * 60_000;
+// While on an active route we ping far more often so geofenced arrivals and
+// departures are actually captured (a 5-min cadence misses short stops).
+export const GPS_ACTIVE_PING_INTERVAL_MS = 60_000;
 
 /**
  * Polls GPS once per `GPS_PING_INTERVAL_MS` (default 5 min) instead of using
@@ -34,6 +37,7 @@ export const GPS_PING_INTERVAL_MS = 5 * 60_000;
 export function watchPosition(
   cb: (p: GPSPosition) => void,
   onError?: (err: GeolocationPositionError) => void,
+  getIntervalMs?: () => number,
 ): () => void {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
     onError?.({ code: 2, message: "Geolocation is not available" } as GeolocationPositionError);
@@ -72,9 +76,19 @@ export function watchPosition(
     );
   };
 
-  // Initial ping + interval.
+  // Initial ping, then a self-scheduling timer whose interval is recomputed each
+  // cycle (frequent on an active route, battery-friendly when idle).
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const schedule = () => {
+    if (cancelled) return;
+    const ms = Math.max(15_000, getIntervalMs ? getIntervalMs() : GPS_PING_INTERVAL_MS);
+    timer = setTimeout(() => {
+      pingOnce();
+      schedule();
+    }, ms);
+  };
   pingOnce();
-  const intervalId = setInterval(pingOnce, GPS_PING_INTERVAL_MS);
+  schedule();
 
   // Extra ping when the tab returns to foreground (mobile browsers often
   // throttle background timers).
@@ -85,7 +99,7 @@ export function watchPosition(
 
   return () => {
     cancelled = true;
-    clearInterval(intervalId);
+    if (timer) clearTimeout(timer);
     document.removeEventListener("visibilitychange", onVis);
   };
 }

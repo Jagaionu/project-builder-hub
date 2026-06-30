@@ -1,7 +1,13 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDriverStore } from "@/lib/driver-store";
-import { watchPosition, haversineKm, type GPSPosition } from "@/lib/driver-gps";
+import {
+  watchPosition,
+  haversineKm,
+  GPS_PING_INTERVAL_MS,
+  GPS_ACTIVE_PING_INTERVAL_MS,
+  type GPSPosition,
+} from "@/lib/driver-gps";
 import { gpsSeam } from "@/lib/driver/gps-seam";
 import { checkGeofences } from "@/lib/leg-tracker";
 import type { JobWithStops, DriverProfile } from "@/lib/driver-types";
@@ -110,9 +116,10 @@ async function refreshJobs(driverId: string) {
 const MIN_INTERVAL_MS = 30_000;
 const MIN_MOVE_KM = 0.05;
 
-// Geofence radius for automatic arrival confirmation (~50 m) — a driver can
-// enter at any gate, so allow a little slack around the warehouse coordinate.
-const ARRIVAL_RADIUS_KM = 0.05;
+// Geofence radius for automatic arrival confirmation (~200 m) — matches the
+// leg-tracker; a driver can enter at any gate and GPS is only sampled
+// periodically, so allow generous slack around the warehouse coordinate.
+const ARRIVAL_RADIUS_KM = 0.2;
 const arrivingStops = new Set<string>();
 
 async function autoArriveNearby(driverId: string, p: GPSPosition) {
@@ -228,9 +235,16 @@ export function useDriverBootstrap() {
       console.warn("[gps] position error:", err.code, err.message);
       useDriverStore.getState().setGpsError({ code: err.code, message: err.message });
     };
+    const ACTIVE_STATUSES = ["ASSIGNED", "IN_PROGRESS", "ARRIVED_PICKUP", "EN_ROUTE_DELIVERY"];
+    // Ping every 60s while the driver has an active route (so arrivals/departures
+    // are captured), else fall back to the battery-friendly 5-min idle cadence.
+    const getIntervalMs = () =>
+      useDriverStore.getState().jobs.some((j) => ACTIVE_STATUSES.includes(j.status))
+        ? GPS_ACTIVE_PING_INTERVAL_MS
+        : GPS_PING_INTERVAL_MS;
     const startWatch = () => {
       if (stopWatchRef.current) return;
-      stopWatchRef.current = watchPosition(onPosition, onGpsError);
+      stopWatchRef.current = watchPosition(onPosition, onGpsError, getIntervalMs);
     };
     const restartWatch = () => {
       stopWatchRef.current?.();
