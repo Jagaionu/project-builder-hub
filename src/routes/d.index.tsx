@@ -30,6 +30,7 @@ function DriverHome() {
   const jobs = useDriverStore((s) => s.jobs);
   const isOnline = useDriverStore((s) => s.isOnline);
   const gps = useDriverStore((s) => s.gpsPosition);
+  const gpsError = useDriverStore((s) => s.gpsError);
   const [showCompleted, setShowCompleted] = useState(false);
   const [equip, setEquip] = useState<string[]>([]);
   useEffect(() => {
@@ -142,6 +143,31 @@ function DriverHome() {
       </div>
 
       <div className="px-4 space-y-6 pb-8">
+        {gpsError && !gps && (
+          <button
+            type="button"
+            onClick={() => {
+              if (!navigator.geolocation) return;
+              navigator.geolocation.getCurrentPosition(
+                () => useDriverStore.getState().setGpsError(null),
+                (err) =>
+                  useDriverStore.getState().setGpsError({ code: err.code, message: err.message }),
+                { enableHighAccuracy: true, timeout: 20000 },
+              );
+            }}
+            className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-left active:scale-[0.99] transition"
+          >
+            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <MapPin className="size-4" />
+              <span className="text-sm font-semibold">Location tracking is off</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {gpsError.code === 1
+                ? "Location permission is blocked. Tap here, then allow location for this site so your route can be tracked."
+                : "Could not get a GPS fix. Tap to retry — check that location is on and you have signal."}
+            </p>
+          </button>
+        )}
         {/* ── Active Routes ── */}
         <section>
           <div className="flex items-center gap-2 mb-3">

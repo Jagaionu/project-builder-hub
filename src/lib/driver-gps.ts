@@ -31,23 +31,43 @@ export const GPS_PING_INTERVAL_MS = 5 * 60_000;
  * and again whenever the tab becomes visible after being hidden.
  * Returns a cleanup function.
  */
-export function watchPosition(cb: (p: GPSPosition) => void): () => void {
-  if (typeof navigator === "undefined" || !navigator.geolocation) return () => {};
+export function watchPosition(
+  cb: (p: GPSPosition) => void,
+  onError?: (err: GeolocationPositionError) => void,
+): () => void {
+  if (typeof navigator === "undefined" || !navigator.geolocation) {
+    onError?.({ code: 2, message: "Geolocation is not available" } as GeolocationPositionError);
+    return () => {};
+  }
 
   let cancelled = false;
+  const onPos = (pos: GeolocationPosition) => {
+    if (cancelled) return;
+    cb({
+      lat: pos.coords.latitude,
+      lon: pos.coords.longitude,
+      accuracy: pos.coords.accuracy,
+      ts: pos.timestamp,
+    });
+  };
   const pingOnce = () => {
     if (cancelled) return;
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      onPos,
+      (err) => {
         if (cancelled) return;
-        cb({
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          ts: pos.timestamp,
-        });
+        // High-accuracy often times out (indoors / desktop / weak GPS). Retry
+        // once at low accuracy before surfacing the error.
+        if (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE) {
+          navigator.geolocation.getCurrentPosition(onPos, (e2) => onError?.(e2), {
+            enableHighAccuracy: false,
+            maximumAge: 60_000,
+            timeout: 25_000,
+          });
+        } else {
+          onError?.(err);
+        }
       },
-      () => {},
       { enableHighAccuracy: true, maximumAge: 30_000, timeout: 20_000 },
     );
   };
