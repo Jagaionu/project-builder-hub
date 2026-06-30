@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { haversineKm, etaMinutes, atLocation, GPS_FRESH_MS, type GPSPosition } from "@/lib/driver-gps";
 import { stopCriticalWindow } from "@/lib/geo";
 import type { JobWithStops } from "@/lib/driver-types";
@@ -18,6 +19,7 @@ export function DriverStopTimeline({
   handlingMin,
 }: Props) {
   const stops = [...(job.stops ?? [])].sort((a, b) => a.seq - b.seq);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
 
   return (
     <ol className="relative space-y-0">
@@ -118,11 +120,19 @@ export function DriverStopTimeline({
                 <div className="mt-2">
                   <button
                     type="button"
-                    disabled={!canArrive}
-                    onClick={() => canArrive && onArrive(stop.id)}
+                    disabled={!canArrive || submittingId === stop.id}
+                    onClick={async () => {
+                      if (!canArrive || submittingId) return;
+                      setSubmittingId(stop.id);
+                      try {
+                        await onArrive(stop.id);
+                      } finally {
+                        setSubmittingId(null);
+                      }
+                    }}
                     className="inline-flex items-center gap-1 rounded-lg bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
                   >
-                    I have arrived
+                    {submittingId === stop.id ? "Confirming…" : "I have arrived"}
                   </button>
                   {!canArrive && (
                     <p className="mt-1 text-[11px] text-muted-foreground">

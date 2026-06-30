@@ -239,7 +239,21 @@ function JobDetail() {
             .update({ arrived_at: now } as never)
             .eq("id", stopId)
             .is("arrived_at", null);
-          if (error) return;
+          if (error) {
+            toast.error("Could not confirm arrival — please try again");
+            return;
+          }
+          // Optimistic local update so the button flips to confirmed instantly.
+          useDriverStore.getState().setJobs(
+            useDriverStore.getState().jobs.map((j) =>
+              j.id !== job.id
+                ? j
+                : {
+                    ...j,
+                    stops: j.stops.map((s) => (s.id === stopId ? { ...s, arrived_at: now } : s)),
+                  },
+            ),
+          );
 
           // Transition to IN_PROGRESS on arrival
           if (job.status === "ASSIGNED") {
