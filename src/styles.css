@@ -1071,8 +1071,8 @@
 /* ── Glass light/dark theme toggle ───────────────────────────────────────── */
 .tt-toggle {
   position: relative;
-  width: 72px;
-  height: 30px;
+  width: 80px;
+  height: 34px;
   border-radius: 999px;
   overflow: hidden;
   cursor: pointer;
@@ -1080,17 +1080,17 @@
   flex-shrink: 0;
   padding: 0;
   background: transparent;
-  border: 1.25px solid rgba(0, 0, 0, 0.12);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
   transition: border-color 0.5s ease;
 }
 .dark .tt-toggle {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 .tt-pico {
   position: absolute;
-  width: 24px;
-  height: 24px;
-  top: 3px;
+  width: 26px;
+  height: 26px;
+  top: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1118,11 +1118,11 @@
 }
 .tt-ball {
   position: absolute;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: transparent;
-  top: 3px;
+  top: 4px;
   left: 3px;
   z-index: 2;
   transform: translateX(0) translateY(0) scale(1);
@@ -1130,7 +1130,7 @@
 }
 /* Resting position when light (sun): ball parked at the right end. */
 .tt-ball.at-right {
-  transform: translateX(42px) translateY(0) scale(1);
+  transform: translateX(46px) translateY(0) scale(1);
 }
 /* Squash-and-stretch roll between the two ends (from glass_toggle_compact). */
 .tt-ball.anim-right {
@@ -1141,43 +1141,43 @@
 }
 @keyframes tt-roll-right {
   0% {
-    transform: translateX(0) translateY(0) scale(1);
+    transform: translateX(0px) translateY(0px) scale(1);
   }
   15% {
-    transform: translateX(7px) translateY(2px) scale(0.84);
+    transform: translateX(8px) translateY(2px) scale(0.8);
   }
   50% {
-    transform: translateX(20px) translateY(3px) scale(0.66);
+    transform: translateX(22px) translateY(3px) scale(0.6);
   }
   85% {
-    transform: translateX(34px) translateY(2px) scale(0.84);
+    transform: translateX(37px) translateY(2px) scale(0.8);
   }
   100% {
-    transform: translateX(42px) translateY(0) scale(1);
+    transform: translateX(46px) translateY(0px) scale(1);
   }
 }
 @keyframes tt-roll-left {
   0% {
-    transform: translateX(42px) translateY(0) scale(1);
+    transform: translateX(46px) translateY(0px) scale(1);
   }
   15% {
-    transform: translateX(34px) translateY(2px) scale(0.84);
+    transform: translateX(37px) translateY(2px) scale(0.8);
   }
   50% {
-    transform: translateX(20px) translateY(3px) scale(0.66);
+    transform: translateX(22px) translateY(3px) scale(0.6);
   }
   85% {
-    transform: translateX(7px) translateY(2px) scale(0.84);
+    transform: translateX(8px) translateY(2px) scale(0.8);
   }
   100% {
-    transform: translateX(0) translateY(0) scale(1);
+    transform: translateX(0px) translateY(0px) scale(1);
   }
 }
 /* Respect reduced-motion: snap to the correct end instead of rolling. */
 @media (prefers-reduced-motion: reduce) {
   .tt-ball.anim-right {
     animation: none;
-    transform: translateX(42px) translateY(0) scale(1);
+    transform: translateX(46px) translateY(0) scale(1);
   }
   .tt-ball.anim-left {
     animation: none;
@@ -1188,27 +1188,27 @@
   position: absolute;
   inset: 0;
   z-index: 3;
-  background: rgba(0, 0, 0, 0.07);
+  background: rgba(0, 0, 0, 0.06);
   transition: background 0.5s ease;
-  -webkit-mask-image: radial-gradient(circle at 15px 50%, transparent 12px, black 13px),
-    radial-gradient(circle at 57px 50%, transparent 12px, black 13px);
+  -webkit-mask-image: radial-gradient(circle at 16px 50%, transparent 13px, black 14px),
+    radial-gradient(circle at 64px 50%, transparent 13px, black 14px);
   -webkit-mask-composite: destination-in;
-  mask-image: radial-gradient(circle at 15px 50%, transparent 12px, black 13px),
-    radial-gradient(circle at 57px 50%, transparent 12px, black 13px);
+  mask-image: radial-gradient(circle at 16px 50%, transparent 13px, black 14px),
+    radial-gradient(circle at 64px 50%, transparent 13px, black 14px);
   mask-composite: intersect;
 }
 .dark .tt-glass {
-  background: rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.13);
 }
 .tt-pring {
   position: absolute;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  top: 3px;
+  top: 4px;
   z-index: 4;
   pointer-events: none;
-  border: 1.25px solid rgba(0, 0, 0, 0.1);
+  border: 1.5px solid rgba(0, 0, 0, 0.09);
   transition: border-color 0.35s ease;
 }
 .dark .tt-pring {
@@ -1220,8 +1220,11 @@
 .tt-pring.right {
   right: 3px;
 }
-.tt-pring.glow {
-  border-color: rgba(249, 115, 22, 0.7);
+.tt-pring.left.glow {
+  border-color: rgba(160, 180, 255, 0.55);
+}
+.tt-pring.right.glow {
+  border-color: rgba(253, 184, 19, 0.75);
 }
 
 /* AI brand mark: one-shot revolving-door spin + shimmer (driven by JS toggle). */
