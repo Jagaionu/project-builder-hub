@@ -320,6 +320,50 @@ export const JobDetailPanel = memo(function JobDetailPanel({
   useAutoStatusTransition(job, stops, onSetStatus);
   useAutoComplete(job, stops, onSetStatus);
 
+  const [overrideBusy, setOverrideBusy] = useState(false);
+  // Dispatcher override (trusted): confirm arrivals / complete a run when GPS
+  // failed. Recorded as arrival_source = "dispatch" so it is badged distinctly
+  // from real GPS captures.
+  const markNextArrived = async () => {
+    const next = stops.find((s) => s.id && !s.arrived_at);
+    if (!next?.id) return;
+    setOverrideBusy(true);
+    try {
+      const nowIso = new Date().toISOString();
+      await supabase
+        .from("job_stops")
+        .update({ arrived_at: nowIso, arrival_source: "dispatch" } as never)
+        .eq("id", next.id)
+        .is("arrived_at", null);
+      if (job.status === "ASSIGNED") onSetStatus("IN_PROGRESS", { silent: true });
+    } finally {
+      setOverrideBusy(false);
+    }
+  };
+  const completeRunManual = async () => {
+    setOverrideBusy(true);
+    try {
+      const nowIso = new Date().toISOString();
+      for (const s of stops.filter((st) => st.id && !st.arrived_at)) {
+        await supabase
+          .from("job_stops")
+          .update({ arrived_at: nowIso, arrival_source: "dispatch" } as never)
+          .eq("id", s.id as string)
+          .is("arrived_at", null);
+      }
+      onSetStatus("COMPLETED", { silent: true });
+      const driverId = (job as { assigned_driver_id?: string | null }).assigned_driver_id;
+      if (driverId) {
+        await supabase
+          .from("drivers")
+          .update({ status: "AVAILABLE" } as never)
+          .eq("id", driverId);
+      }
+    } finally {
+      setOverrideBusy(false);
+    }
+  };
+
   return (
     <div className="p-6 max-w-4xl">
       <div className="flex items-start justify-between gap-4">
@@ -523,6 +567,34 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                 </span>
               </div>
             )}
+            {effectiveStatus !== "COMPLETED" &&
+              effectiveStatus !== "CANCELLED" &&
+              job.status !== "PENDING" && (
+                <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-violet-500/30 bg-violet-500/5 px-3 py-2">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-violet-600 dark:text-violet-400">
+                    Dispatcher override
+                  </span>
+                  <button
+                    type="button"
+                    disabled={overrideBusy || stops.every((s) => !!s.arrived_at)}
+                    onClick={markNextArrived}
+                    className="rounded-md border border-border bg-surface px-2.5 py-1 text-[11px] font-semibold hover:bg-surface-2 disabled:opacity-50"
+                  >
+                    Mark next stop arrived
+                  </button>
+                  <button
+                    type="button"
+                    disabled={overrideBusy}
+                    onClick={completeRunManual}
+                    className="rounded-md border border-border bg-surface px-2.5 py-1 text-[11px] font-semibold hover:bg-surface-2 disabled:opacity-50"
+                  >
+                    Complete run
+                  </button>
+                  <span className="text-[10px] text-muted-foreground">
+                    Use when GPS failed — recorded as dispatcher-confirmed.
+                  </span>
+                </div>
+              )}
             <div className="rounded-lg border border-border overflow-hidden">
             <div className="grid grid-cols-12 gap-2 px-3 py-1.5 bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
               <div className="col-span-1">#</div>
@@ -636,6 +708,9 @@ export const JobDetailPanel = memo(function JobDetailPanel({
               // A recorded time that exactly equals the planned time was auto-filled
               // by the system fallback (no GPS capture), not a real GPS reading.
               const isSystemFilled = !!(gpsTime && !isGpsConfirmed);
+              const arrivalSource =
+                (s as { arrival_source?: string | null }).arrival_source ?? null;
+              const isDispatch = arrivalSource === "dispatch" && !!gpsTime;
               const dwellMin =
                 s.arrived_at && s.departed_at
                   ? Math.round(
@@ -696,22 +771,28 @@ export const JobDetailPanel = memo(function JobDetailPanel({
                               hour12: false,
                             })}
                           </span>
-                          {isGpsConfirmed && (
+                          {isDispatch ? (
+                            <span
+                              title="Confirmed manually by a dispatcher (GPS unavailable)"
+                              className="inline-flex items-center px-1 py-0.5 rounded bg-violet-500/10 border border-violet-500/30 text-[8px] font-bold text-violet-600 dark:text-violet-400"
+                            >
+                              DISPATCH
+                            </span>
+                          ) : isGpsConfirmed ? (
                             <span
                               title="Captured from the driver GPS"
                               className="inline-flex items-center px-1 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-[8px] font-bold text-orange-600 dark:text-orange-400"
                             >
                               GPS
                             </span>
-                          )}
-                          {isSystemFilled && (
+                          ) : isSystemFilled ? (
                             <span
                               title="Auto-filled at the planned time — no GPS arrival was captured"
                               className="inline-flex items-center px-1 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-[8px] font-bold text-amber-600 dark:text-amber-400"
                             >
                               SYSTEM
                             </span>
-                          )}
+                          ) : null}
                         </div>
                         {isDelayed && (
                           <span className="text-[9px] text-amber-600 dark:text-amber-400">
