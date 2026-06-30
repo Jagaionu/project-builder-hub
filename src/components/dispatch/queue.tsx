@@ -8,6 +8,7 @@ import type { JobStopsMap } from "@/lib/dispatch/use-job-stops";
 import type { Lookups } from "@/lib/dispatch/lookups";
 import { STATUS_CONFIG, type EffectiveStatus } from "@/lib/dispatch/status";
 import type { PlannedAssign } from "@/lib/planner";
+import { computeTours } from "@/lib/dispatch/tours";
 
 const ROW_HEIGHT = 76;
 
@@ -32,15 +33,12 @@ export const JobQueue = memo(function JobQueue({
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
 
-  const tourSize = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const j of jobs) {
-      const id =
-        j.assigned_driver_id ?? plannedByJob.get(j.id)?.driverId ?? j.planned_driver_id ?? null;
-      if (id) m.set(id, (m.get(id) ?? 0) + 1);
-    }
-    return m;
-  }, [jobs, plannedByJob]);
+  // Real tour chaining: badge only jobs that are part of a chain where each
+  // drop is the next pickup (same driver, time-contiguous) — see computeTours.
+  const tours = useMemo(
+    () => computeTours(jobs, stopsMap, plannedByJob),
+    [jobs, stopsMap, plannedByJob],
+  );
 
   const virtualizer = useVirtualizer({
     count: jobs.length,
@@ -111,7 +109,7 @@ export const JobQueue = memo(function JobQueue({
                   lookups={lookups}
                   plannedByJob={plannedByJob}
                   onSelect={onSelect}
-                  tourSize={tourSize}
+                  tours={tours}
                   onShowTour={onShowTour}
                 />
               </div>
@@ -130,7 +128,7 @@ const QueueRow = memo(function QueueRow({
   lookups,
   plannedByJob,
   onSelect,
-  tourSize,
+  tours,
   onShowTour,
 }: {
   job: Job;
@@ -139,7 +137,7 @@ const QueueRow = memo(function QueueRow({
   lookups: Lookups;
   plannedByJob: Map<string, PlannedAssign>;
   onSelect: (id: string) => void;
-  tourSize: Map<string, number>;
+  tours: Map<string, { seq: number; size: number }>;
   onShowTour: (driverId: string) => void;
 }) {
   const stops = stopsMap[job.id] ?? [];
@@ -152,12 +150,13 @@ const QueueRow = memo(function QueueRow({
   const plannedDriver =
     !driver && plannedDriverId ? lookups.driversById.get(plannedDriverId) : null;
 
-  // Chaining indicator: job is planned and has a sequence > 1,
-  // OR it's planned and there are other jobs planned for the same driver.
+  // Real tour chaining (computed in JobQueue): badge only jobs that are part of
+  // a chain where each drop is the next pickup, same driver, time-contiguous.
   const tourDriverId = job.assigned_driver_id ?? plannedDriverId ?? null;
-  const tourCount = tourDriverId ? (tourSize.get(tourDriverId) ?? 0) : 0;
+  const tourInfo = tours.get(job.id);
+  const tourCount = tourInfo?.size ?? 0;
+  const tourSeq = tourInfo?.seq ?? null;
   const inTour = tourCount > 1;
-  const tourSeq = planned?.sequence ?? job.planned_sequence ?? null;
 
   const isMR = stops.length > 2;
 
