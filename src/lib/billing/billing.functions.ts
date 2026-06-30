@@ -15,6 +15,7 @@ import {
   handleNormalisedEvent,
 } from "./orchestrator.server";
 import { computeProration, computeCancellationRefund } from "./proration";
+import { buildPaymentHistory, type PaymentInvoiceRow } from "./payment-history";
 import type { BillingInterval, PlanTier, Provider } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -71,6 +72,26 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
         .eq("tenant_id", data.companyId),
     ]);
     return { company, invoices: invoices ?? [], methods: methods ?? [] };
+  });
+
+// ── Super-admin: chronological payment history for one company ──
+// Derived from settled invoices (paid = +gross, refunded = -gross). Naturally
+// de-duplicated and needs no backfill. Super-admin only.
+export const getCompanyPaymentHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ companyId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.userId);
+    const { data: invoices } = await sb
+      .from("invoices")
+      .select(
+        "id, ref, status, currency, net_amount_minor, tax_amount_minor, fee_amount_minor, gross_amount_minor, provider, plan, interval, payment_reference, paid_at, created_at",
+      )
+      .eq("tenant_id", data.companyId)
+      .in("status", ["paid", "refunded"])
+      .order("created_at", { ascending: false })
+      .limit(500);
+    return buildPaymentHistory((invoices ?? []) as PaymentInvoiceRow[]);
   });
 
 // ── Super-admin: set the billing provider for a company ──────
