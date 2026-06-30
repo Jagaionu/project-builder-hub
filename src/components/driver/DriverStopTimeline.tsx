@@ -1,4 +1,4 @@
-import { haversineKm, etaMinutes, type GPSPosition } from "@/lib/driver-gps";
+import { haversineKm, etaMinutes, atLocation, GPS_FRESH_MS, type GPSPosition } from "@/lib/driver-gps";
 import { stopCriticalWindow } from "@/lib/geo";
 import type { JobWithStops } from "@/lib/driver-types";
 
@@ -30,6 +30,13 @@ export function DriverStopTimeline({
         const win = stopCriticalWindow(crit, stop.kind, handlingMin);
         const plannedArrival = win.arrival;
         const departedAt = (stop as { departed_at?: string | null }).departed_at ?? null;
+        const canArrive = !!wh && atLocation(driverPosition, wh.latitude, wh.longitude);
+        const distKm =
+          wh && driverPosition
+            ? haversineKm(driverPosition.lat, driverPosition.lon, wh.latitude, wh.longitude)
+            : null;
+        const gpsStaleOrMissing =
+          !driverPosition || Date.now() - driverPosition.ts > GPS_FRESH_MS;
 
         const dotColor = arrived
           ? "bg-success border-success"
@@ -108,13 +115,29 @@ export function DriverStopTimeline({
                 </div>
               </div>
               {isNext && onArrive && (
-                <button
-                  type="button"
-                  onClick={() => onArrive(stop.id)}
-                  className="mt-2 inline-flex items-center gap-1 rounded-lg bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5 active:scale-95 transition"
-                >
-                  I have arrived
-                </button>
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    disabled={!canArrive}
+                    onClick={() => canArrive && onArrive(stop.id)}
+                    className="inline-flex items-center gap-1 rounded-lg bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                  >
+                    I have arrived
+                  </button>
+                  {!canArrive && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {gpsStaleOrMissing
+                        ? "Waiting for your location — turn on GPS to confirm arrival."
+                        : distKm != null
+                          ? "Move closer to confirm — about " +
+                            (distKm < 1
+                              ? Math.round(distKm * 1000) + " m"
+                              : distKm.toFixed(1) + " km") +
+                            " away."
+                          : "Move closer to the stop to confirm arrival."}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </li>

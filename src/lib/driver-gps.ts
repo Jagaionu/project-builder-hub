@@ -20,6 +20,22 @@ export function etaMinutes(km: number, avgKph = 55): number {
   return Math.round((km / avgKph) * 60);
 }
 
+// Anti-cheat: a driver may only confirm arrival / unload when a RECENT GPS fix
+// places them at the stop. 200 m radius, fix no older than 3 minutes.
+export const ARRIVAL_GEOFENCE_KM = 0.2;
+export const GPS_FRESH_MS = 3 * 60_000;
+export function atLocation(
+  gps: GPSPosition | null,
+  lat: number,
+  lon: number,
+  radiusKm = ARRIVAL_GEOFENCE_KM,
+  maxAgeMs = GPS_FRESH_MS,
+): boolean {
+  if (!gps) return false;
+  if (Date.now() - gps.ts > maxAgeMs) return false;
+  return haversineKm(gps.lat, gps.lon, lat, lon) <= radiusKm;
+}
+
 // Ping cadence — battery-friendly. watchPosition was firing every few seconds
 // and burning battery + DB writes; setInterval(5 min) is the dispatcher
 // resolution we actually need.

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { useDriverStore } from "@/lib/driver-store";
+import { atLocation } from "@/lib/driver-gps";
 import { DriverStopTimeline } from "@/components/driver/DriverStopTimeline";
 import { STATUS_CONFIG } from "@/components/driver/DriverJobCard";
 import {
@@ -125,6 +126,10 @@ function JobDetail() {
 
   // GPS-confirmed arrival at the drop = the last stop has an arrived_at.
   const dropArrived = !!sortedStops[sortedStops.length - 1]?.arrived_at;
+  // Anti-cheat: only allow confirming unloaded when a recent fix places the
+  // driver at the drop-off.
+  const lastStopWh = sortedStops[sortedStops.length - 1]?.warehouse;
+  const atDrop = !!lastStopWh && atLocation(gps, lastStopWh.latitude, lastStopWh.longitude);
 
   const confirmUnloaded = async () => {
     if (!driver) return;
@@ -258,13 +263,20 @@ function JobDetail() {
       </p>
 
       {dropArrived && job.status !== "COMPLETED" && (
-        <button
-          onClick={confirmUnloaded}
-          disabled={busy}
-          className="mt-4 w-full bg-success text-success-foreground font-bold py-4 rounded-xl active:scale-[0.99] transition disabled:opacity-50"
-        >
-          ✓ Confirm unloaded
-        </button>
+        <div className="mt-4">
+          <button
+            onClick={confirmUnloaded}
+            disabled={busy || !atDrop}
+            className="w-full bg-success text-success-foreground font-bold py-4 rounded-xl active:scale-[0.99] transition disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+          >
+            ✓ Confirm unloaded
+          </button>
+          {!atDrop && (
+            <p className="mt-1 text-xs text-muted-foreground text-center">
+              You must be at the drop-off (with GPS on) to confirm unloaded.
+            </p>
+          )}
+        </div>
       )}
 
       <div className="mt-6 bg-card border border-border rounded-2xl p-4">
