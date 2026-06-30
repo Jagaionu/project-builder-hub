@@ -159,6 +159,10 @@ const ESTIMATED_HELP =
   "Live arrival estimate from the driver location via GPS. It only appears within " +
   ETA_LEAD_MIN +
   " min of the planned yard time, or once the driver is en route; before that it shows the from HH:MM placeholder. It refreshes on each GPS update, so it sharpens as the run nears. Once the driver arrives or departs, it shows the real GPS time (amber if late).";
+const PLANNED_YARD_HELP =
+  "When the trailer must be in the yard at this stop. On a pickup it is the Critical Pull Time (CPT) minus the loading time (the handling minutes), so the trailer is loaded before CPT. On a drop it is the Critical Injection Time (CIT) — when the trailer must arrive. For imported FMC routes it is the yard arrival time given on the VRID.";
+const PLANNED_DOCK_HELP =
+  "The critical contractual time from the VRID. On a pickup it is the CPT (Critical Pull Time) — the latest the loaded trailer must pull away. On a drop it is the CIT (Critical Injection Time) — the latest it must arrive. The gap to Planned yard on a pickup is the loading window. For imported FMC routes this is the yard departure time.";
 
 export const JobDetailPanel = memo(function JobDetailPanel({
   job,
@@ -527,8 +531,26 @@ export const JobDetailPanel = memo(function JobDetailPanel({
             <div className="grid grid-cols-12 gap-2 px-3 py-1.5 bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
               <div className="col-span-1">#</div>
               <div className="col-span-3">Stop</div>
-              <div className="col-span-3">Planned yard</div>
-              <div className="col-span-3">Planned dock</div>
+              <div className="col-span-3 flex items-center gap-1">
+                Planned yard
+                <span
+                  title={PLANNED_YARD_HELP}
+                  aria-label="What planned yard means"
+                  className="inline-flex cursor-help"
+                >
+                  <HelpCircle className="size-3 text-muted-foreground/60" />
+                </span>
+              </div>
+              <div className="col-span-3 flex items-center gap-1">
+                Planned dock
+                <span
+                  title={PLANNED_DOCK_HELP}
+                  aria-label="What planned dock means"
+                  className="inline-flex cursor-help"
+                >
+                  <HelpCircle className="size-3 text-muted-foreground/60" />
+                </span>
+              </div>
               <div className="col-span-2 flex items-center gap-1">
                 Estimated
                 <span
