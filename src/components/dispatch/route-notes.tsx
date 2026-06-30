@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Trash2, X, MessageSquare } from "lucide-react";
+import { Trash2, X, MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getTenantId } from "@/lib/tenant-insert";
 import { useTenant } from "@/lib/tenant-context";
 import { logActivity } from "@/lib/activity-log";
-import { timeAgo } from "@/lib/time-ago";
 
 type RouteNote = {
   id: string;
@@ -166,16 +165,16 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
                         setBody("");
                         setVisibleToDrivers(false);
                       }}
-                      className="rounded-md border border-border px-3 py-1 text-xs font-semibold hover:bg-surface-2"
+                      className="rounded-full border border-border px-3.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-surface-2 hover:text-foreground transition active:scale-95"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={add}
                       disabled={busy || !body.trim()}
-                      className="rounded-md bg-primary text-primary-foreground px-3 py-1 text-xs font-semibold disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-b from-[#2f8bff] to-[#1559d6] px-4 py-1.5 text-xs font-semibold text-white shadow-[0_2px_8px_-2px_rgba(21,89,214,0.6)] hover:from-[#3f97ff] hover:to-[#1e63e6] active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Add Note
+                      <Send className="size-3.5" /> Add note
                     </button>
                   </div>
                 </div>
@@ -186,14 +185,15 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
               {notes.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-6">No notes yet.</p>
               ) : (
-                notes.map((n) => {
+                notes.map((n, idx) => {
                   const visible = !!n.visible_to_drivers;
+                  const highlight = idx === 0;
                   return (
                     <div
                       key={n.id}
                       className={
                         "rounded-md border px-3 py-2 text-xs " +
-                        (visible
+                        (highlight
                           ? "border-amber-300 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10"
                           : "border-border bg-background")
                       }
@@ -215,9 +215,6 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
                             <span className="truncate">
                               <span className="font-semibold text-primary">
                                 {n.author_name ?? n.author_email ?? "—"}
-                              </span>
-                              <span className="ml-1.5 text-muted-foreground">
-                                · {timeAgo(n.created_at)}
                               </span>
                               {visible && (
                                 <span className="ml-1.5 text-amber-600 dark:text-amber-400">
