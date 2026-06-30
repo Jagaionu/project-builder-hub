@@ -1121,7 +1121,7 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: #f97316;
+  background: transparent;
   top: 3px;
   left: 3px;
   z-index: 2;
@@ -1240,4 +1240,31 @@
   100% {
     background-position: -60% -60%;
   }
+}
+
+/* Morphing moon/sun icon + shadow blob on the rolling knob (glass_toggle_shadow) */
+.tt-ball-shadow{position:absolute;inset:1px;border-radius:50%;background:radial-gradient(circle, rgba(70,35,8,.55) 0%, rgba(70,35,8,.22) 55%, transparent 75%);filter:blur(1.5px);z-index:0}
+.tt-bsvg{position:absolute;inset:0;overflow:visible;z-index:1}
+.tt-gmoon{transform-box:fill-box;transform-origin:center;filter:drop-shadow(0 0 3px rgba(160,180,255,.55));opacity:1}
+.tt-gsun{transform-box:fill-box;transform-origin:center;filter:drop-shadow(0 0 3.5px rgba(253,184,19,.7));opacity:0;transform:scale(.15)}
+.tt-ray{stroke-width:1.3;stroke-linecap:round;stroke-dasharray:5;stroke-dashoffset:5}
+.tt-ball.sun-state .tt-gmoon{opacity:0;transform:scale(.15)}
+.tt-ball.sun-state .tt-gsun{opacity:1;transform:scale(1)}
+.tt-ball.sun-state .tt-ray{stroke-dashoffset:0}
+.tt-ball.anim-right .tt-gmoon{animation:tt-moon-out .15s ease-in forwards}
+.tt-ball.anim-right .tt-gsun{animation:tt-sun-in .18s ease-out .24s forwards}
+.tt-ball.anim-right .tt-ray{animation:tt-ray-draw .16s ease-out .26s forwards}
+.tt-ball.anim-left .tt-gsun{animation:tt-sun-out .13s ease-in forwards}
+.tt-ball.anim-left .tt-ray{animation:tt-ray-erase .1s ease-in forwards}
+.tt-ball.anim-left .tt-gmoon{animation:tt-moon-in .16s ease-out .24s forwards}
+.tt-ball.anim-right .tt-ball-shadow,.tt-ball.anim-left .tt-ball-shadow{animation:tt-shadow-pulse .42s ease-in-out forwards}
+@keyframes tt-moon-out{to{opacity:0;transform:scale(.15)}}
+@keyframes tt-sun-in{to{opacity:1;transform:scale(1)}}
+@keyframes tt-ray-draw{to{stroke-dashoffset:0}}
+@keyframes tt-sun-out{to{opacity:0;transform:scale(.15)}}
+@keyframes tt-ray-erase{to{stroke-dashoffset:5}}
+@keyframes tt-moon-in{to{opacity:1;transform:scale(1)}}
+@keyframes tt-shadow-pulse{0%{opacity:.5}50%{opacity:.85}100%{opacity:.5}}
+@media (prefers-reduced-motion: reduce){
+  .tt-gmoon,.tt-gsun,.tt-ray,.tt-ball-shadow{animation:none !important}
 }
