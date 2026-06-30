@@ -42,6 +42,7 @@ import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public
 import { Route as ApiPublicWebhooksGocardlessRouteImport } from './routes/api/public/webhooks/gocardless'
 import { Route as ApiPublicCronShiftRolloverRouteImport } from './routes/api/public/cron/shift-rollover'
 import { Route as ApiPublicCronPushDispatchRouteImport } from './routes/api/public/cron/push-dispatch'
+import { Route as ApiPublicCronCompleteRunsRouteImport } from './routes/api/public/cron/complete-runs'
 import { Route as ApiPublicCronBillingSweepRouteImport } from './routes/api/public/cron/billing-sweep'
 
 const TermsRoute = TermsRouteImport.update({
@@ -211,6 +212,12 @@ const ApiPublicCronPushDispatchRoute =
     path: '/api/public/cron/push-dispatch',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCronCompleteRunsRoute =
+  ApiPublicCronCompleteRunsRouteImport.update({
+    id: '/api/public/cron/complete-runs',
+    path: '/api/public/cron/complete-runs',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronBillingSweepRoute =
   ApiPublicCronBillingSweepRouteImport.update({
     id: '/api/public/cron/billing-sweep',
@@ -248,6 +255,7 @@ export interface FileRoutesByFullPath {
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
   '/d/routes/$jobId': typeof DRoutesJobIdRoute
   '/api/public/cron/billing-sweep': typeof ApiPublicCronBillingSweepRoute
+  '/api/public/cron/complete-runs': typeof ApiPublicCronCompleteRunsRoute
   '/api/public/cron/push-dispatch': typeof ApiPublicCronPushDispatchRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
   '/api/public/webhooks/gocardless': typeof ApiPublicWebhooksGocardlessRoute
@@ -281,6 +289,7 @@ export interface FileRoutesByTo {
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
   '/d/routes/$jobId': typeof DRoutesJobIdRoute
   '/api/public/cron/billing-sweep': typeof ApiPublicCronBillingSweepRoute
+  '/api/public/cron/complete-runs': typeof ApiPublicCronCompleteRunsRoute
   '/api/public/cron/push-dispatch': typeof ApiPublicCronPushDispatchRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
   '/api/public/webhooks/gocardless': typeof ApiPublicWebhooksGocardlessRoute
@@ -318,6 +327,7 @@ export interface FileRoutesById {
   '/api/public/pairing-login': typeof ApiPublicPairingLoginRoute
   '/d/routes/$jobId': typeof DRoutesJobIdRoute
   '/api/public/cron/billing-sweep': typeof ApiPublicCronBillingSweepRoute
+  '/api/public/cron/complete-runs': typeof ApiPublicCronCompleteRunsRoute
   '/api/public/cron/push-dispatch': typeof ApiPublicCronPushDispatchRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
   '/api/public/webhooks/gocardless': typeof ApiPublicWebhooksGocardlessRoute
@@ -355,6 +365,7 @@ export interface FileRouteTypes {
     | '/api/public/pairing-login'
     | '/d/routes/$jobId'
     | '/api/public/cron/billing-sweep'
+    | '/api/public/cron/complete-runs'
     | '/api/public/cron/push-dispatch'
     | '/api/public/cron/shift-rollover'
     | '/api/public/webhooks/gocardless'
@@ -388,6 +399,7 @@ export interface FileRouteTypes {
     | '/api/public/pairing-login'
     | '/d/routes/$jobId'
     | '/api/public/cron/billing-sweep'
+    | '/api/public/cron/complete-runs'
     | '/api/public/cron/push-dispatch'
     | '/api/public/cron/shift-rollover'
     | '/api/public/webhooks/gocardless'
@@ -424,6 +436,7 @@ export interface FileRouteTypes {
     | '/api/public/pairing-login'
     | '/d/routes/$jobId'
     | '/api/public/cron/billing-sweep'
+    | '/api/public/cron/complete-runs'
     | '/api/public/cron/push-dispatch'
     | '/api/public/cron/shift-rollover'
     | '/api/public/webhooks/gocardless'
@@ -446,6 +459,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   ApiPublicPairingLoginRoute: typeof ApiPublicPairingLoginRoute
   ApiPublicCronBillingSweepRoute: typeof ApiPublicCronBillingSweepRoute
+  ApiPublicCronCompleteRunsRoute: typeof ApiPublicCronCompleteRunsRoute
   ApiPublicCronPushDispatchRoute: typeof ApiPublicCronPushDispatchRoute
   ApiPublicCronShiftRolloverRoute: typeof ApiPublicCronShiftRolloverRoute
   ApiPublicWebhooksGocardlessRoute: typeof ApiPublicWebhooksGocardlessRoute
@@ -685,6 +699,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronPushDispatchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/complete-runs': {
+      id: '/api/public/cron/complete-runs'
+      path: '/api/public/cron/complete-runs'
+      fullPath: '/api/public/cron/complete-runs'
+      preLoaderRoute: typeof ApiPublicCronCompleteRunsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/billing-sweep': {
       id: '/api/public/cron/billing-sweep'
       path: '/api/public/cron/billing-sweep'
@@ -765,6 +786,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   ApiPublicPairingLoginRoute: ApiPublicPairingLoginRoute,
   ApiPublicCronBillingSweepRoute: ApiPublicCronBillingSweepRoute,
+  ApiPublicCronCompleteRunsRoute: ApiPublicCronCompleteRunsRoute,
   ApiPublicCronPushDispatchRoute: ApiPublicCronPushDispatchRoute,
   ApiPublicCronShiftRolloverRoute: ApiPublicCronShiftRolloverRoute,
   ApiPublicWebhooksGocardlessRoute: ApiPublicWebhooksGocardlessRoute,
