@@ -5,6 +5,8 @@ import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 // @ts-ignore
 import "leaflet.markercluster";
+// @ts-ignore -- augments L with L.polylineDecorator + L.Symbol at runtime
+import "leaflet-polylinedecorator";
 import type { Driver, Warehouse, Job } from "@/lib/types";
 import type { JobStopsMap } from "@/lib/dispatch/use-job-stops";
 import type { DriverPosition } from "@/lib/use-driver-positions";
@@ -655,13 +657,14 @@ export function LiveMap({
       lineJoin: "round",
     }).addTo(layer);
     // Main coloured route
-    L.polyline(coords, {
+    const mainLine = L.polyline(coords, {
       color: lineColor,
       weight: 5,
       opacity: 0.95,
       lineCap: "round",
       lineJoin: "round",
-    }).addTo(layer);
+    });
+    mainLine.addTo(layer);
     // Animated dashes overlay (skip when greyed to reinforce "not live")
     if (!gpsStale) {
       L.polyline(coords, {
@@ -701,30 +704,31 @@ export function LiveMap({
       }).addTo(layer);
     });
 
-    // Direction arrows along the route — shows travel direction even with no GPS.
-    const mapForArrows = mapRef.current;
-    if (mapForArrows && coords.length > 1) {
-      const step = Math.max(1, Math.floor(coords.length / 14));
-      for (let i = step; i < coords.length; i += step) {
-        const a = coords[i - 1];
-        const c = coords[i];
-        const pa = mapForArrows.latLngToLayerPoint(a);
-        const pc = mapForArrows.latLngToLayerPoint(c);
-        const deg = (Math.atan2(pc.y - pa.y, pc.x - pa.x) * 180) / Math.PI;
-        L.marker(c, {
-          icon: L.divIcon({
-            className: "route-arrow",
-            html:
-              "<span style=\"display:inline-block;color:rgba(15,23,42,0.7);font-weight:900;font-size:12px;line-height:1;transform:rotate(" +
-              deg.toFixed(1) +
-              "deg)\">\u279C</span>",
-            iconSize: [14, 14],
-            iconAnchor: [7, 7],
-          }),
-          interactive: false,
-          zIndexOffset: 1500,
-        }).addTo(layer);
-      }
+    // Direction chevrons that follow the road curvature (polylineDecorator).
+    // Denser and aligned to the line vs the old coarse rotated glyph. Coloured
+    // with lineColor so they grey out with the route when GPS goes stale.
+    if (coords.length > 1) {
+      (L as any)
+        .polylineDecorator(mainLine, {
+          patterns: [
+            {
+              offset: 14,
+              repeat: 26,
+              symbol: (L as any).Symbol.arrowHead({
+                pixelSize: 8,
+                headAngle: 40,
+                polygon: true,
+                pathOptions: {
+                  stroke: false,
+                  weight: 0,
+                  fillColor: lineColor,
+                  fillOpacity: 0.9,
+                },
+              }),
+            },
+          ],
+        })
+        .addTo(layer);
     }
   }, [routeGeom, routeEta, gpsTick, selectedDriver?.last_update_time, selectedDriver?.status]);
 
