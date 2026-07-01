@@ -203,6 +203,8 @@ const MAP_CSS = `
 
 @keyframes route-dash{to{stroke-dashoffset:-24}}
 .route-anim{animation:route-dash 1.1s linear infinite}
+.live-dot{width:14px;height:14px;border-radius:50%;background:#f97316;border:2px solid #fff;box-shadow:0 0 0 4px rgba(249,115,22,.35);animation:live-pulse 1.8s ease-out infinite}
+@keyframes live-pulse{0%{box-shadow:0 0 0 0 rgba(249,115,22,.5)}70%{box-shadow:0 0 0 9px rgba(249,115,22,0)}100%{box-shadow:0 0 0 0 rgba(249,115,22,0)}}
 
 .leaflet-container{font-family:system-ui,sans-serif!important}
 `;
@@ -243,6 +245,26 @@ async function fetchRoute(
     minutes: Math.round(tHours * 60),
   };
 }
+
+// Index of the coord nearest a point (squared planar distance — fine at this
+// scale for projecting the driver onto the drawn route).
+function nearestIndex(coords: [number, number][], lat: number, lon: number): number {
+  let best = 0;
+  let bestD = Infinity;
+  for (let i = 0; i < coords.length; i++) {
+    const dLat = coords[i][0] - lat;
+    const dLon = coords[i][1] - lon;
+    const d = dLat * dLat + dLon * dLon;
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+// Stable empty reference so "no route" doesn't churn the routePoints identity.
+const EMPTY_POINTS: { lat: number; lon: number }[] = [];
 
 // ─── Component ─────────────────────────────────────────────────────────────
 export function LiveMap({
@@ -538,10 +560,18 @@ export function LiveMap({
     return false;
   }, [stopCoords, selectedDriver?.current_lat, selectedDriver?.current_lon]);
 
-  // Waypoints to route along, per phase:
-  //  • manual target   → driver → clicked warehouse
-  //  • before pickup   → driver → first pickup (follow the driver in)
-  //  • after pickup    → A → B → C … → Drop (multi-stop chain)
+  // The fixed planned route (pickup → … → drop). Deliberately NOT anchored to
+  // the live driver, so the drawn line is stable and we can show travelled-vs-
+  // remaining progress along it. Stable reference across driver GPS updates so
+  // moving the driver doesn't re-fetch the road geometry.
+  const plannedPoints = useMemo(() => {
+    if (!focused || stopCoords.length < 2) return null;
+    return stopCoords.map((s) => ({ lat: s.lat, lon: s.lon }));
+  }, [focused, stopCoords]);
+
+  // Waypoints to route along:
+  //  • manual target → driver → clicked warehouse (ad-hoc "from here" ETA)
+  //  • otherwise     → the stable planned route (pickup → … → drop)
   const routePoints = useMemo(() => {
     const driverPos =
       selectedDriver?.current_lat != null && selectedDriver.current_lon != null
@@ -550,20 +580,8 @@ export function LiveMap({
     if (manualTargetWh && driverPos) {
       return [driverPos, { lat: manualTargetWh.latitude, lon: manualTargetWh.longitude }];
     }
-    if (focused && stopCoords.length >= 2) {
-      // Always link Driver → pickup → … → drop so the full route renders for
-      // every status (including completed, for review).
-      const pts = stopCoords.map((s) => ({ lat: s.lat, lon: s.lon }));
-      return driverPos ? [driverPos, ...pts] : pts;
-    }
-    return [] as { lat: number; lon: number }[];
-  }, [
-    manualTargetWh,
-    stopCoords,
-    focused,
-    selectedDriver?.current_lat,
-    selectedDriver?.current_lon,
-  ]);
+    return plannedPoints ?? EMPTY_POINTS;
+  }, [manualTargetWh, plannedPoints, selectedDriver?.current_lat, selectedDriver?.current_lon]);
 
   // Endpoint label for the side panel — reflects the current phase.
   const routeTarget = useMemo(() => {
@@ -667,25 +685,85 @@ export function LiveMap({
       lineCap: "round",
       lineJoin: "round",
     }).addTo(layer);
-    // Main coloured route
-    const mainLine = L.polyline(coords, {
-      color: lineColor,
-      weight: 5,
-      opacity: 0.95,
-      lineCap: "round",
-      lineJoin: "round",
-    });
-    mainLine.addTo(layer);
-    // Animated dashes overlay (skip when greyed to reinforce "not live")
-    if (!gpsStale) {
-      L.polyline(coords, {
-        color: "#fff",
-        weight: 2,
-        opacity: 0.9,
+    // ── Route line: travelled-vs-remaining split ─────────────────────────
+    // For the fixed planned route we colour the covered part and grey out
+    // what's ahead, with a pulsing "you are here" dot at the driver's live
+    // position. Manual / GPS-stale / no-driver routes fall back to one colour.
+    const isPlannedRoute = !manualTargetWh && stopCoords.length >= 2;
+    const dLat = selectedDriver?.current_lat;
+    const dLon = selectedDriver?.current_lon;
+    const haveDriver = dLat != null && dLon != null;
+
+    if (isPlannedRoute && !gpsStale && haveDriver && coords.length > 1 && arrivedPickup) {
+      // En route along the chain: split at the driver's nearest point.
+      const idx = nearestIndex(coords, dLat as number, dLon as number);
+      const traveled = coords.slice(0, idx + 1);
+      const remaining = coords.slice(idx);
+      if (traveled.length > 1) {
+        L.polyline(traveled, {
+          color: lineColor,
+          weight: 5,
+          opacity: 0.95,
+          lineCap: "round",
+          lineJoin: "round",
+        }).addTo(layer);
+      }
+      L.polyline(remaining, {
+        color: GPS_STALE_COLOR,
+        weight: 4,
+        opacity: 0.55,
         lineCap: "round",
-        dashArray: "1 16",
-        className: "route-anim",
+        lineJoin: "round",
+        dashArray: "1 10",
       }).addTo(layer);
+      L.marker(coords[idx], {
+        icon: L.divIcon({
+          className: "",
+          html: `<div class="live-dot"></div>`,
+          iconSize: [14, 14],
+          iconAnchor: [7, 7],
+        }),
+        interactive: false,
+        zIndexOffset: 4000,
+      }).addTo(layer);
+    } else if (isPlannedRoute && !gpsStale && haveDriver && coords.length > 1) {
+      // Approaching the first pickup: whole planned route is still "ahead"
+      // (grey), with a dashed connector from the driver in to the pickup.
+      L.polyline(coords, {
+        color: GPS_STALE_COLOR,
+        weight: 4,
+        opacity: 0.6,
+        lineCap: "round",
+        lineJoin: "round",
+      }).addTo(layer);
+      L.polyline([[dLat as number, dLon as number], coords[0]], {
+        color: lineColor,
+        weight: 2,
+        opacity: 0.5,
+        lineCap: "round",
+        dashArray: "2 8",
+      }).addTo(layer);
+    } else {
+      // Single-colour line (manual ad-hoc route, GPS stale, or no live driver).
+      L.polyline(coords, {
+        color: lineColor,
+        weight: 5,
+        opacity: 0.95,
+        lineCap: "round",
+        lineJoin: "round",
+      }).addTo(layer);
+      // Animated flow dashes only here (skip when greyed) — the split states
+      // convey motion via the pulsing live dot instead.
+      if (!gpsStale) {
+        L.polyline(coords, {
+          color: "#fff",
+          weight: 2,
+          opacity: 0.9,
+          lineCap: "round",
+          dashArray: "1 16",
+          className: "route-anim",
+        }).addTo(layer);
+      }
     }
 
     // ETA chip at midpoint (only when we have a real ETA)
@@ -737,7 +815,7 @@ export function LiveMap({
     // with lineColor so they grey out with the route when GPS goes stale.
     if (coords.length > 1) {
       (L as any)
-        .polylineDecorator(mainLine, {
+        .polylineDecorator(coords, {
           patterns: [
             {
               offset: 14,
@@ -758,7 +836,18 @@ export function LiveMap({
         })
         .addTo(layer);
     }
-  }, [routeGeom, routeEta, gpsTick, selectedDriver?.last_update_time, selectedDriver?.status, stopCoords]);
+  }, [
+    routeGeom,
+    routeEta,
+    gpsTick,
+    selectedDriver?.last_update_time,
+    selectedDriver?.status,
+    selectedDriver?.current_lat,
+    selectedDriver?.current_lon,
+    stopCoords,
+    manualTargetWh,
+    arrivedPickup,
+  ]);
 
   // Auto-zoom to the selected run (route + driver) when the selection changes.
   useEffect(() => {
