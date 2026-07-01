@@ -144,17 +144,6 @@ function warehouseHtml(code: string): string {
 </div>`;
 }
 
-// Teardrop pin with a stop-sequence number (1 = first pickup … N = final drop).
-function numberedPinHtml(n: number, color: string): string {
-  return `
-<div class="stop-pin" style="width:28px;height:38px;position:relative">
-  <svg width="28" height="38" viewBox="0 0 30 40">
-    <path d="M15 0C6.7 0 0 6.7 0 15c0 11 15 25 15 25s15-14 15-25C30 6.7 23.3 0 15 0z" fill="${color}" stroke="#fff" stroke-width="1.5"/>
-  </svg>
-  <span style="position:absolute;top:5px;left:0;width:28px;text-align:center;color:#fff;font-weight:800;font-family:system-ui,sans-serif;font-size:13px;line-height:1">${n}</span>
-</div>`;
-}
-
 function etaHtml(distKm: number, minutes: number): string {
   const t = minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`;
   return `
@@ -667,7 +656,7 @@ export function LiveMap({
     const isDelayed = selectedDriver?.status === "DELAYED";
     const lineColor = gpsStale ? GPS_STALE_COLOR : isDelayed ? "#dc2626" : s.bg;
 
-    const { coords, points } = routeGeom;
+    const { coords } = routeGeom;
 
     // Glow / halo underlay
     L.polyline(coords, {
@@ -780,35 +769,8 @@ export function LiveMap({
       }).addTo(layer);
     }
 
-    // Numbered stop pins for the active route sequence (1 = first pickup …
-    // N = final drop). Falls back to plain endpoint dots for an ad-hoc manual
-    // route (which has no loaded stop chain).
-    if (stopCoords.length >= 2) {
-      stopCoords.forEach((s, i) => {
-        L.marker([s.lat, s.lon], {
-          icon: L.divIcon({
-            className: "",
-            html: numberedPinHtml(i + 1, lineColor),
-            iconSize: [28, 38],
-            iconAnchor: [14, 38],
-          }),
-          interactive: false,
-          zIndexOffset: 2500,
-        }).addTo(layer);
-      });
-    } else {
-      points.forEach((p, i) => {
-        const isFirst = i === 0;
-        const isLast = i === points.length - 1;
-        L.circleMarker([p.lat, p.lon], {
-          radius: isFirst || isLast ? (isLast ? 8 : 7) : 5,
-          color: "#fff",
-          weight: isLast ? 2.5 : isFirst ? 2 : 1.5,
-          fillColor: lineColor,
-          fillOpacity: isFirst || isLast ? 1 : 0.9,
-        }).addTo(layer);
-      });
-    }
+    // No per-stop markers: the route connects warehouses that already have their
+    // own map markers, so extra pins/dots would just stack on top of them.
 
     // Direction chevrons that follow the road curvature (polylineDecorator).
     // Denser and aligned to the line vs the old coarse rotated glyph. Coloured
