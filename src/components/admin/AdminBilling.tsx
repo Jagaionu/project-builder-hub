@@ -13,6 +13,8 @@ import {
   getEmailProviderConfig,
   listWebhookEvents,
   replayWebhookEvent,
+  listPlanPrices,
+  setPlanPrice,
 } from "@/lib/billing/billing.functions";
 import type { PaymentHistory } from "@/lib/billing/payment-history";
 import {
@@ -47,11 +49,13 @@ interface Invoice {
 }
 
 export function AdminBilling({ companies }: { companies: Company[] }) {
-  const [view, setView] = useState<"companies" | "email" | "webhooks" | "setup">("companies");
+  const [view, setView] = useState<"companies" | "plans" | "email" | "webhooks" | "setup">(
+    "companies",
+  );
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        {(["companies", "email", "webhooks", "setup"] as const).map((v) => (
+        {(["companies", "plans", "email", "webhooks", "setup"] as const).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
@@ -64,18 +68,118 @@ export function AdminBilling({ companies }: { companies: Company[] }) {
           >
             {v === "companies"
               ? "Company billing"
-              : v === "email"
-                ? "Email provider"
-                : v === "webhooks"
-                  ? "Webhook log"
-                  : "Setup"}
+              : v === "plans"
+                ? "Plan pricing"
+                : v === "email"
+                  ? "Email provider"
+                  : v === "webhooks"
+                    ? "Webhook log"
+                    : "Setup"}
           </button>
         ))}
       </div>
       {view === "companies" && <CompanyBilling companies={companies} />}
+      {view === "plans" && <PlanPricing />}
       {view === "email" && <EmailProviderConfig />}
       {view === "webhooks" && <WebhookLog />}
       {view === "setup" && <PaymentsSetupStatus />}
+    </div>
+  );
+}
+
+function PlanPricing() {
+  const list = useServerFn(listPlanPrices);
+  const save = useServerFn(setPlanPrice);
+  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [savingRow, setSavingRow] = useState<string | null>(null);
+  const plans: Plan[] = ["starter", "pro", "enterprise"];
+  const intervals: Interval[] = ["monthly", "annual"];
+
+  const load = useCallback(async () => {
+    const rows = (await list({ data: {} })) as Array<{
+      plan: string;
+      interval: string;
+      net_amount_minor: number;
+    }>;
+    const m: Record<string, string> = {};
+    for (const r of rows) m[`${r.plan}-${r.interval}`] = (r.net_amount_minor / 100).toFixed(2);
+    setPrices(m);
+  }, [list]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const onSave = async (plan: Plan) => {
+    setSavingRow(plan);
+    try {
+      for (const interval of intervals) {
+        const raw = prices[`${plan}-${interval}`];
+        if (raw == null || raw === "") continue;
+        const v = parseFloat(raw);
+        if (!Number.isFinite(v) || v < 0) {
+          toast.error(`Invalid ${plan} ${interval} price`);
+          continue;
+        }
+        await save({ data: { plan, interval, netMinor: Math.round(v * 100) } });
+      }
+      toast.success(`${plan} pricing saved`);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save price");
+    } finally {
+      setSavingRow(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      <p className="text-xs text-muted-foreground">
+        Net prices (excl. VAT) charged per plan. Applied to new invoices and shown to each company
+        on their billing page. A per-company price override (set in Companies) takes precedence.
+      </p>
+      <div className="rounded-lg border border-border overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-left">Plan</th>
+              <th className="px-3 py-2 text-left">Monthly £ (net)</th>
+              <th className="px-3 py-2 text-left">Annual £ (net)</th>
+              <th className="px-3 py-2" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {plans.map((plan) => (
+              <tr key={plan}>
+                <td className="px-3 py-2 capitalize font-medium">{plan}</td>
+                {intervals.map((interval) => (
+                  <td key={interval} className="px-3 py-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={prices[`${plan}-${interval}`] ?? ""}
+                      onChange={(e) =>
+                        setPrices((p) => ({ ...p, [`${plan}-${interval}`]: e.target.value }))
+                      }
+                      placeholder="—"
+                      className="w-28 rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2 text-right">
+                  <button
+                    onClick={() => onSave(plan)}
+                    disabled={savingRow === plan}
+                    className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {savingRow === plan ? "Saving…" : "Save"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
