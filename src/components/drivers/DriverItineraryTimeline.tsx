@@ -1,5 +1,5 @@
 // DriverItineraryTimeline.tsx
-import { MapPin, ArrowRight, CheckCircle2, Clock, Package, Truck, Info } from "lucide-react";
+import { MapPin, ArrowRight, CheckCircle2, Clock, Package, Truck, Info, MoreHorizontal, Calendar, Navigation } from "lucide-react";
 import type { Driver } from "@/lib/types";
 import type { ActiveJob, ActiveStop } from "@/lib/use-driver-routes";
 import { haversineKm, etaMinutes } from "@/lib/driver-gps";
@@ -164,15 +164,17 @@ function buildRows(driver: Driver, jobs: ActiveJob[]): TimelineRow[] {
   return rows;
 }
 
-// ─── Tooltip Component ──────────────────────────────────────────────────────
+// ─── Tooltip Component (modernized) ────────────────────────────────────────
 
 function Tooltip({ children, content }: { children: React.ReactNode; content: React.ReactNode }) {
   return (
-    <div className="group relative inline-block">
+    <div className="group relative inline-flex">
       {children}
-      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-md border border-border bg-popover p-2 text-xs text-popover-foreground shadow-md opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-        {content}
-        <div className="absolute top-full left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 border-b border-r border-border bg-popover" />
+      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-3 w-72 -translate-x-1/2 rounded-xl border border-white/10 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl p-4 text-xs text-foreground shadow-2xl opacity-0 transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 translate-y-1">
+        <div className="relative">
+          {content}
+          <div className="absolute -bottom-2 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b border-r border-white/10 bg-white/90 dark:bg-gray-900/90" />
+        </div>
       </div>
     </div>
   );
@@ -182,49 +184,49 @@ function Tooltip({ children, content }: { children: React.ReactNode; content: Re
 
 function LegRowItem({ row }: { row: LegRow }) {
   return (
-    <div className="relative flex items-center gap-4 pl-3 pr-1 py-3 group/leg">
-      {/* Schematic Line Assembly */}
-      <div className="absolute left-[21px] top-0 bottom-0 w-0.5 border-l-2 border-dashed border-muted/60" />
+    <div className="relative flex items-center gap-4 pl-3 pr-1 py-2 group/leg transition-all duration-200 hover:bg-muted/20 rounded-lg">
+      {/* Timeline line - dashed for legs */}
+      <div className="absolute left-[21px] top-0 bottom-0 w-0.5 border-l-2 border-dashed border-muted-foreground/20" />
 
-      {/* Minor Icon Placement */}
-      <div className="z-10 flex size-5 items-center justify-center rounded-full border border-muted-foreground/20 bg-background shadow-sm text-muted-foreground">
-        <Truck className="size-3" />
+      {/* Icon with pulse effect */}
+      <div className="z-10 flex size-6 items-center justify-center rounded-full border border-muted-foreground/20 bg-background shadow-sm transition-all group-hover/leg:border-primary/40 group-hover/leg:shadow-md">
+        <Truck className="size-3.5 text-muted-foreground group-hover/leg:text-primary transition-colors" />
       </div>
 
-      {/* Simplified Main UI String */}
-      <div className="flex flex-1 items-center justify-between text-xs font-mono">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <span>Transit</span>
-          <ArrowRight className="size-3 text-muted-foreground/50" />
-          <span className="text-foreground font-semibold">{row.toLabel}</span>
+      {/* Main content */}
+      <div className="flex flex-1 items-center justify-between rounded-lg border border-transparent bg-card/50 px-3 py-2 transition-all group-hover/leg:border-border/60 group-hover/leg:bg-muted/10">
+        <div className="flex items-center gap-3 text-xs font-mono">
+          <span className="text-muted-foreground">Transit</span>
+          <ArrowRight className="size-3 text-muted-foreground/40" />
+          <span className="font-semibold text-foreground">{row.toLabel}</span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="font-semibold text-primary">{row.minutes} min</span>
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5 text-sm font-semibold text-primary">
+            <Navigation className="size-3.5" />
+            {row.minutes} min
+          </span>
+          <span className="text-xs text-muted-foreground/60 font-mono">
+            {fmtKm(row.km)}
+          </span>
 
           <Tooltip
             content={
-              <div className="space-y-1 font-sans">
-                <p className="font-semibold text-foreground border-b pb-1 mb-1">
+              <div className="space-y-2 font-sans">
+                <p className="font-semibold text-foreground border-b border-border/40 pb-1.5 mb-1.5 flex items-center gap-2">
+                  <Navigation className="size-3.5 text-primary" />
                   Route Vector Data
                 </p>
-                <p>
-                  <span className="text-muted-foreground">Origin:</span> {row.fromLabel}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Destination:</span> {row.toLabel}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Est. Distance:</span> {fmtKm(row.km)}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Planned Window:</span>{" "}
-                  {fmtTime(row.departsAt)} - {fmtTime(row.arrivesAt)}
-                </p>
+                <div className="space-y-1 text-muted-foreground">
+                  <p><span className="text-foreground/70">Origin:</span> {row.fromLabel}</p>
+                  <p><span className="text-foreground/70">Destination:</span> {row.toLabel}</p>
+                  <p><span className="text-foreground/70">Est. Distance:</span> {fmtKm(row.km)}</p>
+                  <p><span className="text-foreground/70">Planned Window:</span> {fmtTime(row.departsAt)} – {fmtTime(row.arrivesAt)}</p>
+                </div>
               </div>
             }
           >
-            <Info className="size-3.5 text-muted-foreground/60 hover:text-foreground cursor-pointer" />
+            <Info className="size-3.5 text-muted-foreground/40 hover:text-foreground cursor-pointer transition-colors" />
           </Tooltip>
         </div>
       </div>
@@ -234,89 +236,77 @@ function LegRowItem({ row }: { row: LegRow }) {
 
 function StopRowItem({ row }: { row: StopRow }) {
   const isPickup = row.stopKind === "PICKUP";
+  const isArrived = !!row.arrivedAt;
+
+  // Color scheme
+  const accentColor = isArrived ? "emerald" : isPickup ? "amber" : "blue";
+  const accentClass = `border-${accentColor}-500/40 bg-${accentColor}-500/10 text-${accentColor}-400`;
 
   return (
-    <div className="relative flex items-start gap-4 pl-3 pr-1 py-2 group/stop">
-      {/* Continuous Axis Line Lineage */}
-      <div className="absolute left-[21px] top-0 bottom-0 w-0.5 bg-border" />
+    <div className="relative flex items-start gap-4 pl-3 pr-1 py-2 group/stop transition-all duration-200">
+      {/* Continuous line */}
+      <div className="absolute left-[21px] top-0 bottom-0 w-0.5 bg-border/60" />
 
-      {/* Node Anchor */}
+      {/* Node with status */}
       <div
-        className={`z-10 flex size-5 shrink-0 items-center justify-center rounded-full border shadow-sm transition-colors
-        ${
-          row.arrivedAt
-            ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-400"
-            : isPickup
-              ? "border-amber-500/60 bg-amber-500/10 text-amber-400"
-              : "border-blue-500/60 bg-blue-500/10 text-blue-400"
-        }`}
+        className={`z-10 flex size-6 shrink-0 items-center justify-center rounded-full border-2 shadow-sm transition-all group-hover/stop:scale-105 group-hover/stop:shadow-md
+        ${isArrived ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-400" : "border-muted-foreground/30 bg-background text-muted-foreground"}
+        ${!isArrived && isPickup ? "border-amber-500/50 bg-amber-500/10 text-amber-400" : ""}
+        ${!isArrived && !isPickup ? "border-blue-500/50 bg-blue-500/10 text-blue-400" : ""}`}
       >
-        {row.arrivedAt ? <CheckCircle2 className="size-3" /> : <MapPin className="size-3" />}
+        {isArrived ? <CheckCircle2 className="size-3.5" /> : <MapPin className="size-3.5" />}
       </div>
 
-      {/* Simplified Structural Board */}
-      <div className="flex-1 min-w-0 bg-surface border border-border/60 hover:border-border rounded-md px-3 py-2 flex items-center justify-between transition-all">
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-2">
+      {/* Card-like stop block */}
+      <div className="flex-1 min-w-0 rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm px-4 py-3 shadow-sm transition-all group-hover/stop:border-border group-hover/stop:shadow-md">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
             <span className="font-mono font-bold text-sm text-foreground tracking-tight">
               {row.code}
             </span>
             <span
-              className={`text-[10px] font-medium font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border
-              ${
-                isPickup
-                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                  : "bg-blue-500/10 border-blue-500/30 text-blue-400"
-              }`}
+              className={`text-[10px] font-mono font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${accentClass}`}
             >
               {isPickup ? "Pickup" : "Drop-off"}
             </span>
-          </div>
-
-          <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
-            <span className="flex items-center gap-1">
-              <Clock className="size-3" /> ETA {fmtTime(row.plannedAt)}
-            </span>
-            {row.dwellMinutes != null && row.dwellMinutes > 0 && (
-              <span className="flex items-center gap-1 text-muted-foreground/80">
-                <Package className="size-3" /> {row.dwellMinutes}m dwell
+            {isArrived && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                <CheckCircle2 className="size-3" />
+                Arrived {fmtTime(row.arrivedAt)}
               </span>
             )}
           </div>
-        </div>
 
-        {/* Informative Interaction Node */}
-        <div className="flex items-center gap-2">
-          {row.arrivedAt && (
-            <span className="text-[11px] font-mono font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded">
-              Arrived {fmtTime(row.arrivedAt)}
+          <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
+            <span className="flex items-center gap-1.5">
+              <Clock className="size-3.5" />
+              <span>ETA {fmtTime(row.plannedAt)}</span>
             </span>
-          )}
+            {row.dwellMinutes != null && row.dwellMinutes > 0 && (
+              <span className="flex items-center gap-1.5 text-muted-foreground/70">
+                <Package className="size-3.5" />
+                <span>{row.dwellMinutes}m dwell</span>
+              </span>
+            )}
+          </div>
 
           <Tooltip
             content={
-              <div className="space-y-1 font-sans">
-                <p className="font-semibold text-foreground border-b pb-1 mb-1">
+              <div className="space-y-2 font-sans">
+                <p className="font-semibold text-foreground border-b border-border/40 pb-1.5 mb-1.5 flex items-center gap-2">
+                  <MapPin className="size-3.5 text-primary" />
                   Stop Execution Detail
                 </p>
-                <p>
-                  <span className="text-muted-foreground">Node Code:</span> {row.code}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Operation:</span> {row.stopKind}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Target Slot:</span>{" "}
-                  {fmtTime(row.plannedAt)}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Actual Time:</span>{" "}
-                  {row.arrivedAt ? fmtTime(row.arrivedAt) : "Pending Activation"}
-                </p>
+                <div className="space-y-1 text-muted-foreground">
+                  <p><span className="text-foreground/70">Node Code:</span> {row.code}</p>
+                  <p><span className="text-foreground/70">Operation:</span> {row.stopKind}</p>
+                  <p><span className="text-foreground/70">Target Slot:</span> {fmtTime(row.plannedAt)}</p>
+                  <p><span className="text-foreground/70">Actual Time:</span> {row.arrivedAt ? fmtTime(row.arrivedAt) : "Pending Activation"}</p>
+                </div>
               </div>
             }
           >
-            <Info className="size-3.5 text-muted-foreground/60 hover:text-foreground cursor-pointer" />
+            <Info className="size-3.5 text-muted-foreground/40 hover:text-foreground cursor-pointer transition-colors" />
           </Tooltip>
         </div>
       </div>
@@ -326,10 +316,10 @@ function StopRowItem({ row }: { row: StopRow }) {
 
 function SeparatorRowItem({ row }: { row: SeparatorRow }) {
   return (
-    <div className="relative flex items-center py-4 pl-3">
-      <div className="absolute left-[21px] top-0 bottom-0 w-0.5 bg-border" />
-      <div className="z-10 -ml-1 h-2 w-2 rounded-full bg-border" />
-      <span className="ml-4 font-mono text-[10px] uppercase tracking-widest text-muted-foreground bg-background pr-2 font-bold">
+    <div className="relative flex items-center py-5 pl-3">
+      <div className="absolute left-[21px] top-0 bottom-0 w-0.5 bg-border/60" />
+      <div className="z-10 -ml-1 h-2.5 w-2.5 rounded-full bg-border/80 ring-4 ring-background" />
+      <span className="ml-5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full border border-border/40">
         {row.label}
       </span>
     </div>
@@ -347,20 +337,35 @@ export function DriverItineraryTimeline({ driver, jobs }: DriverItineraryTimelin
   const rows = buildRows(driver, jobs);
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5 text-card-foreground shadow-sm">
-      <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2 border-b border-border pb-3">
-        <Truck className="size-4 text-primary" />
-        Driver Workflow Schematic
+    <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-card/90 to-card/50 backdrop-blur-sm p-6 text-card-foreground shadow-lg shadow-black/5 transition-all">
+      {/* Header with modern badge */}
+      <div className="flex items-center justify-between mb-6 border-b border-border/50 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="flex size-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Truck className="size-4" />
+          </div>
+          <span className="font-mono text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">
+            Driver Workflow Schematic
+          </span>
+          <span className="ml-2 rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold text-primary">
+            {rows.length > 0 ? `${rows.filter(r => r.kind === 'stop').length} stops` : 'No stops'}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground/60 font-mono">
+          <Calendar className="size-3.5" />
+          <span>{todayLocal()}</span>
+        </div>
       </div>
 
       {rows.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8 border border-dashed rounded-lg border-border bg-surface">
-          <p className="text-xs text-muted-foreground font-mono">
-            No assignments found for current processing date
+        <div className="flex flex-col items-center justify-center py-12 border border-dashed rounded-2xl border-border/60 bg-muted/10">
+          <Truck className="size-8 text-muted-foreground/30 mb-2" />
+          <p className="text-sm text-muted-foreground font-mono">
+            No assignments for today
           </p>
         </div>
       ) : (
-        <div className="relative flex flex-col pl-1">
+        <div className="relative flex flex-col pl-1 animate-in fade-in slide-in-from-bottom-4 duration-500">
           {rows.map((row, i) => {
             if (row.kind === "leg") return <LegRowItem key={`leg-${i}`} row={row} />;
             if (row.kind === "stop") return <StopRowItem key={`stop-${i}`} row={row} />;
