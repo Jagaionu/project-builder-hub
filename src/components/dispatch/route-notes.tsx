@@ -14,7 +14,27 @@ type RouteNote = {
   author_email: string | null;
   author_avatar_url: string | null;
   visible_to_drivers: boolean | null;
+  author_user_id: string | null;
 };
+
+// Per-device "last seen" timestamp for a VRID's notes, so the badge can show
+// unread (notes from others since you last opened them) rather than the total.
+function notesSeenKey(jobId: string) {
+  return `route-notes-seen:${jobId}`;
+}
+function getNotesLastSeen(jobId: string): number {
+  if (typeof window === "undefined") return 0;
+  const v = window.localStorage.getItem(notesSeenKey(jobId));
+  return v ? new Date(v).getTime() : 0;
+}
+function setNotesLastSeen(jobId: string, iso: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(notesSeenKey(jobId), iso);
+  } catch {
+    /* ignore quota errors */
+  }
+}
 
 // Notes attached to a route/VRID. Backed by public.route_notes. Notes flagged
 // visible_to_drivers are shown to the assigned driver in the driver app (and a
@@ -23,7 +43,8 @@ type RouteNote = {
 export function RouteNotesButton({ jobId, reference }: { jobId: string; reference: string }) {
   const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState<RouteNote[]>([]);
-  const [count, setCount] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [unread, setUnread] = useState(0);
   const [body, setBody] = useState("");
   const [adding, setAdding] = useState(false);
   const [visibleToDrivers, setVisibleToDrivers] = useState(false);
@@ -35,14 +56,20 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
     const { data } = await supabase
       .from("route_notes" as never)
       .select(
-        "id, body, created_at, author_name, author_email, author_avatar_url, visible_to_drivers",
+        "id, body, created_at, author_name, author_email, author_avatar_url, visible_to_drivers, author_user_id",
       )
       .eq("job_id", jobId)
       .order("created_at", { ascending: false });
     const rows = (data ?? []) as unknown as RouteNote[];
     setNotes(rows);
-    setCount(rows.length);
-  }, [jobId]);
+    setTotal(rows.length);
+    const lastSeen = getNotesLastSeen(jobId);
+    // Unread = notes from other people since you last opened this VRID's notes.
+    setUnread(
+      rows.filter((r) => r.author_user_id !== userId && new Date(r.created_at).getTime() > lastSeen)
+        .length,
+    );
+  }, [jobId, userId]);
 
   useEffect(() => {
     void load();
@@ -93,17 +120,27 @@ export function RouteNotesButton({ jobId, reference }: { jobId: string; referenc
     <>
       <button
         type="button"
-        title={count > 0 ? count + " note" + (count === 1 ? "" : "s") : "Notes"}
-        onClick={() => setOpen(true)}
+        title={
+          unread > 0
+            ? unread + " unread note" + (unread === 1 ? "" : "s")
+            : total > 0
+              ? total + " note" + (total === 1 ? "" : "s")
+              : "Notes"
+        }
+        onClick={() => {
+          setOpen(true);
+          setNotesLastSeen(jobId, new Date().toISOString());
+          setUnread(0);
+        }}
         className="relative inline-flex items-center justify-center size-8 rounded-md border border-border bg-surface hover:bg-surface-2 transition-colors"
       >
         <MessageSquare
-          className={count > 0 ? "size-4 text-orange-500" : "size-4 text-muted-foreground"}
-          fill={count > 0 ? "currentColor" : "none"}
+          className={total > 0 ? "size-4 text-orange-500" : "size-4 text-muted-foreground"}
+          fill={total > 0 ? "currentColor" : "none"}
         />
-        {count > 0 && (
+        {unread > 0 && (
           <span className="absolute -top-1.5 -right-1.5 min-w-[1rem] h-4 px-1 rounded-full bg-orange-500 text-white text-[10px] font-mono leading-none grid place-items-center">
-            {count}
+            {unread}
           </span>
         )}
       </button>
