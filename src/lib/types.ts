@@ -87,6 +87,10 @@ export interface TenantConfig {
   customBranding: boolean;
   brandName: string | null;
   brandColor: string | null;
+  /** Per-company price overrides (net minor units, excl. VAT). null = use the
+   *  plan default from plan_prices. Set by a super admin per company. */
+  priceMonthlyMinor?: number | null;
+  priceAnnualMinor?: number | null;
 }
 
 export interface Company {
@@ -128,6 +132,8 @@ export const DEFAULT_TENANT_CONFIG: TenantConfig = {
   customBranding: false,
   brandName: null,
   brandColor: null,
+  priceMonthlyMinor: null,
+  priceAnnualMinor: null,
 };
 
 // Aggregated weekly availability for a driver, derived from the per-day
