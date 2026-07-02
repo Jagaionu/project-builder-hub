@@ -220,7 +220,7 @@ function AdminDashboard() {
           <div className="skeleton h-9 w-24 rounded-t-md" />
           <div className="skeleton h-9 w-32 rounded-t-md" />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <CompanyCardSkeleton key={i} />
           ))}
@@ -350,7 +350,7 @@ function AdminDashboard() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               {filteredCompanies.map((company) => (
                 <CompanyCard
                   key={company.id}
