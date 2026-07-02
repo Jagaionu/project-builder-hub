@@ -127,6 +127,12 @@ export function CompanyCard({
     ...DEFAULT_TENANT_CONFIG,
     ...company.config,
   });
+  // Local mirror of the plan so the highlighted button updates instantly on
+  // click — the `company` prop only refreshes after the parent refetches.
+  const [plan, setPlan] = useState<CompanyPlan>(company.plan);
+  useEffect(() => {
+    setPlan(company.plan);
+  }, [company.plan]);
   const [creating, setCreating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const notifyTeam = useTeamSync(company.id, expanded, () => setRefreshKey((k) => k + 1));
@@ -344,6 +350,7 @@ export function CompanyCard({
                   <button
                     key={p}
                     onClick={async () => {
+                      setPlan(p);
                       const newConfig = {
                         ...config,
                         maxDrivers: lim.drivers,
@@ -357,14 +364,14 @@ export function CompanyCard({
                       toast.success(`Plan set to ${p}`);
                     }}
                     className={`flex flex-col items-start px-2.5 py-1 rounded text-[11px] font-medium border transition-colors capitalize ${
-                      company.plan === p
+                      plan === p
                         ? "bg-primary text-primary-foreground border-primary"
                         : "border-border text-muted-foreground hover:border-border hover:text-foreground"
                     }`}
                   >
                     <span>{p}</span>
                     <span
-                      className={`text-[9px] font-normal lowercase ${company.plan === p ? "text-primary-foreground/80" : "text-muted-foreground/70"}`}
+                      className={`text-[9px] font-normal lowercase ${plan === p ? "text-primary-foreground/80" : "text-muted-foreground/70"}`}
                     >
                       {lim.drivers ? `${lim.drivers} drv / ${lim.warehouses} wh` : "unlimited"}
                     </span>
