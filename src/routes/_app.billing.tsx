@@ -132,9 +132,12 @@ function BillingPage() {
       setCancelling(false);
     }
   };
-  const [data, setData] = useState<{ company: any; invoices: Invoice[]; methods: any[] } | null>(
-    null,
-  );
+  const [data, setData] = useState<{
+    company: any;
+    invoices: Invoice[];
+    methods: any[];
+    priceMonthlyMinor?: number | null;
+  } | null>(null);
   const [busy, setBusy] = useState<Provider | null>(null);
 
   const load = useCallback(async () => {
@@ -223,6 +226,13 @@ function BillingPage() {
                 ? new Date(company.current_period_end).toLocaleDateString()
                 : "—"}
             </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Price</div>
+            <div className="text-lg font-semibold">
+              {data?.priceMonthlyMinor != null ? `${fmt(data.priceMonthlyMinor)}/mo` : "—"}
+            </div>
+            <div className="text-[9px] text-muted-foreground">excl. VAT</div>
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">

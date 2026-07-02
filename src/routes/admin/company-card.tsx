@@ -493,6 +493,46 @@ export function CompanyCard({
             </div>
           )}
 
+          {/* Renewal date (paid subscriptions) */}
+          {company.subscription_status !== "trial" && (
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Renewal date
+              </label>
+              <div className="mt-2">
+                <input
+                  type="date"
+                  value={
+                    (company as { current_period_end?: string | null }).current_period_end
+                      ? new Date(
+                          (company as { current_period_end?: string | null })
+                            .current_period_end as string,
+                        )
+                          .toISOString()
+                          .split("T")[0]
+                      : ""
+                  }
+                  onChange={async (e) => {
+                    const iso = e.target.value ? new Date(e.target.value).toISOString() : null;
+                    const { error } = await supabase
+                      .from("companies" as never)
+                      .update({ current_period_end: iso } as never)
+                      .eq("id", company.id);
+                    if (error) {
+                      toast.error("Failed to update renewal date");
+                      return;
+                    }
+                    toast.success("Renewal date updated");
+                  }}
+                  className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Shown to the company as the Renews date on their billing page.
+              </p>
+            </div>
+          )}
+
           {/* Modules */}
           <div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">

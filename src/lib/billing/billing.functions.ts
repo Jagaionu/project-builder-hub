@@ -94,6 +94,60 @@ export const getCompanyPaymentHistory = createServerFn({ method: "POST" })
     return buildPaymentHistory((invoices ?? []) as PaymentInvoiceRow[]);
   });
 
+// ── Super-admin: read/update the per-plan price book (plan_prices) ──
+export const listPlanPrices = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({}).parse(d ?? {}))
+  .handler(async ({ context }) => {
+    await assertSuperAdmin(context.userId);
+    const { data } = await sb
+      .from("plan_prices")
+      .select("plan, interval, currency, net_amount_minor, active")
+      .eq("currency", "GBP")
+      .eq("active", true);
+    return (data ?? []) as Array<{
+      plan: string;
+      interval: string;
+      currency: string;
+      net_amount_minor: number;
+      active: boolean;
+    }>;
+  });
+
+export const setPlanPrice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({ plan: PlanEnum, interval: IntervalEnum, netMinor: z.number().int().min(0) })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.userId);
+    const { data: existing } = await sb
+      .from("plan_prices")
+      .select("id")
+      .eq("plan", data.plan)
+      .eq("interval", data.interval)
+      .eq("currency", "GBP")
+      .eq("active", true)
+      .maybeSingle();
+    if (existing?.id) {
+      await sb
+        .from("plan_prices")
+        .update({ net_amount_minor: data.netMinor, updated_at: new Date().toISOString() })
+        .eq("id", existing.id);
+    } else {
+      await sb.from("plan_prices").insert({
+        plan: data.plan,
+        interval: data.interval,
+        currency: "GBP",
+        net_amount_minor: data.netMinor,
+        active: true,
+      });
+    }
+    return { ok: true };
+  });
+
 // ── Super-admin: set the billing provider for a company ──────
 export const setCompanyProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -594,7 +648,7 @@ export const getMyBilling = createServerFn({ method: "POST" })
       sb
         .from("companies")
         .select(
-          "id, name, plan, subscription_status, subscription_ends_at, billing_provider, current_period_end",
+          "id, name, plan, subscription_status, subscription_ends_at, billing_provider, current_period_end, config",
         )
         .eq("id", companyId)
         .maybeSingle(),
@@ -611,7 +665,22 @@ export const getMyBilling = createServerFn({ method: "POST" })
         .select("id, provider, kind, brand, bank_name, last4, status, is_default")
         .eq("tenant_id", companyId),
     ]);
-    return { company, invoices: invoices ?? [], methods: methods ?? [] };
+    // Net monthly price the company is on: per-company override wins, else the
+    // active plan_prices default. Lets the billing page show what they pay.
+    const cfg = (company?.config ?? {}) as { priceMonthlyMinor?: number | null };
+    let priceMonthlyMinor: number | null = cfg.priceMonthlyMinor ?? null;
+    if (priceMonthlyMinor == null && company?.plan) {
+      const { data: pp } = await sb
+        .from("plan_prices")
+        .select("net_amount_minor")
+        .eq("plan", company.plan)
+        .eq("interval", "monthly")
+        .eq("currency", "GBP")
+        .eq("active", true)
+        .maybeSingle();
+      priceMonthlyMinor = pp?.net_amount_minor ?? null;
+    }
+    return { company, invoices: invoices ?? [], methods: methods ?? [], priceMonthlyMinor };
   });
 
 // ── Cancellation + refund ────────────────────────────────────
