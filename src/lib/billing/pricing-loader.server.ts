@@ -55,11 +55,23 @@ export async function buildBreakdown(args: {
 
   const { data: company } = await sb
     .from("companies")
-    .select("country_code, vat_number, vat_validated_at")
+    .select("country_code, vat_number, vat_validated_at, config")
     .eq("id", companyId)
     .maybeSingle();
 
-  const netMinor = netMinorOverride ?? (await loadNetMinor(plan, interval));
+  // Per-company price override (net minor units) set by a super admin, stored
+  // in companies.config. Falls back to the plan_prices default when unset.
+  const cfg = (company?.config ?? {}) as {
+    priceMonthlyMinor?: number | null;
+    priceAnnualMinor?: number | null;
+  };
+  const overrideMinor = interval === "annual" ? cfg.priceAnnualMinor : cfg.priceMonthlyMinor;
+
+  const netMinor =
+    netMinorOverride ??
+    (overrideMinor != null && overrideMinor >= 0
+      ? overrideMinor
+      : await loadNetMinor(plan, interval));
   const fee = await loadFeeConfig(provider, cardRegion);
 
   return priceForPlan({

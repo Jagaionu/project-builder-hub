@@ -306,6 +306,7 @@ export function CompanyCard({
             </div>
           )}
 
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-8 gap-y-5 items-start">
           {/* Subscription Status */}
           <div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">
@@ -379,6 +380,65 @@ export function CompanyCard({
                 );
               })}
             </div>
+          </div>
+
+          {/* Pricing (per-company override) */}
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">
+              Price (net, excl. VAT)
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <label className="block">
+                <span className="text-[9px] text-muted-foreground/70">Monthly £</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={
+                    config.priceMonthlyMinor != null
+                      ? (config.priceMonthlyMinor / 100).toString()
+                      : ""
+                  }
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value);
+                    setConfig((p) => ({
+                      ...p,
+                      priceMonthlyMinor:
+                        e.target.value === "" || !Number.isFinite(v) ? null : Math.round(v * 100),
+                    }));
+                  }}
+                  placeholder="plan default"
+                  className="mt-1 w-28 rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[9px] text-muted-foreground/70">Annual £</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={
+                    config.priceAnnualMinor != null
+                      ? (config.priceAnnualMinor / 100).toString()
+                      : ""
+                  }
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value);
+                    setConfig((p) => ({
+                      ...p,
+                      priceAnnualMinor:
+                        e.target.value === "" || !Number.isFinite(v) ? null : Math.round(v * 100),
+                    }));
+                  }}
+                  placeholder="plan default"
+                  className="mt-1 w-28 rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </label>
+            </div>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Overrides the plan price for this company. Blank = plan default. Applies to the next
+              invoice / checkout. Press Save Configuration to apply.
+            </p>
           </div>
 
           {/* Trial expiry */}
@@ -517,6 +577,8 @@ export function CompanyCard({
                 <p className="mt-1 text-[10px] text-muted-foreground">Logo is uploaded as a PNG.</p>
               </div>
             )}
+          </div>
+
           </div>
 
           {/* Save */}
