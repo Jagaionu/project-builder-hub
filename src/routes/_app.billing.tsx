@@ -12,6 +12,7 @@ import {
 } from "@/lib/billing/billing.functions";
 import { useTenant } from "@/lib/tenant-context";
 import { CreditCard, Building2, Banknote } from "lucide-react";
+import { InfoHint } from "@/components/driver/InfoHint";
 
 export const Route = createFileRoute("/_app/billing")({
   component: BillingPage,
@@ -228,7 +229,10 @@ function BillingPage() {
             </div>
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Price</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+              Price
+              <InfoHint text="Net plan price, excluding VAT. Your total at checkout is this net price, plus VAT (applied per your VAT status; 20% UK standard), plus a payment-processing fee that depends on the payment method you choose. Every invoice shows the full breakdown." />
+            </div>
             <div className="text-lg font-semibold">
               {data?.priceMonthlyMinor != null ? `${fmt(data.priceMonthlyMinor)}/mo` : "—"}
             </div>
@@ -248,7 +252,8 @@ function BillingPage() {
         <h2 className="text-sm font-semibold mb-2">Choose how to pay</h2>
         <p className="text-xs text-muted-foreground mb-3">
           Processing fees are included in the total shown at checkout (you are contracting as a
-          business customer).
+          business customer).{" "}
+          <InfoHint text="The processing fee covers your payment provider's charge for taking the payment (card via Stripe, Direct Debit via GoCardless, or bank transfer). We add it so the full plan price plus VAT reaches us. The exact fee depends on the method you choose and is itemised on every invoice." />
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {PROVIDERS.map((p) => (
@@ -328,6 +333,13 @@ function BillingPage() {
             </tbody>
           </table>
         </div>
+        <p className="mt-2 text-[11px] text-muted-foreground leading-snug">
+          <b>Net</b> is the plan price. <b>VAT</b> is applied per your VAT status (20% UK standard;
+          0% where reverse-charge or zero-rating applies). <b>Fee</b> is the payment-processing
+          charge for your chosen method — added so the full net + VAT reaches us, calculated on the
+          VAT-inclusive amount, and non-refundable once a payment is taken. <b>Total</b> is the
+          amount you pay.
+        </p>
       </div>
 
       {/* Cancel subscription (bottom) */}
