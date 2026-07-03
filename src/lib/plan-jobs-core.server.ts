@@ -15,13 +15,14 @@
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { StopsMap } from "@/lib/planner";
-import { computeCompliance, type ComplianceEvent } from "@/lib/compliance";
+import { computeCompliance, type ComplianceEvent, type LedgerTotals } from "@/lib/compliance";
 import { haversineKm } from "@/lib/geo";
 import { fetchShiftsByDriver } from "@/lib/driver-shifts";
 import { buildHoursLedger } from "@/lib/driver-hours-ledger";
 import { recomputeDriverDay } from "@/lib/shift-ledger.server";
 import { makeTravelHours } from "@/lib/travel-provider";
 import { planDay } from "@/lib/plan-day";
+import { weekStartOf, addWeeks, ukToday } from "@/lib/week";
 import { toRoutePersistence } from "@/lib/route-persistence";
 import type { Driver, DriverAvailabilityOverride, DriverShift, Warehouse, Job } from "@/lib/types";
 
@@ -225,11 +226,41 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
   }> = [];
   const refreshPairs = new Set<string>();
 
+  // Week-aware, within-run-accumulating hours baseline. For each planned day
+  // the 56h/90h caps are anchored to that day own Mon-Sun week (real this /
+  // last week hours from the ledger snapshot; future weeks start at 0), plus
+  // the hours already assigned earlier in THIS run. Same-day planning is
+  // numerically identical to the previous behaviour.
+  const planToday = ukToday(nowMs);
+  const planThisWk = weekStartOf(planToday);
+  const planLastWk = addWeeks(planThisWk, -1);
+  const plannedWeekHours: Record<string, Record<string, number>> = {};
+  const realWeekHours = (driverId: string, wk: string): number => {
+    const t = ledger[driverId] ?? { daily: 0, weekly: 0, twoWeek: 0 };
+    if (wk === planThisWk) return t.weekly ?? 0;
+    if (wk === planLastWk) return Math.max(0, (t.twoWeek ?? 0) - (t.weekly ?? 0));
+    return 0;
+  };
+
   const sortedDates = Array.from(byDate.keys()).sort();
   let rtbLegsAdded = 0;
 
   for (const dateStr of sortedDates) {
     const dateJobs = byDate.get(dateStr)!;
+
+    // Baseline for this service day: real hours for its own week + previous
+    // week, plus hours already assigned earlier in this run (so a week 56h/
+    // 90h caps accumulate across the planned days).
+    const W = weekStartOf(dateStr);
+    const prevW = addWeeks(W, -1);
+    const dateLedger: Record<string, LedgerTotals> = {};
+    for (const did of Object.keys(ledger)) {
+      const weekly = realWeekHours(did, W) + (plannedWeekHours[did]?.[W] ?? 0);
+      const twoWeek =
+        weekly + realWeekHours(did, prevW) + (plannedWeekHours[did]?.[prevW] ?? 0);
+      const daily = dateStr === planToday ? (ledger[did]?.daily ?? 0) : 0;
+      dateLedger[did] = { daily, weekly, twoWeek };
+    }
 
     // Run the full regret-2 + local search optimizer.
     const result = planDay({
@@ -238,13 +269,19 @@ export async function planJobsForTenant(tenantId: string | null): Promise<PlanJo
       stopsMap,
       drivers: activeDriverList,
       warehouses: whList,
-      ledger,
+      ledger: dateLedger,
       shifts: driverShifts,
       overrides: allOverrides,
       travelHours: travelHoursFn,
       driverEquipment,
       nowMs,
     });
+
+    // Roll this day assigned driving into the week running total so later
+    // days in the same week (this run) respect it.
+    for (const [did, hrs] of Object.entries(result.metrics.driverHours)) {
+      (plannedWeekHours[did] ??= {})[W] = (plannedWeekHours[did]?.[W] ?? 0) + hrs;
+    }
 
     // Map assignments to job updates.
     for (const a of result.assignments) {
