@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { ackAlert } from "./alerts.functions";
 import { toast } from "sonner";
+import { useTenant } from "@/lib/tenant-context";
 
 type CantCompleteEvent = {
   id: string;
@@ -293,6 +294,34 @@ function useAcked(alerts: AppAlert[]) {
 const PENDING_PICKUP_WARNING_MIN = 90;
 const PENDING_PICKUP_CRITICAL_MIN = 60;
 
+type BillingExpiry = {
+  subscription_status: string | null;
+  subscription_ends_at: string | null;
+  current_period_end: string | null;
+};
+
+// Caller company billing dates (RLS scopes to own company) for the admin
+// pre-expiry warning.
+function useBillingExpiry(companyId: string | undefined): BillingExpiry | null {
+  const [row, setRow] = useState<BillingExpiry | null>(null);
+  useEffect(() => {
+    if (!companyId) return;
+    let mounted = true;
+    void (async () => {
+      const { data } = await supabase
+        .from("companies")
+        .select("subscription_status, subscription_ends_at, current_period_end")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (mounted) setRow((data as BillingExpiry | null) ?? null);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [companyId]);
+  return row;
+}
+
 export function useAlerts() {
   const drivers = useDrivers();
   const jobs = useJobs();
@@ -304,6 +333,8 @@ export function useAlerts() {
   const warehouses = useWarehouses();
   const laneTrends = useLaneTrends();
   const jobStops = useJobStops();
+  const { role, isSuperAdmin, company } = useTenant();
+  const billing = useBillingExpiry(company?.id);
 
   const driverIds = useMemo(() => drivers.map((d) => d.id), [drivers]);
   const schedule = useDriverSchedule(driverIds);
@@ -539,8 +570,42 @@ export function useAlerts() {
       }
     });
 
+    // Admin-only: upcoming payment / plan-expiry warning. Warns from 3 days
+    // out, escalating to critical inside the last 24h. Dispatchers and
+    // members never see it (only the company admin).
+    if (role === "admin" && !isSuperAdmin && billing) {
+      const status = billing.subscription_status;
+      const expiryIso =
+        status === "trial" ? billing.subscription_ends_at : billing.current_period_end;
+      if (expiryIso) {
+        const msUntil = new Date(expiryIso).getTime() - now;
+        const hoursUntil = msUntil / 3600000;
+        const daysUntil = Math.ceil(hoursUntil / 24);
+        const dateStr = new Date(expiryIso).toLocaleDateString([], { day: "numeric", month: "short" });
+        const noun = status === "trial" ? "Your free trial ends" : "Your plan renews";
+        if (msUntil > 0 && hoursUntil <= 24) {
+          const hrs = Math.max(1, Math.round(hoursUntil));
+          out.push({
+            id: "plan-expiry-crit-" + expiryIso,
+            level: "critical",
+            type: "Payment due",
+            icon: AlertTriangle,
+            message: noun + " in " + hrs + " hour" + (hrs === 1 ? "" : "s") + " (" + dateStr + "). Complete payment on the Billing page now to avoid losing access.",
+          });
+        } else if (msUntil > 0 && daysUntil <= 3) {
+          out.push({
+            id: "plan-expiry-warn-" + expiryIso,
+            level: "warning",
+            type: "Payment due",
+            icon: Clock,
+            message: noun + " in " + daysUntil + " day" + (daysUntil === 1 ? "" : "s") + " (" + dateStr + "). Confirm your payment method on the Billing page.",
+          });
+        }
+      }
+    }
+
     return out;
-  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents, parkedImports, reimportAlerts, warehouses, laneTrends, jobStops, schedule]);
+  }, [drivers, jobs, compliance, recentDelays, cantCompleteEvents, parkedImports, reimportAlerts, warehouses, laneTrends, jobStops, schedule, role, isSuperAdmin, billing]);
 
   const { acked, ack } = useAcked(all);
   const visible = useMemo(() => all.filter((a) => !acked.has(a.id)), [all, acked]);
