@@ -583,7 +583,8 @@ function DispatchPage() {
       }
       const ta = jobDate(a, stopsMap[a.id] ?? []).getTime();
       const tb = jobDate(b, stopsMap[b.id] ?? []).getTime();
-      return ta - tb;
+      // Newest first (tour leg order is handled by planned_sequence above).
+      return tb - ta;
     });
     return filtered;
   }, [jobsInRange, hiddenStatuses, statusFilter, stopsMap, tourDriverId]);
