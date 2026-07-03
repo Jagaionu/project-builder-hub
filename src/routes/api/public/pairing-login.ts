@@ -35,11 +35,14 @@ export const Route = createFileRoute("/api/public/pairing-login")({
         }
         const code = String(body?.code ?? "").replace(/\D/g, "");
         if (code.length !== 6) return text("Invalid code format", 400);
+        const deviceId = String((body as { deviceId?: string })?.deviceId ?? "").slice(0, 100);
 
         // Permanent code: lookup directly on drivers.login_code
+        // select * is intentional: tolerates bound_device_id not existing yet
+        // (before the migration is run) instead of erroring the whole login.
         const { data: drv, error: drvErr } = await supabaseAdmin
           .from("drivers")
-          .select("id, user_id, name, login_code")
+          .select("*")
           .eq("login_code", code)
           .maybeSingle();
 
@@ -79,6 +82,29 @@ export const Route = createFileRoute("/api/public/pairing-login")({
           if (patchErr) {
             console.error("[pairing-login] driver user_id patch failed", patchErr);
             return text("Failed to issue session", 500);
+          }
+        }
+
+        // Device binding (anti code-sharing): one active device per code.
+        // Last device wins — binding to a new device supersedes the previous
+        // one, which self-ejects on its next load (its id no longer matches).
+        if (deviceId) {
+          const currentBound =
+            (drv as { bound_device_id?: string | null }).bound_device_id ?? null;
+          if (currentBound !== deviceId) {
+            const { error: bindErr } = await supabaseAdmin
+              .from("drivers")
+              .update({
+                bound_device_id: deviceId,
+                bound_device_at: new Date().toISOString(),
+              } as never)
+              .eq("id", drv.id);
+            if (bindErr) {
+              // Column may not exist yet (migration not run) — never block login.
+              console.warn("[pairing-login] device bind skipped:", bindErr.message);
+            } else if (currentBound) {
+              console.warn(`[pairing-login] driver ${drv.id} rebound to a new device (takeover)`);
+            }
           }
         }
 

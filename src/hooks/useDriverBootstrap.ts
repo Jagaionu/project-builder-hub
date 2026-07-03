@@ -9,6 +9,7 @@ import {
   type GPSPosition,
 } from "@/lib/driver-gps";
 import { gpsSeam } from "@/lib/driver/gps-seam";
+import { getDeviceId } from "@/lib/device-id";
 import { checkGeofences } from "@/lib/leg-tracker";
 import type { JobWithStops, DriverProfile } from "@/lib/driver-types";
 
@@ -44,9 +45,46 @@ async function loadDriver(userId: string) {
   }
   store.setDriver((driver as DriverProfile | null) ?? null);
   if (driver) {
+    // Device binding guard: if this driver's code has since been paired on a
+    // different device, this one is no longer the active device — sign out.
+    const boundId = (driver as { bound_device_id?: string | null }).bound_device_id ?? null;
+    const localId = getDeviceId();
+    if (boundId && localId && boundId !== localId) {
+      try {
+        sessionStorage.setItem("driver.superseded", "1");
+      } catch {
+        /* ignore */
+      }
+      store.setDriver(null);
+      await supabase.auth.signOut();
+      return;
+    }
     evaluateAccount(driver as Record<string, unknown>);
     await refreshJobs(driver.id);
     registerPush(driver.id).catch((e) => console.warn("[push] register failed", e));
+  }
+}
+
+// Re-check the bound device for the signed-in driver and self-eject on a
+// mismatch. Cheap enough to run when the tab regains focus so an old device is
+// kicked promptly after the code is moved to a new phone.
+async function verifyBoundDevice() {
+  const d = useDriverStore.getState().driver;
+  if (!d) return;
+  const { data } = await supabase
+    .from("drivers")
+    .select("*")
+    .eq("id", d.id)
+    .maybeSingle();
+  const boundId = (data as { bound_device_id?: string | null } | null)?.bound_device_id ?? null;
+  const localId = getDeviceId();
+  if (boundId && localId && boundId !== localId) {
+    try {
+      sessionStorage.setItem("driver.superseded", "1");
+    } catch {
+      /* ignore */
+    }
+    await supabase.auth.signOut();
   }
 }
 
@@ -305,6 +343,7 @@ export function useDriverBootstrap() {
     // Force a fresh position and re-establish the watch.
     const onVisibility = () => {
       if (document.visibilityState !== "visible") return;
+      void verifyBoundDevice();
       acquireWakeLock();
       restartWatch();
       if (navigator.geolocation) {

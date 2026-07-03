@@ -1,10 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getDeviceId } from "@/lib/device-id";
 
 export async function loginWithPairingCode(code: string) {
   const res = await fetch("/api/public/pairing-login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code }),
+    body: JSON.stringify({ code, deviceId: getDeviceId() }),
   });
   if (!res.ok) {
     const msg = await res.text().catch(() => "");
