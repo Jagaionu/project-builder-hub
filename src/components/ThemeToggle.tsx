@@ -84,7 +84,12 @@ export function ThemeToggle(_props: { compact?: boolean } = {}) {
           anim === "left" && "anim-left",
           !anim && !isDark && "at-right sun-state",
         )}
-        onAnimationEnd={() => setAnim(null)}
+        onAnimationEnd={(e) => {
+          // Only reset when the ball's own roll finishes. Child animations
+          // (morph/shadow) end sooner and their animationend bubbles up here —
+          // resetting on those would cut the roll and shadow pulse short.
+          if (e.target === e.currentTarget) setAnim(null);
+        }}
         aria-hidden="true"
       >
         <span className="tt-ball-shadow" />
