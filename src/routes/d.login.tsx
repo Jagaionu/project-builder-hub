@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { loginWithPairingCode } from "@/lib/driver-auth";
 
 export const Route = createFileRoute("/d/login")({
@@ -12,7 +12,19 @@ function DriverLogin() {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [superseded, setSuperseded] = useState(false);
   const digits = code.replace(/\D/g, "").slice(0, 6);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("driver.superseded") === "1") {
+        setSuperseded(true);
+        sessionStorage.removeItem("driver.superseded");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const handleSubmit = async () => {
     if (digits.length !== 6) return;
@@ -39,6 +51,14 @@ function DriverLogin() {
       </div>
 
       <div className="w-full max-w-sm space-y-4">
+        {superseded && (
+          <div className="bg-amber-500/15 border border-amber-500/40 rounded-xl px-4 py-3">
+            <p className="text-sm text-amber-600 dark:text-amber-400">
+              You were signed out because this code was used on another device. Each code works on
+              one device at a time — sign in again to use it here.
+            </p>
+          </div>
+        )}
         <div>
           <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">
             6-Digit Pairing Code

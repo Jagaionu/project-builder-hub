@@ -25,7 +25,9 @@ export const rotateDriverLoginCode = createServerFn({ method: "POST" })
     const code = await generateUniqueCode();
     const { error } = await supabaseAdmin
       .from("drivers")
-      .update({ login_code: code } as never)
+      // Also clear the bound device so the new code pairs fresh on whatever
+      // device signs in next (the dispatcher's "move to a new phone" path).
+      .update({ login_code: code, bound_device_id: null, bound_device_at: null } as never)
       .eq("id", data.driverId);
     if (error) throw new Error(error.message);
     return { code };
