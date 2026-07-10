@@ -15,6 +15,7 @@ import {
   replayWebhookEvent,
   listPlanPrices,
   setPlanPrice,
+  getCompanyAgreements,
 } from "@/lib/billing/billing.functions";
 import type { PaymentHistory } from "@/lib/billing/payment-history";
 import {
@@ -49,13 +50,13 @@ interface Invoice {
 }
 
 export function AdminBilling({ companies }: { companies: Company[] }) {
-  const [view, setView] = useState<"companies" | "plans" | "email" | "webhooks" | "setup">(
-    "companies",
-  );
+  const [view, setView] = useState<
+    "companies" | "plans" | "agreements" | "email" | "webhooks" | "setup"
+  >("companies");
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        {(["companies", "plans", "email", "webhooks", "setup"] as const).map((v) => (
+        {(["companies", "plans", "agreements", "email", "webhooks", "setup"] as const).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
@@ -70,6 +71,8 @@ export function AdminBilling({ companies }: { companies: Company[] }) {
               ? "Company billing"
               : v === "plans"
                 ? "Plan pricing"
+                : v === "agreements"
+                ? "Agreements"
                 : v === "email"
                   ? "Email provider"
                   : v === "webhooks"
@@ -80,6 +83,7 @@ export function AdminBilling({ companies }: { companies: Company[] }) {
       </div>
       {view === "companies" && <CompanyBilling companies={companies} />}
       {view === "plans" && <PlanPricing />}
+      {view === "agreements" && <AgreementsPanel companies={companies} />}
       {view === "email" && <EmailProviderConfig />}
       {view === "webhooks" && <WebhookLog />}
       {view === "setup" && <PaymentsSetupStatus />}
@@ -494,6 +498,105 @@ function CompanyBilling({ companies }: { companies: Company[] }) {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AgreementsPanel({ companies }: { companies: Company[] }) {
+  const [selectedId, setSelectedId] = useState<string>(companies[0]?.id ?? "");
+  const fetchAgreements = useServerFn(getCompanyAgreements);
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [viewText, setViewText] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!selectedId) return;
+    setLoading(true);
+    try {
+      const r = (await fetchAgreements({ data: { companyId: selectedId } })) as any[];
+      setRows(r ?? []);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load agreements");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedId, fetchAgreements]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const download = (row: any) => {
+    const blob = new Blob([String(row.document_snapshot ?? "")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "agreement-" + String(row.id ?? "record") + ".txt";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} className="h-9 rounded-md border border-border bg-surface px-3 text-sm">
+          {companies.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        {loading && <span className="text-xs text-muted-foreground">Loading…</span>}
+      </div>
+      <div className="rounded-lg border border-border overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-left">Accepted</th>
+              <th className="px-3 py-2 text-left">By</th>
+              <th className="px-3 py-2 text-left">Version</th>
+              <th className="px-3 py-2 text-left">Plan</th>
+              <th className="px-3 py-2 text-right">Total</th>
+              <th className="px-3 py-2 text-left">Guarantee</th>
+              <th className="px-3 py-2 text-left">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((r) => (
+              <tr key={r.id} className="hover:bg-surface-2/40 align-top">
+                <td className="px-3 py-2 text-xs whitespace-nowrap">{r.accepted_at ? new Date(r.accepted_at).toLocaleString() : "—"}</td>
+                <td className="px-3 py-2 text-xs">
+                  <div>{r.accepted_by_name ?? "—"}</div>
+                  <div className="text-[10px] text-muted-foreground">{r.accepted_by_email ?? ""} {r.accepted_by_role ? "(" + r.accepted_by_role + ")" : ""}</div>
+                </td>
+                <td className="px-3 py-2 text-xs font-mono">{r.agreement_version}</td>
+                <td className="px-3 py-2 text-xs capitalize">{r.plan ?? "—"}{r.interval ? " / " + r.interval : ""}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{fmt(r.price_gross_minor, r.currency)}</td>
+                <td className="px-3 py-2 text-xs">{r.personal_guarantee ? (r.guarantor_name ?? "Yes") : "No"}</td>
+                <td className="px-3 py-2 text-xs whitespace-nowrap">
+                  <button onClick={() => setViewText(String(r.document_snapshot ?? ""))} className="underline text-primary mr-2">View</button>
+                  <button onClick={() => download(r)} className="underline text-primary">Download</button>
+                </td>
+              </tr>
+            ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-3 py-8 text-center text-xs text-muted-foreground">No agreements recorded</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {viewText !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setViewText(null)}>
+          <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-border bg-surface p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">Accepted agreement</h3>
+              <button onClick={() => setViewText(null)} className="text-muted-foreground hover:text-foreground text-xs">Close</button>
+            </div>
+            <div className="flex-1 overflow-y-auto rounded-lg border border-border bg-background p-3 text-[11px] leading-relaxed whitespace-pre-wrap font-mono">{viewText}</div>
           </div>
         </div>
       )}
