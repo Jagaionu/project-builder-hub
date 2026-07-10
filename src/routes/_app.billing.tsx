@@ -9,7 +9,15 @@ import {
   startCheckout,
   previewCancellation,
   cancelSubscription,
+  recordAgreement,
+  previewCharge,
 } from "@/lib/billing/billing.functions";
+import { getDeviceId } from "@/lib/device-id";
+import {
+  subscriptionAgreementMarkdown,
+  SUBSCRIPTION_AGREEMENT_VERSION,
+  LINKED_POLICIES,
+} from "@/lib/subscription-agreement";
 import { useTenant } from "@/lib/tenant-context";
 import { CreditCard, Building2, Banknote } from "lucide-react";
 import { InfoHint } from "@/components/driver/InfoHint";
@@ -156,6 +164,94 @@ function BillingPage() {
   const company = data?.company;
   const plan = company?.plan ?? "starter";
 
+  // First-payment agreement gate (clickwrap).
+  const recordAgreementFn = useServerFn(recordAgreement);
+  const previewChargeFn = useServerFn(previewCharge);
+  const [gateProvider, setGateProvider] = useState<Provider | null>(null);
+  const [gateBreakdown, setGateBreakdown] = useState<{
+    netMinor: number;
+    taxMinor: number;
+    feeMinor: number;
+    grossMinor: number;
+    currency: string;
+  } | null>(null);
+  const [gateLoading, setGateLoading] = useState(false);
+  const [tRead, setTRead] = useState(false);
+  const [tAuth, setTAuth] = useState(false);
+  const [tFees, setTFees] = useState(false);
+  const [guarantee, setGuarantee] = useState(false);
+  const [guarantorName, setGuarantorName] = useState("");
+  const [accepting, setAccepting] = useState(false);
+
+  const openGate = async (provider: Provider) => {
+    setGateProvider(provider);
+    setGateBreakdown(null);
+    setTRead(false);
+    setTAuth(false);
+    setTFees(false);
+    setGuarantee(false);
+    setGuarantorName("");
+    setGateLoading(true);
+    try {
+      const b = (await previewChargeFn({
+        data: { plan: plan as "starter" | "pro" | "enterprise", interval: "monthly", provider },
+      })) as { netMinor: number; taxMinor: number; feeMinor: number; grossMinor: number; currency: string };
+      setGateBreakdown(b);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not load charge preview");
+      setGateProvider(null);
+    } finally {
+      setGateLoading(false);
+    }
+  };
+
+  const gateCtx = gateBreakdown
+    ? {
+        companyName: (company?.name as string) ?? "your company",
+        plan,
+        interval: "monthly",
+        netMinor: gateBreakdown.netMinor,
+        taxMinor: gateBreakdown.taxMinor,
+        feeMinor: gateBreakdown.feeMinor,
+        grossMinor: gateBreakdown.grossMinor,
+        currency: gateBreakdown.currency,
+      }
+    : null;
+
+  const acceptAndPay = async () => {
+    if (!gateProvider || !gateCtx) return;
+    if (!tRead || !tAuth || !tFees) return;
+    if (guarantee && !guarantorName.trim()) return;
+    setAccepting(true);
+    try {
+      const snapshot = subscriptionAgreementMarkdown(gateCtx);
+      await recordAgreementFn({
+        data: {
+          plan: plan as "starter" | "pro" | "enterprise",
+          interval: "monthly",
+          agreementVersion: SUBSCRIPTION_AGREEMENT_VERSION,
+          documentSnapshot: snapshot,
+          netMinor: gateCtx.netMinor,
+          taxMinor: gateCtx.taxMinor,
+          feeMinor: gateCtx.feeMinor,
+          grossMinor: gateCtx.grossMinor,
+          currency: gateCtx.currency,
+          deviceId: getDeviceId(),
+          userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+          personalGuarantee: guarantee,
+          guarantorName: guarantee ? guarantorName.trim() : undefined,
+        },
+      });
+      const prov = gateProvider;
+      setGateProvider(null);
+      setAccepting(false);
+      await onCheckout(prov);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not record agreement");
+      setAccepting(false);
+    }
+  };
+
   const onCheckout = async (provider: Provider) => {
     setBusy(provider);
     try {
@@ -259,8 +355,8 @@ function BillingPage() {
           {PROVIDERS.map((p) => (
             <button
               key={p.id}
-              onClick={() => onCheckout(p.id)}
-              disabled={busy !== null}
+              onClick={() => openGate(p.id)}
+              disabled={busy !== null || gateLoading}
               className="text-left rounded-lg border border-border bg-surface p-4 hover:border-primary transition-colors disabled:opacity-60"
             >
               <p.Icon className="size-5 mb-2 text-primary" />
@@ -271,6 +367,63 @@ function BillingPage() {
           ))}
         </div>
       </div>
+
+      {/* First-payment agreement gate */}
+      {gateProvider && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg max-h-[88vh] flex flex-col rounded-xl border border-border bg-background p-5 shadow-xl">
+            <h2 className="text-base font-semibold text-foreground">Agree to continue</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Please review and accept before your first payment. Your acceptance is recorded.
+            </p>
+            {gateLoading || !gateCtx ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">Loading agreement…</div>
+            ) : (
+              <>
+                <div className="mt-3 flex-1 overflow-y-auto rounded-lg border border-border bg-surface p-3 text-[11px] leading-relaxed whitespace-pre-wrap font-mono text-foreground">
+                  {subscriptionAgreementMarkdown(gateCtx)}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-3 text-[11px]">
+                  {LINKED_POLICIES.map((lp) => (
+                    <a key={lp.key} href={lp.href} target="_blank" rel="noopener" className="text-primary underline">
+                      {lp.title}
+                    </a>
+                  ))}
+                </div>
+                <div className="mt-3 space-y-2 text-xs">
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" checked={tRead} onChange={(e) => setTRead(e.target.checked)} className="mt-0.5" />
+                    <span>I have read and agree to the Subscription Agreement and the linked Terms, Refund, Privacy and DPA.</span>
+                  </label>
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" checked={tAuth} onChange={(e) => setTAuth(e.target.checked)} className="mt-0.5" />
+                    <span>I confirm I am authorised to bind {(company?.name as string) ?? "my company"} to this agreement.</span>
+                  </label>
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" checked={tFees} onChange={(e) => setTFees(e.target.checked)} className="mt-0.5" />
+                    <span>I understand this is a business subscription that renews automatically, and that fees are added and itemised per invoice.</span>
+                  </label>
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" checked={guarantee} onChange={(e) => setGuarantee(e.target.checked)} className="mt-0.5" />
+                    <span>I personally guarantee payment on behalf of the company (may be required for newer or smaller companies).</span>
+                  </label>
+                  {guarantee && (
+                    <input value={guarantorName} onChange={(e) => setGuarantorName(e.target.value)} placeholder="Full name of guarantor" className="w-full h-9 rounded-md border border-border bg-surface px-3 text-sm" />
+                  )}
+                </div>
+                <div className="mt-4 flex justify-end gap-2">
+                  <button onClick={() => setGateProvider(null)} disabled={accepting} className="rounded-md border border-border px-4 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50">
+                    Cancel
+                  </button>
+                  <button onClick={acceptAndPay} disabled={accepting || !tRead || !tAuth || !tFees || (guarantee && !guarantorName.trim())} className="rounded-md bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                    {accepting ? "Recording…" : "Agree and pay " + fmt(gateBreakdown!.grossMinor, gateBreakdown!.currency)}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Bank transfer instructions when an open bank-transfer invoice exists */}
       {openInvoice && company?.billing_provider === "bank_transfer" && (
