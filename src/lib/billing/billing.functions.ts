@@ -16,6 +16,8 @@ import {
 } from "./orchestrator.server";
 import { computeProration, computeCancellationRefund } from "./proration";
 import { buildPaymentHistory, type PaymentInvoiceRow } from "./payment-history";
+import { createHash } from "node:crypto";
+import { SUBSCRIPTION_AGREEMENT_VERSION, linkedPolicyVersions } from "../subscription-agreement";
 import type { BillingInterval, PlanTier, Provider } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,6 +45,105 @@ async function tenantForUser(userId: string): Promise<string> {
 const PlanEnum = z.enum(["starter", "pro", "enterprise"]);
 const IntervalEnum = z.enum(["monthly", "annual"]);
 const ProviderEnum = z.enum(["stripe", "gocardless", "bank_transfer"]);
+
+// Tenant: record acceptance of the subscription agreement (clickwrap). Stores an
+// append-only, hashed snapshot of exactly what was accepted.
+export const recordAgreement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        plan: PlanEnum,
+        interval: IntervalEnum,
+        agreementVersion: z.string().min(1),
+        documentSnapshot: z.string().min(1),
+        netMinor: z.number().int(),
+        taxMinor: z.number().int(),
+        feeMinor: z.number().int(),
+        grossMinor: z.number().int(),
+        currency: z.string().default("GBP"),
+        deviceId: z.string().optional(),
+        userAgent: z.string().optional(),
+        personalGuarantee: z.boolean().optional(),
+        guarantorName: z.string().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const companyId = await tenantForUser(context.userId);
+    const { data: member } = await sb
+      .from("company_members")
+      .select("name, email, role")
+      .eq("user_id", context.userId)
+      .eq("company_id", companyId)
+      .maybeSingle();
+    const sha256 = createHash("sha256").update(data.documentSnapshot).digest("hex");
+    const { data: row } = await sb
+      .from("billing_agreements")
+      .insert({
+        tenant_id: companyId,
+        user_id: context.userId,
+        accepted_by_name: member?.name ?? null,
+        accepted_by_email: member?.email ?? null,
+        accepted_by_role: member?.role ?? null,
+        agreement_version: data.agreementVersion,
+        linked_policy_versions: linkedPolicyVersions(),
+        document_snapshot: data.documentSnapshot,
+        document_sha256: sha256,
+        plan: data.plan,
+        interval: data.interval,
+        price_net_minor: data.netMinor,
+        price_tax_minor: data.taxMinor,
+        price_fee_minor: data.feeMinor,
+        price_gross_minor: data.grossMinor,
+        currency: data.currency,
+        user_agent: data.userAgent ?? null,
+        device_id: data.deviceId ?? null,
+        personal_guarantee: data.personalGuarantee ?? false,
+        guarantor_name: data.guarantorName ?? null,
+      } as never)
+      .select("id")
+      .maybeSingle();
+    return { ok: true, id: (row?.id as string) ?? null };
+  });
+
+// Tenant: whether the caller company has accepted the CURRENT agreement version.
+export const getMyAgreementStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({}).parse(d ?? {}))
+  .handler(async ({ context }) => {
+    const companyId = await tenantForUser(context.userId);
+    const { data } = await sb
+      .from("billing_agreements")
+      .select("agreement_version, accepted_at")
+      .eq("tenant_id", companyId)
+      .eq("agreement_version", SUBSCRIPTION_AGREEMENT_VERSION)
+      .order("accepted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return {
+      accepted: Boolean(data),
+      currentVersion: SUBSCRIPTION_AGREEMENT_VERSION,
+      acceptedAt: (data?.accepted_at as string) ?? null,
+    };
+  });
+
+// Super-admin: list a company accepted agreements (for the admin panel).
+export const getCompanyAgreements = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ companyId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.userId);
+    const { data: rows } = await sb
+      .from("billing_agreements")
+      .select(
+        "id, accepted_by_name, accepted_by_email, accepted_by_role, accepted_at, agreement_version, document_snapshot, document_sha256, plan, interval, price_gross_minor, currency, ip, user_agent, device_id, personal_guarantee, guarantor_name",
+      )
+      .eq("tenant_id", data.companyId)
+      .order("accepted_at", { ascending: false })
+      .limit(50);
+    return rows ?? [];
+  });
 
 // ── Super-admin: billing overview for one company ────────────
 export const getCompanyBilling = createServerFn({ method: "POST" })
