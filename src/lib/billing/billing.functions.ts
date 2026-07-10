@@ -249,6 +249,23 @@ export const setPlanPrice = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Tenant: full price breakdown for a plan/interval/provider (for the acceptance
+// screen and to snapshot the exact figures agreed to).
+export const previewCharge = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ plan: PlanEnum, interval: IntervalEnum, provider: ProviderEnum }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const companyId = await tenantForUser(context.userId);
+    return buildBreakdown({
+      companyId,
+      plan: data.plan as PlanTier,
+      interval: data.interval as BillingInterval,
+      provider: data.provider as Provider,
+    });
+  });
+
 // ── Super-admin: set the billing provider for a company ──────
 export const setCompanyProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
