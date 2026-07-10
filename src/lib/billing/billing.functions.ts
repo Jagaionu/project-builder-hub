@@ -348,6 +348,20 @@ export const startCheckout = createServerFn({ method: "POST" })
     if (!sa) companyId = await tenantForUser(context.userId);
     if (!companyId) throw new Error("companyId required");
 
+    // Belt-and-braces: a non-super-admin must have accepted the current
+    // subscription agreement before any checkout can start.
+    if (!sa) {
+      const { data: agr } = await sb
+        .from("billing_agreements")
+        .select("id")
+        .eq("tenant_id", companyId)
+        .eq("agreement_version", SUBSCRIPTION_AGREEMENT_VERSION)
+        .limit(1)
+        .maybeSingle();
+      if (!agr)
+        throw new Error("AGREEMENT_REQUIRED: please accept the subscription agreement first");
+    }
+
     return withIdempotency(
       supabaseIdempotencyStore,
       { key: data.idempotencyKey, operation: "checkout", companyId },
