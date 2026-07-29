@@ -18,7 +18,7 @@ import { computeProration, computeCancellationRefund } from "./proration";
 import { buildPaymentHistory, type PaymentInvoiceRow } from "./payment-history";
 import { createHash } from "node:crypto";
 import { SUBSCRIPTION_AGREEMENT_VERSION, linkedPolicyVersions } from "../subscription-agreement";
-import { entitlementsForPlan } from "./plan-entitlements";
+import { loadPlanEntitlements } from "./plan-entitlements.server";
 import type { BillingInterval, PlanTier, Provider } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -285,19 +285,62 @@ export const getPlanOptions = createServerFn({ method: "POST" })
       (priceMap[p.plan] ||= {})[p.interval] = p.net_amount_minor;
     }
     const plans = ["starter", "pro", "enterprise"] as const;
-    return plans.map((plan) => {
-      const e = entitlementsForPlan(plan);
-      return {
-        plan,
-        monthlyNetMinor: priceMap[plan]?.monthly ?? null,
-        annualNetMinor: priceMap[plan]?.annual ?? null,
-        modules: e.modules,
-        maxSeats: e.maxSeats,
-        maxDrivers: e.maxDrivers,
-        maxWarehouses: e.maxWarehouses,
-        customBranding: e.customBranding,
-      };
-    });
+    return Promise.all(
+      plans.map(async (plan) => {
+        const e = await loadPlanEntitlements(plan);
+        return {
+          plan,
+          monthlyNetMinor: priceMap[plan]?.monthly ?? null,
+          annualNetMinor: priceMap[plan]?.annual ?? null,
+          modules: e.modules,
+          maxSeats: e.maxSeats,
+          maxDrivers: e.maxDrivers,
+          maxWarehouses: e.maxWarehouses,
+          customBranding: e.customBranding,
+        };
+      }),
+    );
+  });
+
+// Super-admin: read/update plan definitions (modules + limits + branding).
+export const getPlanDefinitions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({}).parse(d ?? {}))
+  .handler(async ({ context }) => {
+    await assertSuperAdmin(context.userId);
+    const plans = ["starter", "pro", "enterprise"] as const;
+    return Promise.all(plans.map(async (plan) => ({ plan, ...(await loadPlanEntitlements(plan)) })));
+  });
+
+export const setPlanDefinition = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        plan: PlanEnum,
+        modules: z.array(z.string()),
+        maxSeats: z.number().int().min(0),
+        maxDrivers: z.number().int().min(0),
+        maxWarehouses: z.number().int().min(0),
+        customBranding: z.boolean(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.userId);
+    await sb.from("plan_definitions").upsert(
+      {
+        plan: data.plan,
+        modules: data.modules,
+        max_seats: data.maxSeats,
+        max_drivers: data.maxDrivers,
+        max_warehouses: data.maxWarehouses,
+        custom_branding: data.customBranding,
+        updated_at: new Date().toISOString(),
+      } as never,
+      { onConflict: "plan" } as never,
+    );
+    return { ok: true };
   });
 
 // ── Super-admin: set the billing provider for a company ──────
