@@ -1,4 +1,4 @@
-import { CheckCircle, Clock, Ban, AlertTriangle, Building2 } from "lucide-react";
+import { CheckCircle, Clock, Ban, AlertTriangle, Building2, XCircle } from "lucide-react";
 import type { Company } from "@/lib/types";
 
 interface StatsBarProps {
@@ -10,6 +10,7 @@ export function StatsBar({ companies }: StatsBarProps) {
   const active = companies.filter((c) => c.subscription_status === "active").length;
   const trial = companies.filter((c) => c.subscription_status === "trial").length;
   const suspended = companies.filter((c) => c.subscription_status === "suspended").length;
+  const cancelled = companies.filter((c) => c.subscription_status === "cancelled").length;
 
   const now = new Date();
   const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -33,6 +34,12 @@ export function StatsBar({ companies }: StatsBarProps) {
     { label: "Trial", value: trial, icon: Clock, color: "text-warning" },
     { label: "Suspended", value: suspended, icon: Ban, color: "text-destructive" },
     {
+      label: "Cancelled",
+      value: cancelled,
+      icon: XCircle,
+      color: cancelled > 0 ? "text-destructive" : "text-muted-foreground",
+    },
+    {
       label: "Expiring",
       value: expiringTrials.length,
       icon: AlertTriangle,
@@ -41,7 +48,7 @@ export function StatsBar({ companies }: StatsBarProps) {
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
       {stats.map(({ label, value, icon: Icon, color }) => (
         <div key={label} className="stat-card flex items-center gap-3">
           <Icon className={`size-4 shrink-0 ${color}`} />
@@ -57,8 +64,8 @@ export function StatsBar({ companies }: StatsBarProps) {
 
 export function StatsBarSkeleton() {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-      {Array.from({ length: 5 }).map((_, i) => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+      {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="stat-card flex items-center gap-3">
           <div className="skeleton size-4 rounded shrink-0" />
           <div className="flex-1 space-y-1.5">

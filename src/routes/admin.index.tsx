@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Company, SubscriptionStatus, Warehouse } from "@/lib/types";
-import { Plus } from "lucide-react";
+import { Plus, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AdminSupportPanel } from "@/components/admin/AdminSupportPanel";
@@ -143,6 +143,23 @@ function AdminDashboard() {
     return { drivers, vrids, activity };
   }, [companies, usage]);
 
+  // Companies that cancelled in the last 7 days - a churn signal for the super admin.
+  const recentlyCancelled = useMemo(() => {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return companies
+      .filter(
+        (c) =>
+          c.subscription_status === "cancelled" &&
+          c.subscription_ends_at &&
+          new Date(c.subscription_ends_at).getTime() >= cutoff,
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.subscription_ends_at as string).getTime() -
+          new Date(a.subscription_ends_at as string).getTime(),
+      );
+  }, [companies]);
+
   async function loadCompanies() {
     const { data, error } = await supabase
       .from("companies" as never)
@@ -237,6 +254,29 @@ function AdminDashboard() {
       </div>
 
       <StatsBar companies={companies} />
+
+      {recentlyCancelled.length > 0 && (
+        <button
+          onClick={() => {
+            setTab("companies");
+            setCompanyStatusFilter("cancelled");
+          }}
+          className="w-full text-left rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 hover:bg-destructive/10 transition-colors"
+        >
+          <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
+            <XCircle className="size-4" />
+            {recentlyCancelled.length} compan{recentlyCancelled.length === 1 ? "y" : "ies"} cancelled
+            in the last 7 days
+          </div>
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            {recentlyCancelled
+              .slice(0, 4)
+              .map((c) => c.name + " (" + new Date(c.subscription_ends_at as string).toLocaleDateString() + ")")
+              .join(", ")}
+            {recentlyCancelled.length > 4 ? " and more" : ""}. Click to review.
+          </div>
+        </button>
+      )}
 
       <div className="flex gap-1 border-b border-border">
         <button
