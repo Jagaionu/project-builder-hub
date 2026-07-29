@@ -42,6 +42,7 @@ import { Route as DRoutesJobIdRouteImport } from './routes/d.routes.$jobId'
 import { Route as ApiPublicPairingLoginRouteImport } from './routes/api/public/pairing-login'
 import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
 import { Route as ApiPublicWebhooksGocardlessRouteImport } from './routes/api/public/webhooks/gocardless'
+import { Route as ApiPublicCronSignupCleanupRouteImport } from './routes/api/public/cron/signup-cleanup'
 import { Route as ApiPublicCronShiftRolloverRouteImport } from './routes/api/public/cron/shift-rollover'
 import { Route as ApiPublicCronPushDispatchRouteImport } from './routes/api/public/cron/push-dispatch'
 import { Route as ApiPublicCronCompleteRunsRouteImport } from './routes/api/public/cron/complete-runs'
@@ -212,6 +213,12 @@ const ApiPublicWebhooksGocardlessRoute =
     path: '/api/public/webhooks/gocardless',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCronSignupCleanupRoute =
+  ApiPublicCronSignupCleanupRouteImport.update({
+    id: '/api/public/cron/signup-cleanup',
+    path: '/api/public/cron/signup-cleanup',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronShiftRolloverRoute =
   ApiPublicCronShiftRolloverRouteImport.update({
     id: '/api/public/cron/shift-rollover',
@@ -272,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/api/public/cron/complete-runs': typeof ApiPublicCronCompleteRunsRoute
   '/api/public/cron/push-dispatch': typeof ApiPublicCronPushDispatchRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
+  '/api/public/cron/signup-cleanup': typeof ApiPublicCronSignupCleanupRoute
   '/api/public/webhooks/gocardless': typeof ApiPublicWebhooksGocardlessRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
 }
@@ -308,6 +316,7 @@ export interface FileRoutesByTo {
   '/api/public/cron/complete-runs': typeof ApiPublicCronCompleteRunsRoute
   '/api/public/cron/push-dispatch': typeof ApiPublicCronPushDispatchRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
+  '/api/public/cron/signup-cleanup': typeof ApiPublicCronSignupCleanupRoute
   '/api/public/webhooks/gocardless': typeof ApiPublicWebhooksGocardlessRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
 }
@@ -348,6 +357,7 @@ export interface FileRoutesById {
   '/api/public/cron/complete-runs': typeof ApiPublicCronCompleteRunsRoute
   '/api/public/cron/push-dispatch': typeof ApiPublicCronPushDispatchRoute
   '/api/public/cron/shift-rollover': typeof ApiPublicCronShiftRolloverRoute
+  '/api/public/cron/signup-cleanup': typeof ApiPublicCronSignupCleanupRoute
   '/api/public/webhooks/gocardless': typeof ApiPublicWebhooksGocardlessRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
 }
@@ -388,6 +398,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/complete-runs'
     | '/api/public/cron/push-dispatch'
     | '/api/public/cron/shift-rollover'
+    | '/api/public/cron/signup-cleanup'
     | '/api/public/webhooks/gocardless'
     | '/api/public/webhooks/stripe'
   fileRoutesByTo: FileRoutesByTo
@@ -424,6 +435,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/complete-runs'
     | '/api/public/cron/push-dispatch'
     | '/api/public/cron/shift-rollover'
+    | '/api/public/cron/signup-cleanup'
     | '/api/public/webhooks/gocardless'
     | '/api/public/webhooks/stripe'
   id:
@@ -463,6 +475,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/complete-runs'
     | '/api/public/cron/push-dispatch'
     | '/api/public/cron/shift-rollover'
+    | '/api/public/cron/signup-cleanup'
     | '/api/public/webhooks/gocardless'
     | '/api/public/webhooks/stripe'
   fileRoutesById: FileRoutesById
@@ -488,6 +501,7 @@ export interface RootRouteChildren {
   ApiPublicCronCompleteRunsRoute: typeof ApiPublicCronCompleteRunsRoute
   ApiPublicCronPushDispatchRoute: typeof ApiPublicCronPushDispatchRoute
   ApiPublicCronShiftRolloverRoute: typeof ApiPublicCronShiftRolloverRoute
+  ApiPublicCronSignupCleanupRoute: typeof ApiPublicCronSignupCleanupRoute
   ApiPublicWebhooksGocardlessRoute: typeof ApiPublicWebhooksGocardlessRoute
   ApiPublicWebhooksStripeRoute: typeof ApiPublicWebhooksStripeRoute
 }
@@ -725,6 +739,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebhooksGocardlessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/signup-cleanup': {
+      id: '/api/public/cron/signup-cleanup'
+      path: '/api/public/cron/signup-cleanup'
+      fullPath: '/api/public/cron/signup-cleanup'
+      preLoaderRoute: typeof ApiPublicCronSignupCleanupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/shift-rollover': {
       id: '/api/public/cron/shift-rollover'
       path: '/api/public/cron/shift-rollover'
@@ -831,6 +852,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCronCompleteRunsRoute: ApiPublicCronCompleteRunsRoute,
   ApiPublicCronPushDispatchRoute: ApiPublicCronPushDispatchRoute,
   ApiPublicCronShiftRolloverRoute: ApiPublicCronShiftRolloverRoute,
+  ApiPublicCronSignupCleanupRoute: ApiPublicCronSignupCleanupRoute,
   ApiPublicWebhooksGocardlessRoute: ApiPublicWebhooksGocardlessRoute,
   ApiPublicWebhooksStripeRoute: ApiPublicWebhooksStripeRoute,
 }
