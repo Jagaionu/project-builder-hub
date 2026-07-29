@@ -16,6 +16,8 @@ import {
   listPlanPrices,
   setPlanPrice,
   getCompanyAgreements,
+  getPlanDefinitions,
+  setPlanDefinition,
 } from "@/lib/billing/billing.functions";
 import type { PaymentHistory } from "@/lib/billing/payment-history";
 import {
@@ -92,97 +94,108 @@ export function AdminBilling({ companies }: { companies: Company[] }) {
 }
 
 function PlanPricing() {
-  const list = useServerFn(listPlanPrices);
-  const save = useServerFn(setPlanPrice);
-  const [prices, setPrices] = useState<Record<string, string>>({});
-  const [savingRow, setSavingRow] = useState<string | null>(null);
+  const listPrices = useServerFn(listPlanPrices);
+  const savePrice = useServerFn(setPlanPrice);
+  const listDefs = useServerFn(getPlanDefinitions);
+  const saveDef = useServerFn(setPlanDefinition);
   const plans: Plan[] = ["starter", "pro", "enterprise"];
   const intervals: Interval[] = ["monthly", "annual"];
+  const ALL_MODULES = ["dispatch", "jobs", "drivers", "warehouses", "alerts", "events", "maps", "ai_agent"];
+
+  type Def = { modules: string[]; maxSeats: number; maxDrivers: number; maxWarehouses: number; customBranding: boolean };
+  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [defs, setDefs] = useState<Record<string, Def>>({});
+  const [savingRow, setSavingRow] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const rows = (await list({ data: {} })) as Array<{
-      plan: string;
-      interval: string;
-      net_amount_minor: number;
-    }>;
-    const m: Record<string, string> = {};
-    for (const r of rows) m[`${r.plan}-${r.interval}`] = (r.net_amount_minor / 100).toFixed(2);
-    setPrices(m);
-  }, [list]);
-  useEffect(() => {
-    void load();
-  }, [load]);
+    const priceRows = (await listPrices({ data: {} })) as Array<{ plan: string; interval: string; net_amount_minor: number }>;
+    const pm: Record<string, string> = {};
+    for (const r of priceRows) pm[r.plan + "-" + r.interval] = (r.net_amount_minor / 100).toFixed(2);
+    setPrices(pm);
+    const defRows = (await listDefs({ data: {} })) as Array<Def & { plan: string }>;
+    const dm: Record<string, Def> = {};
+    for (const d of defRows) dm[d.plan] = { modules: d.modules ?? [], maxSeats: d.maxSeats ?? 0, maxDrivers: d.maxDrivers ?? 0, maxWarehouses: d.maxWarehouses ?? 0, customBranding: Boolean(d.customBranding) };
+    setDefs(dm);
+  }, [listPrices, listDefs]);
+  useEffect(() => { void load(); }, [load]);
+
+  const emptyDef: Def = { modules: [], maxSeats: 0, maxDrivers: 0, maxWarehouses: 0, customBranding: false };
+  const setDef = (plan: string, patch: Partial<Def>) =>
+    setDefs((p) => ({ ...p, [plan]: { ...(p[plan] ?? emptyDef), ...patch } }));
+  const toggleModule = (plan: string, m: string) => {
+    const cur = defs[plan]?.modules ?? [];
+    setDef(plan, { modules: cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m] });
+  };
 
   const onSave = async (plan: Plan) => {
     setSavingRow(plan);
     try {
       for (const interval of intervals) {
-        const raw = prices[`${plan}-${interval}`];
+        const raw = prices[plan + "-" + interval];
         if (raw == null || raw === "") continue;
         const v = parseFloat(raw);
-        if (!Number.isFinite(v) || v < 0) {
-          toast.error(`Invalid ${plan} ${interval} price`);
-          continue;
-        }
-        await save({ data: { plan, interval, netMinor: Math.round(v * 100) } });
+        if (!Number.isFinite(v) || v < 0) { toast.error("Invalid " + plan + " " + interval + " price"); continue; }
+        await savePrice({ data: { plan, interval, netMinor: Math.round(v * 100) } });
       }
-      toast.success(`${plan} pricing saved`);
+      const d = defs[plan];
+      if (d) {
+        await saveDef({ data: { plan, modules: d.modules, maxSeats: Number(d.maxSeats) || 0, maxDrivers: Number(d.maxDrivers) || 0, maxWarehouses: Number(d.maxWarehouses) || 0, customBranding: Boolean(d.customBranding) } });
+      }
+      toast.success(plan + " plan saved");
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to save price");
+      toast.error(e instanceof Error ? e.message : "Failed to save plan");
     } finally {
       setSavingRow(null);
     }
   };
 
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-4 max-w-4xl">
       <p className="text-xs text-muted-foreground">
-        Net prices (excl. VAT) charged per plan. Applied to new invoices and shown to each company
-        on their billing page. A per-company price override (set in Companies) takes precedence.
+        Control each plan option and price from here. Net prices exclude VAT; a per-company price override (Companies tab) still takes precedence. Changes drive the plan cards companies see and what each plan grants on their next plan change.
       </p>
-      <div className="rounded-lg border border-border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 text-left">Plan</th>
-              <th className="px-3 py-2 text-left">Monthly £ (net)</th>
-              <th className="px-3 py-2 text-left">Annual £ (net)</th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {plans.map((plan) => (
-              <tr key={plan}>
-                <td className="px-3 py-2 capitalize font-medium">{plan}</td>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        {plans.map((plan) => {
+          const d = defs[plan] ?? emptyDef;
+          return (
+            <div key={plan} className="rounded-xl border border-border bg-surface p-4 space-y-3">
+              <div className="text-sm font-semibold capitalize">{plan}</div>
+              <div className="grid grid-cols-2 gap-2">
                 {intervals.map((interval) => (
-                  <td key={interval} className="px-3 py-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={prices[`${plan}-${interval}`] ?? ""}
-                      onChange={(e) =>
-                        setPrices((p) => ({ ...p, [`${plan}-${interval}`]: e.target.value }))
-                      }
-                      placeholder="—"
-                      className="w-28 rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </td>
+                  <label key={interval} className="block">
+                    <span className="text-[10px] text-muted-foreground capitalize">{interval} £ (net)</span>
+                    <input type="number" step="0.01" min="0" value={prices[plan + "-" + interval] ?? ""} onChange={(e) => setPrices((p) => ({ ...p, [plan + "-" + interval]: e.target.value }))} placeholder="—" className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                  </label>
                 ))}
-                <td className="px-3 py-2 text-right">
-                  <button
-                    onClick={() => onSave(plan)}
-                    disabled={savingRow === plan}
-                    className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                  >
-                    {savingRow === plan ? "Saving…" : "Save"}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              </div>
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">Modules</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {ALL_MODULES.map((m) => {
+                    const on = (d.modules ?? []).includes(m);
+                    return (
+                      <button key={m} type="button" onClick={() => toggleModule(plan, m)} className={"px-2 py-1 rounded text-[11px] border " + (on ? "bg-primary/10 text-primary border-primary/30" : "border-border/50 text-muted-foreground/60")}>{m}</button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <label className="block"><span className="text-[10px] text-muted-foreground">Seats</span><input type="number" min="0" value={d.maxSeats} onChange={(e) => setDef(plan, { maxSeats: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" /></label>
+                <label className="block"><span className="text-[10px] text-muted-foreground">Drivers</span><input type="number" min="0" value={d.maxDrivers} onChange={(e) => setDef(plan, { maxDrivers: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" /></label>
+                <label className="block"><span className="text-[10px] text-muted-foreground">Warehouses</span><input type="number" min="0" value={d.maxWarehouses} onChange={(e) => setDef(plan, { maxWarehouses: Number(e.target.value) })} className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" /></label>
+              </div>
+              <p className="text-[10px] text-muted-foreground">0 = unlimited for drivers and warehouses.</p>
+              <label className="flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={Boolean(d.customBranding)} onChange={(e) => setDef(plan, { customBranding: e.target.checked })} />
+                Custom branding
+              </label>
+              <button onClick={() => onSave(plan)} disabled={savingRow === plan} className="w-full rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                {savingRow === plan ? "Saving…" : "Save plan"}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
