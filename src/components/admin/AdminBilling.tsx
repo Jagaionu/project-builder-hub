@@ -104,20 +104,47 @@ function PlanPricing() {
 
   type Def = { modules: string[]; maxSeats: number; maxDrivers: number; maxWarehouses: number; customBranding: boolean };
   const [prices, setPrices] = useState<Record<string, string>>({});
+  const [discount, setDiscount] = useState<Record<string, string>>({});
   const [defs, setDefs] = useState<Record<string, Def>>({});
   const [savingRow, setSavingRow] = useState<string | null>(null);
+
+  // Annual = monthly x 12, minus an optional discount percentage.
+  const computeAnnual = (monthlyStr: string, pctStr: string): string => {
+    const m = parseFloat(monthlyStr);
+    if (!Number.isFinite(m) || m < 0) return "";
+    const pct = Math.min(100, Math.max(0, parseFloat(pctStr) || 0));
+    return (m * 12 * (1 - pct / 100)).toFixed(2);
+  };
 
   const load = useCallback(async () => {
     const priceRows = (await listPrices({ data: {} })) as Array<{ plan: string; interval: string; net_amount_minor: number }>;
     const pm: Record<string, string> = {};
     for (const r of priceRows) pm[r.plan + "-" + r.interval] = (r.net_amount_minor / 100).toFixed(2);
+    const dm: Record<string, string> = {};
+    for (const plan of plans) {
+      const m = parseFloat(pm[plan + "-monthly"] ?? "");
+      const a = parseFloat(pm[plan + "-annual"] ?? "");
+      if (Number.isFinite(m) && m > 0 && Number.isFinite(a)) {
+        dm[plan] = String(Math.min(100, Math.max(0, Math.round((1 - a / (m * 12)) * 100))));
+      } else {
+        dm[plan] = "0";
+      }
+    }
     setPrices(pm);
+    setDiscount(dm);
     const defRows = (await listDefs({ data: {} })) as Array<Def & { plan: string }>;
-    const dm: Record<string, Def> = {};
-    for (const d of defRows) dm[d.plan] = { modules: d.modules ?? [], maxSeats: d.maxSeats ?? 0, maxDrivers: d.maxDrivers ?? 0, maxWarehouses: d.maxWarehouses ?? 0, customBranding: Boolean(d.customBranding) };
-    setDefs(dm);
+    const dfm: Record<string, Def> = {};
+    for (const d of defRows) dfm[d.plan] = { modules: d.modules ?? [], maxSeats: d.maxSeats ?? 0, maxDrivers: d.maxDrivers ?? 0, maxWarehouses: d.maxWarehouses ?? 0, customBranding: Boolean(d.customBranding) };
+    setDefs(dfm);
   }, [listPrices, listDefs]);
   useEffect(() => { void load(); }, [load]);
+
+  const onMonthly = (plan: string, val: string) =>
+    setPrices((p) => ({ ...p, [plan + "-monthly"]: val, [plan + "-annual"]: computeAnnual(val, discount[plan] ?? "0") }));
+  const onDiscount = (plan: string, val: string) => {
+    setDiscount((d) => ({ ...d, [plan]: val }));
+    setPrices((p) => ({ ...p, [plan + "-annual"]: computeAnnual(p[plan + "-monthly"] ?? "", val) }));
+  };
 
   const emptyDef: Def = { modules: [], maxSeats: 0, maxDrivers: 0, maxWarehouses: 0, customBranding: false };
   const setDef = (plan: string, patch: Partial<Def>) =>
@@ -153,21 +180,29 @@ function PlanPricing() {
   return (
     <div className="space-y-4 max-w-4xl">
       <p className="text-xs text-muted-foreground">
-        Control each plan option and price from here. Net prices exclude VAT; a per-company price override (Companies tab) still takes precedence. Changes drive the plan cards companies see and what each plan grants on their next plan change.
+        Control each plan option and price from here. Enter the monthly price; the annual is calculated as monthly x 12 minus the discount you set. Net prices exclude VAT; a per-company price override (Companies tab) still takes precedence.
       </p>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {plans.map((plan) => {
           const d = defs[plan] ?? emptyDef;
+          const annual = prices[plan + "-annual"];
+          const pct = Number(discount[plan]) || 0;
           return (
             <div key={plan} className="rounded-xl border border-border bg-surface p-4 space-y-3">
               <div className="text-sm font-semibold capitalize">{plan}</div>
               <div className="grid grid-cols-2 gap-2">
-                {intervals.map((interval) => (
-                  <label key={interval} className="block">
-                    <span className="text-[10px] text-muted-foreground capitalize">{interval} £ (net)</span>
-                    <input type="number" step="0.01" min="0" value={prices[plan + "-" + interval] ?? ""} onChange={(e) => setPrices((p) => ({ ...p, [plan + "-" + interval]: e.target.value }))} placeholder="—" className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
-                  </label>
-                ))}
+                <label className="block">
+                  <span className="text-[10px] text-muted-foreground">Monthly £ (net)</span>
+                  <input type="number" step="0.01" min="0" value={prices[plan + "-monthly"] ?? ""} onChange={(e) => onMonthly(plan, e.target.value)} placeholder="—" className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                </label>
+                <label className="block">
+                  <span className="text-[10px] text-muted-foreground">Annual discount %</span>
+                  <input type="number" step="1" min="0" max="100" value={discount[plan] ?? "0"} onChange={(e) => onDiscount(plan, e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                </label>
+              </div>
+              <div className="rounded-md bg-surface-2/40 px-2 py-1.5 text-[11px] text-muted-foreground">
+                Annual (auto): <b className="text-foreground tabular-nums">{annual ? "£" + annual : "—"}</b> per year
+                {annual && pct > 0 ? " (" + pct + "% off)" : ""}
               </div>
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">Modules</div>
