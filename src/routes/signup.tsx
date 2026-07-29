@@ -1,9 +1,9 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
 import { signUpCompany } from "@/lib/signup.functions";
 import brandLogo from "@/assets/brand-logo.png";
+import { MailCheck } from "lucide-react";
 
 export const Route = createFileRoute("/signup")({
   component: SignupPage,
@@ -11,7 +11,6 @@ export const Route = createFileRoute("/signup")({
 });
 
 function SignupPage() {
-  const navigate = useNavigate();
   const signUp = useServerFn(signUpCompany);
   const [companyName, setCompanyName] = useState("");
   const [adminName, setAdminName] = useState("");
@@ -19,6 +18,7 @@ function SignupPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
 
   async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault();
@@ -26,14 +26,10 @@ function SignupPage() {
     setError(null);
     try {
       await signUp({ data: { companyName, adminName, email, password } });
-      const { error: authErr } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
-      if (authErr) throw authErr;
-      navigate({ to: "/", replace: true });
+      setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");
+    } finally {
       setLoading(false);
     }
   }
@@ -54,41 +50,57 @@ function SignupPage() {
             </div>
           </div>
         </div>
-        <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-surface p-6 space-y-4 shadow-sm">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium">Company name</label>
-            <input value={companyName} onChange={(ev) => setCompanyName(ev.target.value)} required placeholder="Acme Logistics Ltd" className={field} />
+
+        {sent ? (
+          <div className="rounded-2xl border border-border bg-surface p-6 text-center shadow-sm">
+            <MailCheck className="size-8 text-primary mx-auto mb-3" />
+            <div className="text-sm font-semibold">Check your email</div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              We sent a confirmation link to <b className="text-foreground">{email}</b>. Click it to
+              activate your 14-day trial, then log in. The link is required - unconfirmed accounts
+              are removed automatically.
+            </p>
+            <Link to="/login" className="mt-4 inline-flex rounded-lg border border-border px-4 py-2 text-xs font-semibold hover:bg-surface-2">
+              Go to log in
+            </Link>
           </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium">Your name</label>
-            <input value={adminName} onChange={(ev) => setAdminName(ev.target.value)} required placeholder="Jane Smith" className={field} />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium">Work email</label>
-            <input type="email" value={email} onChange={(ev) => setEmail(ev.target.value)} required placeholder="you@company.co.uk" className={field} />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium">Password</label>
-            <input type="password" value={password} onChange={(ev) => setPassword(ev.target.value)} required minLength={8} placeholder="At least 8 characters" className={field} />
-          </div>
-          {error && (
-            <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
+        ) : (
+          <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-surface p-6 space-y-4 shadow-sm">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Company name</label>
+              <input value={companyName} onChange={(ev) => setCompanyName(ev.target.value)} required placeholder="Acme Logistics Ltd" className={field} />
             </div>
-          )}
-          <button type="submit" disabled={loading} className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition">
-            {loading ? "Creating your account…" : "Start free trial"}
-          </button>
-          <p className="text-[11px] text-muted-foreground text-center">
-            By starting a trial you agree to our{" "}
-            <Link to="/terms" className="text-primary hover:underline">Terms</Link> and{" "}
-            <Link to="/privacy-policy" className="text-primary hover:underline">Privacy Policy</Link>.
-          </p>
-          <p className="text-[11px] text-muted-foreground text-center">
-            Already have an account?{" "}
-            <Link to="/login" className="text-primary hover:underline">Log in</Link>
-          </p>
-        </form>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Your name</label>
+              <input value={adminName} onChange={(ev) => setAdminName(ev.target.value)} required placeholder="Jane Smith" className={field} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Work email</label>
+              <input type="email" value={email} onChange={(ev) => setEmail(ev.target.value)} required placeholder="you@company.co.uk" className={field} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Password</label>
+              <input type="password" value={password} onChange={(ev) => setPassword(ev.target.value)} required minLength={8} placeholder="At least 8 characters" className={field} />
+            </div>
+            {error && (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+            <button type="submit" disabled={loading} className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition">
+              {loading ? "Creating your account…" : "Start free trial"}
+            </button>
+            <p className="text-[11px] text-muted-foreground text-center">
+              By starting a trial you agree to our{" "}
+              <Link to="/terms" className="text-primary hover:underline">Terms</Link> and{" "}
+              <Link to="/privacy-policy" className="text-primary hover:underline">Privacy Policy</Link>.
+            </p>
+            <p className="text-[11px] text-muted-foreground text-center">
+              Already have an account?{" "}
+              <Link to="/login" className="text-primary hover:underline">Log in</Link>
+            </p>
+          </form>
+        )}
       </div>
     </div>
   );
