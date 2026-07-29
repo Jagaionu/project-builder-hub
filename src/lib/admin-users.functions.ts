@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { randomBytes } from "node:crypto";
-import { entitlementsForPlan } from "@/lib/billing/plan-entitlements";
+import { loadPlanEntitlements } from "@/lib/billing/plan-entitlements.server";
 import { encryptSecret, decryptSecret } from "@/lib/credential-cipher.server";
 
 const Input = z.object({
@@ -242,7 +242,7 @@ export const createCompanyProfile = createServerFn({ method: "POST" })
         .maybeSingle();
       const rawPlan = (planRow?.plan ?? "starter") as string;
       const planTier = rawPlan === "pro" || rawPlan === "enterprise" ? rawPlan : "starter";
-      const maxSeats = entitlementsForPlan(planTier).maxSeats;
+      const maxSeats = (await loadPlanEntitlements(planTier)).maxSeats;
       const { count } = await sbAny
         .from("company_members")
         .select("id", { count: "exact", head: true })

@@ -9,7 +9,7 @@ import {
   type BillingEvent,
   type BillingState,
 } from "./state-machine";
-import { entitlementsForPlan } from "./plan-entitlements";
+import { loadPlanEntitlements } from "./plan-entitlements.server";
 import { sendDunningStep } from "./dunning.server";
 import type { PlanTier } from "./types";
 
@@ -48,7 +48,7 @@ async function loadState(companyId: string): Promise<BillingState> {
 }
 
 async function applyPlanEntitlements(companyId: string, plan: PlanTier): Promise<void> {
-  const e = entitlementsForPlan(plan);
+  const e = await loadPlanEntitlements(plan);
   const { data } = await sb.from("companies").select("config").eq("id", companyId).maybeSingle();
   const config = { ...(data?.config ?? {}) };
   config.modules = e.modules;
