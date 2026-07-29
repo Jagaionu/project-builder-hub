@@ -11,6 +11,7 @@ import {
   cancelSubscription,
   recordAgreement,
   previewCharge,
+  getPlanOptions,
 } from "@/lib/billing/billing.functions";
 import { getDeviceId } from "@/lib/device-id";
 import {
@@ -164,6 +165,38 @@ function BillingPage() {
   const company = data?.company;
   const plan = company?.plan ?? "starter";
 
+  // Plan chooser (first-time setup / after cancellation / change plan).
+  const fetchPlanOptions = useServerFn(getPlanOptions);
+  const [planOptions, setPlanOptions] = useState<any[] | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<"starter" | "pro" | "enterprise">(
+    (company?.plan as "starter" | "pro" | "enterprise") ?? "pro",
+  );
+  const [selectedInterval, setSelectedInterval] = useState<"monthly" | "annual">("monthly");
+  useEffect(() => {
+    fetchPlanOptions({ data: {} })
+      .then((r) => setPlanOptions(r as any[]))
+      .catch(() => {});
+  }, [fetchPlanOptions]);
+  useEffect(() => {
+    if (company?.plan) setSelectedPlan(company.plan as "starter" | "pro" | "enterprise");
+  }, [company?.plan]);
+  const PLAN_COPY: Record<string, { tag: string; extra: string }> = {
+    starter: {
+      tag: "For small fleets getting off spreadsheets.",
+      extra: "Core dispatch, live driver tracking and tachograph compliance.",
+    },
+    pro: {
+      tag: "For growing fleets that plan and optimise.",
+      extra:
+        "Everything in Starter, plus the live map and automatic route optimization, with higher seat and fleet limits.",
+    },
+    enterprise: {
+      tag: "For established carriers at scale.",
+      extra:
+        "Everything in Pro, plus the AI assistant, custom branding, the highest limits and priority support.",
+    },
+  };
+
   // First-payment agreement gate (clickwrap).
   const recordAgreementFn = useServerFn(recordAgreement);
   const previewChargeFn = useServerFn(previewCharge);
@@ -194,7 +227,7 @@ function BillingPage() {
     setGateLoading(true);
     try {
       const b = (await previewChargeFn({
-        data: { plan: plan as "starter" | "pro" | "enterprise", interval: "monthly", provider },
+        data: { plan: selectedPlan, interval: selectedInterval, provider },
       })) as { netMinor: number; taxMinor: number; feeMinor: number; grossMinor: number; currency: string };
       setGateBreakdown(b);
     } catch (e) {
@@ -208,8 +241,8 @@ function BillingPage() {
   const gateCtx = gateBreakdown
     ? {
         companyName: (company?.name as string) ?? "your company",
-        plan,
-        interval: "monthly",
+        plan: selectedPlan,
+        interval: selectedInterval,
         netMinor: gateBreakdown.netMinor,
         taxMinor: gateBreakdown.taxMinor,
         feeMinor: gateBreakdown.feeMinor,
@@ -227,8 +260,8 @@ function BillingPage() {
       const snapshot = subscriptionAgreementMarkdown(gateCtx);
       await recordAgreementFn({
         data: {
-          plan: plan as "starter" | "pro" | "enterprise",
-          interval: "monthly",
+          plan: selectedPlan,
+          interval: selectedInterval,
           agreementVersion: SUBSCRIPTION_AGREEMENT_VERSION,
           documentSnapshot: snapshot,
           netMinor: gateCtx.netMinor,
@@ -258,8 +291,8 @@ function BillingPage() {
       const origin = window.location.origin;
       const res: any = await checkout({
         data: {
-          plan,
-          interval: "monthly",
+          plan: selectedPlan,
+          interval: selectedInterval,
           provider,
           successUrl: `${origin}/billing?status=success`,
           cancelUrl: `${origin}/billing?status=cancelled`,
@@ -342,6 +375,100 @@ function BillingPage() {
           </div>
         </div>
       </div>
+
+      {/* Plan chooser (options + prices) */}
+      {planOptions && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold">
+              {company?.subscription_status === "active"
+                ? "Your plan"
+                : company?.subscription_status === "cancelled"
+                  ? "Reactivate - choose a plan"
+                  : "Choose your plan"}
+            </h2>
+            <div className="inline-flex rounded-md border border-border overflow-hidden text-xs">
+              <button
+                onClick={() => setSelectedInterval("monthly")}
+                className={"px-3 py-1 " + (selectedInterval === "monthly" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setSelectedInterval("annual")}
+                className={"px-3 py-1 " + (selectedInterval === "annual" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+              >
+                Annual
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Prices exclude VAT. VAT and any payment-processing fee are added and shown before you pay.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {planOptions.map((o) => {
+              const priceMinor = selectedInterval === "annual" ? o.annualNetMinor : o.monthlyNetMinor;
+              const sel = selectedPlan === o.plan;
+              const copy = PLAN_COPY[o.plan] ?? { tag: "", extra: "" };
+              const feat = (on: boolean, label: string) => (
+                <li className={on ? "text-foreground flex items-start gap-1" : "opacity-40 flex items-start gap-1"}>
+                  <span>{on ? "✓" : "—"}</span>
+                  <span>{label}</span>
+                </li>
+              );
+              return (
+                <div
+                  key={o.plan}
+                  className={
+                    "rounded-xl border p-4 flex flex-col " +
+                    (sel ? "border-primary ring-1 ring-primary bg-primary/5" : "border-border bg-surface")
+                  }
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold capitalize">{o.plan}</div>
+                    {o.plan === "pro" && (
+                      <span className="text-[9px] font-semibold uppercase tracking-wide rounded-full bg-primary/15 text-primary px-2 py-0.5">
+                        Popular
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{copy.tag}</p>
+                  <div className="mt-3">
+                    <span className="text-2xl font-bold tabular-nums">
+                      {priceMinor != null ? fmt(priceMinor) : "—"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {" "}/ {selectedInterval === "annual" ? "yr" : "mo"} excl. VAT
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-foreground/80 mt-2">{copy.extra}</p>
+                  <ul className="mt-3 space-y-1 text-[11px] text-muted-foreground flex-1">
+                    <li>{o.maxSeats} office seats</li>
+                    <li>{o.maxDrivers === 0 ? "Unlimited" : o.maxDrivers} drivers</li>
+                    <li>{o.maxWarehouses === 0 ? "Unlimited" : o.maxWarehouses} own warehouses</li>
+                    {feat(true, "Dispatch, planning, driver app and compliance")}
+                    {feat(o.modules.includes("maps"), "Live map and route optimization")}
+                    {feat(o.modules.includes("ai_agent"), "AI assistant")}
+                    {feat(o.customBranding, "Custom branding")}
+                  </ul>
+                  <button
+                    onClick={() => setSelectedPlan(o.plan)}
+                    disabled={sel}
+                    className={
+                      "mt-3 rounded-md px-3 py-1.5 text-xs font-semibold " +
+                      (sel
+                        ? "bg-primary/20 text-primary cursor-default"
+                        : "bg-primary text-primary-foreground hover:bg-primary/90")
+                    }
+                  >
+                    {sel ? "Selected" : "Select"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Provider selection / checkout */}
       <div>
