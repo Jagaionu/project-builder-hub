@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SuspendedRouteImport } from './routes/suspended'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -45,6 +46,11 @@ import { Route as ApiPublicCronPushDispatchRouteImport } from './routes/api/publ
 import { Route as ApiPublicCronCompleteRunsRouteImport } from './routes/api/public/cron/complete-runs'
 import { Route as ApiPublicCronBillingSweepRouteImport } from './routes/api/public/cron/billing-sweep'
 
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
@@ -239,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
   '/terms': typeof TermsRoute
+  '/welcome': typeof WelcomeRoute
   '/alerts': typeof AppAlertsRoute
   '/billing': typeof AppBillingRoute
   '/dispatch': typeof AppDispatchRoute
@@ -272,6 +279,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
   '/terms': typeof TermsRoute
+  '/welcome': typeof WelcomeRoute
   '/alerts': typeof AppAlertsRoute
   '/billing': typeof AppBillingRoute
   '/dispatch': typeof AppDispatchRoute
@@ -310,6 +318,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/suspended': typeof SuspendedRoute
   '/terms': typeof TermsRoute
+  '/welcome': typeof WelcomeRoute
   '/_app/alerts': typeof AppAlertsRoute
   '/_app/billing': typeof AppBillingRoute
   '/_app/dispatch': typeof AppDispatchRoute
@@ -349,6 +358,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/suspended'
     | '/terms'
+    | '/welcome'
     | '/alerts'
     | '/billing'
     | '/dispatch'
@@ -382,6 +392,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/suspended'
     | '/terms'
+    | '/welcome'
     | '/alerts'
     | '/billing'
     | '/dispatch'
@@ -419,6 +430,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/suspended'
     | '/terms'
+    | '/welcome'
     | '/_app/alerts'
     | '/_app/billing'
     | '/_app/dispatch'
@@ -457,6 +469,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SuspendedRoute: typeof SuspendedRoute
   TermsRoute: typeof TermsRoute
+  WelcomeRoute: typeof WelcomeRoute
   ApiPublicPairingLoginRoute: typeof ApiPublicPairingLoginRoute
   ApiPublicCronBillingSweepRoute: typeof ApiPublicCronBillingSweepRoute
   ApiPublicCronCompleteRunsRoute: typeof ApiPublicCronCompleteRunsRoute
@@ -468,6 +481,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms': {
       id: '/terms'
       path: '/terms'
@@ -784,6 +804,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SuspendedRoute: SuspendedRoute,
   TermsRoute: TermsRoute,
+  WelcomeRoute: WelcomeRoute,
   ApiPublicPairingLoginRoute: ApiPublicPairingLoginRoute,
   ApiPublicCronBillingSweepRoute: ApiPublicCronBillingSweepRoute,
   ApiPublicCronCompleteRunsRoute: ApiPublicCronCompleteRunsRoute,
