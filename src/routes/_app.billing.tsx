@@ -321,7 +321,7 @@ function BillingPage() {
 
   if (gated && !isAdmin) {
     return (
-      <div className="space-y-6">
+      <div className="h-full overflow-y-auto p-5 space-y-6">
         <PageHeader title="Billing" subtitle="Subscription status" />
         <GatedBanner status={ctxCompany?.subscription_status} isAdmin={false} />
       </div>
@@ -329,7 +329,7 @@ function BillingPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="h-full overflow-y-auto p-5 space-y-6">
       <PageHeader title="Billing" subtitle="Manage your subscription and payment method" />
 
       {gated && <GatedBanner status={ctxCompany?.subscription_status} isAdmin />}
