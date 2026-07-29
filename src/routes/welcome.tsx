@@ -71,7 +71,7 @@ function Welcome() {
             </ul>
             <div className="mt-7 flex flex-wrap gap-3">
               <Link
-                to="/login"
+                to="/signup"
                 className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition active:scale-[0.98]"
               >
                 Start free trial <ArrowRight className="size-4" />
@@ -116,7 +116,7 @@ function Welcome() {
               <div className="text-sm text-muted-foreground">Start a free trial today - no card details to look around.</div>
             </div>
             <div className="flex gap-3">
-              <Link to="/login" className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition">
+              <Link to="/signup" className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition">
                 Start free trial <ArrowRight className="size-4" />
               </Link>
               <a href="/PrimeRoute_Presentation_v3.pptx" download className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-5 py-3 text-sm font-semibold hover:bg-surface-2 transition">
