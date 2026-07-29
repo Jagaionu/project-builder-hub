@@ -23,9 +23,11 @@ export const Route = createFileRoute("/_app")({
     if (sessionError || !session) {
       const claimed =
         typeof window !== "undefined" ? localStorage.getItem("device.companyId") : null;
-      throw redirect(
-        claimed ? { to: "/lock" } : { to: "/login", search: { redirect: location.href } },
-      );
+      if (claimed) throw redirect({ to: "/lock" });
+      // Logged-out visitors at the app root see the marketing landing page;
+      // deep links still go to login with the return path preserved.
+      if (location.pathname === "/") throw redirect({ to: "/welcome" });
+      throw redirect({ to: "/login", search: { redirect: location.href } });
     }
 
     // Super admins don't belong to a company — send them to the admin console
