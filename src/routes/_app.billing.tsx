@@ -410,6 +410,13 @@ function BillingPage() {
               const priceMinor = selectedInterval === "annual" ? o.annualNetMinor : o.monthlyNetMinor;
               const sel = selectedPlan === o.plan;
               const copy = PLAN_COPY[o.plan] ?? { tag: "", extra: "" };
+              const annualFull = o.monthlyNetMinor != null ? o.monthlyNetMinor * 12 : null;
+              const savingMinor =
+                annualFull != null && o.annualNetMinor != null && o.annualNetMinor < annualFull
+                  ? annualFull - o.annualNetMinor
+                  : 0;
+              const savingPct =
+                annualFull && savingMinor > 0 ? Math.round((savingMinor / annualFull) * 100) : 0;
               const feat = (on: boolean, label: string) => (
                 <li className={on ? "text-foreground flex items-start gap-1" : "opacity-40 flex items-start gap-1"}>
                   <span>{on ? "✓" : "—"}</span>
@@ -441,6 +448,19 @@ function BillingPage() {
                       {" "}/ {selectedInterval === "annual" ? "yr" : "mo"} excl. VAT
                     </span>
                   </div>
+                  {savingPct > 0 && (
+                    <div className="mt-1 text-[11px]">
+                      {selectedInterval === "annual" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 font-semibold text-emerald-600 dark:text-emerald-400">
+                          Save {savingPct}% - {fmt(savingMinor)} off per year
+                        </span>
+                      ) : (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                          Pay annually: {fmt(o.annualNetMinor)}/yr - save {savingPct}%
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <p className="text-[11px] text-foreground/80 mt-2">{copy.extra}</p>
                   <ul className="mt-3 space-y-1 text-[11px] text-muted-foreground flex-1">
                     <li>{o.maxSeats} office seats</li>
