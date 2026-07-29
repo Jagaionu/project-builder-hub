@@ -12,6 +12,7 @@ import { PageHeader } from "./_app.index";
 import { toast } from "sonner";
 import { useTeamSync } from "@/lib/use-team-sync";
 import { entitlementsForPlan } from "@/lib/billing/plan-entitlements";
+import { getPlanOptions } from "@/lib/billing/billing.functions";
 import { UserPlus, Copy, Trash2, Key, Shield, User } from "lucide-react";
 
 export const Route = createFileRoute("/_app/team")({ component: TeamPage });
@@ -46,8 +47,10 @@ function TeamPage() {
   const addProfile = useServerFn(createCompanyProfile);
   const resetPwd = useServerFn(resetProfilePassword);
   const delProfile = useServerFn(deleteProfile);
+  const fetchPlanOptions = useServerFn(getPlanOptions);
 
   const [members, setMembers] = useState<Member[]>([]);
+  const [seatCaps, setSeatCaps] = useState<Record<string, number> | null>(null);
   const [profileName, setProfileName] = useState("");
   const [busy, setBusy] = useState(false);
   const [issued, setIssued] = useState<{
@@ -65,13 +68,23 @@ function TeamPage() {
   useEffect(() => {
     if (role === "admin") load();
   }, [role, load]);
+  useEffect(() => {
+    if (role !== "admin") return;
+    fetchPlanOptions({ data: {} })
+      .then((rows) => {
+        const m: Record<string, number> = {};
+        for (const r of rows as Array<{ plan: string; maxSeats: number }>) m[r.plan] = r.maxSeats;
+        setSeatCaps(m);
+      })
+      .catch(() => {});
+  }, [role, fetchPlanOptions]);
 
   if (role !== "admin") return null;
 
   const regulars = members.filter((m) => m.role !== "admin");
   const rawPlan = (company as { plan?: string }).plan ?? "starter";
   const planTier = rawPlan === "pro" || rawPlan === "enterprise" ? rawPlan : "starter";
-  const maxSeats = entitlementsForPlan(planTier).maxSeats;
+  const maxSeats = seatCaps?.[planTier] ?? entitlementsForPlan(planTier).maxSeats;
   const seatsUsed = members.length;
   const seatsFull = seatsUsed >= maxSeats;
 

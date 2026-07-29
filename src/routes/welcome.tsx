@@ -4,7 +4,21 @@ import { Truck, MapPin, ShieldCheck, Clock, Route as RouteIcon, ArrowRight, Down
 
 export const Route = createFileRoute("/welcome")({
   component: Welcome,
-  head: () => ({ meta: [{ title: "The Prime Route - smarter UK logistics dispatch" }] }),
+  head: () => ({
+    meta: [
+      { title: "The Prime Route - smarter UK logistics dispatch" },
+      { name: "description", content: "Plan and assign runs, track every driver live, and stay tachograph compliant. The all-in-one dispatch platform for UK haulage. Start a free trial." },
+      { property: "og:title", content: "The Prime Route - UK logistics dispatch" },
+      { property: "og:description", content: "Run your fleet, not your spreadsheets. Live tracking, route optimization and tachograph compliance in one place." },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://theprimeroute.co.uk/welcome" },
+      { property: "og:image", content: "https://theprimeroute.co.uk/web-app-manifest-512x512.png" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "The Prime Route - UK logistics dispatch" },
+      { name: "twitter:description", content: "Run your fleet, not your spreadsheets." },
+      { name: "twitter:image", content: "https://theprimeroute.co.uk/web-app-manifest-512x512.png" },
+    ],
+  }),
 });
 
 const FEATURES = [
