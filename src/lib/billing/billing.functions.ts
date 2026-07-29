@@ -18,6 +18,7 @@ import { computeProration, computeCancellationRefund } from "./proration";
 import { buildPaymentHistory, type PaymentInvoiceRow } from "./payment-history";
 import { createHash } from "node:crypto";
 import { SUBSCRIPTION_AGREEMENT_VERSION, linkedPolicyVersions } from "../subscription-agreement";
+import { entitlementsForPlan } from "./plan-entitlements";
 import type { BillingInterval, PlanTier, Provider } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -263,6 +264,39 @@ export const previewCharge = createServerFn({ method: "POST" })
       plan: data.plan as PlanTier,
       interval: data.interval as BillingInterval,
       provider: data.provider as Provider,
+    });
+  });
+
+// Tenant: the plan catalogue (price + features) for the caller company. Prices
+// come from plan_prices (the super-admin Plan pricing tab); features from the
+// shared plan entitlements. Powers the plan chooser on the billing page.
+export const getPlanOptions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({}).parse(d ?? {}))
+  .handler(async ({ context }) => {
+    await tenantForUser(context.userId);
+    const { data: prices } = await sb
+      .from("plan_prices")
+      .select("plan, interval, net_amount_minor")
+      .eq("currency", "GBP")
+      .eq("active", true);
+    const priceMap: Record<string, Record<string, number>> = {};
+    for (const p of (prices ?? []) as Array<{ plan: string; interval: string; net_amount_minor: number }>) {
+      (priceMap[p.plan] ||= {})[p.interval] = p.net_amount_minor;
+    }
+    const plans = ["starter", "pro", "enterprise"] as const;
+    return plans.map((plan) => {
+      const e = entitlementsForPlan(plan);
+      return {
+        plan,
+        monthlyNetMinor: priceMap[plan]?.monthly ?? null,
+        annualNetMinor: priceMap[plan]?.annual ?? null,
+        modules: e.modules,
+        maxSeats: e.maxSeats,
+        maxDrivers: e.maxDrivers,
+        maxWarehouses: e.maxWarehouses,
+        customBranding: e.customBranding,
+      };
     });
   });
 
