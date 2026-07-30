@@ -18,6 +18,9 @@ interface Metrics {
   pendingReviews: number;
   duplicateBlocks: number;
   approved: number;
+  falsePositives: number;
+  chVerifiedRate: number;
+  avgReviewMinutes: number;
 }
 
 interface PendingItem {
@@ -106,6 +109,15 @@ function Metric({ label, value, warn }: { label: string; value: number; warn?: b
   );
 }
 
+function MetricText({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-4">
+      <div className="text-2xl font-semibold tabular-nums">{value}</div>
+      <div className="text-xs text-muted-foreground mt-1">{label}</div>
+    </div>
+  );
+}
+
 function Scores({ trust, risk }: { trust: number | null; risk: number | null }) {
   return (
     <div className="flex items-center gap-1.5 text-[11px]">
@@ -187,6 +199,11 @@ export function FraudDashboard() {
           <Metric label="Pending review" value={metrics?.pendingReviews ?? 0} warn />
           <Metric label="Duplicate / blocked" value={metrics?.duplicateBlocks ?? 0} />
           <Metric label="Approved" value={metrics?.approved ?? 0} />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+          <Metric label="False positives (flagged then approved)" value={metrics?.falsePositives ?? 0} />
+          <MetricText label="Companies House verified" value={(metrics?.chVerifiedRate ?? 0) + "%"} />
+          <MetricText label="Avg review time" value={(metrics?.avgReviewMinutes ?? 0) + " min"} />
         </div>
       </div>
 
