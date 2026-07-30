@@ -80,7 +80,61 @@ export const getFraudMetrics = createServerFn({ method: "POST" })
     const pendingReviews = await count("companies", (q) => q.eq("verification_status", "pending_review"));
     const duplicateBlocks = await count("trial_signups", (q) => q.eq("status", "blocked"));
     const approved = await count("trial_signups", (q) => q.eq("status", "approved"));
-    return { trialsToday, pendingReviews, duplicateBlocks, approved };
+    // False positives: flagged (pending_review) then approved by a reviewer.
+    const falsePositives = await count("signup_decision_log", (q) =>
+      q.eq("step", "review_action").eq("detail->>action", "approve"),
+    );
+    // Companies House verification rate across all signups.
+    const totalSignups = await count("trial_signups", (q) => q);
+    const chSignups = await count("trial_signups", (q) => q.eq("verification_method", "companies_house"));
+    const chVerifiedRate = totalSignups > 0 ? Math.round((chSignups / totalSignups) * 100) : 0;
+    // Average review turnaround: reviewer action time minus signup time.
+    let avgReviewMinutes = 0;
+    try {
+      const { data: acts } = await sb
+        .from("signup_decision_log")
+        .select("tenant_id, created_at")
+        .eq("step", "review_action")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      const rows = ((acts ?? []) as Array<{ tenant_id: string | null; created_at: string }>).filter(
+        (a) => a.tenant_id,
+      );
+      if (rows.length) {
+        const tenantIds = [...new Set(rows.map((a) => a.tenant_id as string))];
+        const { data: sus } = await sb
+          .from("trial_signups")
+          .select("tenant_id, created_at")
+          .in("tenant_id", tenantIds);
+        const firstByTenant = new Map<string, number>();
+        for (const s of (sus ?? []) as Array<{ tenant_id: string; created_at: string }>) {
+          const ts = new Date(s.created_at).getTime();
+          const cur = firstByTenant.get(s.tenant_id);
+          if (cur === undefined || ts < cur) firstByTenant.set(s.tenant_id, ts);
+        }
+        let sum = 0;
+        let n = 0;
+        for (const a of rows) {
+          const start = firstByTenant.get(a.tenant_id as string);
+          if (start !== undefined) {
+            sum += new Date(a.created_at).getTime() - start;
+            n += 1;
+          }
+        }
+        if (n > 0) avgReviewMinutes = Math.round(sum / n / 60000);
+      }
+    } catch {
+      // tolerant
+    }
+    return {
+      trialsToday,
+      pendingReviews,
+      duplicateBlocks,
+      approved,
+      falsePositives,
+      chVerifiedRate,
+      avgReviewMinutes,
+    };
   });
 
 
