@@ -33,6 +33,7 @@ function SignupPage() {
   const [adminName, setAdminName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -247,7 +248,11 @@ function SignupPage() {
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium">Password</label>
-              <input type="password" value={password} onChange={(ev) => setPassword(ev.target.value)} required minLength={8} placeholder="At least 8 characters" className={field} />
+              <input type={showPassword ? "text" : "password"} value={password} onChange={(ev) => setPassword(ev.target.value)} required minLength={8} placeholder="At least 8 characters" className={field} />
+              <label className="flex items-center gap-2 text-[11px] text-muted-foreground select-none cursor-pointer">
+                <input type="checkbox" checked={showPassword} onChange={(ev) => setShowPassword(ev.target.checked)} className="size-3.5 rounded border-border" />
+                Show password
+              </label>
             </div>
             {error && (
               <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
