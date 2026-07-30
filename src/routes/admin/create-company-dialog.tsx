@@ -47,6 +47,9 @@ export function CreateCompanyDialog({ open, onOpenChange, onCreated }: CreateCom
         plan,
         subscription_status: "trial",
         subscription_ends_at: trialEndsAt.toISOString(),
+        // Super-admin-created companies are vetted, so mark them trusted: they
+        // are exempt from self-serve abuse gating and behavioural flagging.
+        verification_status: "trusted",
       } as never);
       if (error) throw new Error(error.message);
       toast.success(`Company "${name}" created (trial expires in 14 days)`);
