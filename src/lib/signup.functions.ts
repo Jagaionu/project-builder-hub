@@ -346,6 +346,7 @@ export const signUpCompany = createServerFn({ method: "POST" })
           "<p>If the button does not work, paste this link into your browser:<br>" + link + "</p>",
       });
       if (!sent.ok) {
+        console.error("signup confirmation email failed:", sent.error);
         throw new Error("We could not send the confirmation email. Please try again shortly.");
       }
 
