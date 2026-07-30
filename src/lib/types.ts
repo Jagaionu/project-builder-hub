@@ -103,6 +103,11 @@ export interface Company {
   config: TenantConfig;
   created_at: string;
   updated_at: string;
+  verification_status?: string | null;
+  verification_method?: string | null;
+  company_number?: string | null;
+  company_house_name?: string | null;
+  director_name?: string | null;
 }
 
 export interface CompanyMember {
@@ -122,6 +127,7 @@ export interface AuthContext {
   name?: string | null;
   mustSetPassword?: boolean;
   avatarUrl?: string | null;
+  verificationStatus?: string | null;
 }
 
 export const DEFAULT_TENANT_CONFIG: TenantConfig = {
