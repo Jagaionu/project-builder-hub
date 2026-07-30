@@ -106,6 +106,11 @@ function SignupPage() {
     }
   }
 
+  const onboardingUrl = import.meta.env.VITE_ONBOARDING_URL as string | undefined;
+  const contactEmail =
+    (import.meta.env.VITE_CONTACT_EMAIL as string | undefined) ?? "hello@theprimeroute.co.uk";
+  const alreadyUsed = !!error && error.toLowerCase().includes("already used");
+
   const field =
     "w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/25";
 
@@ -133,9 +138,19 @@ function SignupPage() {
               activate your 14-day trial, then log in. The link is required - unconfirmed accounts
               are removed automatically.
             </p>
+            {onboardingUrl && (
+              <a
+                href={onboardingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 block rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+              >
+                Book your free 15-minute onboarding call
+              </a>
+            )}
             <Link
               to="/login"
-              className="mt-4 inline-flex rounded-lg border border-border px-4 py-2 text-xs font-semibold hover:bg-surface-2"
+              className="mt-3 inline-flex rounded-lg border border-border px-4 py-2 text-xs font-semibold hover:bg-surface-2"
             >
               Go to log in
             </Link>
@@ -237,6 +252,13 @@ function SignupPage() {
             {error && (
               <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}
+                {alreadyUsed && (
+                  <div className="mt-2">
+                    <a href={"mailto:" + contactEmail} className="font-semibold underline">
+                      Contact us for a personalised demo
+                    </a>
+                  </div>
+                )}
               </div>
             )}
             <button type="submit" disabled={loading} className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition">
