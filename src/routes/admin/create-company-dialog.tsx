@@ -40,7 +40,7 @@ export function CreateCompanyDialog({ open, onOpenChange, onCreated }: CreateCom
     setLoading(true);
     try {
       const trialEndsAt = new Date();
-      trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+      trialEndsAt.setDate(trialEndsAt.getDate() + 7);
       const { error } = await supabase.from("companies" as never).insert({
         name: name.trim(),
         slug: slug.trim() || toSlug(name),
@@ -52,7 +52,7 @@ export function CreateCompanyDialog({ open, onOpenChange, onCreated }: CreateCom
         verification_status: "trusted",
       } as never);
       if (error) throw new Error(error.message);
-      toast.success(`Company "${name}" created (trial expires in 14 days)`);
+      toast.success(`Company "${name}" created (trial expires in 7 days)`);
       setName("");
       setSlug("");
       setPlan("starter");
@@ -74,7 +74,7 @@ export function CreateCompanyDialog({ open, onOpenChange, onCreated }: CreateCom
             New Company
           </DialogTitle>
           <DialogDescription>
-            Create a new tenant company. A 14-day trial will be automatically assigned.
+            Create a new tenant company. A 7-day trial will be automatically assigned.
           </DialogDescription>
         </DialogHeader>
 

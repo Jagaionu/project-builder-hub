@@ -93,7 +93,7 @@ reasonable starting point; real signups will show what matters.
 
 - **Pending review**: shows the company, contact email, verification method, the
   internal trust/risk scores, the reasons, and the full decision log.
-  - **Approve trial** → verified + a fresh 14-day trial (access enabled).
+  - **Approve trial** → verified + a fresh 7-day trial (access enabled).
   - **Reject** → blocked + cancelled.
 - **Recently blocked** (returning within cooldown):
   - **Grant new trial** → clears the cooldown so the business can sign up again.

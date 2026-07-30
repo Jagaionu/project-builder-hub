@@ -206,7 +206,7 @@ export const approveSignup = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.userId);
     const trialEnds = new Date();
-    trialEnds.setDate(trialEnds.getDate() + 14);
+    trialEnds.setDate(trialEnds.getDate() + 7);
     await sb
       .from("companies")
       .update({
