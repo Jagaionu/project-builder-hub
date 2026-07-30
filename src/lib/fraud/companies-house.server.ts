@@ -3,8 +3,6 @@
 // Responses are cached in companies_house_cache for 24h to cut API load and
 // speed the signup picker. Graceful no-op if COMPANIES_HOUSE_API_KEY is unset
 // (the signup UI then offers manual verification).
-import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -111,10 +109,3 @@ export async function getCompany(companyNumber: string): Promise<ChProfile | nul
   await cacheSet(key, profile);
   return profile;
 }
-
-// PUBLIC: used by the signup company picker (before authentication).
-export const searchCompaniesHouse = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ query: z.string().trim().min(2).max(100) }).parse(d))
-  .handler(async ({ data }) => {
-    return await searchCompanies(data.query);
-  });
