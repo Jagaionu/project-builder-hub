@@ -34,6 +34,14 @@ const POINTS = [
   "14-day free trial - cancel anytime",
 ];
 
+const TRIAL_POINTS = [
+  "14-day free trial",
+  "No installation",
+  "Import your existing jobs",
+  "Live driver tracking",
+  "Setup in under 15 minutes",
+];
+
 function Welcome() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -74,7 +82,7 @@ function Welcome() {
                 to="/signup"
                 className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition active:scale-[0.98]"
               >
-                Start free trial <ArrowRight className="size-4" />
+                Start Planning Smarter Today <ArrowRight className="size-4" />
               </Link>
               <a
                 href="/PrimeRoute_Presentation_v3.pptx"
@@ -84,6 +92,13 @@ function Welcome() {
                 <Download className="size-4" /> Download presentation
               </a>
             </div>
+            <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5">
+              {TRIAL_POINTS.map((p) => (
+                <li key={p} className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                  <Check className="size-3.5 text-primary shrink-0" /> {p}
+                </li>
+              ))}
+            </ul>
             <p className="mt-3 text-[11px] text-muted-foreground">
               Already have an account?{" "}
               <Link to="/login" className="text-primary hover:underline">
@@ -117,7 +132,7 @@ function Welcome() {
             </div>
             <div className="flex gap-3">
               <Link to="/signup" className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition">
-                Start free trial <ArrowRight className="size-4" />
+                Start Planning Smarter Today <ArrowRight className="size-4" />
               </Link>
               <a href="/PrimeRoute_Presentation_v3.pptx" download className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-5 py-3 text-sm font-semibold hover:bg-surface-2 transition">
                 <Download className="size-4" /> Presentation
