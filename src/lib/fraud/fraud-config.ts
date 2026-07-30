@@ -18,6 +18,10 @@ export interface FraudSettings {
   weightRiskFailedSignups: number;
   trustedMinPaidInvoices: number;
   trustedMinActiveDays: number;
+  behaviourMaxDevices24h: number;
+  behaviourMaxCountries24h: number;
+  behaviourMaxJobs24h: number;
+  behaviourMaxDrivers24h: number;
 }
 
 export const DEFAULT_FRAUD_SETTINGS: FraudSettings = {
@@ -37,6 +41,10 @@ export const DEFAULT_FRAUD_SETTINGS: FraudSettings = {
   weightRiskFailedSignups: 30,
   trustedMinPaidInvoices: 3,
   trustedMinActiveDays: 60,
+  behaviourMaxDevices24h: 5,
+  behaviourMaxCountries24h: 3,
+  behaviourMaxJobs24h: 300,
+  behaviourMaxDrivers24h: 30,
 };
 
 // Maps camelCase FraudSettings keys to the fraud_settings column names.
@@ -57,4 +65,8 @@ export const FRAUD_SETTING_COLUMNS: Record<keyof FraudSettings, string> = {
   weightRiskFailedSignups: "weight_risk_failed_signups",
   trustedMinPaidInvoices: "trusted_min_paid_invoices",
   trustedMinActiveDays: "trusted_min_active_days",
+  behaviourMaxDevices24h: "behaviour_max_devices_24h",
+  behaviourMaxCountries24h: "behaviour_max_countries_24h",
+  behaviourMaxJobs24h: "behaviour_max_jobs_24h",
+  behaviourMaxDrivers24h: "behaviour_max_drivers_24h",
 };

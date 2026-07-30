@@ -86,6 +86,15 @@ const GROUPS: Array<{ title: string; fields: Array<[keyof FraudSettings, string]
       ["trustedMinActiveDays", "Min active days"],
     ],
   },
+  {
+    title: "Behaviour (active trials, 24h)",
+    fields: [
+      ["behaviourMaxDevices24h", "Max devices"],
+      ["behaviourMaxCountries24h", "Max countries"],
+      ["behaviourMaxJobs24h", "Max jobs created"],
+      ["behaviourMaxDrivers24h", "Max drivers added"],
+    ],
+  },
 ];
 
 function Metric({ label, value, warn }: { label: string; value: number; warn?: boolean }) {

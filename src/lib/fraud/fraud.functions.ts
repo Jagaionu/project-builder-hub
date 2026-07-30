@@ -44,6 +44,10 @@ const SettingsPatch = z.object({
   weightRiskFailedSignups: z.number().int().optional(),
   trustedMinPaidInvoices: z.number().int().min(0).optional(),
   trustedMinActiveDays: z.number().int().min(0).optional(),
+  behaviourMaxDevices24h: z.number().int().min(1).optional(),
+  behaviourMaxCountries24h: z.number().int().min(1).optional(),
+  behaviourMaxJobs24h: z.number().int().min(1).optional(),
+  behaviourMaxDrivers24h: z.number().int().min(1).optional(),
 });
 
 export const updateFraudSettings = createServerFn({ method: "POST" })
