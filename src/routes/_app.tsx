@@ -101,6 +101,7 @@ export const Route = createFileRoute("/_app")({
       name: memberRow.name ?? null,
       mustSetPassword: !!memberRow.must_set_password,
       avatarUrl: memberRow.avatar_url ?? null,
+      verificationStatus: company.verification_status ?? null,
     };
   },
   component: AppLayout,
@@ -131,6 +132,12 @@ function AppLayout() {
     };
   }, [register]);
 
+  if (
+    authCtx.verificationStatus === "pending_review" ||
+    authCtx.verificationStatus === "blocked"
+  ) {
+    return <VerificationPendingGate />;
+  }
   if (authCtx.mustSetPassword) {
     return <SetPasswordGate />;
   }
@@ -147,6 +154,32 @@ function AppLayout() {
         </main>
       </div>
     </TenantProvider>
+  );
+}
+
+// Shown to a self-serve signup whose company is still being verified. The
+// message is deliberately generic and never reveals why (device / IP / etc.).
+function VerificationPendingGate() {
+  return (
+    <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground p-4">
+      <div className="w-full max-w-md rounded-xl border border-border bg-surface p-8 text-center space-y-3">
+        <h1 className="text-lg font-semibold">Thanks for registering</h1>
+        <p className="text-sm text-muted-foreground">
+          We are verifying your company details. This usually takes less than one business day, and
+          we will email you as soon as your trial is ready.
+        </p>
+        <button
+          onClick={() => {
+            void supabase.auth.signOut().then(() => {
+              window.location.href = "/login";
+            });
+          }}
+          className="mt-2 inline-flex rounded-lg border border-border px-4 py-2 text-xs font-semibold hover:bg-surface-2"
+        >
+          Log out
+        </button>
+      </div>
+    </div>
   );
 }
 
