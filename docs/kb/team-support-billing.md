@@ -36,7 +36,7 @@ Global (shared) warehouses don't count toward the warehouse limit.
 
 ### How do I see or change my subscription?
 
-Open the **Billing** tab (admin only) to view your plan, status, and invoices. New companies start on a **14-day trial**; the plan itself is set by the platform operator.
+Open the **Billing** tab (admin only) to view your plan, status, and invoices. New companies start on a **7-day trial**; the plan itself is set by the platform operator.
 
 ### What happens when the trial ends?
 
