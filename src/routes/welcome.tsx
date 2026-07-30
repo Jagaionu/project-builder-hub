@@ -31,11 +31,11 @@ const FEATURES = [
 const POINTS = [
   "Set up in minutes - no spreadsheets, no paperwork",
   "Driver app with live location and job updates",
-  "14-day free trial - cancel anytime",
+  "7-day free trial - cancel anytime",
 ];
 
 const TRIAL_POINTS = [
-  "14-day free trial",
+  "7-day free trial",
   "No installation",
   "Import your existing jobs",
   "Live driver tracking",

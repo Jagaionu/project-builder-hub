@@ -125,7 +125,7 @@ function SignupPage() {
           <div>
             <div className="text-base font-semibold tracking-tight">Start your free trial</div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              14 days - no card needed
+              7 days - no card needed
             </div>
           </div>
         </div>
@@ -136,7 +136,7 @@ function SignupPage() {
             <div className="text-sm font-semibold">Check your email</div>
             <p className="mt-2 text-xs text-muted-foreground">
               We sent a confirmation link to <b className="text-foreground">{email}</b>. Click it to
-              activate your 14-day trial, then log in. The link is required - unconfirmed accounts
+              activate your 7-day trial, then log in. The link is required - unconfirmed accounts
               are removed automatically.
             </p>
             {onboardingUrl && (

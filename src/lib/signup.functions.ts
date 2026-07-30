@@ -284,7 +284,7 @@ export const signUpCompany = createServerFn({ method: "POST" })
     try {
       const slug = await uniqueSlug(toSlug(companyName));
       const trialEnds = new Date();
-      trialEnds.setDate(trialEnds.getDate() + 14);
+      trialEnds.setDate(trialEnds.getDate() + 7);
       const ent = await loadPlanEntitlements("starter");
       const config = {
         ...DEFAULT_TENANT_CONFIG,
@@ -338,10 +338,10 @@ export const signUpCompany = createServerFn({ method: "POST" })
       const sent = await sendEmail({
         to: email,
         subject: "Confirm your email to start your Prime Route trial",
-        text: "Welcome to The Prime Route. Confirm your email to activate your 14-day trial: " + link,
+        text: "Welcome to The Prime Route. Confirm your email to activate your 7-day trial: " + link,
         html:
           "<p>Welcome to The Prime Route.</p>" +
-          "<p>Confirm your email to activate your 14-day trial:</p>" +
+          "<p>Confirm your email to activate your 7-day trial:</p>" +
           "<p><a href=" + Q + link + Q + ">Confirm my email</a></p>" +
           "<p>If the button does not work, paste this link into your browser:<br>" + link + "</p>",
       });
