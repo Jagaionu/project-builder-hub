@@ -11,6 +11,7 @@ const AdminAnalytics = lazy(() =>
 );
 import { AdminBilling } from "@/components/admin/AdminBilling";
 import { FraudDashboard } from "@/components/admin/FraudDashboard";
+import { SecurityPanel } from "@/components/admin/SecurityPanel";
 import { AdminAIInsights } from "@/components/admin/AdminAIInsights";
 import { AdminDeviceApprovals } from "@/components/admin/AdminDeviceApprovals";
 import { StatsBar, StatsBarSkeleton } from "@/routes/admin/stats-bar";
@@ -109,7 +110,7 @@ function useCompanyUsage(): Record<string, CompanyUsage> {
 
 function AdminDashboard() {
   const [tab, setTab] = useState<
-    "companies" | "warehouses" | "support" | "billing" | "ai" | "devices" | "fraud"
+    "companies" | "warehouses" | "support" | "billing" | "ai" | "devices" | "fraud" | "security"
   >("companies");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -352,6 +353,17 @@ function AdminDashboard() {
         >
           Trust & Safety
         </button>
+        <button
+          onClick={() => setTab("security")}
+          className={
+            "px-4 py-2 text-sm font-medium border-b-2 transition-colors " +
+            (tab === "security"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground")
+          }
+        >
+          Security
+        </button>
       </div>
 
       {tab === "support" && <AdminSupportPanel companies={companies} />}
@@ -359,6 +371,8 @@ function AdminDashboard() {
       {tab === "billing" && <AdminBilling companies={companies} />}
 
       {tab === "fraud" && <FraudDashboard />}
+
+      {tab === "security" && <SecurityPanel />}
 
       {tab === "ai" && <AdminAIInsights companies={companies} />}
 
