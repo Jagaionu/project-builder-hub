@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { loadFraudSettings, saveFraudSettings } from "./fraud-config.server";
+import { recordAudit } from "@/lib/security/audit.server";
 import type { FraudSettings } from "./fraud-config";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,6 +57,7 @@ export const updateFraudSettings = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.userId);
     await saveFraudSettings(data as Partial<FraudSettings>);
+    await recordAudit({ actorUserId: context.userId, category: "security", action: "fraud_settings_changed", detail: data as Record<string, unknown> });
     return await loadFraudSettings();
   });
 
@@ -219,6 +221,7 @@ export const approveSignup = createServerFn({ method: "POST" })
     await sb
       .from("signup_decision_log")
       .insert({ tenant_id: data.companyId, step: "review_action", detail: { action: "approve", by: context.userId } } as never);
+    await recordAudit({ actorUserId: context.userId, category: "administration", action: "signup_approved", detail: { companyId: data.companyId } });
     return { ok: true };
   });
 
@@ -235,6 +238,7 @@ export const rejectSignup = createServerFn({ method: "POST" })
     await sb
       .from("signup_decision_log")
       .insert({ tenant_id: data.companyId, step: "review_action", detail: { action: "reject", by: context.userId } } as never);
+    await recordAudit({ actorUserId: context.userId, category: "administration", action: "signup_rejected", detail: { companyId: data.companyId } });
     return { ok: true };
   });
 
@@ -260,5 +264,6 @@ export const grantNewTrial = createServerFn({ method: "POST" })
       step: "review_action",
       detail: { action: "grant_new_trial", by: context.userId, companyNumber: row?.company_number ?? null },
     } as never);
+    await recordAudit({ actorUserId: context.userId, category: "administration", action: "trial_granted", detail: { signupId: data.signupId } });
     return { ok: true };
   });
