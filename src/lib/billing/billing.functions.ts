@@ -24,6 +24,8 @@ import type { BillingInterval, PlanTier, Provider } from "./types";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabaseAdmin as unknown as { from: (t: string) => any };
 
+import { recordAudit } from "@/lib/security/audit.server";
+
 async function assertSuperAdmin(userId: string): Promise<void> {
   const { data } = await supabaseAdmin
     .from("super_admins")
@@ -247,6 +249,7 @@ export const setPlanPrice = createServerFn({ method: "POST" })
         active: true,
       });
     }
+    await recordAudit({ actorUserId: context.userId, category: "billing", action: "plan_price_changed", detail: { plan: data.plan, interval: data.interval, netMinor: data.netMinor } });
     return { ok: true };
   });
 
@@ -340,6 +343,7 @@ export const setPlanDefinition = createServerFn({ method: "POST" })
       } as never,
       { onConflict: "plan" } as never,
     );
+    await recordAudit({ actorUserId: context.userId, category: "billing", action: "plan_definition_changed", detail: { plan: data.plan } });
     return { ok: true };
   });
 
@@ -357,6 +361,7 @@ export const setCompanyProvider = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.userId);
+    await recordAudit({ actorUserId: context.userId, category: "billing", action: "billing_provider_changed", detail: { companyId: data.companyId, provider: data.provider } });
     return withIdempotency(
       supabaseIdempotencyStore,
       { key: data.idempotencyKey, operation: "set_provider", companyId: data.companyId },
@@ -555,6 +560,7 @@ export const changeCompanyPlan = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.userId);
+    await recordAudit({ actorUserId: context.userId, category: "billing", action: "plan_changed", detail: { companyId: data.companyId, toPlan: data.toPlan, interval: data.interval, behavior: data.behavior } });
     return withIdempotency(
       supabaseIdempotencyStore,
       { key: data.idempotencyKey, operation: "change_plan", companyId: data.companyId },
