@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { recordSuperAdminLogin } from "@/lib/security/security.functions";
+import { preLoginCheck, noteFailedLogin } from "@/lib/security/login-rate.functions";
 import { z } from "zod";
 import brandLogo from "@/assets/brand-logo.png";
 
@@ -42,12 +43,25 @@ function LoginPage() {
     const at = raw.indexOf("@");
     const loginEmail = at > 0 && !raw.slice(at + 1).includes(".") ? `${raw}.team` : raw;
 
+    try {
+      await preLoginCheck({ data: { email: loginEmail } });
+    } catch (rl) {
+      setError(rl instanceof Error ? rl.message : "Too many attempts");
+      setLoading(false);
+      return;
+    }
+
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: loginEmail,
       password,
     });
 
     if (authError || !authData.session) {
+      try {
+        await noteFailedLogin({ data: { email: loginEmail } });
+      } catch {
+        // best effort
+      }
       setError(authError?.message ?? "Sign-in failed");
       setLoading(false);
       return;
