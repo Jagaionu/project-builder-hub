@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { recordAudit } from "@/lib/security/audit.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { randomBytes } from "node:crypto";
 import { loadPlanEntitlements } from "@/lib/billing/plan-entitlements.server";
@@ -435,5 +436,6 @@ export const deleteCompany = createServerFn({ method: "POST" })
       await supabaseAdmin.auth.admin.deleteUser(uid);
     }
 
+    await recordAudit({ actorUserId: context.userId, category: "data", action: "company_deleted", detail: { companyId: data.companyId, users: userIds.length } });
     return { ok: true };
   });
