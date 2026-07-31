@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { recordSuperAdminLogin } from "@/lib/security/security.functions";
 import { z } from "zod";
 import brandLogo from "@/assets/brand-logo.png";
 
@@ -59,6 +60,11 @@ function LoginPage() {
       .maybeSingle();
 
     if (superAdminRow) {
+      try {
+        await recordSuperAdminLogin({ data: {} });
+      } catch {
+        // notification/audit must never block sign-in
+      }
       navigate({ to: "/admin", replace: true });
       return;
     }

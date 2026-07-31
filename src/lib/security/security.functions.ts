@@ -1,8 +1,10 @@
 // Super-admin security server functions: recovery codes + audit log reads.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { getRequest } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { sendEmail } from "@/lib/billing/email.server";
 import {
   generateRecoveryCodes,
   countRemainingRecoveryCodes,
@@ -81,4 +83,55 @@ export const getSuperAdminAudit = createServerFn({ method: "POST" })
       detail: (r.detail as any) ?? {},
       ip: (r.ip as string | null) ?? null,
     }));
+  });
+
+
+export const recordSuperAdminLogin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({}).parse(d ?? {}))
+  .handler(async ({ context }) => {
+    const { email } = await assertSuperAdmin(context.userId);
+    let ip: string | null = null;
+    let ua: string | null = null;
+    let country: string | null = null;
+    let city: string | null = null;
+    try {
+      const req = getRequest();
+      const h = req?.headers;
+      if (h) {
+        ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || h.get("x-real-ip") || null;
+        ua = h.get("user-agent");
+        country = h.get("x-vercel-ip-country");
+        const c = h.get("x-vercel-ip-city");
+        city = c ? decodeURIComponent(c) : null;
+      }
+    } catch {
+      // headers unavailable
+    }
+    const loc = [city, country].filter(Boolean).join(", ") || "unknown location";
+    const when = new Date().toUTCString();
+    if (email) {
+      await sendEmail({
+        to: email,
+        subject: "Super-admin sign-in to The Prime Route",
+        text:
+          "A super-admin sign-in occurred at " + when + " from " + loc + " (" + (ip ?? "?") +
+          "). Device: " + (ua ?? "?") + ". If this was not you, reset your password immediately.",
+        html:
+          "<p>A super-admin sign-in just occurred:</p><ul>" +
+          "<li>Time: " + when + "</li>" +
+          "<li>Location: " + loc + "</li>" +
+          "<li>IP: " + (ip ?? "?") + "</li>" +
+          "<li>Device: " + (ua ?? "?") + "</li></ul>" +
+          "<p><b>If this was not you, reset your password immediately.</b></p>",
+      }).catch(() => {});
+    }
+    await recordAudit({
+      actorUserId: context.userId,
+      actorEmail: email,
+      category: "auth",
+      action: "super_admin_login",
+      detail: { location: loc },
+    });
+    return { ok: true };
   });
