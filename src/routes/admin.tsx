@@ -18,6 +18,23 @@ export const Route = createFileRoute("/admin")({
     if (!superAdmin) {
       throw redirect({ to: "/" });
     }
+
+    // Mandatory MFA for super admins (no bypass). Redirect to /mfa to enrol
+    // (no verified factor) or to pass the challenge (not yet AAL2 this session).
+    try {
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const verifiedTotp = ((factors?.totp ?? []) as Array<{ status: string }>).some(
+        (f) => f.status === "verified",
+      );
+      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (!verifiedTotp || aal?.currentLevel !== "aal2") {
+        throw redirect({ to: "/mfa" });
+      }
+    } catch (e) {
+      // Re-throw router redirects; swallow only genuine MFA-subsystem errors so a
+      // transient failure cannot hard-lock the admin out.
+      if (e && typeof e === "object" && "isRedirect" in e) throw e;
+    }
   },
   component: AdminLayout,
 });
