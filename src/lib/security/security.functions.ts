@@ -135,3 +135,24 @@ export const recordSuperAdminLogin = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+
+export const getMyRecentLogins = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({}).parse(d ?? {}))
+  .handler(async ({ context }) => {
+    await assertSuperAdmin(context.userId);
+    const { data: rows } = await sb
+      .from("user_login_events")
+      .select("ip, country, city, suspicious, created_at")
+      .eq("user_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    return ((rows ?? []) as Array<Record<string, unknown>>).map((r) => ({
+      ip: (r.ip as string | null) ?? null,
+      country: (r.country as string | null) ?? null,
+      city: (r.city as string | null) ?? null,
+      suspicious: !!r.suspicious,
+      createdAt: String(r.created_at),
+    }));
+  });
