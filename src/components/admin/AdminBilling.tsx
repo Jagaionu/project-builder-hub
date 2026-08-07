@@ -20,6 +20,7 @@ import {
   setPlanDefinition,
 } from "@/lib/billing/billing.functions";
 import type { PaymentHistory } from "@/lib/billing/payment-history";
+import { TrialFeeEditor } from "@/components/admin/TrialFeeEditor";
 import {
   getPaymentsConfigStatus,
   type PaymentsConfigStatus,
@@ -84,7 +85,12 @@ export function AdminBilling({ companies }: { companies: Company[] }) {
         ))}
       </div>
       {view === "companies" && <CompanyBilling companies={companies} />}
-      {view === "plans" && <PlanPricing />}
+      {view === "plans" && (
+        <div className="space-y-6">
+          <TrialFeeEditor />
+          <PlanPricing />
+        </div>
+      )}
       {view === "agreements" && <AgreementsPanel companies={companies} />}
       {view === "email" && <EmailProviderConfig />}
       {view === "webhooks" && <WebhookLog />}
