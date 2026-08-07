@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { isSuperAdmin } from "@/lib/auth-helpers.server";
+import Stripe from "stripe";
 
 export type PaymentsConfigStatus = {
   stripe: { secretKey: boolean; webhookSecret: boolean };
@@ -31,4 +32,24 @@ export const getPaymentsConfigStatus = createServerFn({ method: "GET" })
         privateKey: has(process.env.VAPID_PRIVATE_KEY),
       },
     };
+  });
+
+
+export type StripeTestResult = { ok: boolean; livemode?: boolean; error?: string };
+
+// Actively pings Stripe with the configured secret key to confirm it is valid
+// and reports whether it is a test or live key. Never returns the key.
+export const testStripeConnection = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<StripeTestResult> => {
+    if (!(await isSuperAdmin(context.userId))) throw new Error("Forbidden");
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) return { ok: false, error: "STRIPE_SECRET_KEY is not set (redeploy after adding it)." };
+    try {
+      const stripe = new Stripe(key);
+      const bal = await stripe.balance.retrieve();
+      return { ok: true, livemode: bal.livemode };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "Stripe API call failed" };
+    }
   });
