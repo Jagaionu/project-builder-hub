@@ -23,7 +23,9 @@ import type { PaymentHistory } from "@/lib/billing/payment-history";
 import { TrialFeeEditor } from "@/components/admin/TrialFeeEditor";
 import {
   getPaymentsConfigStatus,
+  testStripeConnection,
   type PaymentsConfigStatus,
+  type StripeTestResult,
 } from "@/lib/billing/config-status.functions";
 
 const fmt = (minor: number | null | undefined, ccy = "GBP") =>
@@ -873,8 +875,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function PaymentsSetupStatus() {
   const fetchStatus = useServerFn(getPaymentsConfigStatus);
+  const testStripe = useServerFn(testStripeConnection);
   const [s, setS] = useState<PaymentsConfigStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [stripeTest, setStripeTest] = useState<StripeTestResult | null>(null);
+  const [testing, setTesting] = useState(false);
   useEffect(() => {
     fetchStatus()
       .then((r) => setS(r as PaymentsConfigStatus))
@@ -914,6 +919,31 @@ function PaymentsSetupStatus() {
         </div>
         <Row label="Secret key (STRIPE_SECRET_KEY)" ok={s.stripe.secretKey} />
         <Row label="Webhook secret (STRIPE_WEBHOOK_SECRET)" ok={s.stripe.webhookSecret} />
+        <div className="px-3 py-2 border-t border-border/50">
+          <button
+            onClick={async () => {
+              setTesting(true);
+              try {
+                setStripeTest((await testStripe()) as StripeTestResult);
+              } catch (err) {
+                setStripeTest({ ok: false, error: err instanceof Error ? err.message : "failed" });
+              } finally {
+                setTesting(false);
+              }
+            }}
+            disabled={testing}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold hover:bg-surface-2 disabled:opacity-50"
+          >
+            {testing ? "Testing…" : "Test Stripe connection"}
+          </button>
+          {stripeTest && (
+            <div className={"mt-2 text-xs font-medium " + (stripeTest.ok ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+              {stripeTest.ok
+                ? "Connected - " + (stripeTest.livemode ? "LIVE mode key" : "test mode key")
+                : "Failed: " + stripeTest.error}
+            </div>
+          )}
+        </div>
       </div>
       <div className="rounded-lg border border-border overflow-hidden">
         <div className="px-3 py-2 bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
