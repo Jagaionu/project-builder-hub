@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { DEFAULT_TENANT_CONFIG } from "@/lib/types";
 import { loadPlanEntitlements } from "@/lib/billing/plan-entitlements.server";
 import { sendEmail } from "@/lib/billing/email.server";
+import { renderBrandedEmail } from "@/lib/email/branded-email";
 import { loadFraudSettings, loadEmailDomainSets } from "@/lib/fraud/fraud-config.server";
 import type { FraudSettings } from "@/lib/fraud/fraud-config";
 import { normalizeEmail, emailDomain, classifyEmailDomain } from "@/lib/fraud/email";
@@ -334,16 +335,22 @@ export const signUpCompany = createServerFn({ method: "POST" })
       const link =
         (linkData as { properties?: { action_link?: string } } | null)?.properties?.action_link ?? "";
       if (!link) throw new Error("Could not generate a confirmation link.");
-      const Q = String.fromCharCode(34);
+      const mail = renderBrandedEmail({
+        previewText: "Confirm your email to start your 7-day free trial",
+        heading: "Confirm your email",
+        paragraphs: [
+          "Welcome to The Prime Route, the dispatch platform for UK carriers.",
+          "Confirm your email address to activate your 7-day free trial and get started.",
+        ],
+        cta: { label: "Confirm my email", url: link },
+        fallbackUrl: link,
+        footerNote: "You received this because someone signed up for The Prime Route with this email address. If it was not you, you can safely ignore this message.",
+      });
       const sent = await sendEmail({
         to: email,
         subject: "Confirm your email to start your Prime Route trial",
-        text: "Welcome to The Prime Route. Confirm your email to activate your 7-day trial: " + link,
-        html:
-          "<p>Welcome to The Prime Route.</p>" +
-          "<p>Confirm your email to activate your 7-day trial:</p>" +
-          "<p><a href=" + Q + link + Q + ">Confirm my email</a></p>" +
-          "<p>If the button does not work, paste this link into your browser:<br>" + link + "</p>",
+        text: mail.text,
+        html: mail.html,
       });
       if (!sent.ok) {
         console.error("signup confirmation email failed:", sent.error);
