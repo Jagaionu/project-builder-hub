@@ -7,7 +7,7 @@ export const Route = createFileRoute("/welcome")({
   head: () => ({
     meta: [
       { title: "The Prime Route - smarter UK logistics dispatch" },
-      { name: "description", content: "Plan and assign runs, track every driver live, and stay tachograph compliant. The all-in-one dispatch platform for UK haulage. Start a free trial." },
+      { name: "description", content: "Plan and assign runs, track every driver live, and stay tachograph compliant. The all-in-one dispatch platform for UK haulage. Start your trial." },
       { property: "og:title", content: "The Prime Route - UK logistics dispatch" },
       { property: "og:description", content: "Run your fleet, not your spreadsheets. Live tracking, route optimization and tachograph compliance in one place." },
       { property: "og:type", content: "website" },
@@ -31,11 +31,11 @@ const FEATURES = [
 const POINTS = [
   "Set up in minutes - no spreadsheets, no paperwork",
   "Driver app with live location and job updates",
-  "7-day free trial - cancel anytime",
+  "7-day trial - cancel anytime",
 ];
 
 const TRIAL_POINTS = [
-  "7-day free trial",
+  "7-day trial",
   "No installation",
   "Import your existing jobs",
   "Live driver tracking",
@@ -128,7 +128,7 @@ function Welcome() {
           <div className="mt-8 rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-surface to-surface p-6 flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="text-lg font-semibold">Ready to try it with your fleet?</div>
-              <div className="text-sm text-muted-foreground">Start a free trial today - no card details to look around.</div>
+              <div className="text-sm text-muted-foreground">Start your trial today - explore the full platform.</div>
             </div>
             <div className="flex gap-3">
               <Link to="/signup" className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition">
