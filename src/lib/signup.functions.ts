@@ -4,6 +4,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { DEFAULT_TENANT_CONFIG } from "@/lib/types";
 import { loadPlanEntitlements } from "@/lib/billing/plan-entitlements.server";
+import { loadTrialConfig } from "@/lib/pricing/trial-config.server";
 import { sendEmail } from "@/lib/billing/email.server";
 import { renderBrandedEmail } from "@/lib/email/branded-email";
 import { loadFraudSettings, loadEmailDomainSets } from "@/lib/fraud/fraud-config.server";
@@ -294,6 +295,7 @@ export const signUpCompany = createServerFn({ method: "POST" })
         maxWarehouses: ent.maxWarehouses,
         customBranding: ent.customBranding,
       };
+      const trialCfg = await loadTrialConfig();
       const verificationStatus = decision === "active" ? "verified" : "pending_review";
       const { data: company, error: coErr } = await sb
         .from("companies")
@@ -302,7 +304,8 @@ export const signUpCompany = createServerFn({ method: "POST" })
           slug,
           plan: "starter",
           subscription_status: "trial",
-          subscription_ends_at: trialEnds.toISOString(),
+          subscription_ends_at: trialCfg.paidTrialEnabled ? null : trialEnds.toISOString(),
+          requires_trial_payment: trialCfg.paidTrialEnabled,
           config,
           company_number: companyNumber || null,
           company_house_name: (data.companyHouseName ?? "").trim() || (chConfirmed ? companyName : null),
