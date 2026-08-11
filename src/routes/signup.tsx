@@ -9,7 +9,7 @@ import { MailCheck, Search, CheckCircle2, Building2, Loader2 } from "lucide-reac
 
 export const Route = createFileRoute("/signup")({
   component: SignupPage,
-  head: () => ({ meta: [{ title: "Start free trial - The Prime Route" }] }),
+  head: () => ({ meta: [{ title: "Start your trial - The Prime Route" }] }),
 });
 
 interface ChResult {
@@ -123,9 +123,9 @@ function SignupPage() {
             <img src={brandLogo} alt="The Prime Route" className="w-full h-full object-contain" />
           </div>
           <div>
-            <div className="text-base font-semibold tracking-tight">Start your free trial</div>
+            <div className="text-base font-semibold tracking-tight">Start your trial</div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              7 days - no card needed
+              Companies House verified
             </div>
           </div>
         </div>
@@ -267,7 +267,7 @@ function SignupPage() {
               </div>
             )}
             <button type="submit" disabled={loading} className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition">
-              {loading ? "Creating your account…" : "Start free trial"}
+              {loading ? "Creating your account…" : "Create account"}
             </button>
             <p className="text-[11px] text-muted-foreground text-center">
               By starting a trial you agree to our{" "}
