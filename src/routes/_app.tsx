@@ -69,6 +69,23 @@ export const Route = createFileRoute("/_app")({
       throw redirect({ to: "/login", search: { error: "company_not_found" } });
     }
 
+    // ── PAID-TRIAL GATE ────────────────────────────────────────────────────
+    // A company that must pay for its trial and has not yet is sent to
+    // /start-trial. Skipped while pending review / blocked (handled by the
+    // verification gate). Existing companies have requires_trial_payment=false.
+    const vstatus = (company as { verification_status?: string | null }).verification_status ?? null;
+    const needsTrialPayment =
+      !!(company as { requires_trial_payment?: boolean }).requires_trial_payment &&
+      !(company as { trial_paid?: boolean }).trial_paid;
+    if (
+      needsTrialPayment &&
+      vstatus !== "pending_review" &&
+      vstatus !== "blocked" &&
+      location.pathname !== "/start-trial"
+    ) {
+      throw redirect({ to: "/start-trial", search: { status: undefined, session_id: undefined } });
+    }
+
     // ── BILLING GATE ──────────────────────────────────────────────────────
     // A company not in good standing (trial expired, suspended for non-payment,
     // or cancelled) is locked down to the Billing tab ONLY. They can pay to
