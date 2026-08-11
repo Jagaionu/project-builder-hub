@@ -6,6 +6,7 @@ export interface TrialConfig {
   trial7FeeMinor: number;
   trial14FeeMinor: number;
   defaultTrialDays: number;
+  paidTrialEnabled: boolean;
 }
 
 export const DEFAULT_TRIAL_CONFIG: TrialConfig = {
@@ -13,6 +14,7 @@ export const DEFAULT_TRIAL_CONFIG: TrialConfig = {
   trial7FeeMinor: 1000,
   trial14FeeMinor: 3000,
   defaultTrialDays: 7,
+  paidTrialEnabled: false,
 };
 
 export const TRIAL_CONFIG_COLUMNS: Record<keyof TrialConfig, string> = {
@@ -20,6 +22,7 @@ export const TRIAL_CONFIG_COLUMNS: Record<keyof TrialConfig, string> = {
   trial7FeeMinor: "trial_7_fee_minor",
   trial14FeeMinor: "trial_14_fee_minor",
   defaultTrialDays: "default_trial_days",
+  paidTrialEnabled: "paid_trial_enabled",
 };
 
 export function trialFeeMinor(days: number, cfg: TrialConfig): number {

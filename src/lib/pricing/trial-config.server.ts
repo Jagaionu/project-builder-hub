@@ -15,6 +15,7 @@ export async function loadTrialConfig(): Promise<TrialConfig> {
     if (typeof data.trial_7_fee_minor === "number") out.trial7FeeMinor = data.trial_7_fee_minor;
     if (typeof data.trial_14_fee_minor === "number") out.trial14FeeMinor = data.trial_14_fee_minor;
     if (typeof data.default_trial_days === "number") out.defaultTrialDays = data.default_trial_days;
+    if (typeof data.paid_trial_enabled === "boolean") out.paidTrialEnabled = data.paid_trial_enabled;
     return out;
   } catch {
     return out;

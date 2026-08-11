@@ -34,6 +34,7 @@ export function TrialFeeEditor() {
           trial7FeeMinor: toMinor(fee7),
           trial14FeeMinor: toMinor(fee14),
           defaultTrialDays: cfg.defaultTrialDays,
+          paidTrialEnabled: cfg.paidTrialEnabled,
         },
       })) as TrialConfig;
       setCfg(updated);
@@ -72,6 +73,10 @@ export function TrialFeeEditor() {
           </select>
         </label>
       </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={cfg.paidTrialEnabled} onChange={(ev) => setCfg((c) => ({ ...c, paidTrialEnabled: ev.target.checked }))} className="size-4 rounded border-border" />
+        <span>Require payment to start the trial (paid-trial flow). Off = free trial as before.</span>
+      </label>
       <button onClick={onSave} disabled={saving} className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
         {saving ? "Saving..." : "Save trial fees"}
       </button>

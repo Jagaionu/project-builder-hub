@@ -32,6 +32,7 @@ export const updateTrialConfig = createServerFn({ method: "POST" })
         trial7FeeMinor: z.number().int().min(0).optional(),
         trial14FeeMinor: z.number().int().min(0).optional(),
         defaultTrialDays: z.number().int().min(1).max(60).optional(),
+        paidTrialEnabled: z.boolean().optional(),
       })
       .parse(d),
   )
