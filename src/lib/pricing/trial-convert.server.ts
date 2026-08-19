@@ -41,8 +41,7 @@ async function convertOne(s: Stripe, c: any): Promise<void> {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const createSub = s.subscriptions.create as unknown as (p: any) => Promise<any>;
-  const sub = await createSub({
+  const subParams: any = {
     customer,
     items: [
       {
@@ -57,10 +56,10 @@ async function convertOne(s: Stripe, c: any): Promise<void> {
     default_payment_method: pm ? pm.id : undefined,
     off_session: true,
     metadata: { companyId: c.id, plan, interval: "monthly", kind: "trial_conversion" },
-    managed_payments: { enabled: false },
-  });
-
-  const periodEnd = sub?.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null;
+  };
+  const sub = await s.subscriptions.create(subParams as Stripe.SubscriptionCreateParams);
+  const cpe = (sub as unknown as { current_period_end?: number }).current_period_end;
+  const periodEnd = cpe ? new Date(cpe * 1000).toISOString() : null;
   await sb
     .from("companies")
     .update({

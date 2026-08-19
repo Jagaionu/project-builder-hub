@@ -67,9 +67,9 @@ export async function createTrialCheckout(opts: TrialCheckoutOpts): Promise<stri
     metadata: { companyId: opts.companyId, kind: "trial", trialDays: String(opts.trialDays), feeMinor: String(opts.feeMinor) },
     managed_payments: { enabled: false },
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const create = s.checkout.sessions.create as unknown as (p: any) => Promise<{ url: string | null }>;
-  const session = await create(params);
+  const session = await s.checkout.sessions.create(
+    params as unknown as Stripe.Checkout.SessionCreateParams,
+  );
   return session.url ?? "";
 }
 
