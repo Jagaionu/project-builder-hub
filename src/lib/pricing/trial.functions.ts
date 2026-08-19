@@ -79,6 +79,7 @@ export const confirmTrialPayment = createServerFn({ method: "POST" })
         trial_paid: true,
         subscription_status: "trial",
         subscription_ends_at: ends.toISOString(),
+        trial_fee_paid_minor: sess.feeMinor,
         ...(sess.customerRef ? { billing_customer_ref: sess.customerRef } : {}),
       } as never)
       .eq("id", companyId);
