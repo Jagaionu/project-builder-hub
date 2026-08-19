@@ -14,6 +14,7 @@ const AdminAnalytics = lazy(() =>
 import { AdminBilling } from "@/components/admin/AdminBilling";
 import { FraudDashboard } from "@/components/admin/FraudDashboard";
 import { SecurityPanel } from "@/components/admin/SecurityPanel";
+import { RevenueDashboard } from "@/components/admin/RevenueDashboard";
 import { AdminAIInsights } from "@/components/admin/AdminAIInsights";
 import { AdminDeviceApprovals } from "@/components/admin/AdminDeviceApprovals";
 import { StatsBar, StatsBarSkeleton } from "@/routes/admin/stats-bar";
@@ -112,7 +113,7 @@ function useCompanyUsage(): Record<string, CompanyUsage> {
 
 function AdminDashboard() {
   const [tab, setTab] = useState<
-    "companies" | "warehouses" | "support" | "billing" | "ai" | "devices" | "fraud" | "security"
+    "companies" | "warehouses" | "support" | "billing" | "ai" | "devices" | "fraud" | "security" | "revenue"
   >("companies");
   const [companies, setCompanies] = useState<Company[]>([]);
   const fetchFraud = useServerFn(getFraudMetrics);
@@ -380,6 +381,17 @@ function AdminDashboard() {
         >
           Security
         </button>
+        <button
+          onClick={() => setTab("revenue")}
+          className={
+            "px-4 py-2 text-sm font-medium border-b-2 transition-colors " +
+            (tab === "revenue"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground")
+          }
+        >
+          Revenue
+        </button>
       </div>
 
       {tab === "support" && <AdminSupportPanel companies={companies} />}
@@ -389,6 +401,8 @@ function AdminDashboard() {
       {tab === "fraud" && <FraudDashboard />}
 
       {tab === "security" && <SecurityPanel />}
+
+      {tab === "revenue" && <RevenueDashboard />}
 
       {tab === "ai" && <AdminAIInsights companies={companies} />}
 
