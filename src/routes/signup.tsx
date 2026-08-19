@@ -19,6 +19,33 @@ interface ChResult {
   addressSnippet?: string;
 }
 
+// Turn server-side validation errors (incl. raw Zod issue arrays) into a single
+// clear, human message.
+function friendlyError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : "Signup failed";
+  const t = raw.trim();
+  if (t.startsWith("[") || t.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(t);
+      const issues = Array.isArray(parsed) ? parsed : [parsed];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const first: any = issues[0] ?? {};
+      const field = Array.isArray(first.path) ? String(first.path[0] ?? "") : "";
+      const labels: Record<string, string> = {
+        companyName: "Please enter or select your company.",
+        adminName: "Please enter your name (at least 2 characters).",
+        directorName: "Please check the owner / director name.",
+        email: "Please enter a valid work email address.",
+        password: "Your password must be at least 8 characters.",
+      };
+      return labels[field] ?? "Please check your details and try again.";
+    } catch {
+      return "Please check your details and try again.";
+    }
+  }
+  return raw;
+}
+
 function SignupPage() {
   const signUp = useServerFn(signUpCompany);
   const search = useServerFn(searchCompaniesHouse);
@@ -83,6 +110,14 @@ function SignupPage() {
       setError("Please search for or enter your company.");
       return;
     }
+    if (adminName.trim().length < 2) {
+      setError("Please enter your name (at least 2 characters).");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Your password must be at least 8 characters.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -101,7 +136,7 @@ function SignupPage() {
       });
       setSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Signup failed");
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
