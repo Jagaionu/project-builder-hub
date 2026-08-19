@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { getFraudMetrics } from "@/lib/fraud/fraud.functions";
 import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Company, SubscriptionStatus, Warehouse } from "@/lib/types";
@@ -113,6 +115,8 @@ function AdminDashboard() {
     "companies" | "warehouses" | "support" | "billing" | "ai" | "devices" | "fraud" | "security"
   >("companies");
   const [companies, setCompanies] = useState<Company[]>([]);
+  const fetchFraud = useServerFn(getFraudMetrics);
+  const [pendingReviews, setPendingReviews] = useState(0);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -128,6 +132,13 @@ function AdminDashboard() {
   const [companySearch, setCompanySearch] = useState("");
   const [companyStatusFilter, setCompanyStatusFilter] = useState<SubscriptionStatus | "all">("all");
   const [warehouseSearch, setWarehouseSearch] = useState("");
+
+  useEffect(() => {
+    void fetchFraud({ data: {} })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then((m: any) => setPendingReviews(m?.pendingReviews ?? 0))
+      .catch(() => {});
+  }, [fetchFraud]);
 
   const usage = useCompanyUsage();
   const totals = useMemo(() => {
@@ -352,6 +363,11 @@ function AdminDashboard() {
           }
         >
           Trust & Safety
+          {pendingReviews > 0 && (
+            <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold align-middle">
+              {pendingReviews}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setTab("security")}
