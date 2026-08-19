@@ -78,6 +78,7 @@ export interface TrialSessionInfo {
   companyId: string | null;
   trialDays: number;
   customerRef: string | null;
+  feeMinor: number;
 }
 
 export async function retrieveTrialSession(sessionId: string): Promise<TrialSessionInfo> {
@@ -87,5 +88,6 @@ export async function retrieveTrialSession(sessionId: string): Promise<TrialSess
     companyId: (sess.metadata?.companyId as string) ?? null,
     trialDays: Number(sess.metadata?.trialDays ?? 7),
     customerRef: typeof sess.customer === "string" ? sess.customer : null,
+    feeMinor: Number(sess.metadata?.feeMinor ?? 0),
   };
 }
