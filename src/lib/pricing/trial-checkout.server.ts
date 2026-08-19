@@ -45,8 +45,9 @@ export async function createTrialCheckout(opts: TrialCheckoutOpts): Promise<stri
   const session = await s.checkout.sessions.create({
     mode: "payment",
     customer,
+    // NOTE: setup_future_usage is not allowed with Stripe Managed Payments; the
+    // card is saved for auto-convert via the subscription flow (increment 2).
     payment_intent_data: {
-      setup_future_usage: "off_session",
       metadata: { companyId: opts.companyId, kind: "trial", trialDays: String(opts.trialDays) },
     },
     line_items: [
