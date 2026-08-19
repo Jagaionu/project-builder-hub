@@ -42,12 +42,14 @@ export async function createTrialCheckout(opts: TrialCheckoutOpts): Promise<stri
   }
   const vatMinor = Math.round(opts.feeMinor * 0.2);
   const grossMinor = opts.feeMinor + vatMinor;
-  const session = await s.checkout.sessions.create({
+  // Disable Managed Payments for this session: it requires product tax codes and
+  // applies its own tax, but we compute VAT ourselves. Disabling it also lets us
+  // store the card (setup_future_usage) for the auto-convert charge.
+  const params = {
     mode: "payment",
     customer,
-    // NOTE: setup_future_usage is not allowed with Stripe Managed Payments; the
-    // card is saved for auto-convert via the subscription flow (increment 2).
     payment_intent_data: {
+      setup_future_usage: "off_session",
       metadata: { companyId: opts.companyId, kind: "trial", trialDays: String(opts.trialDays) },
     },
     line_items: [
@@ -63,7 +65,11 @@ export async function createTrialCheckout(opts: TrialCheckoutOpts): Promise<stri
     success_url: opts.baseUrl + "/start-trial?status=success&session_id={CHECKOUT_SESSION_ID}",
     cancel_url: opts.baseUrl + "/start-trial?status=cancelled",
     metadata: { companyId: opts.companyId, kind: "trial", trialDays: String(opts.trialDays), feeMinor: String(opts.feeMinor) },
-  });
+    managed_payments: { enabled: false },
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const create = s.checkout.sessions.create as unknown as (p: any) => Promise<{ url: string | null }>;
+  const session = await create(params);
   return session.url ?? "";
 }
 
