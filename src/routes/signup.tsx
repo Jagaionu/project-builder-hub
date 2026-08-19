@@ -64,6 +64,7 @@ function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -118,6 +119,10 @@ function SignupPage() {
       setError("Your password must be at least 8 characters.");
       return;
     }
+    if (!acceptedTerms) {
+      setError("Please tick the box to accept the Terms and Privacy Policy.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -132,6 +137,7 @@ function SignupPage() {
           companyHouseName: selected ? selected.title : "",
           verificationMethod,
           deviceId: getDeviceId(),
+          acceptedTerms,
         },
       });
       setSent(true);
@@ -301,14 +307,24 @@ function SignupPage() {
                 )}
               </div>
             )}
-            <button type="submit" disabled={loading} className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition">
+            <label className="flex items-start gap-2 text-[11px] text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(ev) => setAcceptedTerms(ev.target.checked)}
+                className="mt-0.5 size-3.5 rounded border-border shrink-0"
+              />
+              <span>
+                I have read and agree to the{" "}
+                <Link to="/terms" className="text-primary hover:underline">Terms</Link>,{" "}
+                <Link to="/privacy-policy" className="text-primary hover:underline">Privacy Policy</Link>{" "}
+                and{" "}
+                <Link to="/refund-policy" className="text-primary hover:underline">Refund Policy</Link>.
+              </span>
+            </label>
+            <button type="submit" disabled={loading || !acceptedTerms} className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition">
               {loading ? "Creating your account…" : "Create account"}
             </button>
-            <p className="text-[11px] text-muted-foreground text-center">
-              By starting a trial you agree to our{" "}
-              <Link to="/terms" className="text-primary hover:underline">Terms</Link> and{" "}
-              <Link to="/privacy-policy" className="text-primary hover:underline">Privacy Policy</Link>.
-            </p>
             <p className="text-[11px] text-muted-foreground text-center">
               Already have an account?{" "}
               <Link to="/login" className="text-primary hover:underline">Log in</Link>

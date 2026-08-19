@@ -6,6 +6,7 @@ import { DEFAULT_TENANT_CONFIG } from "@/lib/types";
 import { loadPlanEntitlements } from "@/lib/billing/plan-entitlements.server";
 import { loadTrialConfig } from "@/lib/pricing/trial-config.server";
 import { sendEmail } from "@/lib/billing/email.server";
+import { LINKED_POLICIES, SUBSCRIPTION_AGREEMENT_VERSION } from "@/lib/subscription-agreement";
 import { renderBrandedEmail } from "@/lib/email/branded-email";
 import { loadFraudSettings, loadEmailDomainSets } from "@/lib/fraud/fraud-config.server";
 import type { FraudSettings } from "@/lib/fraud/fraud-config";
@@ -133,11 +134,20 @@ export const signUpCompany = createServerFn({ method: "POST" })
         companyHouseName: z.string().trim().max(200).optional(),
         verificationMethod: z.enum(["companies_house", "manual"]).optional(),
         deviceId: z.string().max(200).optional(),
+        acceptedTerms: z.boolean().optional(),
       })
       .parse(d),
   )
   .handler(async ({ data }) => {
     const email = data.email.toLowerCase();
+    if (!data.acceptedTerms) {
+      throw new Error("You must accept the Terms and Privacy Policy to continue.");
+    }
+    const consent = {
+      termsAcceptedAt: new Date().toISOString(),
+      agreementVersion: SUBSCRIPTION_AGREEMENT_VERSION,
+      policyVersions: LINKED_POLICIES.map((p) => ({ key: p.key, version: p.version })),
+    };
     const normEmail = normalizeEmail(email);
     const domain = emailDomain(email);
     const deviceId = data.deviceId ?? null;
@@ -258,7 +268,7 @@ export const signUpCompany = createServerFn({ method: "POST" })
     // 6. Blocked (returning customer within cooldown) - no account created.
     if (decision === "blocked") {
       await recordSignupEvent({ email, emailDomain: domain, companyNumber, ip, deviceId, userAgent, outcome: "blocked" });
-      const sid = await writeLedger({ ...ledgerBase, decision, status: "blocked", reason: { reasons } });
+      const sid = await writeLedger({ ...ledgerBase, decision, status: "blocked", reason: { reasons, consent } });
       await logStep(sid, null, "decision", { decision, reasons, identityTrust, fraudRisk });
       throw new Error(
         "Our records show this business has already used a free trial. Please log in, or contact us for a personalised demo.",
@@ -374,12 +384,13 @@ export const signUpCompany = createServerFn({ method: "POST" })
         tenant_id: createdCompanyId,
         decision,
         status: decision === "active" ? "approved" : "pending_review",
-        reason: { reasons },
+        reason: { reasons, consent },
       });
       await logStep(sid, createdCompanyId, "companies_house", { verified: chConfirmed, companyNumber });
       await logStep(sid, createdCompanyId, "duplicate_check", { duplicateWithinCooldown });
       await logStep(sid, createdCompanyId, "scoring", { identityTrust, fraudRisk, emailKind, deviceSeenBefore, ipSeenBefore, recentFailedSignups });
       await logStep(sid, createdCompanyId, "decision", { decision, reasons });
+      await logStep(sid, createdCompanyId, "terms_accepted", consent);
 
       if (decision !== "active") {
         await notifySuperAdmins(
